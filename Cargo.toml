@@ -1,5 +1,5 @@
 [package]
-name = "toshi"
+name    = "toshi"
 version = "0.1.0"
 authors = ["Stephen Carman <shcarman@gmail.com>"]
 
@@ -11,20 +11,26 @@ path = "src/main.rs"
 path = "src/lib.rs"
 
 [dependencies]
-bytes = "0.4.8"
-gotham = "0.2.1"
-gotham_derive = "0.2.1"
-hyper = "0.11"
-mime = "0.3.7"
+bytes             = "0.4.8"
+gotham            = "0.2.1"
+gotham_derive     = "0.2.1"
+hyper             = "0.11"
+mime              = "0.3.7"
+serde             = "1.0.66"
+serde_derive      = "1.0.66"
+serde_json        = "1.0.20"
+derive-new        = "0.5"
+lazy_static       = "1.0.1"
+futures           = "0.1.17"
+tantivy           = "0.6.0"
+log               = "0.4.2"
+env_logger        = { version = "0.5.10", optional = true }
+pretty_env_logger = { version = "0.2.3", optional = true }
 
-serde = "1.0.66"
-serde_derive = "1.0.66"
-serde_json = "1.0.20"
+[profile.release]
+lto = true
 
-log = "0.4.2"
-#env_logger = "0.5.10"
-pretty_env_logger = "0.2.3"
-derive-new = "0.5"
-lazy_static = "1.0.1"
-futures = "0.1.17"
-tantivy = "0.6.0"
+[features]
+default    = []
+env_log    = ["env_logger"]
+pretty_log = ["pretty_env_logger"]

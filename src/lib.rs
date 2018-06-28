@@ -11,7 +11,12 @@ extern crate serde_json;
 
 #[macro_use]
 extern crate log;
+
+#[cfg(feature = "pretty_log")]
 extern crate pretty_env_logger;
+
+#[cfg(feature = "env_log")]
+extern crate env_logger;
 
 #[macro_use]
 extern crate tantivy;

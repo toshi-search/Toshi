@@ -1,0 +1,7 @@
+max_width = 140
+struct_field_align_threshold = 20
+reorder_imports = true
+merge_imports = true
+condense_wildcard_suffixes = true
+fn_single_line = true
+where_single_line = true
