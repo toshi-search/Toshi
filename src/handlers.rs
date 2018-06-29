@@ -1,14 +1,12 @@
 use futures::{future, Future, Stream};
-use gotham::{
-    handler::{HandlerFuture, IntoHandlerError},
-    http::response::create_response,
-    state::{FromState, State},
-};
+use gotham::handler::{HandlerFuture, IntoHandlerError};
+use gotham::http::response::create_response;
+use gotham::state::{FromState, State};
 use hyper::{Body, StatusCode};
-use index::get_index;
+use index::{get_index, search_index};
 use mime;
 use serde_json;
-use tantivy::{collector::TopCollector, query::FuzzyTermQuery, schema::*, Result};
+use tantivy::schema::*;
 
 #[derive(Serialize, Deserialize, StateData, StaticResponseExtender, Debug)]
 pub struct Search {
@@ -27,21 +25,6 @@ pub struct IndexDoc {
     pub idx_path: String,
     pub field:    String,
     pub numbers:  i64,
-}
-
-fn search_index(s: &Search) -> Result<Vec<Document>> {
-    info!("Search: {:?}", s);
-    let index = get_index(&s.idx_path, None)?;
-    index.load_searchers()?;
-    let searcher = index.searcher();
-    let schema = index.schema();
-    let field = schema.get_field(&s.field).unwrap();
-    let term = Term::from_field_text(field, &s.term);
-    let query = FuzzyTermQuery::new(term, 2, true);
-    let mut collector = TopCollector::with_limit(s.limit);
-    searcher.search(&query, &mut collector)?;
-
-    Ok(collector.docs().into_iter().map(|d| searcher.doc(&d).unwrap()).collect())
 }
 
 pub fn search_handler(mut state: State) -> Box<HandlerFuture> {
