@@ -1,19 +1,39 @@
-use std::fs::create_dir;
+use handlers::Search;
+use settings::SETTINGS;
+use std::collections::HashMap;
+use std::fs::{create_dir, read_dir, DirEntry};
+use std::io;
 use std::path::PathBuf;
 use tantivy::collector::TopCollector;
 use tantivy::query::FuzzyTermQuery;
 use tantivy::schema::*;
-use tantivy::{Index, Result, Error};
 use tantivy::ErrorKind;
+use tantivy::{Error, Index, Result};
 
-use handlers::Search;
-use settings::SETTINGS;
-use std::collections::HashMap;
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Debug, Clone)]
 pub struct IndexCatalog {
     base_path: PathBuf,
-    collection: HashMap<String, PathBuf>
+
+    #[serde(skip_serializing)]
+    collection: HashMap<String, Index>,
+}
+
+impl IndexCatalog {
+    pub fn new(base_path: &PathBuf) -> io::Result<Self> {
+        let mut index_cat = IndexCatalog {
+            base_path:  base_path.clone(),
+            collection: HashMap::new(),
+        };
+        for dir in read_dir(base_path)? {
+            let entry = dir?.path();
+            let pth: String = entry.to_str().unwrap().rsplit("/").take(1).collect();
+            let idx = get_index(&pth, None).unwrap();
+            index_cat.add_index(pth.clone(), idx);
+        }
+        Ok(index_cat)
+    }
+
+    pub fn add_index(&mut self, name: String, index: Index) { self.collection.insert(name, index); }
 }
 
 pub fn get_index(path: &str, schema: Option<&Schema>) -> Result<Index> {

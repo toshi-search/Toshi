@@ -11,7 +11,6 @@ use std::sync::Arc;
 use tantivy::schema::*;
 use tantivy::Index;
 
-use std::cell::RefCell;
 use std::io::Result;
 use std::panic::RefUnwindSafe;
 use std::sync::Mutex;
