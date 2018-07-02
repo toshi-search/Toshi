@@ -1,0 +1,4 @@
+host = "localhost"
+port = 8080
+path = "index/"
+writer_memory = 200000000

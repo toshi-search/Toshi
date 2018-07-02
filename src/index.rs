@@ -3,9 +3,18 @@ use std::path::PathBuf;
 use tantivy::collector::TopCollector;
 use tantivy::query::FuzzyTermQuery;
 use tantivy::schema::*;
-use tantivy::{Index, Result};
+use tantivy::{Index, Result, Error};
+use tantivy::ErrorKind;
 
 use handlers::Search;
+use settings::SETTINGS;
+use std::collections::HashMap;
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct IndexCatalog {
+    base_path: PathBuf,
+    collection: HashMap<String, PathBuf>
+}
 
 pub fn get_index(path: &str, schema: Option<&Schema>) -> Result<Index> {
     let p = PathBuf::from(path);
@@ -16,14 +25,14 @@ pub fn get_index(path: &str, schema: Option<&Schema>) -> Result<Index> {
             create_dir(p).unwrap();
             Index::create_in_dir(path, s.clone())
         } else {
-            panic!(":(");
+            Err(Error::from_kind(ErrorKind::PathDoesNotExist(p)))
         }
     }
 }
 
 pub fn search_index(s: &Search) -> Result<Vec<Document>> {
     info!("Search: {:?}", s);
-    let index = get_index(&s.idx_path, None)?;
+    let index = get_index(&SETTINGS.path, None)?;
     index.load_searchers()?;
     let searcher = index.searcher();
     let schema = index.schema();

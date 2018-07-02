@@ -16,6 +16,11 @@ extern crate log;
 extern crate tantivy;
 extern crate futures;
 
+#[macro_use]
+extern crate lazy_static;
+extern crate config;
+
 mod handlers;
 mod index;
 pub mod router;
+pub mod settings;
