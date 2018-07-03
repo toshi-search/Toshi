@@ -1,5 +1,15 @@
 use config::{Config, ConfigError, File};
 
+pub const VERSION: &'static str = env!("CARGO_PKG_VERSION");
+
+pub const HEADER: &'static str = r#"
+  ______         __   _   ____                 __
+ /_  __/__  ___ / /  (_) / __/__ ___ _________/ /
+  / / / _ \(_-</ _ \/ / _\ \/ -_) _ `/ __/ __/ _ \
+ /_/  \___/___/_//_/_/ /___/\__/\_,_/_/  \__/_//_/
+ Such Relevance, Much Index, Many Search, Wow
+ "#;
+
 #[derive(Debug, Deserialize)]
 pub struct Settings {
     pub host:          String,

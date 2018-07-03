@@ -1,4 +1,4 @@
 host = "localhost"
 port = 8080
-path = "index/"
+path = "indexes/"
 writer_memory = 200000000

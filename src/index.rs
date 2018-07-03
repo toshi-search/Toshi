@@ -1,14 +1,12 @@
-use handlers::Search;
-use settings::SETTINGS;
+use handlers::search::Search;
 use std::collections::HashMap;
-use std::fs::{create_dir, read_dir, DirEntry};
+use std::fs::read_dir;
 use std::io;
 use std::path::PathBuf;
 use tantivy::collector::TopCollector;
 use tantivy::query::FuzzyTermQuery;
 use tantivy::schema::*;
-use tantivy::ErrorKind;
-use tantivy::{Error, Index, Result};
+use tantivy::{Error, ErrorKind, Index, Result};
 
 #[derive(Serialize, Debug, Clone)]
 pub struct IndexCatalog {
@@ -19,48 +17,97 @@ pub struct IndexCatalog {
 }
 
 impl IndexCatalog {
-    pub fn new(base_path: &PathBuf) -> io::Result<Self> {
+    pub fn new(base_path: PathBuf) -> io::Result<Self> {
         let mut index_cat = IndexCatalog {
             base_path:  base_path.clone(),
             collection: HashMap::new(),
         };
-        for dir in read_dir(base_path)? {
-            let entry = dir?.path();
-            let pth: String = entry.to_str().unwrap().rsplit("/").take(1).collect();
-            let idx = get_index(&pth, None).unwrap();
-            index_cat.add_index(pth.clone(), idx);
-        }
+        index_cat.refresh_catalog()?;
+        info!("Indexes: {:?}", index_cat.collection.keys());
         Ok(index_cat)
     }
 
-    pub fn add_index(&mut self, name: String, index: Index) { self.collection.insert(name, index); }
-}
-
-pub fn get_index(path: &str, schema: Option<&Schema>) -> Result<Index> {
-    let p = PathBuf::from(path);
-    if p.exists() {
-        Index::open_in_dir(p)
-    } else {
-        if let Some(s) = schema {
-            create_dir(p).unwrap();
-            Index::create_in_dir(path, s.clone())
+    pub fn load_index(path: &str) -> Result<Index> {
+        let p = PathBuf::from(path);
+        if p.exists() {
+            Index::open_in_dir(p)
         } else {
             Err(Error::from_kind(ErrorKind::PathDoesNotExist(p)))
         }
     }
 }
 
-pub fn search_index(s: &Search) -> Result<Vec<Document>> {
-    info!("Search: {:?}", s);
-    let index = get_index(&SETTINGS.path, None)?;
-    index.load_searchers()?;
-    let searcher = index.searcher();
-    let schema = index.schema();
-    let field = schema.get_field(&s.field).unwrap();
-    let term = Term::from_field_text(field, &s.term);
-    let query = FuzzyTermQuery::new(term, 2, true);
-    let mut collector = TopCollector::with_limit(s.limit);
-    searcher.search(&query, &mut collector)?;
+impl IndexCatalog {
+    pub fn add_index(&mut self, name: String, index: Index) { self.collection.insert(name, index); }
 
-    Ok(collector.docs().into_iter().map(|d| searcher.doc(&d).unwrap()).collect())
+    #[allow(dead_code)]
+    pub fn get_collection(&self) -> &HashMap<String, Index> { &self.collection }
+
+    pub fn get_index(&self, name: String) -> Result<&Index> {
+        if let Some(i) = self.collection.get(&name) {
+            Ok(i)
+        } else {
+            Err(Error::from_kind(ErrorKind::PathDoesNotExist(PathBuf::from(name))))
+        }
+    }
+
+    pub fn refresh_catalog(&mut self) -> io::Result<()> {
+        self.collection.clear();
+
+        for dir in read_dir(self.base_path.clone())? {
+            let entry = dir?.path();
+            let entry_str = entry.to_str().unwrap();
+            let pth: String = entry_str.rsplit("/").take(1).collect();
+            info!("Adding Index: {}", pth);
+            let idx = IndexCatalog::load_index(entry_str).unwrap();
+            self.add_index(pth.clone(), idx);
+        }
+        Ok(())
+    }
+
+    pub fn search_index(&self, search: &Search) -> Result<Vec<Document>> {
+        match self.get_index(search.index.clone()) {
+            Ok(index) => {
+                index.load_searchers()?;
+                let searcher = index.searcher();
+                let schema = index.schema();
+                let field = schema.get_field(&search.field).unwrap();
+                let term = Term::from_field_text(field, &search.term);
+                let query = FuzzyTermQuery::new(term, 2, true);
+                let mut collector = TopCollector::with_limit(search.limit);
+                searcher.search(&query, &mut collector)?;
+
+                Ok(collector.docs().into_iter().map(|d| searcher.doc(&d).unwrap()).collect())
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn create_index(&mut self, _path: &str, _schema: &Schema) -> Result<()> { Ok(()) }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pretty_env_logger;
+    use std::env;
+    use std::fs::create_dir_all;
+
+    #[test]
+    fn test_path_splitting() {
+        env::set_var("RUST_LOG", "info");
+        pretty_env_logger::init();
+
+        let test_path = PathBuf::from("./indexes/test_index");
+        create_dir_all("./indexes").unwrap();
+        let mut schema = SchemaBuilder::new();
+        schema.add_text_field("field", TEXT | STORED);
+        let built = schema.build();
+        Index::create_in_dir(&test_path, built).unwrap();
+
+        let cat = IndexCatalog::new(PathBuf::from("./indexes")).unwrap();
+
+        assert_eq!(cat.get_collection().contains_key("test_index"), true);
+    }
 }

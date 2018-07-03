@@ -1,19 +1,27 @@
-use gotham::handler::{Handler, NewHandler};
 use gotham::router::builder::*;
 use gotham::router::Router;
-use gotham::state::State;
-use handlers::*;
-use index::get_index;
-use settings::SETTINGS;
+use handlers::root::RootHandler;
+use handlers::search::SearchHandler;
+use handlers::index::IndexHandler;
+use index::IndexCatalog;
+use settings::{SETTINGS, VERSION};
+use std::path::PathBuf;
+
+use std::sync::{Mutex, Arc};
 
 pub fn router() -> Router {
-    let handle = IndexHandler::new(get_index(&SETTINGS.path, None).unwrap());
+    let catalog = Arc::new(Mutex::new(IndexCatalog::new(PathBuf::from(&SETTINGS.path)).unwrap()));
+
+    let search_handler = SearchHandler::new(catalog.clone());
+    let index_handler = IndexHandler::new(catalog.clone());
+    let handle = RootHandler::new(format!("Toshi Search, Version: {}", VERSION));
 
     build_simple_router(|route| {
         route.associate("/", |r| {
             r.get().to_new_handler(handle);
-            r.put().to(index_handler);
-            r.post().to(search_handler);
+            r.put().to_new_handler(index_handler);
+            r.post().to_new_handler(search_handler);
         });
+        //route.post("/:index/create").to(||);
     })
 }

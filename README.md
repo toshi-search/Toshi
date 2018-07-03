@@ -1,6 +1,8 @@
 # Toshi
 ##### A Full Text Search Engine in Rust Based on [Tantivy](https://github.com/tantivy-search/tantivy)
 
+[![dependency status](https://deps.rs/repo/github/hntd187/toshi/status.svg)](https://deps.rs/repo/github/hntd187/toshi)
+
 #### Description
 Tohsi is meant to be a full text search engine similar to ElasticSearch. Ideally, if what Tantivy is to Lucene, Toshi strives
 to be that for ElasticSearch. 
@@ -25,3 +27,4 @@ Files somewhere?
 
 #### What is a Toshi?
 
+Toshi is a three year old Shiba Inu. He is a very good boy and is the official mascot of this project.

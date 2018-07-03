@@ -19,6 +19,7 @@ extern crate futures;
 #[macro_use]
 extern crate lazy_static;
 extern crate config;
+extern crate pretty_env_logger;
 
 mod handlers;
 mod index;
