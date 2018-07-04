@@ -1,8 +1,10 @@
 use handlers::search::Search;
+
 use std::collections::HashMap;
 use std::fs::read_dir;
 use std::io;
-use std::path::PathBuf;
+use std::path::{PathBuf};
+
 use tantivy::collector::TopCollector;
 use tantivy::query::FuzzyTermQuery;
 use tantivy::schema::*;

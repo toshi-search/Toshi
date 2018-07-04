@@ -1,8 +1,7 @@
-
 use super::*;
 
+use futures::{future, Future, Stream};
 use std::io::Result;
-use futures::{future, Stream, Future};
 
 #[derive(Serialize, Deserialize, StateData, StaticResponseExtender, Debug)]
 pub struct Search {

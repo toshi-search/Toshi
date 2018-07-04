@@ -24,6 +24,7 @@ tantivy           = "0.6.0"
 config            = "0.9.0"
 log               = "0.4.3"
 pretty_env_logger = "0.2.3"
+quick-error       = "1.2.2"
 
 [profile.release]
 lto = true

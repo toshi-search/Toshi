@@ -13,8 +13,9 @@ extern crate serde_json;
 extern crate log;
 
 #[macro_use]
-extern crate tantivy;
+extern crate quick_error;
 extern crate futures;
+extern crate tantivy;
 
 #[macro_use]
 extern crate lazy_static;
@@ -25,3 +26,14 @@ mod handlers;
 mod index;
 pub mod router;
 pub mod settings;
+
+use tantivy::ErrorKind;
+
+quick_error! {
+    #[derive(Debug)]
+    pub enum ToshiError {
+        UnknownIndexField(err: ErrorKind)
+    }
+}
+
+pub type ToshiResult<T> = Result<T, ToshiError>;

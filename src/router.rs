@@ -1,13 +1,13 @@
 use gotham::router::builder::*;
 use gotham::router::Router;
+use handlers::index::IndexHandler;
 use handlers::root::RootHandler;
 use handlers::search::SearchHandler;
-use handlers::index::IndexHandler;
 use index::IndexCatalog;
 use settings::{SETTINGS, VERSION};
 use std::path::PathBuf;
 
-use std::sync::{Mutex, Arc};
+use std::sync::{Arc, Mutex};
 
 pub fn router() -> Router {
     let catalog = Arc::new(Mutex::new(IndexCatalog::new(PathBuf::from(&SETTINGS.path)).unwrap()));

@@ -1,5 +1,5 @@
-extern crate pretty_env_logger;
 extern crate gotham;
+extern crate pretty_env_logger;
 extern crate toshi;
 
 use toshi::router::router;
