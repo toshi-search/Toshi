@@ -3,15 +3,16 @@ use super::*;
 
 use futures::{future, Future, Stream};
 use std::io::Result;
+use std::panic::RefUnwindSafe;
 use tantivy::schema::*;
 use tantivy::{Document, ErrorKind};
 
 macro_rules! field_struct {
-    ($N: ident, $T: ty) => {
+    ($N:ident, $T:ty) => {
         #[derive(Deserialize, Debug, Clone)]
         pub struct $N {
             field: String,
-            value: $T
+            value: $T,
         }
     };
 }
@@ -46,10 +47,14 @@ pub enum FieldValues {
 }
 
 #[derive(Clone, Debug)]
-pub struct IndexHandler(Arc<Mutex<IndexCatalog>>);
+pub struct IndexHandler {
+    catalog: Arc<IndexCatalog>,
+}
+
+impl RefUnwindSafe for IndexHandler {}
 
 impl IndexHandler {
-    pub fn new(catalog: Arc<Mutex<IndexCatalog>>) -> Self { IndexHandler(catalog) }
+    pub fn new(catalog: Arc<IndexCatalog>) -> Self { IndexHandler { catalog } }
 
     fn add_to_document(schema: &Schema, field: FieldValues, doc: &mut Document) -> ToshiResult<()> {
         match field {
@@ -67,14 +72,9 @@ impl Handler for IndexHandler {
                 let t: IndexDoc = serde_json::from_slice(&b).unwrap();
                 info!("{:?}", t);
                 {
-                    let index_lock = self.0.lock().unwrap();
-                    let index = match index_lock.get_index(t.index) {
+                    let index = match self.catalog.get_index(&t.index) {
                         Ok(i) => i,
-                        Err(e) => {
-                            let err = serde_json::to_vec_pretty(&ErrorResponse::new(&e.to_string())).unwrap();
-                            let resp = create_response(&state, StatusCode::BadRequest, Some((err, mime::APPLICATION_JSON)));
-                            return future::ok((state, resp));
-                        }
+                        Err(e) => return handle_error(state, e),
                     };
                     let index_schema = index.schema();
                     let mut index_writer = index.writer(SETTINGS.writer_memory).unwrap();
@@ -82,11 +82,7 @@ impl Handler for IndexHandler {
                     for field in t.fields {
                         match IndexHandler::add_to_document(&index_schema, field, &mut doc) {
                             Ok(_) => {}
-                            Err(ToshiError::UnknownIndexField(ec)) => {
-                                let err = serde_json::to_vec_pretty(&ErrorResponse::new(&ec.to_string())).unwrap();
-                                let resp = create_response(&state, StatusCode::BadRequest, Some((err, mime::APPLICATION_JSON)));
-                                return future::ok((state, resp));
-                            }
+                            Err(e) => return handle_error(state, e),
                         }
                     }
                     index_writer.add_document(doc);
@@ -101,10 +97,7 @@ impl Handler for IndexHandler {
     }
 }
 
-impl NewHandler for IndexHandler {
-    type Instance = Self;
-    fn new_handler(&self) -> Result<Self::Instance> { Ok(self.clone()) }
-}
+new_handler!(IndexHandler);
 
 #[cfg(test)]
 mod tests {

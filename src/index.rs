@@ -3,12 +3,13 @@ use handlers::search::Search;
 use std::collections::HashMap;
 use std::fs::read_dir;
 use std::io;
-use std::path::{PathBuf};
+use std::path::PathBuf;
 
 use tantivy::collector::TopCollector;
 use tantivy::query::FuzzyTermQuery;
 use tantivy::schema::*;
-use tantivy::{Error, ErrorKind, Index, Result};
+use tantivy::ErrorKind::*;
+use tantivy::{Error, Index, Result};
 
 #[derive(Serialize, Debug, Clone)]
 pub struct IndexCatalog {
@@ -34,7 +35,7 @@ impl IndexCatalog {
         if p.exists() {
             Index::open_in_dir(p)
         } else {
-            Err(Error::from_kind(ErrorKind::PathDoesNotExist(p)))
+            Err(Error::from_kind(PathDoesNotExist(p)))
         }
     }
 }
@@ -45,12 +46,10 @@ impl IndexCatalog {
     #[allow(dead_code)]
     pub fn get_collection(&self) -> &HashMap<String, Index> { &self.collection }
 
-    pub fn get_index(&self, name: String) -> Result<&Index> {
-        if let Some(i) = self.collection.get(&name) {
-            Ok(i)
-        } else {
-            Err(Error::from_kind(ErrorKind::PathDoesNotExist(PathBuf::from(name))))
-        }
+    pub fn get_index(&self, name: &str) -> Result<&Index> {
+        self.collection
+            .get(name)
+            .ok_or_else(|| Error::from_kind(PathDoesNotExist(PathBuf::from(name))))
     }
 
     pub fn refresh_catalog(&mut self) -> io::Result<()> {
@@ -67,8 +66,8 @@ impl IndexCatalog {
         Ok(())
     }
 
-    pub fn search_index(&self, search: &Search) -> Result<Vec<Document>> {
-        match self.get_index(search.index.clone()) {
+    pub fn search_index(&self, index: &str, search: &Search) -> Result<Vec<NamedFieldDocument>> {
+        match self.get_index(index) {
             Ok(index) => {
                 index.load_searchers()?;
                 let searcher = index.searcher();
@@ -79,7 +78,12 @@ impl IndexCatalog {
                 let mut collector = TopCollector::with_limit(search.limit);
                 searcher.search(&query, &mut collector)?;
 
-                Ok(collector.docs().into_iter().map(|d| searcher.doc(&d).unwrap()).collect())
+                Ok(collector
+                    .docs()
+                    .into_iter()
+                    .map(|d| searcher.doc(&d).unwrap())
+                    .map(|d| schema.to_named_doc(&d))
+                    .collect())
             }
             Err(e) => Err(e),
         }
