@@ -1,13 +1,14 @@
 use gotham::router::builder::*;
 use gotham::router::Router;
+
 use handlers::index::IndexHandler;
 use handlers::root::RootHandler;
 use handlers::search::SearchHandler;
 use handlers::IndexPath;
 use index::IndexCatalog;
 use settings::{SETTINGS, VERSION};
-use std::path::PathBuf;
 
+use std::path::PathBuf;
 use std::sync::Arc;
 
 pub fn router() -> Router {

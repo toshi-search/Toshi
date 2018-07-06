@@ -1,11 +1,13 @@
-use super::super::{ToshiError, ToshiResult};
-use super::*;
+use std::io::Result as IOResult;
+use std::panic::RefUnwindSafe;
 
 use futures::{future, Future, Stream};
-use std::io::Result;
-use std::panic::RefUnwindSafe;
+
 use tantivy::schema::*;
-use tantivy::{Document, ErrorKind};
+use tantivy::Document;
+
+use super::super::{Error, Result};
+use super::*;
 
 macro_rules! field_struct {
     ($N:ident, $T:ty) => {
@@ -19,12 +21,9 @@ macro_rules! field_struct {
 
 macro_rules! add_field {
     ($METHOD:ident, $S:ident, $D:ident, $F:ident, $A:expr) => {
-        if let Some(sf) = $S.get_field(&$F.field) {
-            Ok($D.$METHOD(sf, $A))
-        } else {
-            let inner_error = ErrorKind::SchemaError(format!("Field {} does not exist.", $F.field));
-            return Err(ToshiError::UnknownIndexField(inner_error));
-        }
+        $S.get_field(&$F.field)
+            .map(|field| $D.$METHOD(field, $A))
+            .ok_or_else(|| Error::UnknownIndexField(format!("Field {} does not exist.", $F.field)))
     };
 }
 
@@ -56,7 +55,7 @@ impl RefUnwindSafe for IndexHandler {}
 impl IndexHandler {
     pub fn new(catalog: Arc<IndexCatalog>) -> Self { IndexHandler { catalog } }
 
-    fn add_to_document(schema: &Schema, field: FieldValues, doc: &mut Document) -> ToshiResult<()> {
+    fn add_to_document(schema: &Schema, field: FieldValues, doc: &mut Document) -> Result<()> {
         match field {
             FieldValues::StrField(f) => add_field!(add_text, schema, doc, f, &f.value),
             FieldValues::U64Field(f) => add_field!(add_u64, schema, doc, f, f.value),
@@ -91,7 +90,7 @@ impl Handler for IndexHandler {
                 let resp = create_response(&state, StatusCode::Created, None);
                 future::ok((state, resp))
             }
-            Err(e) => future::err((state, e.into_handler_error())),
+            Err(e) => handle_error(state, e),
         });
         Box::new(f)
     }
@@ -113,25 +112,22 @@ mod tests {
                 {"field": "field2", "value": 10},
                 {"field": "field3", "value": -10}
             ]
-        }
-        "#;
+        }"#;
+
         let parsed: IndexDoc = serde_json::from_str(json).unwrap();
         assert_eq!(&parsed.index, "test");
         assert_eq!(parsed.fields.len(), 3);
         for f in parsed.fields {
             match f {
                 FieldValues::StrField(ff) => {
-                    println!("{:#?}", ff);
                     assert_eq!(ff.field, "field1");
                     assert_eq!(ff.value, "sometext");
                 }
                 FieldValues::U64Field(ff) => {
-                    println!("{:#?}", ff);
                     assert_eq!(ff.field, "field2");
                     assert_eq!(ff.value, 10u64);
                 }
                 FieldValues::I64Field(ff) => {
-                    println!("{:#?}", ff);
                     assert_eq!(ff.field, "field3");
                     assert_eq!(ff.value, -10i64);
                 }

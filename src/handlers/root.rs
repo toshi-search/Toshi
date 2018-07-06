@@ -1,7 +1,8 @@
-use super::*;
-
 use futures::future;
-use std::io::Result;
+
+use std::io::Result as IOResult;
+
+use super::*;
 
 #[derive(Clone, Debug)]
 pub struct RootHandler(String);

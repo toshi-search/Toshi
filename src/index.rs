@@ -8,8 +8,9 @@ use std::path::PathBuf;
 use tantivy::collector::TopCollector;
 use tantivy::query::FuzzyTermQuery;
 use tantivy::schema::*;
-use tantivy::ErrorKind::*;
-use tantivy::{Error, Index, Result};
+use tantivy::Index;
+
+use super::{Error, Result};
 
 #[derive(Serialize, Debug, Clone)]
 pub struct IndexCatalog {
@@ -34,8 +35,10 @@ impl IndexCatalog {
         let p = PathBuf::from(path);
         if p.exists() {
             Index::open_in_dir(p)
+                .map_err(|_| Error::UnknownIndex(format!("No Index exists at path: {}", path)))
+                .and_then(|r| Ok(r))
         } else {
-            Err(Error::from_kind(PathDoesNotExist(p)))
+            Err(Error::UnknownIndex(format!("No Index exists at path: {}", path)))
         }
     }
 }
@@ -46,11 +49,7 @@ impl IndexCatalog {
     #[allow(dead_code)]
     pub fn get_collection(&self) -> &HashMap<String, Index> { &self.collection }
 
-    pub fn get_index(&self, name: &str) -> Result<&Index> {
-        self.collection
-            .get(name)
-            .ok_or_else(|| Error::from_kind(PathDoesNotExist(PathBuf::from(name))))
-    }
+    pub fn get_index(&self, name: &str) -> Result<&Index> { self.collection.get(name).ok_or_else(|| Error::UnknownIndex(name.to_string())) }
 
     pub fn refresh_catalog(&mut self) -> io::Result<()> {
         self.collection.clear();
@@ -72,10 +71,10 @@ impl IndexCatalog {
                 index.load_searchers()?;
                 let searcher = index.searcher();
                 let schema = index.schema();
-                let field = schema.get_field(&search.field).unwrap();
-                let term = Term::from_field_text(field, &search.term);
+                let field = schema.get_field(search.get_field()).unwrap();
+                let term = Term::from_field_text(field, search.get_term());
                 let query = FuzzyTermQuery::new(term, 2, true);
-                let mut collector = TopCollector::with_limit(search.limit);
+                let mut collector = TopCollector::with_limit(search.get_limit());
                 searcher.search(&query, &mut collector)?;
 
                 Ok(collector

@@ -1,10 +1,8 @@
-#[macro_use]
-
 macro_rules! new_handler {
     ($N:ident) => {
         impl NewHandler for $N {
             type Instance = Self;
-            fn new_handler(&self) -> Result<Self::Instance> { Ok(self.clone()) }
+            fn new_handler(&self) -> IOResult<Self::Instance> { Ok(self.clone()) }
         }
     };
 }

@@ -1,16 +1,23 @@
 use super::*;
 
 use futures::{future, Future, Stream};
-use std::io::Result;
+
+use std::io::Result as IOResult;
 use std::panic::RefUnwindSafe;
 
 #[derive(Serialize, Deserialize, StateData, StaticResponseExtender, Debug)]
 pub struct Search {
-    pub field: String,
-    pub term:  String,
+    field: String,
+    term:  String,
 
     #[serde(default = "default_limit")]
-    pub limit: usize,
+    limit: usize,
+}
+
+impl Search {
+    pub fn get_term(&self) -> &str { &self.term }
+    pub fn get_field(&self) -> &str { &self.field }
+    pub fn get_limit(&self) -> usize { self.limit }
 }
 
 fn default_limit() -> usize { 5 }
