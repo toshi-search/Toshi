@@ -13,8 +13,8 @@ macro_rules! field_struct {
     ($N:ident, $T:ty) => {
         #[derive(Deserialize, Debug, Clone)]
         pub struct $N {
-            field: String,
-            value: $T,
+            pub field: String,
+            pub value: $T,
         }
     };
 }
