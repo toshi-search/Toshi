@@ -1,7 +1,7 @@
 # Toshi
 ##### A Full Text Search Engine in Rust Based on [Tantivy](https://github.com/tantivy-search/tantivy)
 
-[![dependency status](https://deps.rs/repo/github/hntd187/toshi/status.svg)](https://deps.rs/repo/github/hntd187/toshi) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![dependency status](https://deps.rs/repo/github/hntd187/toshi/status.svg)](https://deps.rs/repo/github/hntd187/toshi) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Build Status](https://travis-ci.org/hntd187/toshi.svg?branch=master)](https://travis-ci.org/hntd187/toshi)
 
 #### Description
 Tohsi is meant to be a full text search engine similar to ElasticSearch. Ideally, if what Tantivy is to Lucene, Toshi strives
