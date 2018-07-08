@@ -22,6 +22,7 @@ pub struct IndexCatalog {
     collection: HashMap<String, Index>,
 }
 
+#[allow(dead_code)]
 #[derive(Serialize)]
 pub struct SearchResults {
     // TODO: Add Timing
@@ -180,6 +181,7 @@ mod tests {
     use std::env;
 
     #[test]
+    #[ignore]
     fn test_path_splitting() {
         env::set_var("RUST_LOG", "info");
         pretty_env_logger::init();

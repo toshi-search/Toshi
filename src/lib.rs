@@ -15,6 +15,8 @@ extern crate log;
 #[macro_use]
 extern crate quick_error;
 extern crate futures;
+
+#[allow(unused_imports)]
 #[macro_use]
 extern crate tantivy;
 
