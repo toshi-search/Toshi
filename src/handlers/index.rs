@@ -103,23 +103,16 @@ mod tests {
 
     use super::*;
     use gotham::test::*;
-    use std::path::PathBuf;
     use tantivy::Index;
 
-    use pretty_env_logger;
-    use std::env;
-    use std::fs::create_dir_all;
-
-    fn create_test_index() {
-        create_dir_all("./indexes/").unwrap();
+    fn create_test_index() -> Index {
         let mut builder = SchemaBuilder::new();
         builder.add_text_field("test_text", STORED | TEXT);
         builder.add_i64_field("test_i64", INT_STORED | INT_INDEXED);
         builder.add_u64_field("test_u64", INT_STORED | INT_INDEXED);
 
         let schema = builder.build();
-
-        Index::create_in_dir("./indexes/test_index", schema).unwrap();
+        Index::create_in_ram(schema)
     }
 
     #[test]
@@ -157,11 +150,9 @@ mod tests {
 
     #[test]
     fn test_indexes() {
-        env::set_var("RUST_LOG", "info");
-        pretty_env_logger::init();
-        create_test_index();
 
-        let catalog = IndexCatalog::new(PathBuf::from("indexes/")).unwrap();
+        let idx = create_test_index();
+        let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
         let handler = IndexHandler::new(Arc::new(catalog));
         let test_server = TestServer::new(handler).unwrap();
         let body = r#"
@@ -173,12 +164,13 @@ mod tests {
                     {"field": "test_i64",  "value": -10 }
                 ]
         }"#;
+
         let response = test_server
             .client()
             .put("http://localhost/", body, mime::APPLICATION_JSON)
             .perform()
             .unwrap();
 
-        assert_eq!(response.status(), StatusCode::Created)
+        assert_eq!(response.status(), StatusCode::Created);
     }
 }

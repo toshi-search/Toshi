@@ -42,6 +42,15 @@ impl IndexCatalog {
         Ok(index_cat)
     }
 
+    pub fn with_index(name: String, index: Index) -> Result<Self> {
+        let mut map = HashMap::new();
+        map.insert(name, index);
+        Ok(IndexCatalog {
+            base_path: PathBuf::new(),
+            collection: map
+        })
+    }
+
     pub fn load_index(path: &str) -> Result<Index> {
         let p = PathBuf::from(path);
         if p.exists() {
