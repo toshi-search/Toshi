@@ -83,7 +83,9 @@ new_handler!(SearchHandler);
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
+    use gotham::test::*;
 
     #[test]
     fn test_serializing() {
@@ -101,5 +103,14 @@ mod tests {
         println!("{:#?}", parsed_terms);
         println!("{:#?}", parsed_range);
         println!("{:#?}", parsed_raw);
+    }
+
+    #[test]
+    fn test_term_search() {
+        let idx = create_test_index();
+        let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
+        let handler = SearchHandler::new(Arc::new(catalog));
+        let server = TestServer::new(handler).unwrap();
+
     }
 }

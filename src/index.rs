@@ -183,6 +183,19 @@ impl IndexCatalog {
     pub fn create_index(&mut self, _path: &str, _schema: &Schema) -> Result<()> { Ok(()) }
 }
 
+// A helper function for testing with in memory Indexes. Not meant for use
+// outside of testing.
+#[doc(hidden)]
+pub fn create_test_index() -> Index {
+    let mut builder = SchemaBuilder::new();
+    builder.add_text_field("test_text", STORED | TEXT);
+    builder.add_i64_field("test_i64", INT_STORED | INT_INDEXED);
+    builder.add_u64_field("test_u64", INT_STORED | INT_INDEXED);
+
+    let schema = builder.build();
+    Index::create_in_ram(schema)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -103,17 +103,6 @@ mod tests {
 
     use super::*;
     use gotham::test::*;
-    use tantivy::Index;
-
-    fn create_test_index() -> Index {
-        let mut builder = SchemaBuilder::new();
-        builder.add_text_field("test_text", STORED | TEXT);
-        builder.add_i64_field("test_i64", INT_STORED | INT_INDEXED);
-        builder.add_u64_field("test_u64", INT_STORED | INT_INDEXED);
-
-        let schema = builder.build();
-        Index::create_in_ram(schema)
-    }
 
     #[test]
     fn test_serializing() {
