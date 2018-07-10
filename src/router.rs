@@ -1,5 +1,6 @@
 use gotham::router::builder::*;
 use gotham::router::Router;
+use hyper::{Get, Post};
 
 use handlers::index::IndexHandler;
 use handlers::root::RootHandler;
@@ -24,10 +25,9 @@ pub fn router() -> Router {
             r.put().to_new_handler(index_handler);
         });
         route
-            .post("/:index")
+            .request(vec![Post, Get], "/:index")
             .with_path_extractor::<IndexPath>()
             .to_new_handler(search_handler);
-
         //route.post("/:index/create").to(||);
     })
 }

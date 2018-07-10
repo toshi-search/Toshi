@@ -1,5 +1,3 @@
-use handlers::search::{Queries, Search};
-
 use std::collections::HashMap;
 use std::fs::read_dir;
 use std::io;
@@ -7,12 +5,12 @@ use std::iter::Iterator;
 use std::path::PathBuf;
 
 use tantivy::collector::TopCollector;
-use tantivy::query::QueryParser;
+use tantivy::query::{AllQuery, QueryParser};
 use tantivy::schema::*;
 use tantivy::Index;
 
 use super::{Error, Result};
-use handlers::search::RangeQuery;
+use handlers::search::{Queries, Search, RangeQuery};
 
 #[derive(Serialize, Debug, Clone)]
 pub struct IndexCatalog {
@@ -22,13 +20,27 @@ pub struct IndexCatalog {
     collection: HashMap<String, Index>,
 }
 
-#[allow(dead_code)]
 #[derive(Serialize)]
 pub struct SearchResults {
     // TODO: Add Timing
     // TODO: Add Shard Information
-    total:     u32,
-    documents: Vec<NamedFieldDocument>,
+    hits: usize,
+    docs: Vec<ScoredDoc>,
+}
+
+impl SearchResults {
+    pub fn new(docs: Vec<ScoredDoc>) -> Self { SearchResults { hits: docs.len(), docs } }
+    pub fn len(&self) -> usize { self.docs.len() }
+}
+
+#[derive(Serialize)]
+pub struct ScoredDoc {
+    score: f32,
+    doc:   NamedFieldDocument,
+}
+
+impl ScoredDoc {
+    pub fn new(score: f32, doc: NamedFieldDocument) -> Self { ScoredDoc { score, doc } }
 }
 
 impl IndexCatalog {
@@ -42,12 +54,14 @@ impl IndexCatalog {
         Ok(index_cat)
     }
 
+    #[doc(hidden)]
+    #[allow(dead_code)]
     pub fn with_index(name: String, index: Index) -> Result<Self> {
         let mut map = HashMap::new();
         map.insert(name, index);
         Ok(IndexCatalog {
-            base_path: PathBuf::new(),
-            collection: map
+            base_path:  PathBuf::new(),
+            collection: map,
         })
     }
 
@@ -84,17 +98,14 @@ impl IndexCatalog {
         Ok(())
     }
 
-    pub fn search_index(&self, index: &str, search: &Search) -> Result<Vec<NamedFieldDocument>> {
+    pub fn search_index(&self, index: &str, search: &Search) -> Result<SearchResults> {
         match self.get_index(index) {
             Ok(index) => {
                 index.load_searchers()?;
                 let searcher = index.searcher();
                 let schema = index.schema();
-                let fields = schema
-                    .fields()
-                    .iter()
-                    .map(|e| schema.get_field(e.name()).unwrap())
-                    .collect::<Vec<Field>>();
+                let fields: Vec<Field> = schema.fields().iter().map(|e| schema.get_field(e.name()).unwrap()).collect();
+
                 let mut collector = TopCollector::with_limit(search.limit);
                 let mut query_parser = QueryParser::for_index(index, fields);
                 query_parser.set_conjunction_by_default();
@@ -161,6 +172,10 @@ impl IndexCatalog {
                         info!("{:#?}", query);
                         searcher.search(&*query, &mut collector)?;
                     }
+                    Queries::AllQuery => {
+                        info!("Retrieving all docs...");
+                        searcher.search(&AllQuery, &mut collector)?;
+                    }
                     Queries::RawQuery(rq) => {
                         let query = query_parser.parse_query(&rq.raw)?;
                         info!("{:#?}", query);
@@ -169,11 +184,16 @@ impl IndexCatalog {
                     _ => unimplemented!(),
                 };
 
-                Ok(collector
-                    .docs()
+                let scored_docs: Vec<ScoredDoc> = collector
+                    .score_docs()
                     .iter()
-                    .map(|d| schema.to_named_doc(&searcher.doc(&d).unwrap()))
-                    .collect())
+                    .map(|(score, doc)| {
+                        let d = searcher.doc(&doc).expect("Doc not found in segment");
+                        ScoredDoc::new(*score, schema.to_named_doc(&d))
+                    })
+                    .collect();
+
+                Ok(SearchResults::new(scored_docs))
             }
             Err(e) => Err(e),
         }
@@ -186,6 +206,7 @@ impl IndexCatalog {
 // A helper function for testing with in memory Indexes. Not meant for use
 // outside of testing.
 #[doc(hidden)]
+#[cfg(test)]
 pub fn create_test_index() -> Index {
     let mut builder = SchemaBuilder::new();
     builder.add_text_field("test_text", STORED | TEXT);

@@ -139,7 +139,6 @@ mod tests {
 
     #[test]
     fn test_indexes() {
-
         let idx = create_test_index();
         let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
         let handler = IndexHandler::new(Arc::new(catalog));

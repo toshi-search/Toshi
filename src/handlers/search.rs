@@ -2,16 +2,26 @@ use super::*;
 
 use futures::{future, Future, Stream};
 
+use hyper::Method;
 use std::collections::HashMap;
 use std::io::Result as IOResult;
 use std::panic::RefUnwindSafe;
 
-#[derive(Deserialize, StateData, StaticResponseExtender, Debug)]
+#[derive(Deserialize, Debug)]
 pub struct Search {
     pub query: Queries,
 
     #[serde(default = "default_limit")]
     pub limit: usize,
+}
+
+impl Search {
+    pub fn all() -> Self {
+        Search {
+            query: Queries::AllQuery,
+            limit: 5,
+        }
+    }
 }
 
 fn default_limit() -> usize { 5 }
@@ -43,6 +53,7 @@ pub enum Queries {
     TermsQuery(TermsQuery),
     RangeQuery(RangeQuery),
     RawQuery(RawQuery),
+    AllQuery,
 }
 
 #[derive(Clone, Debug)]
@@ -59,23 +70,39 @@ impl SearchHandler {
 impl Handler for SearchHandler {
     fn handle(self, mut state: State) -> Box<HandlerFuture> {
         let index = IndexPath::take_from(&mut state);
-        let f = Body::take_from(&mut state).concat2().then(move |body| match body {
-            Ok(b) => {
-                let search: Search = serde_json::from_slice(&b).unwrap();
-                info!("Query: {:#?}", search);
-                let docs = match self.catalog.search_index(&index.index, &search) {
+        match Method::borrow_from(&mut state) {
+            &Method::Post => {
+                let f = Body::take_from(&mut state).concat2().then(move |body| match body {
+                    Ok(b) => {
+                        let search: Search = serde_json::from_slice(&b).unwrap();
+                        info!("Query: {:#?}", search);
+                        let docs = match self.catalog.search_index(&index.index, &search) {
+                            Ok(v) => v,
+                            Err(e) => return handle_error(state, e),
+                        };
+                        info!("Query returned {} doc(s) on Index: {}", docs.len(), index.index);
+
+                        let data = Some((serde_json::to_vec_pretty(&docs).unwrap(), mime::APPLICATION_JSON));
+                        let resp = create_response(&state, StatusCode::Ok, data);
+                        future::ok((state, resp))
+                    }
+                    Err(e) => handle_error(state, e),
+                });
+                return Box::new(f);
+            }
+            &Method::Get => {
+                let docs = match self.catalog.search_index(&index.index, &Search::all()) {
                     Ok(v) => v,
-                    Err(e) => return handle_error(state, e),
+                    Err(e) => return Box::new(handle_error(state, e)),
                 };
                 info!("Query returned {} doc(s) on Index: {}", docs.len(), index.index);
 
                 let data = Some((serde_json::to_vec_pretty(&docs).unwrap(), mime::APPLICATION_JSON));
                 let resp = create_response(&state, StatusCode::Ok, data);
-                future::ok((state, resp))
+                Box::new(future::ok((state, resp)))
             }
-            Err(e) => handle_error(state, e),
-        });
-        Box::new(f)
+            _ => unimplemented!(),
+        }
     }
 }
 
