@@ -9,40 +9,26 @@ use tantivy::Document;
 use super::super::{Error, Result};
 use super::*;
 
-macro_rules! field_struct {
-    ($N:ident, $T:ty) => {
-        #[derive(Deserialize, Debug, Clone)]
-        pub struct $N {
-            pub field: String,
-            pub value: $T,
-        }
-    };
-}
-
 macro_rules! add_field {
     ($METHOD:ident, $S:ident, $D:ident, $F:ident, $A:expr) => {
-        $S.get_field(&$F.field)
+        $S.get_field(&$F)
             .map(|field| $D.$METHOD(field, $A))
-            .ok_or_else(|| Error::UnknownIndexField(format!("Field {} does not exist.", $F.field)))
+            .ok_or_else(|| Error::UnknownIndexField(format!("Field {} does not exist.", $F)))
     };
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug)]
 pub struct IndexDoc {
     pub index:  String,
     pub fields: Vec<FieldValues>,
 }
 
-field_struct!(StrField, String);
-field_struct!(U64Field, u64);
-field_struct!(I64Field, i64);
-
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug)]
 #[serde(untagged)]
 pub enum FieldValues {
-    StrField(StrField),
-    U64Field(U64Field),
-    I64Field(I64Field),
+    StrField { field: String, value: String },
+    U64Field { field: String, value: u64 },
+    I64Field { field: String, value: i64 },
 }
 
 #[derive(Clone, Debug)]
@@ -57,9 +43,9 @@ impl IndexHandler {
 
     fn add_to_document(schema: &Schema, field: FieldValues, doc: &mut Document) -> Result<()> {
         match field {
-            FieldValues::StrField(f) => add_field!(add_text, schema, doc, f, &f.value),
-            FieldValues::U64Field(f) => add_field!(add_u64, schema, doc, f, f.value),
-            FieldValues::I64Field(f) => add_field!(add_i64, schema, doc, f, f.value),
+            FieldValues::StrField { field, value } => add_field!(add_text, schema, doc, field, &value),
+            FieldValues::U64Field { field, value } => add_field!(add_u64, schema, doc, field, value),
+            FieldValues::I64Field { field, value } => add_field!(add_i64, schema, doc, field, value),
         }
     }
 }
@@ -121,17 +107,17 @@ mod tests {
         assert_eq!(parsed.fields.len(), 3);
         for f in parsed.fields {
             match f {
-                FieldValues::StrField(ff) => {
-                    assert_eq!(ff.field, "field1");
-                    assert_eq!(ff.value, "sometext");
+                FieldValues::StrField { field, value } => {
+                    assert_eq!(field, "field1");
+                    assert_eq!(value, "sometext");
                 }
-                FieldValues::U64Field(ff) => {
-                    assert_eq!(ff.field, "field2");
-                    assert_eq!(ff.value, 10u64);
+                FieldValues::U64Field { field, value } => {
+                    assert_eq!(field, "field2");
+                    assert_eq!(value, 10u64);
                 }
-                FieldValues::I64Field(ff) => {
-                    assert_eq!(ff.field, "field3");
-                    assert_eq!(ff.value, -10i64);
+                FieldValues::I64Field { field, value } => {
+                    assert_eq!(field, "field3");
+                    assert_eq!(value, -10i64);
                 }
             }
         }

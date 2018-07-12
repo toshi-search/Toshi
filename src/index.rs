@@ -10,7 +10,7 @@ use tantivy::schema::*;
 use tantivy::Index;
 
 use super::{Error, Result};
-use handlers::search::{Queries, Search, RangeQuery};
+use handlers::search::{Queries, RangeQuery, Search};
 
 #[derive(Serialize, Debug, Clone)]
 pub struct IndexCatalog {
@@ -29,7 +29,6 @@ pub struct SearchResults {
 }
 
 impl SearchResults {
-
     pub fn new(docs: Vec<ScoredDoc>) -> Self { SearchResults { hits: docs.len(), docs } }
 
     pub fn len(&self) -> usize { self.docs.len() }
@@ -223,6 +222,4 @@ pub fn create_test_index() -> Index {
 }
 
 #[cfg(test)]
-mod tests {
-
-}
+mod tests {}

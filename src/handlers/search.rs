@@ -138,6 +138,5 @@ mod tests {
         let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
         let handler = SearchHandler::new(Arc::new(catalog));
         let server = TestServer::new(handler).unwrap();
-
     }
 }
