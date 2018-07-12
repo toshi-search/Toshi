@@ -47,9 +47,9 @@ impl ErrorResponse {
 
 type FutureError = FutureResult<(State, Response<Body>), (State, HandlerError)>;
 
-fn handle_error<T>(state: State, err: T) -> FutureError
+fn handle_error<T>(state: State, err: &T) -> FutureError
 where T: Error + Sized {
     let err = serde_json::to_vec_pretty(&ErrorResponse::new(&format!("{}", err))).unwrap();
     let resp = create_response(&state, StatusCode::BadRequest, Some((err, mime::APPLICATION_JSON)));
-    return future::ok((state, resp));
+    future::ok((state, resp))
 }

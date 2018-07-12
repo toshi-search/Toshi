@@ -73,7 +73,7 @@ impl Handler for IndexHandler {
                 {
                     let index = match self.catalog.get_index(&t.index) {
                         Ok(i) => i,
-                        Err(e) => return handle_error(state, e),
+                        Err(ref e) => return handle_error(state, e),
                     };
                     let index_schema = index.schema();
                     let mut index_writer = index.writer(SETTINGS.writer_memory).unwrap();
@@ -81,7 +81,7 @@ impl Handler for IndexHandler {
                     for field in t.fields {
                         match IndexHandler::add_to_document(&index_schema, field, &mut doc) {
                             Ok(_) => {}
-                            Err(e) => return handle_error(state, e),
+                            Err(ref e) => return handle_error(state, e),
                         }
                     }
                     index_writer.add_document(doc);
@@ -90,7 +90,7 @@ impl Handler for IndexHandler {
                 let resp = create_response(&state, StatusCode::Created, None);
                 future::ok((state, resp))
             }
-            Err(e) => handle_error(state, e),
+            Err(ref e) => handle_error(state, e),
         });
         Box::new(f)
     }

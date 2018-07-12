@@ -1,8 +1,8 @@
 use config::{Config, ConfigError, File};
 
-pub const VERSION: &'static str = env!("CARGO_PKG_VERSION");
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-pub const HEADER: &'static str = r#"
+pub const HEADER: &str = r#"
   ______         __   _   ____                 __
  /_  __/__  ___ / /  (_) / __/__ ___ _________/ /
   / / / _ \(_-</ _ \/ / _\ \/ -_) _ `/ __/ __/ _ \

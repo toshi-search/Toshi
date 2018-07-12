@@ -16,7 +16,6 @@ extern crate log;
 extern crate quick_error;
 extern crate futures;
 
-#[allow(unused_imports)]
 #[macro_use]
 extern crate tantivy;
 
@@ -53,11 +52,11 @@ impl From<tantivy::Error> for Error {
     fn from(err: tantivy::Error) -> Error {
         match err.0 {
             ErrorKind::CorruptedFile(p) | ErrorKind::PathDoesNotExist(p) | ErrorKind::FileAlreadyExists(p) => {
-                Error::IOError(format!("{:?}", p)).into()
+                Error::IOError(format!("{:?}", p))
             }
-            ErrorKind::IOError(e) => Error::IOError(e.to_string()).into(),
-            ErrorKind::SchemaError(e) => Error::UnknownIndex(e.to_string()).into(),
-            e => Error::TantivyError(e.to_string()).into(),
+            ErrorKind::IOError(e) => Error::IOError(e.to_string()),
+            ErrorKind::SchemaError(e) => Error::UnknownIndex(e.to_string()),
+            e => Error::TantivyError(e.to_string()),
         }
     }
 }
@@ -65,19 +64,19 @@ impl From<tantivy::Error> for Error {
 impl From<QueryParserError> for Error {
     fn from(qpe: QueryParserError) -> Error {
         match qpe {
-            QueryParserError::SyntaxError => Error::QueryError(String::from("Syntax error in query")).into(),
-            QueryParserError::FieldDoesNotExist(e) => Error::UnknownIndexField(e).into(),
-            QueryParserError::NoDefaultFieldDeclared => Error::QueryError(String::from("No default field declared for query")).into(),
-            QueryParserError::AllButQueryForbidden => Error::QueryError(String::from("Cannot have queries only exclude documents")).into(),
-            QueryParserError::FieldNotIndexed(e) => Error::QueryError(e).into(),
-            QueryParserError::FieldDoesNotHavePositionsIndexed(e) => Error::QueryError(e).into(),
-            _ => Error::TantivyError(String::from("An unknown error occured in query parsing")).into(),
+            QueryParserError::SyntaxError => Error::QueryError(String::from("Syntax error in query")),
+            QueryParserError::FieldDoesNotExist(e) => Error::UnknownIndexField(e),
+            QueryParserError::NoDefaultFieldDeclared => Error::QueryError(String::from("No default field declared for query")),
+            QueryParserError::AllButQueryForbidden => Error::QueryError(String::from("Cannot have queries only exclude documents")),
+            QueryParserError::FieldNotIndexed(e) => Error::QueryError(e),
+            QueryParserError::FieldDoesNotHavePositionsIndexed(e) => Error::QueryError(e),
+            _ => Error::TantivyError(String::from("An unknown error occured in query parsing")),
         }
     }
 }
 
 impl From<std::io::Error> for Error {
-    fn from(err: std::io::Error) -> Error { Error::IOError(err.to_string()).into() }
+    fn from(err: std::io::Error) -> Error { Error::IOError(err.to_string()) }
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

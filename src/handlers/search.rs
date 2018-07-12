@@ -70,15 +70,15 @@ impl SearchHandler {
 impl Handler for SearchHandler {
     fn handle(self, mut state: State) -> Box<HandlerFuture> {
         let index = IndexPath::take_from(&mut state);
-        match Method::borrow_from(&mut state) {
-            &Method::Post => {
+        match *Method::borrow_from(&state) {
+            Method::Post => {
                 let f = Body::take_from(&mut state).concat2().then(move |body| match body {
                     Ok(b) => {
                         let search: Search = serde_json::from_slice(&b).unwrap();
                         info!("Query: {:#?}", search);
                         let docs = match self.catalog.search_index(&index.index, &search) {
                             Ok(v) => v,
-                            Err(e) => return handle_error(state, e),
+                            Err(ref e) => return handle_error(state, e),
                         };
                         info!("Query returned {} doc(s) on Index: {}", docs.len(), index.index);
 
@@ -86,14 +86,14 @@ impl Handler for SearchHandler {
                         let resp = create_response(&state, StatusCode::Ok, data);
                         future::ok((state, resp))
                     }
-                    Err(e) => handle_error(state, e),
+                    Err(ref e) => handle_error(state, e),
                 });
-                return Box::new(f);
+                Box::new(f)
             }
-            &Method::Get => {
+            Method::Get => {
                 let docs = match self.catalog.search_index(&index.index, &Search::all()) {
                     Ok(v) => v,
-                    Err(e) => return Box::new(handle_error(state, e)),
+                    Err(ref e) => return Box::new(handle_error(state, e)),
                 };
                 info!("Query returned {} doc(s) on Index: {}", docs.len(), index.index);
 
