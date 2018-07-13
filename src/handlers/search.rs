@@ -1,5 +1,5 @@
+use super::super::Error;
 use super::*;
-
 use futures::{future, Future, Stream};
 
 use hyper::Method;
@@ -49,49 +49,51 @@ impl SearchHandler {
 
 impl Handler for SearchHandler {
     fn handle(self, mut state: State) -> Box<HandlerFuture> {
-        let index = IndexPath::take_from(&mut state);
-        let query_options = QueryOptions::take_from(&mut state);
+        if let Some(index) = IndexPath::try_take_from(&mut state) {
+            let query_options = QueryOptions::take_from(&mut state);
+            match *Method::borrow_from(&state) {
+                Method::Post => {
+                    let f = Body::take_from(&mut state).concat2().then(move |body| match body {
+                        Ok(b) => {
+                            let search: Search = serde_json::from_slice(&b).unwrap();
+                            info!("Query: {:#?}", search);
+                            let docs = match self.catalog.search_index(&index.index, &search) {
+                                Ok(v) => v,
+                                Err(ref e) => return handle_error(state, e),
+                            };
+                            info!("Query returned {} doc(s) on Index: {}", docs.len(), index.index);
 
-        match *Method::borrow_from(&state) {
-            Method::Post => {
-                let f = Body::take_from(&mut state).concat2().then(move |body| match body {
-                    Ok(b) => {
-                        let search: Search = serde_json::from_slice(&b).unwrap();
-                        info!("Query: {:#?}", search);
-                        let docs = match self.catalog.search_index(&index.index, &search) {
-                            Ok(v) => v,
-                            Err(ref e) => return handle_error(state, e),
-                        };
-                        info!("Query returned {} doc(s) on Index: {}", docs.len(), index.index);
+                            let data = Some(if query_options.pretty {
+                                (serde_json::to_vec_pretty(&docs).unwrap(), mime::APPLICATION_JSON)
+                            } else {
+                                (serde_json::to_vec(&docs).unwrap(), mime::APPLICATION_JSON)
+                            });
+                            let resp = create_response(&state, StatusCode::Ok, data);
+                            future::ok((state, resp))
+                        }
+                        Err(ref e) => handle_error(state, e),
+                    });
+                    Box::new(f)
+                }
+                Method::Get => {
+                    let docs = match self.catalog.search_index(&index.index, &Search::all()) {
+                        Ok(v) => v,
+                        Err(ref e) => return Box::new(handle_error(state, e)),
+                    };
+                    info!("Query returned {} doc(s) on Index: {}", docs.len(), index.index);
 
-                        let data = Some(if query_options.pretty {
-                            (serde_json::to_vec_pretty(&docs).unwrap(), mime::APPLICATION_JSON)
-                        } else {
-                            (serde_json::to_vec(&docs).unwrap(), mime::APPLICATION_JSON)
-                        });
-                        let resp = create_response(&state, StatusCode::Ok, data);
-                        future::ok((state, resp))
-                    }
-                    Err(ref e) => handle_error(state, e),
-                });
-                Box::new(f)
+                    let data = Some(if query_options.pretty {
+                        (serde_json::to_vec_pretty(&docs).unwrap(), mime::APPLICATION_JSON)
+                    } else {
+                        (serde_json::to_vec(&docs).unwrap(), mime::APPLICATION_JSON)
+                    });
+                    let resp = create_response(&state, StatusCode::Ok, data);
+                    Box::new(future::ok((state, resp)))
+                }
+                _ => unimplemented!(),
             }
-            Method::Get => {
-                let docs = match self.catalog.search_index(&index.index, &Search::all()) {
-                    Ok(v) => v,
-                    Err(ref e) => return Box::new(handle_error(state, e)),
-                };
-                info!("Query returned {} doc(s) on Index: {}", docs.len(), index.index);
-
-                let data = Some(if query_options.pretty {
-                    (serde_json::to_vec_pretty(&docs).unwrap(), mime::APPLICATION_JSON)
-                } else {
-                    (serde_json::to_vec(&docs).unwrap(), mime::APPLICATION_JSON)
-                });
-                let resp = create_response(&state, StatusCode::Ok, data);
-                Box::new(future::ok((state, resp)))
-            }
-            _ => unimplemented!(),
+        } else {
+            Box::new(handle_error(state, &Error::UnknownIndex("No valid index in path".to_string())))
         }
     }
 }
@@ -101,8 +103,8 @@ new_handler!(SearchHandler);
 #[cfg(test)]
 mod tests {
 
-    use index::tests::*;
     use super::*;
+    use index::tests::*;
     use serde_json;
 
     #[derive(Deserialize, Debug)]
@@ -176,5 +178,27 @@ mod tests {
 
         assert_eq!(docs.hits, 5);
         assert_eq!(docs.docs.len(), 5);
+    }
+
+    #[test]
+    fn test_wrong_index_error() {
+        let idx = create_test_index();
+        let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
+        let handler = SearchHandler::new(Arc::new(catalog));
+        let client = create_test_client(handler);
+        let req = client.get("http://localhost/bad_index").perform().unwrap();
+
+        assert_eq!(req.status(), StatusCode::BadRequest);
+    }
+
+    #[test]
+    fn test_no_index_error() {
+        let idx = create_test_index();
+        let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
+        let handler = SearchHandler::new(Arc::new(catalog));
+        let client = create_test_client(handler);
+        let req = client.get("http://localhost/").perform().unwrap();
+
+        assert_eq!(req.status(), StatusCode::NotFound);
     }
 }

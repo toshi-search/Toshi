@@ -196,6 +196,7 @@ impl IndexCatalog {
 #[cfg(test)]
 pub mod tests {
 
+    use super::*;
     use gotham::handler::NewHandler;
     use gotham::router::builder::*;
     use gotham::router::Router;
@@ -203,7 +204,6 @@ pub mod tests {
     use handlers::IndexPath;
     use handlers::QueryOptions;
     use hyper::{Get, Post};
-    use super::*;
 
     pub fn create_test_index() -> Index {
         let mut builder = SchemaBuilder::new();
@@ -226,7 +226,6 @@ pub mod tests {
 
     pub fn create_test_client<H>(handler: H) -> TestClient<Router>
     where H: NewHandler + 'static {
-
         let server = TestServer::new(build_simple_router(|r| {
             r.request(vec![Post, Get], "/:index")
                 .with_path_extractor::<IndexPath>()
