@@ -32,6 +32,14 @@ pub struct IndexPath {
     index: String,
 }
 
+#[derive(Deserialize, StateData, StaticResponseExtender, Debug)]
+pub struct QueryOptions {
+    #[serde(default = "default_pretty")]
+    pretty: bool,
+}
+
+fn default_pretty() -> bool { false }
+
 #[derive(Debug, Serialize)]
 pub struct ErrorResponse {
     reason: String,

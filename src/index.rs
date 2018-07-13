@@ -10,7 +10,7 @@ use tantivy::schema::*;
 use tantivy::Index;
 
 use super::{Error, Result};
-use handlers::search::{Queries, RangeQuery, Search};
+use handlers::search::{Queries, Search};
 
 #[derive(Serialize, Debug, Clone)]
 pub struct IndexCatalog {
@@ -112,20 +112,15 @@ impl IndexCatalog {
                 query_parser.set_conjunction_by_default();
 
                 match &search.query {
-                    Queries::TermQuery(tq) => {
-                        let terms = tq
-                            .term
-                            .iter()
-                            .map(|x| format!("{}:{}", x.0, x.1))
-                            .collect::<Vec<String>>()
-                            .join(" ");
+                    Queries::TermQuery { term } => {
+                        let terms = term.iter().map(|x| format!("{}:{}", x.0, x.1)).collect::<Vec<String>>().join(" ");
 
                         let query = query_parser.parse_query(&terms)?;
                         info!("{}", terms);
                         info!("{:#?}", query);
                         searcher.search(&*query, &mut collector)?;
                     }
-                    Queries::RangeQuery(RangeQuery { range }) => {
+                    Queries::RangeQuery { range } => {
                         info!("{:#?}", range);
                         let terms = range
                             .iter()
@@ -171,8 +166,8 @@ impl IndexCatalog {
                         info!("Retrieving all docs...");
                         searcher.search(&AllQuery, &mut collector)?;
                     }
-                    Queries::RawQuery(rq) => {
-                        let query = query_parser.parse_query(&rq.raw)?;
+                    Queries::RawQuery { raw } => {
+                        let query = query_parser.parse_query(&raw)?;
                         info!("{:#?}", query);
                         searcher.search(&*query, &mut collector)?;
                     }
@@ -198,28 +193,46 @@ impl IndexCatalog {
     pub fn create_index(&mut self, _path: &str, _schema: &Schema) -> Result<()> { Ok(()) }
 }
 
-// A helper function for testing with in memory Indexes. Not meant for use
-// outside of testing.
-#[doc(hidden)]
 #[cfg(test)]
-pub fn create_test_index() -> Index {
-    let mut builder = SchemaBuilder::new();
-    let test_text = builder.add_text_field("test_text", STORED | TEXT);
-    let test_int = builder.add_i64_field("test_i64", INT_STORED | INT_INDEXED);
-    let test_unsign = builder.add_u64_field("test_u64", INT_STORED | INT_INDEXED);
+pub mod tests {
 
-    let schema = builder.build();
-    let idx = Index::create_in_ram(schema);
-    let mut writer = idx.writer(30_000_000).unwrap();
-    writer.add_document(doc!{ test_text => "Test Document 1", test_int => 2014i64,  test_unsign => 10u64 });
-    writer.add_document(doc!{ test_text => "Test Document 2", test_int => -2015i64, test_unsign => 11u64 });
-    writer.add_document(doc!{ test_text => "Test Document 3", test_int => 2016i64,  test_unsign => 12u64 });
-    writer.add_document(doc!{ test_text => "Test Document 4", test_int => -2017i64, test_unsign => 13u64 });
-    writer.add_document(doc!{ test_text => "Test Document 5", test_int => 2018i64,  test_unsign => 14u64 });
-    writer.commit().unwrap();
+    use gotham::handler::NewHandler;
+    use gotham::router::builder::*;
+    use gotham::router::Router;
+    use gotham::test::{TestClient, TestServer};
+    use handlers::IndexPath;
+    use handlers::QueryOptions;
+    use hyper::{Get, Post};
+    use super::*;
 
-    idx
+    pub fn create_test_index() -> Index {
+        let mut builder = SchemaBuilder::new();
+        let test_text = builder.add_text_field("test_text", STORED | TEXT);
+        let test_int = builder.add_i64_field("test_i64", INT_STORED | INT_INDEXED);
+        let test_unsign = builder.add_u64_field("test_u64", INT_STORED | INT_INDEXED);
+
+        let schema = builder.build();
+        let idx = Index::create_in_ram(schema);
+        let mut writer = idx.writer(30_000_000).unwrap();
+        writer.add_document(doc!{ test_text => "Test Document 1", test_int => 2014i64,  test_unsign => 10u64 });
+        writer.add_document(doc!{ test_text => "Test Document 2", test_int => -2015i64, test_unsign => 11u64 });
+        writer.add_document(doc!{ test_text => "Test Document 3", test_int => 2016i64,  test_unsign => 12u64 });
+        writer.add_document(doc!{ test_text => "Test Document 4", test_int => -2017i64, test_unsign => 13u64 });
+        writer.add_document(doc!{ test_text => "Test Document 5", test_int => 2018i64,  test_unsign => 14u64 });
+        writer.commit().unwrap();
+
+        idx
+    }
+
+    pub fn create_test_client<H>(handler: H) -> TestClient<Router>
+    where H: NewHandler + 'static {
+
+        let server = TestServer::new(build_simple_router(|r| {
+            r.request(vec![Post, Get], "/:index")
+                .with_path_extractor::<IndexPath>()
+                .with_query_string_extractor::<QueryOptions>()
+                .to_new_handler(handler);
+        })).unwrap();
+        server.client()
+    }
 }
-
-#[cfg(test)]
-mod tests {}

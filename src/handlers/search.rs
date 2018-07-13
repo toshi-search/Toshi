@@ -26,33 +26,13 @@ impl Search {
 
 fn default_limit() -> usize { 5 }
 
-#[derive(Deserialize, Debug, Clone)]
-pub struct TermQuery {
-    pub term: HashMap<String, String>,
-}
-
-#[derive(Deserialize, Debug, Clone)]
-pub struct TermsQuery {
-    pub terms: HashMap<String, Vec<String>>,
-}
-
-#[derive(Deserialize, Debug, Clone)]
-pub struct RangeQuery {
-    pub range: HashMap<String, HashMap<String, i64>>,
-}
-
-#[derive(Deserialize, Debug, Clone)]
-pub struct RawQuery {
-    pub raw: String,
-}
-
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, PartialEq)]
 #[serde(untagged)]
 pub enum Queries {
-    TermQuery(TermQuery),
-    TermsQuery(TermsQuery),
-    RangeQuery(RangeQuery),
-    RawQuery(RawQuery),
+    TermQuery { term: HashMap<String, String> },
+    TermsQuery { terms: HashMap<String, Vec<String>> },
+    RangeQuery { range: HashMap<String, HashMap<String, i64>> },
+    RawQuery { raw: String },
     AllQuery,
 }
 
@@ -70,6 +50,8 @@ impl SearchHandler {
 impl Handler for SearchHandler {
     fn handle(self, mut state: State) -> Box<HandlerFuture> {
         let index = IndexPath::take_from(&mut state);
+        let query_options = QueryOptions::take_from(&mut state);
+
         match *Method::borrow_from(&state) {
             Method::Post => {
                 let f = Body::take_from(&mut state).concat2().then(move |body| match body {
@@ -82,7 +64,11 @@ impl Handler for SearchHandler {
                         };
                         info!("Query returned {} doc(s) on Index: {}", docs.len(), index.index);
 
-                        let data = Some((serde_json::to_vec_pretty(&docs).unwrap(), mime::APPLICATION_JSON));
+                        let data = Some(if query_options.pretty {
+                            (serde_json::to_vec_pretty(&docs).unwrap(), mime::APPLICATION_JSON)
+                        } else {
+                            (serde_json::to_vec(&docs).unwrap(), mime::APPLICATION_JSON)
+                        });
                         let resp = create_response(&state, StatusCode::Ok, data);
                         future::ok((state, resp))
                     }
@@ -97,7 +83,11 @@ impl Handler for SearchHandler {
                 };
                 info!("Query returned {} doc(s) on Index: {}", docs.len(), index.index);
 
-                let data = Some((serde_json::to_vec_pretty(&docs).unwrap(), mime::APPLICATION_JSON));
+                let data = Some(if query_options.pretty {
+                    (serde_json::to_vec_pretty(&docs).unwrap(), mime::APPLICATION_JSON)
+                } else {
+                    (serde_json::to_vec(&docs).unwrap(), mime::APPLICATION_JSON)
+                });
                 let resp = create_response(&state, StatusCode::Ok, data);
                 Box::new(future::ok((state, resp)))
             }
@@ -111,8 +101,28 @@ new_handler!(SearchHandler);
 #[cfg(test)]
 mod tests {
 
+    use index::tests::*;
     use super::*;
-    use gotham::test::*;
+    use serde_json;
+
+    #[derive(Deserialize, Debug)]
+    struct TestResults {
+        hits: i32,
+        docs: Vec<TestDoc>,
+    }
+
+    #[derive(Deserialize, Debug)]
+    struct TestDoc {
+        score: f32,
+        doc:   TestSchema,
+    }
+
+    #[derive(Deserialize, Debug)]
+    struct TestSchema {
+        test_text: Vec<String>,
+        test_i64:  Vec<i64>,
+        test_u64:  Vec<u64>,
+    }
 
     #[test]
     fn test_serializing() {
@@ -125,11 +135,30 @@ mod tests {
         let parsed_terms: Search = serde_json::from_str(terms_query).unwrap();
         let parsed_range: Search = serde_json::from_str(range_query).unwrap();
         let parsed_raw: Search = serde_json::from_str(raw_query).unwrap();
+        let queries = vec![parsed_term, parsed_terms, parsed_range, parsed_raw];
 
-        println!("{:#?}", parsed_term);
-        println!("{:#?}", parsed_terms);
-        println!("{:#?}", parsed_range);
-        println!("{:#?}", parsed_raw);
+        for q in queries {
+            match q.query {
+                Queries::TermQuery { term } => {
+                    assert!(term.contains_key("user"));
+                    assert_eq!(term.get("user").unwrap(), "Kimchy");
+                }
+                Queries::TermsQuery { terms } => {
+                    assert!(terms.contains_key("user"));
+                    assert_eq!(terms.get("user").unwrap().len(), 2);
+                    assert_eq!(terms.get("user").unwrap()[0], "kimchy");
+                }
+                Queries::RangeQuery { range } => {
+                    assert!(range.contains_key("age"));
+                    assert_eq!(*range.get("age").unwrap().get("gte").unwrap(), 10i64);
+                    assert_eq!(*range.get("age").unwrap().get("lte").unwrap(), 20i64);
+                }
+                Queries::RawQuery { raw } => {
+                    assert_eq!(raw, "year:[1 TO 10]");
+                }
+                _ => (),
+            }
+        }
     }
 
     #[test]
@@ -137,6 +166,15 @@ mod tests {
         let idx = create_test_index();
         let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
         let handler = SearchHandler::new(Arc::new(catalog));
-        let server = TestServer::new(handler).unwrap();
+        let client = create_test_client(handler);
+
+        let req = client.get("http://localhost/test_index").perform().unwrap();
+        assert_eq!(req.status(), StatusCode::Ok);
+
+        let body = req.read_body().unwrap();
+        let docs: TestResults = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(docs.hits, 5);
+        assert_eq!(docs.docs.len(), 5);
     }
 }

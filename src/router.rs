@@ -5,7 +5,7 @@ use hyper::{Get, Post};
 use handlers::index::IndexHandler;
 use handlers::root::RootHandler;
 use handlers::search::SearchHandler;
-use handlers::IndexPath;
+use handlers::{IndexPath, QueryOptions};
 use index::IndexCatalog;
 use settings::{SETTINGS, VERSION};
 
@@ -27,6 +27,7 @@ pub fn router() -> Router {
         route
             .request(vec![Post, Get], "/:index")
             .with_path_extractor::<IndexPath>()
+            .with_query_string_extractor::<QueryOptions>()
             .to_new_handler(search_handler);
         //route.post("/:index/create").to(||);
     })

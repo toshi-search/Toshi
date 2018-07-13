@@ -88,7 +88,9 @@ new_handler!(IndexHandler);
 mod tests {
 
     use super::*;
+    use index::tests::*;
     use gotham::test::*;
+
 
     #[test]
     fn test_serializing() {
