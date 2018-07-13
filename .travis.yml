@@ -2,9 +2,18 @@ language: rust
 sudo: required
 dist: trusty
 
-cache:
-  cargo: true
-  apt: true
+cache: cargo
+
+addons:
+  apt:
+    packages:
+      - libcurl4-openssl-dev
+      - libelf-dev
+      - libdw-dev
+      - binutils-dev
+      - cmake
+    sources:
+      - kalakris-cmake
 
 rust:
   - stable
@@ -17,28 +26,19 @@ matrix:
     - rust: beta
   fast_finish: true
 
-addons:
-  apt:
-    packages:
-      - libcurl4-openssl-dev
-      - libelf-dev
-      - libdw-dev
-      - cmake
-      - gcc
-      - binutils-dev
-      - libiberty-dev
+before_install:
+  - set -e
+  - rustup self update
 
-after_success: |
-  wget https://github.com/SimonKagstrom/kcov/archive/master.tar.gz &&
-  tar xzf master.tar.gz &&
-  cd kcov-master &&
-  mkdir build &&
-  cd build &&
-  cmake .. &&
-  make &&
-  make install DESTDIR=../../kcov-build &&
-  cd ../.. &&
-  rm -rf kcov-master &&
-  for file in target/debug/*toshi*[^\.d]; do mkdir -p "target/cov/$(basename $file)"; ./kcov-build/usr/local/bin/kcov --exclude-pattern=/.cargo,/usr/lib --verify "target/cov/$(basename $file)" "$file"; done &&
-  bash <(curl -s https://codecov.io/bash) &&
-  echo "Uploaded code coverage"
+before_script:
+  - export PATH=$HOME/.cargo/bin:$PATH
+  - cargo install cargo-update || echo "cargo-update already installed"
+  - cargo install cargo-travis || echo "cargo-travis already installed"
+  - cargo install-update -a
+
+script:
+  - |
+      cargo build --verbose &&
+      cargo test &&
+      cargo coverage --verbose &&
+      bash <(curl -s https://codecov.io/bash) -s target/kcov

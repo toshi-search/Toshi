@@ -234,4 +234,9 @@ pub mod tests {
         })).unwrap();
         server.client()
     }
+
+    #[test]
+    fn test_catalog_errors() {
+
+    }
 }
