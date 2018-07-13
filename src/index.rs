@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::fs::read_dir;
-use std::io;
 use std::iter::Iterator;
 use std::path::PathBuf;
 
@@ -9,7 +8,7 @@ use tantivy::query::{AllQuery, QueryParser};
 use tantivy::schema::*;
 use tantivy::Index;
 
-use super::{Error, Result};
+use super::*;
 use handlers::search::{Queries, Search};
 
 #[derive(Serialize, Debug, Clone)]
@@ -45,7 +44,7 @@ impl ScoredDoc {
 }
 
 impl IndexCatalog {
-    pub fn new(base_path: PathBuf) -> io::Result<Self> {
+    pub fn new(base_path: PathBuf) -> Result<Self> {
         let mut index_cat = IndexCatalog {
             base_path,
             collection: HashMap::new(),
@@ -86,14 +85,14 @@ impl IndexCatalog {
 
     pub fn get_index(&self, name: &str) -> Result<&Index> { self.collection.get(name).ok_or_else(|| Error::UnknownIndex(name.to_string())) }
 
-    pub fn refresh_catalog(&mut self) -> io::Result<()> {
+    pub fn refresh_catalog(&mut self) -> Result<()> {
         self.collection.clear();
 
         for dir in read_dir(self.base_path.clone())? {
             let entry = dir?.path();
             let entry_str = entry.to_str().unwrap();
             let pth: String = entry_str.rsplit('/').take(1).collect();
-            let idx = IndexCatalog::load_index(entry_str).unwrap();
+            let idx = IndexCatalog::load_index(entry_str)?;
             self.add_index(pth.clone(), idx);
         }
         Ok(())
@@ -237,6 +236,12 @@ pub mod tests {
 
     #[test]
     fn test_catalog_errors() {
+        let catalog = IndexCatalog::new(PathBuf::from("asdf1234"));
 
+        match catalog {
+            Ok(_) => {},
+            Err(Error::IOError(e)) => assert_eq!("The system cannot find the path specified. (os error 3)", e),
+            _ => {}
+        }
     }
 }
