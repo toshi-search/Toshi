@@ -240,7 +240,7 @@ pub mod tests {
 
         match catalog {
             Ok(_) => {},
-            Err(Error::IOError(e)) => assert_eq!("The system cannot find the path specified. (os error 3)", e),
+            Err(Error::IOError(e)) => assert_eq!("No such file or directory (os error 2)", e),
             _ => {}
         }
     }
