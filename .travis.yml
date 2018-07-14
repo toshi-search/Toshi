@@ -44,4 +44,4 @@ script:
       bash <(curl -s https://codecov.io/bash) -s target/kcov
       
 after_success:
-  - cargo coveralls --verbose
+  - cargo coveralls --verbose --exclude-pattern '/toshi/src/main.rs' --exclude-pattern '/toshi/src/handlers/root.rs'
