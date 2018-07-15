@@ -176,8 +176,7 @@ mod tests {
         let body = req.read_body().unwrap();
         let docs: TestResults = serde_json::from_slice(&body).unwrap();
 
-        assert_eq!(docs.hits, 5);
-        assert_eq!(docs.docs.len(), 5);
+        assert_eq!(docs.hits as usize, docs.docs.len());
     }
 
     #[test]
@@ -200,5 +199,58 @@ mod tests {
         let req = client.get("http://localhost/").perform().unwrap();
 
         assert_eq!(req.status(), StatusCode::NotFound);
+    }
+
+    #[test]
+    fn test_raw_query() {
+        let idx = create_test_index();
+        let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
+        let handler = SearchHandler::new(Arc::new(catalog));
+        let client = create_test_client(handler);
+
+        let body = r#"{ "query" : { "raw": "test_text:5" } }"#;
+        let req = client
+            .post("http://localhost/test_index", body, mime::APPLICATION_JSON)
+            .perform()
+            .unwrap();
+        let body = req.read_body().unwrap();
+        let docs: TestResults = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(docs.hits as usize, docs.docs.len());
+        assert_eq!(docs.docs[0].doc.test_text[0], "Test Document 5")
+    }
+
+    #[test]
+    fn test_term_query() {
+        let idx = create_test_index();
+        let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
+        let handler = SearchHandler::new(Arc::new(catalog));
+        let client = create_test_client(handler);
+
+        let body = r#"{ "query" : { "term": { "test_text": "Document" } } }"#;
+        let req = client.post("http://localhost/test_index", body, mime::APPLICATION_JSON).perform().unwrap();
+        let body = req.read_body().unwrap();
+        let docs: TestResults = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(docs.hits as usize, docs.docs.len());
+        assert_eq!(docs.hits, 3);
+        assert_eq!(docs.docs.len(), 3);
+    }
+
+    #[test]
+    fn test_range_query() {
+        let idx = create_test_index();
+        let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
+        let handler = SearchHandler::new(Arc::new(catalog));
+        let client = create_test_client(handler);
+
+        let body = r#"{ "query" : { "range" : { "test_i64" : { "gte" : 2012, "lt" : 2015 } } } }"#;
+        let req = client.post("http://localhost/test_index", body, mime::APPLICATION_JSON).perform().unwrap();
+        let body = req.read_body().unwrap();
+        let docs: TestResults = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(docs.hits as usize, docs.docs.len());
+        assert_eq!(docs.docs[0].score, 1.0);
+
     }
 }

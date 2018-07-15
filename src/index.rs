@@ -95,7 +95,7 @@ impl IndexCatalog {
                 let idx = IndexCatalog::load_index(entry_str)?;
                 self.add_index(pth.clone(), idx);
             } else {
-                return Err(Error::IOError(format!("Path {:?} is not a valid unicode path", entry)))
+                return Err(Error::IOError(format!("Path {:?} is not a valid unicode path", entry)));
             }
         }
         Ok(())
@@ -217,8 +217,8 @@ pub mod tests {
         let idx = Index::create_in_ram(schema);
         let mut writer = idx.writer(30_000_000).unwrap();
         writer.add_document(doc!{ test_text => "Test Document 1", test_int => 2014i64,  test_unsign => 10u64 });
-        writer.add_document(doc!{ test_text => "Test Document 2", test_int => -2015i64, test_unsign => 11u64 });
-        writer.add_document(doc!{ test_text => "Test Document 3", test_int => 2016i64,  test_unsign => 12u64 });
+        writer.add_document(doc!{ test_text => "Test Dockument 2", test_int => -2015i64, test_unsign => 11u64 });
+        writer.add_document(doc!{ test_text => "Test Duckiment 3", test_int => 2016i64,  test_unsign => 12u64 });
         writer.add_document(doc!{ test_text => "Test Document 4", test_int => -2017i64, test_unsign => 13u64 });
         writer.add_document(doc!{ test_text => "Test Document 5", test_int => 2018i64,  test_unsign => 14u64 });
         writer.commit().unwrap();
@@ -237,6 +237,7 @@ pub mod tests {
         server.client()
     }
 
+    #[cfg(not(target_family = "windows"))]
     #[test]
     fn test_catalog_errors() {
         let catalog = IndexCatalog::new(PathBuf::from("asdf1234"));
