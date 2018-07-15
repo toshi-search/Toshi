@@ -6,6 +6,7 @@ use hyper::Method;
 use std::collections::HashMap;
 use std::io::Result as IOResult;
 use std::panic::RefUnwindSafe;
+use serde_json::Value;
 
 #[derive(Deserialize, Debug)]
 pub struct Search {
@@ -29,7 +30,7 @@ fn default_limit() -> usize { 5 }
 #[derive(Deserialize, Debug, Clone, PartialEq)]
 #[serde(untagged)]
 pub enum Queries {
-    TermQuery { term: HashMap<String, String> },
+    TermQuery { term: HashMap<String, Value> },
     TermsQuery { terms: HashMap<String, Vec<String>> },
     RangeQuery { range: HashMap<String, HashMap<String, i64>> },
     RawQuery { raw: String },
@@ -126,6 +127,21 @@ mod tests {
         test_u64:  Vec<u64>,
     }
 
+    fn run_query(query: &'static str) -> TestResults {
+        let idx = create_test_index();
+        let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
+        let handler = SearchHandler::new(Arc::new(catalog));
+        let client = create_test_client(handler);
+
+        let req = client
+            .post("http://localhost/test_index", query, mime::APPLICATION_JSON)
+            .perform()
+            .unwrap();
+        assert_eq!(req.status(), StatusCode::Ok);
+        let body = req.read_body().unwrap();
+        serde_json::from_slice(&body).unwrap()
+    }
+
     #[test]
     fn test_serializing() {
         let term_query = r#"{ "query" : { "term" : { "user" : "Kimchy" } } }"#;
@@ -203,18 +219,8 @@ mod tests {
 
     #[test]
     fn test_raw_query() {
-        let idx = create_test_index();
-        let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
-        let handler = SearchHandler::new(Arc::new(catalog));
-        let client = create_test_client(handler);
-
         let body = r#"{ "query" : { "raw": "test_text:5" } }"#;
-        let req = client
-            .post("http://localhost/test_index", body, mime::APPLICATION_JSON)
-            .perform()
-            .unwrap();
-        let body = req.read_body().unwrap();
-        let docs: TestResults = serde_json::from_slice(&body).unwrap();
+        let docs = run_query(body);
 
         assert_eq!(docs.hits as usize, docs.docs.len());
         assert_eq!(docs.docs[0].doc.test_text[0], "Test Document 5")
@@ -222,15 +228,8 @@ mod tests {
 
     #[test]
     fn test_term_query() {
-        let idx = create_test_index();
-        let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
-        let handler = SearchHandler::new(Arc::new(catalog));
-        let client = create_test_client(handler);
-
         let body = r#"{ "query" : { "term": { "test_text": "Document" } } }"#;
-        let req = client.post("http://localhost/test_index", body, mime::APPLICATION_JSON).perform().unwrap();
-        let body = req.read_body().unwrap();
-        let docs: TestResults = serde_json::from_slice(&body).unwrap();
+        let docs = run_query(body);
 
         assert_eq!(docs.hits as usize, docs.docs.len());
         assert_eq!(docs.hits, 3);
@@ -239,18 +238,10 @@ mod tests {
 
     #[test]
     fn test_range_query() {
-        let idx = create_test_index();
-        let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
-        let handler = SearchHandler::new(Arc::new(catalog));
-        let client = create_test_client(handler);
-
         let body = r#"{ "query" : { "range" : { "test_i64" : { "gte" : 2012, "lt" : 2015 } } } }"#;
-        let req = client.post("http://localhost/test_index", body, mime::APPLICATION_JSON).perform().unwrap();
-        let body = req.read_body().unwrap();
-        let docs: TestResults = serde_json::from_slice(&body).unwrap();
+        let docs = run_query(body);
 
         assert_eq!(docs.hits as usize, docs.docs.len());
         assert_eq!(docs.docs[0].score, 1.0);
-
     }
 }

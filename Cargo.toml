@@ -4,8 +4,8 @@ version = "0.1.0"
 authors = ["Stephen Carman <shcarman@gmail.com>"]
 
 [[bin]]
-name = "start-toshi"
-path = "src/main.rs"
+name = "toshi"
+path = "src/bin/main.rs"
 
 [lib]
 path = "src/lib.rs"
@@ -18,13 +18,13 @@ mime              = "0.3.8"
 serde             = "1.0.70"
 serde_derive      = "1.0.70"
 serde_json        = "1.0.22"
-lazy_static       = "1.0.1"
-futures           = "0.1.17"
+lazy_static       = "1.0.2"
+futures           = "0.1.23"
 tantivy           = "0.6.1"
 #tantivy           = { git = "https://github.com/tantivy-search/tantivy" }
 config            = "0.9.0"
 log               = "0.4.3"
-pretty_env_logger = "0.2.3"
+pretty_env_logger = "0.2.4"
 quick-error       = "1.2.2"
 
 [profile.release]

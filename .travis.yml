@@ -37,11 +37,8 @@ before_script:
   - cargo install-update -a
 
 script:
-  - |
-      cargo build --verbose &&
-      cargo test &&
-      cargo coverage --verbose &&
-      bash <(curl -s https://codecov.io/bash) -s target/kcov
+  - cargo build && cargo test
 
 after_success:
-  - cargo coveralls --verbose --exclude-pattern 'src/main.rs'
+  - cargo coverage --exclude-pattern '/toshi/src/bin' && bash <(curl -s https://codecov.io/bash) -s target/kcov
+  - cargo coveralls --exclude-pattern '/toshi/src/bin'
