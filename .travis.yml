@@ -42,6 +42,6 @@ script:
       cargo test &&
       cargo coverage --verbose &&
       bash <(curl -s https://codecov.io/bash) -s target/kcov
-      
+
 after_success:
-  - cargo coveralls --verbose --exclude-pattern '/toshi/src/main.rs'
+  - cargo coveralls --verbose --exclude-pattern 'src/main.rs'

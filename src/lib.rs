@@ -16,7 +16,7 @@ extern crate log;
 extern crate quick_error;
 extern crate futures;
 
-#[macro_use]
+#[cfg_attr(test, macro_use)]
 extern crate tantivy;
 
 #[macro_use]

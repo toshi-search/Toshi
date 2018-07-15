@@ -90,10 +90,13 @@ impl IndexCatalog {
 
         for dir in read_dir(self.base_path.clone())? {
             let entry = dir?.path();
-            let entry_str = entry.to_str().unwrap();
-            let pth: String = entry_str.rsplit('/').take(1).collect();
-            let idx = IndexCatalog::load_index(entry_str)?;
-            self.add_index(pth.clone(), idx);
+            if let Some(entry_str) = entry.to_str() {
+                let pth: String = entry_str.rsplit('/').take(1).collect();
+                let idx = IndexCatalog::load_index(entry_str)?;
+                self.add_index(pth.clone(), idx);
+            } else {
+                return Err(Error::IOError(format!("Path {:?} is not a valid unicode path", entry)))
+            }
         }
         Ok(())
     }
@@ -112,7 +115,7 @@ impl IndexCatalog {
 
                 match &search.query {
                     Queries::TermQuery { term } => {
-                        let terms = term.iter().map(|x| format!("{}:{}", x.0, x.1)).collect::<Vec<String>>().join(" ");
+                        let terms = term.iter().map(|(t, v)| format!("{}:{}", t, v)).collect::<Vec<String>>().join(" ");
 
                         let query = query_parser.parse_query(&terms)?;
                         info!("{}", terms);
@@ -239,7 +242,7 @@ pub mod tests {
         let catalog = IndexCatalog::new(PathBuf::from("asdf1234"));
 
         match catalog {
-            Ok(_) => {},
+            Ok(_) => {}
             Err(Error::IOError(e)) => assert_eq!("No such file or directory (os error 2)", e),
             _ => {}
         }
