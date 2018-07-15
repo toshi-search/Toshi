@@ -7,13 +7,15 @@ pub const HEADER: &str = r#"
  /_  __/__  ___ / /  (_) / __/__ ___ _________/ /
   / / / _ \(_-</ _ \/ / _\ \/ -_) _ `/ __/ __/ _ \
  /_/  \___/___/_//_/_/ /___/\__/\_,_/_/  \__/_//_/
- Such Relevance, Much Index, Many Search, Wow"#;
+ Such Relevance, Much Index, Many Search, Wow
+ "#;
 
 #[derive(Debug, Deserialize)]
 pub struct Settings {
     pub host:          String,
     pub port:          u16,
     pub path:          String,
+    pub log_level:     Option<String>,
     pub writer_memory: usize,
 }
 

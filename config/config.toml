@@ -2,3 +2,4 @@ host = "localhost"
 port = 8080
 path = "indexes/"
 writer_memory = 200000000
+log_level = "info"

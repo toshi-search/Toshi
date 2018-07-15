@@ -3,10 +3,10 @@ use super::*;
 use futures::{future, Future, Stream};
 
 use hyper::Method;
+use serde_json::Value;
 use std::collections::HashMap;
 use std::io::Result as IOResult;
 use std::panic::RefUnwindSafe;
-use serde_json::Value;
 
 #[derive(Deserialize, Debug)]
 pub struct Search {
@@ -130,8 +130,7 @@ mod tests {
     fn run_query(query: &'static str) -> TestResults {
         let idx = create_test_index();
         let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
-        let handler = SearchHandler::new(Arc::new(catalog));
-        let client = create_test_client(handler);
+        let client = create_test_client(&Arc::new(catalog));
 
         let req = client
             .post("http://localhost/test_index", query, mime::APPLICATION_JSON)
@@ -183,8 +182,7 @@ mod tests {
     fn test_term_search() {
         let idx = create_test_index();
         let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
-        let handler = SearchHandler::new(Arc::new(catalog));
-        let client = create_test_client(handler);
+        let client = create_test_client(&Arc::new(catalog));
 
         let req = client.get("http://localhost/test_index").perform().unwrap();
         assert_eq!(req.status(), StatusCode::Ok);
@@ -199,8 +197,7 @@ mod tests {
     fn test_wrong_index_error() {
         let idx = create_test_index();
         let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
-        let handler = SearchHandler::new(Arc::new(catalog));
-        let client = create_test_client(handler);
+        let client = create_test_client(&Arc::new(catalog));
         let req = client.get("http://localhost/bad_index").perform().unwrap();
 
         assert_eq!(req.status(), StatusCode::BadRequest);
@@ -210,11 +207,65 @@ mod tests {
     fn test_no_index_error() {
         let idx = create_test_index();
         let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
-        let handler = SearchHandler::new(Arc::new(catalog));
-        let client = create_test_client(handler);
+        let client = create_test_client(&Arc::new(catalog));
         let req = client.get("http://localhost/").perform().unwrap();
 
-        assert_eq!(req.status(), StatusCode::NotFound);
+        assert_eq!(req.status(), StatusCode::Ok);
+        assert_eq!(req.read_utf8_body().unwrap(), "Toshi Search, Version: 0.1.0")
+    }
+
+    #[test]
+    fn test_bad_raw_query_syntax() {
+        let idx = create_test_index();
+        let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
+        let client = create_test_client(&Arc::new(catalog));
+        let body = r#"{ "query" : { "raw": "asd*(@sq__" } }"#;
+
+        let req = client
+            .post("http://localhost/test_index", body, mime::APPLICATION_JSON)
+            .perform()
+            .unwrap();
+
+        assert_eq!(req.status(), StatusCode::BadRequest);
+        assert_eq!(
+            r#"{"reason":"Query Parse Error: Syntax error in query"}"#,
+            req.read_utf8_body().unwrap()
+        )
+    }
+
+    #[test]
+    fn test_bad_term_field_syntax() {
+        let idx = create_test_index();
+        let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
+        let client = create_test_client(&Arc::new(catalog));
+        let body = r#"{ "query" : { "term": { "asdf": "Document" } } }"#;
+
+        let req = client
+            .post("http://localhost/test_index", body, mime::APPLICATION_JSON)
+            .perform()
+            .unwrap();
+
+        assert_eq!(req.status(), StatusCode::BadRequest);
+        assert_eq!(r#"{"reason":"Unknown Field: 'asdf' queried"}"#, req.read_utf8_body().unwrap())
+    }
+
+    #[test]
+    fn test_bad_number_field_syntax() {
+        let idx = create_test_index();
+        let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
+        let client = create_test_client(&Arc::new(catalog));
+        let body = r#"{ "query" : { "term": { "123asdf": "Document" } } }"#;
+
+        let req = client
+            .post("http://localhost/test_index", body, mime::APPLICATION_JSON)
+            .perform()
+            .unwrap();
+
+        assert_eq!(req.status(), StatusCode::BadRequest);
+        assert_eq!(
+            r#"{"reason":"Query Parse Error: invalid digit found in string"}"#,
+            req.read_utf8_body().unwrap()
+        )
     }
 
     #[test]

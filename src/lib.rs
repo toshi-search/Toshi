@@ -34,10 +34,10 @@ quick_error! {
             display("IO Error: {}", err)
         }
         UnknownIndexField(err: String) {
-            display("Unknown Field: {} Queried", err)
+            display("Unknown Field: '{}' queried", err)
         }
         UnknownIndex(err: String) {
-            display("Unknown Index: {} queried", err)
+            display("Unknown Index: '{}' queried", err)
         }
         TantivyError(err: String) {
             display("Error with Tantivy: {}", err)
@@ -65,12 +65,13 @@ impl From<QueryParserError> for Error {
     fn from(qpe: QueryParserError) -> Error {
         match qpe {
             QueryParserError::SyntaxError => Error::QueryError(String::from("Syntax error in query")),
-            QueryParserError::FieldDoesNotExist(e) => Error::UnknownIndexField(e),
+            QueryParserError::FieldDoesNotExist(e)
+            | QueryParserError::FieldNotIndexed(e)
+            | QueryParserError::FieldDoesNotHavePositionsIndexed(e) => Error::UnknownIndexField(e),
+            QueryParserError::ExpectedInt(e) => Error::QueryError(e.to_string()),
             QueryParserError::NoDefaultFieldDeclared => Error::QueryError(String::from("No default field declared for query")),
             QueryParserError::AllButQueryForbidden => Error::QueryError(String::from("Cannot have queries only exclude documents")),
-            QueryParserError::FieldNotIndexed(e) => Error::QueryError(e),
-            QueryParserError::FieldDoesNotHavePositionsIndexed(e) => Error::QueryError(e),
-            _ => Error::TantivyError(String::from("An unknown error occured in query parsing")),
+            e => Error::TantivyError(format!("{:?}", e)),
         }
     }
 }
@@ -82,6 +83,6 @@ impl From<std::io::Error> for Error {
 pub type Result<T> = std::result::Result<T, Error>;
 
 mod handlers;
-mod index;
+pub mod index;
 pub mod router;
 pub mod settings;

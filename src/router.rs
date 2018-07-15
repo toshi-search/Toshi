@@ -7,21 +7,18 @@ use handlers::root::RootHandler;
 use handlers::search::SearchHandler;
 use handlers::{IndexPath, QueryOptions};
 use index::IndexCatalog;
-use settings::{SETTINGS, VERSION};
+use settings::VERSION;
 
-use std::path::PathBuf;
 use std::sync::Arc;
 
-pub fn router() -> Router {
-    let catalog = Arc::new(IndexCatalog::new(PathBuf::from(&SETTINGS.path)).unwrap());
-
+pub fn router_with_catalog(catalog: &Arc<IndexCatalog>) -> Router {
     let search_handler = SearchHandler::new(catalog.clone());
     let index_handler = IndexHandler::new(catalog.clone());
-    let handle = RootHandler::new(format!("Toshi Search, Version: {}", VERSION));
+    let root_handler = RootHandler::new(format!("Toshi Search, Version: {}", VERSION));
 
     build_simple_router(|route| {
         route.associate("/", |r| {
-            r.get().to_new_handler(handle);
+            r.get().to_new_handler(root_handler);
             r.put().to_new_handler(index_handler);
         });
         route

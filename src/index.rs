@@ -31,6 +31,8 @@ impl SearchResults {
     pub fn new(docs: Vec<ScoredDoc>) -> Self { SearchResults { hits: docs.len(), docs } }
 
     pub fn len(&self) -> usize { self.docs.len() }
+
+    pub fn is_empty(&self) -> bool { self.docs.is_empty() }
 }
 
 #[derive(Serialize)]
@@ -199,13 +201,9 @@ impl IndexCatalog {
 pub mod tests {
 
     use super::*;
-    use gotham::handler::NewHandler;
-    use gotham::router::builder::*;
     use gotham::router::Router;
     use gotham::test::{TestClient, TestServer};
-    use handlers::IndexPath;
-    use handlers::QueryOptions;
-    use hyper::{Get, Post};
+    use std::sync::Arc;
 
     pub fn create_test_index() -> Index {
         let mut builder = SchemaBuilder::new();
@@ -226,14 +224,8 @@ pub mod tests {
         idx
     }
 
-    pub fn create_test_client<H>(handler: H) -> TestClient<Router>
-    where H: NewHandler + 'static {
-        let server = TestServer::new(build_simple_router(|r| {
-            r.request(vec![Post, Get], "/:index")
-                .with_path_extractor::<IndexPath>()
-                .with_query_string_extractor::<QueryOptions>()
-                .to_new_handler(handler);
-        })).unwrap();
+    pub fn create_test_client(catalog: &Arc<IndexCatalog>) -> TestClient<Router> {
+        let server = TestServer::new(router::router_with_catalog(catalog)).unwrap();
         server.client()
     }
 

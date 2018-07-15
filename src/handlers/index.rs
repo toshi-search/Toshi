@@ -88,7 +88,6 @@ new_handler!(IndexHandler);
 mod tests {
 
     use super::*;
-    use gotham::test::*;
     use index::tests::*;
 
     #[test]
@@ -128,8 +127,8 @@ mod tests {
     fn test_indexes() {
         let idx = create_test_index();
         let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
-        let handler = IndexHandler::new(Arc::new(catalog));
-        let test_server = TestServer::new(handler).unwrap();
+        let test_server = create_test_client(&Arc::new(catalog));
+
         let body = r#"
         {
             "index": "test_index",
@@ -141,7 +140,6 @@ mod tests {
         }"#;
 
         let response = test_server
-            .client()
             .put("http://localhost/", body, mime::APPLICATION_JSON)
             .perform()
             .unwrap();
