@@ -22,9 +22,11 @@ extern crate tantivy;
 #[macro_use]
 extern crate lazy_static;
 extern crate config;
+extern crate crossbeam_channel;
 extern crate pretty_env_logger;
 
 use tantivy::query::QueryParserError;
+use tantivy::schema::DocParsingError;
 use tantivy::ErrorKind;
 
 quick_error! {
@@ -78,6 +80,20 @@ impl From<QueryParserError> for Error {
 
 impl From<std::io::Error> for Error {
     fn from(err: std::io::Error) -> Error { Error::IOError(err.to_string()) }
+}
+
+impl From<std::string::FromUtf8Error> for Error {
+    fn from(err: std::string::FromUtf8Error) -> Error { Error::IOError(err.to_string()) }
+}
+
+impl From<DocParsingError> for Error {
+    fn from(err: DocParsingError) -> Error {
+        match err {
+            DocParsingError::NotJSON(e) => Error::IOError(e),
+            DocParsingError::ValueError(s, _) => Error::IOError(s),
+            DocParsingError::NoSuchFieldInSchema(e) => Error::UnknownIndexField(e),
+        }
+    }
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

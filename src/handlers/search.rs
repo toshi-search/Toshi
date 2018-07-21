@@ -7,6 +7,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::io::Result as IOResult;
 use std::panic::RefUnwindSafe;
+use std::sync::RwLock;
 
 #[derive(Deserialize, Debug)]
 pub struct Search {
@@ -20,12 +21,12 @@ impl Search {
     pub fn all() -> Self {
         Search {
             query: Queries::AllQuery,
-            limit: 5,
+            limit: 100,
         }
     }
 }
 
-fn default_limit() -> usize { 5 }
+fn default_limit() -> usize { 100 }
 
 #[derive(Deserialize, Debug, Clone, PartialEq)]
 #[serde(untagged)]
@@ -39,13 +40,13 @@ pub enum Queries {
 
 #[derive(Clone, Debug)]
 pub struct SearchHandler {
-    catalog: Arc<IndexCatalog>,
+    catalog: Arc<RwLock<IndexCatalog>>,
 }
 
 impl RefUnwindSafe for SearchHandler {}
 
 impl SearchHandler {
-    pub fn new(catalog: Arc<IndexCatalog>) -> Self { SearchHandler { catalog } }
+    pub fn new(catalog: Arc<RwLock<IndexCatalog>>) -> Self { SearchHandler { catalog } }
 }
 
 impl Handler for SearchHandler {
@@ -58,7 +59,7 @@ impl Handler for SearchHandler {
                         Ok(b) => {
                             let search: Search = serde_json::from_slice(&b).unwrap();
                             info!("Query: {:#?}", search);
-                            let docs = match self.catalog.search_index(&index.index, &search) {
+                            let docs = match self.catalog.read().unwrap().search_index(&index.index, &search) {
                                 Ok(v) => v,
                                 Err(ref e) => return handle_error(state, e),
                             };
@@ -77,7 +78,7 @@ impl Handler for SearchHandler {
                     Box::new(f)
                 }
                 Method::Get => {
-                    let docs = match self.catalog.search_index(&index.index, &Search::all()) {
+                    let docs = match self.catalog.read().unwrap().search_index(&index.index, &Search::all()) {
                         Ok(v) => v,
                         Err(ref e) => return Box::new(handle_error(state, e)),
                     };
@@ -130,7 +131,7 @@ mod tests {
     fn run_query(query: &'static str) -> TestResults {
         let idx = create_test_index();
         let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
-        let client = create_test_client(&Arc::new(catalog));
+        let client = create_test_client(&Arc::new(RwLock::new(catalog)));
 
         let req = client
             .post("http://localhost/test_index", query, mime::APPLICATION_JSON)
@@ -182,7 +183,7 @@ mod tests {
     fn test_term_search() {
         let idx = create_test_index();
         let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
-        let client = create_test_client(&Arc::new(catalog));
+        let client = create_test_client(&Arc::new(RwLock::new(catalog)));
 
         let req = client.get("http://localhost/test_index").perform().unwrap();
         assert_eq!(req.status(), StatusCode::Ok);
@@ -197,7 +198,7 @@ mod tests {
     fn test_wrong_index_error() {
         let idx = create_test_index();
         let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
-        let client = create_test_client(&Arc::new(catalog));
+        let client = create_test_client(&Arc::new(RwLock::new(catalog)));
         let req = client.get("http://localhost/bad_index").perform().unwrap();
 
         assert_eq!(req.status(), StatusCode::BadRequest);
@@ -207,7 +208,7 @@ mod tests {
     fn test_no_index_error() {
         let idx = create_test_index();
         let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
-        let client = create_test_client(&Arc::new(catalog));
+        let client = create_test_client(&Arc::new(RwLock::new(catalog)));
         let req = client.get("http://localhost/").perform().unwrap();
 
         assert_eq!(req.status(), StatusCode::Ok);
@@ -218,7 +219,7 @@ mod tests {
     fn test_bad_raw_query_syntax() {
         let idx = create_test_index();
         let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
-        let client = create_test_client(&Arc::new(catalog));
+        let client = create_test_client(&Arc::new(RwLock::new(catalog)));
         let body = r#"{ "query" : { "raw": "asd*(@sq__" } }"#;
 
         let req = client
@@ -237,7 +238,7 @@ mod tests {
     fn test_bad_term_field_syntax() {
         let idx = create_test_index();
         let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
-        let client = create_test_client(&Arc::new(catalog));
+        let client = create_test_client(&Arc::new(RwLock::new(catalog)));
         let body = r#"{ "query" : { "term": { "asdf": "Document" } } }"#;
 
         let req = client
@@ -253,7 +254,7 @@ mod tests {
     fn test_bad_number_field_syntax() {
         let idx = create_test_index();
         let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
-        let client = create_test_client(&Arc::new(catalog));
+        let client = create_test_client(&Arc::new(RwLock::new(catalog)));
         let body = r#"{ "query" : { "term": { "123asdf": "Document" } } }"#;
 
         let req = client

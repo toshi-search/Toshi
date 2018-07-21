@@ -11,11 +11,9 @@ use tantivy::Index;
 use super::*;
 use handlers::search::{Queries, Search};
 
-#[derive(Serialize, Debug, Clone)]
+#[derive(Clone, Debug)]
 pub struct IndexCatalog {
-    base_path: PathBuf,
-
-    #[serde(skip_serializing)]
+    base_path:  PathBuf,
     collection: HashMap<String, Index>,
 }
 
@@ -56,6 +54,8 @@ impl IndexCatalog {
         Ok(index_cat)
     }
 
+    pub fn base_path(&self) -> &PathBuf { &self.base_path }
+
     #[doc(hidden)]
     #[allow(dead_code)]
     pub fn with_index(name: String, index: Index) -> Result<Self> {
@@ -84,6 +84,8 @@ impl IndexCatalog {
 
     #[allow(dead_code)]
     pub fn get_collection(&self) -> &HashMap<String, Index> { &self.collection }
+
+    pub fn exists(&self, index: &str) -> bool { self.get_collection().contains_key(index) }
 
     pub fn get_index(&self, name: &str) -> Result<&Index> { self.collection.get(name).ok_or_else(|| Error::UnknownIndex(name.to_string())) }
 
@@ -204,6 +206,7 @@ pub mod tests {
     use gotham::router::Router;
     use gotham::test::{TestClient, TestServer};
     use std::sync::Arc;
+    use std::sync::RwLock;
 
     pub fn create_test_index() -> Index {
         let mut builder = SchemaBuilder::new();
@@ -224,9 +227,13 @@ pub mod tests {
         idx
     }
 
-    pub fn create_test_client(catalog: &Arc<IndexCatalog>) -> TestClient<Router> {
-        let server = TestServer::new(router::router_with_catalog(catalog)).unwrap();
+    pub fn create_test_client(catalog: &Arc<RwLock<IndexCatalog>>) -> TestClient<Router> {
+        let server = create_test_server(catalog);
         server.client()
+    }
+
+    pub fn create_test_server(catalog: &Arc<RwLock<IndexCatalog>>) -> TestServer<Router> {
+        TestServer::new(router::router_with_catalog(catalog)).unwrap()
     }
 
     #[cfg(not(target_family = "windows"))]

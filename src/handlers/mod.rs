@@ -7,6 +7,7 @@ macro_rules! new_handler {
     };
 }
 
+pub mod bulk;
 pub mod index;
 pub mod root;
 pub mod search;
