@@ -46,16 +46,16 @@ impl Handler for BulkHandler {
         let index_lock = self.catalog.read().unwrap();
         let index = index_lock.get_index(&path.index).unwrap();
         let schema = index.schema();
-        let (l_send, l_recv) = crossbeam_channel::unbounded::<Vec<u8>>();
-        let (d_send, d_recv) = crossbeam_channel::unbounded::<Document>();
+        let (line_sender, line_recv) = crossbeam_channel::unbounded::<Vec<u8>>();
+        let (doc_sender, doc_recv) = crossbeam_channel::unbounded::<Document>();
 
         // TODO: Make this configurable
         for _ in 0..8 {
             let schema_clone = schema.clone();
-            let doc_sender = d_send.clone();
-            let l_recv_clone = l_recv.clone();
+            let doc_sender = doc_sender.clone();
+            let line_recv_clone = line_recv.clone();
             thread::spawn(move || {
-                for line in l_recv_clone {
+                for line in line_recv_clone {
                     if !line.is_empty() {
                         match schema_clone.parse_document(from_utf8(&line).unwrap()) {
                             Ok(doc) => doc_sender.send(doc),
@@ -69,9 +69,11 @@ impl Handler for BulkHandler {
         }
 
         let mut index_writer = index.writer(SETTINGS.writer_memory).unwrap();
-        thread::spawn(move || BulkHandler::index_documents(&mut index_writer, d_recv));
+        thread::spawn(move || BulkHandler::index_documents(&mut index_writer, doc_recv));
 
         let body = Body::take_from(&mut state);
+        let line_sender_clone = line_sender.clone();
+
         let response = body
             .map_err(|e| e.into_handler_error())
             .fold(Vec::new(), move |mut buf, line| {
@@ -81,13 +83,16 @@ impl Handler for BulkHandler {
                     if split.peek().is_none() {
                         return future::ok(l.to_vec());
                     }
-                    l_send.send(l.to_vec());
+                    line_sender_clone.send(l.to_vec());
                 }
                 future::ok(buf.clone())
             })
-            .then(|r| match r {
-                Ok(_) => {
-                    let resp = create_response(&state, StatusCode::Ok, None);
+            .then(move |r| match r {
+                Ok(buf) => {
+                    if !buf.is_empty() {
+                        line_sender.send(buf.to_vec());
+                    }
+                    let resp = create_response(&state, StatusCode::Created, None);
                     future::ok((state, resp))
                 }
                 Err(ref e) => handle_error(state, e),
@@ -105,7 +110,13 @@ mod tests {
     use tantivy::schema::*;
     use tantivy::Index;
 
-    // TODO: Write some some actual tests here.
+    use super::search::tests::*;
+    use super::*;
+    use index::tests::*;
+    use index::IndexCatalog;
+
+    use mime;
+    use serde_json;
 
     #[test]
     #[ignore]
@@ -117,5 +128,35 @@ mod tests {
         let built = schema.build();
 
         Index::create_in_dir(PathBuf::from("./indexes/wikipedia"), built).unwrap();
+    }
+
+    // TODO: Need Error coverage testing here.
+
+    #[test]
+    fn test_bulk_index() {
+        let idx = create_test_index();
+        let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
+        let server = create_test_server(&Arc::new(RwLock::new(catalog)));
+
+        let body = r#"{"test_text": "asdf1234", "test_i64": 123, "test_u64": 321}
+        {"test_text": "asdf5678", "test_i64": 456, "test_u64": 678}
+        {"test_text": "asdf9012", "test_i64": -12, "test_u64": 901}"#;
+
+        let req = server
+            .client()
+            .post("http://localhost/test_index/_bulk", body, mime::APPLICATION_JSON)
+            .perform()
+            .unwrap();
+
+        assert_eq!(req.status(), StatusCode::Created);
+
+        // Give it a second...
+        std::thread::sleep(std::time::Duration::from_secs(1));
+
+        let check_docs = server.client().get("http://localhost/test_index").perform().unwrap();
+        let docs: TestResults = serde_json::from_slice(&check_docs.read_body().unwrap()).unwrap();
+
+        assert_eq!(docs.hits, 8);
+        // TODO: Do more testing here.
     }
 }
