@@ -103,29 +103,29 @@ impl Handler for SearchHandler {
 new_handler!(SearchHandler);
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
 
     use super::*;
     use index::tests::*;
     use serde_json;
 
     #[derive(Deserialize, Debug)]
-    struct TestResults {
-        hits: i32,
-        docs: Vec<TestDoc>,
+    pub struct TestResults {
+        pub hits: i32,
+        pub docs: Vec<TestDoc>,
     }
 
     #[derive(Deserialize, Debug)]
-    struct TestDoc {
-        score: f32,
-        doc:   TestSchema,
+    pub struct TestDoc {
+        pub score: f32,
+        pub doc:   TestSchema,
     }
 
     #[derive(Deserialize, Debug)]
-    struct TestSchema {
-        test_text: Vec<String>,
-        test_i64:  Vec<i64>,
-        test_u64:  Vec<u64>,
+    pub struct TestSchema {
+        pub test_text: Vec<String>,
+        pub test_i64:  Vec<i64>,
+        pub test_u64:  Vec<u64>,
     }
 
     fn run_query(query: &'static str) -> TestResults {
