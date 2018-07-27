@@ -10,8 +10,7 @@ use toshi::router::router_with_catalog;
 use toshi::settings::{HEADER, SETTINGS};
 
 pub fn main() {
-    let log_level = SETTINGS.log_level.clone().unwrap_or_else(|| String::from("info"));
-    std::env::set_var("RUST_LOG", &log_level);
+    std::env::set_var("RUST_LOG", &SETTINGS.log_level);
     pretty_env_logger::init();
     println!("{}", HEADER);
 

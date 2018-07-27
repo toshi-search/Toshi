@@ -179,7 +179,8 @@ mod tests {
         let get_request = test_server.client().get("http://localhost/new_index");
         let get_response = get_request.perform().unwrap();
 
-        println!("{:?}", get_response.read_utf8_body().unwrap())
+        assert_eq!(StatusCode::Ok, get_response.status());
+        assert_eq!("{\"hits\":0,\"docs\":[]}", get_response.read_utf8_body().unwrap())
     }
 
     #[test]

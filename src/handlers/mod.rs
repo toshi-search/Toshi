@@ -13,7 +13,7 @@ pub mod root;
 pub mod search;
 
 use index::*;
-use settings::SETTINGS;
+use settings::{Settings, SETTINGS};
 
 use gotham::handler::*;
 use gotham::http::response::create_response;
@@ -35,11 +35,9 @@ pub struct IndexPath {
 
 #[derive(Deserialize, StateData, StaticResponseExtender, Debug)]
 pub struct QueryOptions {
-    #[serde(default = "default_pretty")]
+    #[serde(default = "Settings::default_pretty")]
     pretty: bool,
 }
-
-fn default_pretty() -> bool { false }
 
 #[derive(Debug, Serialize)]
 pub struct ErrorResponse {

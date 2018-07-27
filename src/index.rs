@@ -1,3 +1,5 @@
+use super::*;
+
 use std::collections::HashMap;
 use std::fs::read_dir;
 use std::iter::Iterator;
@@ -8,7 +10,6 @@ use tantivy::query::{AllQuery, QueryParser};
 use tantivy::schema::*;
 use tantivy::Index;
 
-use super::*;
 use handlers::search::{Queries, Search};
 
 #[derive(Clone, Debug)]

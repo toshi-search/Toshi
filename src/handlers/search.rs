@@ -1,3 +1,4 @@
+use super::super::settings::Settings;
 use super::super::Error;
 use super::*;
 use futures::{future, Future, Stream};
@@ -13,7 +14,7 @@ use std::sync::RwLock;
 pub struct Search {
     pub query: Queries,
 
-    #[serde(default = "default_limit")]
+    #[serde(default = "Settings::default_result_limit")]
     pub limit: usize,
 }
 
@@ -21,12 +22,10 @@ impl Search {
     pub fn all() -> Self {
         Search {
             query: Queries::AllQuery,
-            limit: 100,
+            limit: Settings::default_result_limit(),
         }
     }
 }
-
-fn default_limit() -> usize { 100 }
 
 #[derive(Deserialize, Debug, Clone, PartialEq)]
 #[serde(untagged)]
@@ -57,7 +56,10 @@ impl Handler for SearchHandler {
                 Method::Post => {
                     let f = Body::take_from(&mut state).concat2().then(move |body| match body {
                         Ok(b) => {
-                            let search: Search = serde_json::from_slice(&b).unwrap();
+                            let search: Search = match serde_json::from_slice(&b) {
+                                Ok(s) => s,
+                                Err(ref e) => return handle_error(state, e),
+                            };
                             info!("Query: {:#?}", search);
                             let docs = match self.catalog.read().unwrap().search_index(&index.index, &search) {
                                 Ok(v) => v,

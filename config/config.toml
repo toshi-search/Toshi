@@ -1,5 +1,9 @@
 host = "localhost"
 port = 8080
-path = "indexes/"
-writer_memory = 200000000
+path = "data/"
+writer_memory = 15000000000
 log_level = "info"
+json_parsing_threads = 8
+
+[merge_policy]
+kind = "log"
