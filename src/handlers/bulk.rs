@@ -50,7 +50,7 @@ impl Handler for BulkHandler {
         let (doc_sender, doc_recv) = crossbeam_channel::unbounded::<Document>();
 
         // TODO: Make this configurable
-        for _ in 0..8 {
+        for _ in 0..SETTINGS.json_parsing_threads {
             let schema_clone = schema.clone();
             let doc_sender = doc_sender.clone();
             let line_recv_clone = line_recv.clone();
@@ -68,7 +68,11 @@ impl Handler for BulkHandler {
             });
         }
 
-        let mut index_writer = index.writer(SETTINGS.writer_memory).unwrap();
+        let mut index_writer = match index.writer(SETTINGS.writer_memory) {
+            Ok(w) => w,
+            Err(ref e) => return Box::new(handle_error(state, e)),
+        };
+        index_writer.set_merge_policy(SETTINGS.get_merge_policy());
         thread::spawn(move || BulkHandler::index_documents(&mut index_writer, doc_recv));
 
         let body = Body::take_from(&mut state);
@@ -106,10 +110,6 @@ new_handler!(BulkHandler);
 #[cfg(test)]
 mod tests {
 
-    use std::path::PathBuf;
-    use tantivy::schema::*;
-    use tantivy::Index;
-
     use super::search::tests::*;
     use super::*;
     use index::tests::*;
@@ -118,17 +118,17 @@ mod tests {
     use mime;
     use serde_json;
 
-    #[test]
-    #[ignore]
-    fn create_index() {
-        let mut schema = SchemaBuilder::new();
-        schema.add_text_field("title", TEXT | STORED);
-        schema.add_text_field("body", TEXT | STORED);
-        schema.add_text_field("url", STORED);
-        let built = schema.build();
-
-        Index::create_in_dir(PathBuf::from("./indexes/wikipedia"), built).unwrap();
-    }
+//    #[test]
+//    #[ignore]
+//    fn create_index() {
+//        let mut schema = SchemaBuilder::new();
+//        schema.add_text_field("title", TEXT | STORED);
+//        schema.add_text_field("body", TEXT | STORED);
+//        schema.add_text_field("url", STORED);
+//        let built = schema.build();
+//
+//        Index::create_in_dir(PathBuf::from("./indexes/wikipedia"), built).unwrap();
+//    }
 
     // TODO: Need Error coverage testing here.
 
