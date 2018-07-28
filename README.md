@@ -1,7 +1,7 @@
 # Toshi
 ##### A Full Text Search Engine in Rust Based on [Tantivy](https://github.com/tantivy-search/tantivy)
 
-[![dependency status](https://deps.rs/repo/github/hntd187/toshi/status.svg)](https://deps.rs/repo/github/hntd187/toshi) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Build Status](https://travis-ci.org/hntd187/Toshi.svg?branch=master)](https://travis-ci.org/hntd187/Toshi) [![codecov](https://codecov.io/gh/hntd187/toshi/branch/master/graph/badge.svg)](https://codecov.io/gh/hntd187/toshi) [![Coverage Status](https://coveralls.io/repos/github/hntd187/toshi/badge.svg?branch=master)](https://coveralls.io/github/hntd187/toshi?branch=master)
+[![dependency status](https://deps.rs/repo/github/hntd187/toshi/status.svg)](https://deps.rs/repo/github/hntd187/toshi) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Build Status](https://travis-ci.org/hntd187/Toshi.svg?branch=master)](https://travis-ci.org/hntd187/Toshi) [![codecov](https://codecov.io/gh/hntd187/Toshi/branch/master/graph/badge.svg)](https://codecov.io/gh/hntd187/Toshi) [![Coverage Status](https://coveralls.io/repos/github/hntd187/Toshi/badge.svg?branch=master)](https://coveralls.io/github/hntd187/Toshi?branch=master)
 
 #### Description
 Toshi is meant to be a full text search engine similar to ElasticSearch. Ideally, if what Tantivy is to Lucene, Toshi strives
