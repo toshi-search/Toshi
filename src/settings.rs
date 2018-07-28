@@ -1,7 +1,7 @@
 use config::Source;
 use config::{Config, ConfigError, File, FileFormat};
 use tantivy::merge_policy::*;
-
+use crossbeam_channel::*;
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub const HEADER: &str = r#"
@@ -50,6 +50,8 @@ pub struct Settings {
     pub writer_memory: usize,
     #[serde(default = "Settings::default_json_parsing_threads")]
     pub json_parsing_threads: usize,
+    #[serde(default = "Settings::default_bulk_buffer_size")]
+    pub bulk_buffer_size: usize,
     #[serde(default = "Settings::default_merge_policy")]
     pub merge_policy: ConfigMergePolicy,
 }
@@ -57,9 +59,7 @@ pub struct Settings {
 impl Settings {
     pub fn new(path: &str) -> Result<Self, ConfigError> { Settings::from_config(File::with_name(path)) }
 
-    pub fn default() -> Result<Self, ConfigError> {
-        Settings::from_config(File::from_str("", FileFormat::Toml))
-    }
+    pub fn default(cfg: &str) -> Result<Self, ConfigError> { Settings::from_config(File::from_str(cfg, FileFormat::Toml)) }
 
     pub fn from_config<T: Source + Send + Sync + 'static>(c: T) -> Result<Self, ConfigError> {
         let mut cfg = Config::new();
@@ -78,12 +78,21 @@ impl Settings {
     pub fn default_level() -> String { "info".into() }
     pub fn default_writer_memory() -> usize { 200_000_000 }
     pub fn default_json_parsing_threads() -> usize { 4 }
+    pub fn default_bulk_buffer_size() -> usize { 10000 }
     pub fn default_merge_policy() -> ConfigMergePolicy {
         ConfigMergePolicy {
-            kind: "log".to_string(),
+            kind:           "log".to_string(),
             min_merge_size: None,
             min_layer_size: None,
-            level_log_size: None
+            level_log_size: None,
+        }
+    }
+
+    pub fn get_channel<T>(&self) -> (Sender<T>, Receiver<T>) {
+        if self.bulk_buffer_size == 0 {
+            unbounded::<T>()
+        } else {
+            bounded::<T>(self.bulk_buffer_size)
         }
     }
 
@@ -118,17 +127,49 @@ mod tests {
 
     #[test]
     fn valid_default_config() {
-        let default = Settings::default().unwrap();
+        let default = Settings::default("").unwrap();
         assert_eq!(default.host, "localhost");
         assert_eq!(default.port, 8080);
         assert_eq!(default.path, "data/");
         assert_eq!(default.writer_memory, 200_000_000);
         assert_eq!(default.log_level, "info");
         assert_eq!(default.json_parsing_threads, 4);
+        assert_eq!(default.bulk_buffer_size, 10000);
         assert_eq!(default.merge_policy.kind, "log");
         assert_eq!(default.merge_policy.level_log_size, None);
         assert_eq!(default.merge_policy.min_layer_size, None);
         assert_eq!(default.merge_policy.min_merge_size, None);
+    }
+
+    #[test]
+    fn valid_merge_policy() {
+        let cfg = r#"
+            [merge_policy]
+            kind = "log"
+            level_log_size = 10.5
+            min_layer_size = 20
+            min_merge_size = 30"#;
+
+        let config = Settings::default(cfg).unwrap();
+
+        assert_eq!(config.merge_policy.level_log_size.unwrap(), 10.5);
+        assert_eq!(config.merge_policy.min_layer_size.unwrap(), 20);
+        assert_eq!(config.merge_policy.min_merge_size.unwrap(), 30);
+    }
+
+
+    #[test]
+    fn valid_no_merge_policy() {
+        let cfg = r#"
+            [merge_policy]
+            kind = "nomerge""#;
+
+        let config = Settings::default(cfg).unwrap();
+
+        assert_eq!(config.merge_policy.kind, "nomerge");
+        assert_eq!(config.merge_policy.level_log_size, None);
+        assert_eq!(config.merge_policy.min_layer_size, None);
+        assert_eq!(config.merge_policy.min_merge_size, None);
     }
 
 }

@@ -16,7 +16,7 @@ use std::thread;
 use tantivy::Document;
 use tantivy::IndexWriter;
 
-use crossbeam_channel::Receiver;
+use crossbeam_channel::{unbounded, Receiver};
 
 #[derive(Clone, Debug)]
 pub struct BulkHandler {
@@ -46,10 +46,9 @@ impl Handler for BulkHandler {
         let index_lock = self.catalog.read().unwrap();
         let index = index_lock.get_index(&path.index).unwrap();
         let schema = index.schema();
-        let (line_sender, line_recv) = crossbeam_channel::unbounded::<Vec<u8>>();
-        let (doc_sender, doc_recv) = crossbeam_channel::unbounded::<Document>();
+        let (line_sender, line_recv) = SETTINGS.get_channel::<Vec<u8>>();
+        let (doc_sender, doc_recv) = unbounded::<Document>();
 
-        // TODO: Make this configurable
         for _ in 0..SETTINGS.json_parsing_threads {
             let schema_clone = schema.clone();
             let doc_sender = doc_sender.clone();
@@ -118,17 +117,6 @@ mod tests {
     use mime;
     use serde_json;
 
-//    #[test]
-//    #[ignore]
-//    fn create_index() {
-//        let mut schema = SchemaBuilder::new();
-//        schema.add_text_field("title", TEXT | STORED);
-//        schema.add_text_field("body", TEXT | STORED);
-//        schema.add_text_field("url", STORED);
-//        let built = schema.build();
-//
-//        Index::create_in_dir(PathBuf::from("./indexes/wikipedia"), built).unwrap();
-//    }
 
     // TODO: Need Error coverage testing here.
 
