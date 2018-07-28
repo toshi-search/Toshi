@@ -40,5 +40,5 @@ script:
   - cargo build && cargo test
 
 after_success:
-  - cargo coverage --exclude-pattern '/toshi/src/bin' && bash <(curl -s https://codecov.io/bash) -s target/kcov
-  - cargo coveralls --exclude-pattern '/toshi/src/bin'
+  - cargo coverage --exclude-pattern '/toshi/src/bin,/src/bin,/bin' && bash <(curl -s https://codecov.io/bash) -s target/kcov
+  - cargo coveralls --exclude-pattern '/toshi/src/bin,/src/bin,/bin'
