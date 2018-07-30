@@ -61,7 +61,7 @@ take up by blocking when the message buffer is filled. If you want to go totally
 the buffer unbounded.
 
 ##### Merge Policy
-```
+```toml
 [merge_policy]
 kind = "log"
 ```
@@ -70,7 +70,7 @@ Tantivy will merge index segments according to the configuration outlined here. 
 segment merge behavior. Log has 3 additional values to it as well. Any of these 3 values can be ommitted to use Tantivy's default value.
 The default values are listed below.
 
-```
+```toml
 min_merge_size = 8
 min_layer_size = 10_000
 level_log_size = 0.75
@@ -84,7 +84,7 @@ start toshi according to the configuration in config/config.toml
 
 You should get a startup message like this.
 
-```
+```bash
   ______         __   _   ____                 __
  /_  __/__  ___ / /  (_) / __/__ ___ _________/ /
   / / / _ \(_-</ _ \/ / _\ \/ -_) _ `/ __/ __/ _ \
@@ -97,20 +97,20 @@ You should get a startup message like this.
 
 You can verify Toshi is running with
 
-```
+```bash
 curl -X GET http://localhost:8080/
 ```
 
 Which should return
 
-```
+```html
 Toshi Search, Version: 0.1.0
 ```
 
 Once Toshi is up and running we can create an Index. Toshi uses Tantivy so creating an index requires a Tantivy Schema. Let's create a 
 simple one seen below.
 
-```
+```bash
 curl -X PUT \
   http://localhost:8080/test_index \
   -H 'Content-Type: application/json' \
@@ -150,7 +150,7 @@ should now see a directory for the test_index you just created.
 
 Now we can add some documents to our Index.
 
-```
+```bash
 curl -X PUT \
   http://localhost:8080/test_index \
   -H 'Content-Type: application/json' \
@@ -165,7 +165,7 @@ curl -X PUT \
 
 And finally we can retreive all the documents in an index with a simple get call
 
-```
+```bash
 curl -X GET http://localhost:8080/test_index -H 'Content-Type: application/json'
 ```
 
