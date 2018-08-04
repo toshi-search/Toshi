@@ -11,19 +11,21 @@ pub mod bulk;
 pub mod index;
 pub mod root;
 pub mod search;
+pub mod summary;
 
+pub use self::{bulk::BulkHandler, index::IndexHandler, root::RootHandler, search::SearchHandler, summary::SummaryHandler};
+
+use super::*;
 use index::*;
 use settings::{Settings, SETTINGS};
 
+use futures::{future, future::FutureResult};
 use gotham::handler::*;
 use gotham::http::response::create_response;
 use gotham::state::*;
-use hyper::{Body, StatusCode};
-
-use futures::future;
-use futures::future::FutureResult;
-use hyper::Response;
-use mime;
+use hyper::{Body, Response, StatusCode};
+use mime::{self, Mime};
+use serde::Serialize;
 use serde_json;
 use std::error::Error;
 use std::sync::Arc;
@@ -50,6 +52,15 @@ impl ErrorResponse {
             reason: reason.to_string(),
         }
     }
+}
+
+fn to_json<T>(result: T, pretty: bool) -> Option<(Vec<u8>, Mime)>
+where T: Serialize {
+    Some(if pretty {
+        (serde_json::to_vec_pretty(&result).unwrap(), mime::APPLICATION_JSON)
+    } else {
+        (serde_json::to_vec(&result).unwrap(), mime::APPLICATION_JSON)
+    })
 }
 
 type FutureError = FutureResult<(State, Response<Body>), (State, HandlerError)>;

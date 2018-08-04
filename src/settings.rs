@@ -1,7 +1,8 @@
 use config::Source;
 use config::{Config, ConfigError, File, FileFormat};
-use tantivy::merge_policy::*;
 use crossbeam_channel::*;
+use tantivy::merge_policy::*;
+
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub const HEADER: &str = r#"
@@ -12,7 +13,6 @@ pub const HEADER: &str = r#"
  Such Relevance, Much Index, Many Search, Wow
  "#;
 
-#[derive(Debug, Deserialize)]
 pub enum MergePolicyType {
     Log,
     NoMerge,
@@ -156,7 +156,6 @@ mod tests {
         assert_eq!(config.merge_policy.min_layer_size.unwrap(), 20);
         assert_eq!(config.merge_policy.min_merge_size.unwrap(), 30);
     }
-
 
     #[test]
     fn valid_no_merge_policy() {

@@ -1,4 +1,3 @@
-use super::super::*;
 use super::*;
 
 use futures::future;
@@ -58,7 +57,7 @@ impl Handler for BulkHandler {
                     if !line.is_empty() {
                         match schema_clone.parse_document(from_utf8(&line).unwrap()) {
                             Ok(doc) => doc_sender.send(doc),
-                            // TODO: Add better/more error handling here, right now if an error occurs
+                            // TODO: Add better/more error handling here, right now if an error occurs it's
                             // swallowed up, which is kind of bad.
                             Err(err) => error!("Failed to add doc: {:?}", err),
                         }
@@ -89,8 +88,7 @@ impl Handler for BulkHandler {
                     line_sender_clone.send(l.to_vec());
                 }
                 future::ok(buf.clone())
-            })
-            .then(move |r| match r {
+            }).then(move |r| match r {
                 Ok(buf) => {
                     if !buf.is_empty() {
                         line_sender.send(buf.to_vec());
@@ -116,7 +114,6 @@ mod tests {
 
     use mime;
     use serde_json;
-
 
     // TODO: Need Error coverage testing here.
 

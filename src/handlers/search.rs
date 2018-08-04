@@ -1,5 +1,4 @@
-use super::super::settings::Settings;
-use super::super::Error;
+use super::settings::Settings;
 use super::*;
 use futures::{future, Future, Stream};
 
@@ -50,55 +49,50 @@ impl SearchHandler {
 
 impl Handler for SearchHandler {
     fn handle(self, mut state: State) -> Box<HandlerFuture> {
-        if let Some(index) = IndexPath::try_take_from(&mut state) {
-            let query_options = QueryOptions::take_from(&mut state);
-            match *Method::borrow_from(&state) {
-                Method::Post => {
-                    let f = Body::take_from(&mut state).concat2().then(move |body| match body {
-                        Ok(b) => {
-                            let search: Search = match serde_json::from_slice(&b) {
-                                Ok(s) => s,
-                                Err(ref e) => return handle_error(state, e),
-                            };
-                            info!("Query: {:#?}", search);
-                            let docs = match self.catalog.read().unwrap().search_index(&index.index, &search) {
-                                Ok(v) => v,
-                                Err(ref e) => return handle_error(state, e),
-                            };
-                            info!("Query returned {} doc(s) on Index: {}", docs.len(), index.index);
-
-                            let data = Some(if query_options.pretty {
-                                (serde_json::to_vec_pretty(&docs).unwrap(), mime::APPLICATION_JSON)
-                            } else {
-                                (serde_json::to_vec(&docs).unwrap(), mime::APPLICATION_JSON)
-                            });
-                            let resp = create_response(&state, StatusCode::Ok, data);
-                            future::ok((state, resp))
-                        }
-                        Err(ref e) => handle_error(state, e),
-                    });
-                    Box::new(f)
-                }
-                Method::Get => {
-                    let docs = match self.catalog.read().unwrap().search_index(&index.index, &Search::all()) {
-                        Ok(v) => v,
-                        Err(ref e) => return Box::new(handle_error(state, e)),
-                    };
-                    info!("Query returned {} doc(s) on Index: {}", docs.len(), index.index);
-
-                    let data = Some(if query_options.pretty {
-                        (serde_json::to_vec_pretty(&docs).unwrap(), mime::APPLICATION_JSON)
-                    } else {
-                        (serde_json::to_vec(&docs).unwrap(), mime::APPLICATION_JSON)
-                    });
-                    let resp = create_response(&state, StatusCode::Ok, data);
-                    Box::new(future::ok((state, resp)))
-                }
-                _ => unimplemented!(),
-            }
-        } else {
-            Box::new(handle_error(state, &Error::UnknownIndex("No valid index in path".to_string())))
+        let index = IndexPath::take_from(&mut state);
+        let query_options = QueryOptions::take_from(&mut state);
+        match *Method::borrow_from(&state) {
+            Method::Post => self.post_request(state, query_options, index),
+            Method::Get => self.get_request(state, &query_options, &index),
+            _ => unreachable!(),
         }
+    }
+}
+
+impl SearchHandler {
+    fn post_request(self, mut state: State, query_options: QueryOptions, index: IndexPath) -> Box<HandlerFuture> {
+        let f = Body::take_from(&mut state).concat2().then(move |body| match body {
+            Ok(b) => {
+                let search: Search = match serde_json::from_slice(&b) {
+                    Ok(s) => s,
+                    Err(ref e) => return handle_error(state, e),
+                };
+                info!("Query: {:#?}", search);
+                let docs = match self.catalog.read().unwrap().search_index(&index.index, &search) {
+                    Ok(v) => v,
+                    Err(ref e) => return handle_error(state, e),
+                };
+                info!("Query returned {} doc(s) on Index: {}", docs.len(), index.index);
+
+                let data = to_json(docs, query_options.pretty);
+                let resp = create_response(&state, StatusCode::Ok, data);
+                future::ok((state, resp))
+            }
+            Err(ref e) => handle_error(state, e),
+        });
+        Box::new(f)
+    }
+
+    fn get_request(self, state: State, query_options: &QueryOptions, index: &IndexPath) -> Box<HandlerFuture> {
+        let docs = match self.catalog.read().unwrap().search_index(&index.index, &Search::all()) {
+            Ok(v) => v,
+            Err(ref e) => return Box::new(handle_error(state, e)),
+        };
+        info!("Query returned {} doc(s) on Index: {}", docs.len(), index.index);
+
+        let data = to_json(docs, query_options.pretty);
+        let resp = create_response(&state, StatusCode::Ok, data);
+        Box::new(future::ok((state, resp)))
     }
 }
 
@@ -269,6 +263,16 @@ pub mod tests {
             r#"{"reason":"Query Parse Error: invalid digit found in string"}"#,
             req.read_utf8_body().unwrap()
         )
+    }
+
+    #[test]
+    fn test_bad_method() {
+        let idx = create_test_index();
+        let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
+        let client = create_test_client(&Arc::new(RwLock::new(catalog)));
+
+        let req = client.head("http://localhost/test_index").perform().unwrap();
+        assert_eq!(req.status(), StatusCode::MethodNotAllowed);
     }
 
     #[test]

@@ -112,7 +112,7 @@ impl IndexCatalog {
                 index.load_searchers()?;
                 let searcher = index.searcher();
                 let schema = index.schema();
-                let fields: Vec<Field> = schema.fields().iter().map(|e| schema.get_field(e.name()).unwrap()).collect();
+                let fields: Vec<Field> = schema.fields().iter().filter_map(|e| schema.get_field(e.name())).collect();
 
                 let mut collector = TopCollector::with_limit(search.limit);
                 let mut query_parser = QueryParser::for_index(index, fields);
@@ -160,8 +160,7 @@ impl IndexCatalog {
                                     term_query += "}";
                                 }
                                 term_query
-                            })
-                            .collect::<Vec<String>>()
+                            }).collect::<Vec<String>>()
                             .join(" ");
 
                         let query = query_parser.parse_query(&terms)?;
@@ -187,17 +186,13 @@ impl IndexCatalog {
                     .map(|(score, doc)| {
                         let d = searcher.doc(&doc).expect("Doc not found in segment");
                         ScoredDoc::new(*score, schema.to_named_doc(&d))
-                    })
-                    .collect();
+                    }).collect();
 
                 Ok(SearchResults::new(scored_docs))
             }
             Err(e) => Err(e),
         }
     }
-
-    #[allow(dead_code)]
-    pub fn create_index(&mut self, _path: &str, _schema: &Schema) -> Result<()> { Ok(()) }
 }
 
 #[cfg(test)]

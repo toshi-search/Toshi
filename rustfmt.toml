@@ -4,3 +4,4 @@ reorder_imports = true
 condense_wildcard_suffixes = true
 fn_single_line = true
 where_single_line = true
+newline_style = "Unix"

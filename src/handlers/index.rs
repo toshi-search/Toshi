@@ -20,7 +20,7 @@ macro_rules! add_field {
 
 #[derive(Deserialize, Debug)]
 pub struct IndexDoc {
-    pub fields: Vec<FieldValues>,
+    fields: Vec<FieldValues>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -33,7 +33,7 @@ pub enum FieldValues {
 
 #[derive(Clone, Debug)]
 pub struct IndexHandler {
-    pub catalog: Arc<RwLock<IndexCatalog>>,
+    catalog: Arc<RwLock<IndexCatalog>>,
 }
 
 impl RefUnwindSafe for IndexHandler {}
