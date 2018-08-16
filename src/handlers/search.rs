@@ -231,6 +231,23 @@ pub mod tests {
     }
 
     #[test]
+    fn test_unindexed_field() {
+        let idx = create_test_index();
+        let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
+        let client = create_test_client(&Arc::new(RwLock::new(catalog)));
+        let body = r#"{ "query" : { "raw": "test_unindex:asdf" } }"#;
+
+        let req = client
+            .post("http://localhost/test_index", body, mime::APPLICATION_JSON)
+            .perform()
+            .unwrap();
+
+        //assert_eq!(req.status(), StatusCode::BadRequest);
+
+        println!("{}", req.read_utf8_body().unwrap())
+    }
+
+    #[test]
     fn test_bad_term_field_syntax() {
         let idx = create_test_index();
         let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();

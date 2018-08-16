@@ -25,6 +25,10 @@ extern crate config;
 extern crate crossbeam_channel;
 extern crate pretty_env_logger;
 
+extern crate bincode;
+extern crate crc16;
+extern crate memmap;
+
 use tantivy::query::QueryParserError;
 use tantivy::ErrorKind;
 
@@ -40,9 +44,6 @@ quick_error! {
         UnknownIndex(err: String) {
             display("Unknown Index: '{}' queried", err)
         }
-        TantivyError(err: String) {
-            display("Error with Tantivy: {}", err)
-        }
         QueryError(err: String) {
             display("Query Parse Error: {}", err)
         }
@@ -57,7 +58,10 @@ impl From<tantivy::Error> for Error {
             }
             ErrorKind::IOError(e) => Error::IOError(e.to_string()),
             ErrorKind::SchemaError(e) => Error::UnknownIndex(e.to_string()),
-            e => Error::TantivyError(e.to_string()),
+            ErrorKind::Msg(e) | ErrorKind::InvalidArgument(e) => Error::IOError(e),
+            ErrorKind::Poisoned => Error::IOError("Poisoned".to_string()),
+            ErrorKind::ErrorInThread(e) => Error::IOError(e),
+            ErrorKind::FastFieldError(_) => Error::IOError("Fast Field Error".to_string()),
         }
     }
 }
@@ -65,14 +69,17 @@ impl From<tantivy::Error> for Error {
 impl From<QueryParserError> for Error {
     fn from(qpe: QueryParserError) -> Error {
         match qpe {
-            QueryParserError::SyntaxError => Error::QueryError(String::from("Syntax error in query")),
-            QueryParserError::FieldDoesNotExist(e)
-            | QueryParserError::FieldNotIndexed(e)
-            | QueryParserError::FieldDoesNotHavePositionsIndexed(e) => Error::UnknownIndexField(e),
+            QueryParserError::SyntaxError => Error::QueryError("Syntax error in query".to_string()),
+            QueryParserError::FieldDoesNotExist(e) => Error::UnknownIndexField(e),
+            QueryParserError::FieldNotIndexed(e) | QueryParserError::FieldDoesNotHavePositionsIndexed(e) => {
+                Error::QueryError(format!("Query to unindexed field '{}'", e))
+            }
             QueryParserError::ExpectedInt(e) => Error::QueryError(e.to_string()),
-            QueryParserError::NoDefaultFieldDeclared => Error::QueryError(String::from("No default field declared for query")),
-            QueryParserError::AllButQueryForbidden => Error::QueryError(String::from("Cannot have queries only exclude documents")),
-            e => Error::TantivyError(format!("{:?}", e)),
+            QueryParserError::NoDefaultFieldDeclared | QueryParserError::RangeMustNotHavePhrase => {
+                Error::QueryError("No default field declared for query".to_string())
+            }
+            QueryParserError::AllButQueryForbidden => Error::QueryError("Cannot have queries only exclude documents".to_string()),
+            QueryParserError::UnknownTokenizer(e1, _) => Error::QueryError(e1),
         }
     }
 }

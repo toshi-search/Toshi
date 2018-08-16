@@ -27,6 +27,10 @@ log               = "0.4.3"
 pretty_env_logger = "0.2.4"
 quick-error       = "1.2.2"
 crossbeam-channel = "0.2"
+bincode           = "1.0.1"
+memmap            = "0.6.2"
+crc16             = "0.4.0"
+
 
 [profile.release]
 opt-level = 3

@@ -171,4 +171,8 @@ mod tests {
         assert_eq!(config.merge_policy.min_merge_size, None);
     }
 
+    #[test]
+    #[should_panic]
+    fn bad_config_file() { Settings::new("asdf/casdf").unwrap(); }
+
 }
