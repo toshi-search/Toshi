@@ -22,8 +22,14 @@ impl Handler for SummaryHandler {
         let index_lock = self.catalog.read().unwrap();
 
         if index_lock.exists(&index_path.index) {
-            let index = index_lock.get_index(&index_path.index).unwrap();
-            let metas = index.load_metas().unwrap();
+            let index = match index_lock.get_index(&index_path.index) {
+                Ok(v) => v,
+                Err(ref e) => return Box::new(handle_error(state, e)),
+            };
+            let metas = match index.load_metas() {
+                Ok(v) => v,
+                Err(ref e) => return Box::new(handle_error(state, e)),
+            };
             let payload = to_json(metas, query_options.pretty);
             let resp = create_response(&state, StatusCode::Ok, payload);
             Box::new(future::ok((state, resp)))
