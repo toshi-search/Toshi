@@ -1,40 +1,18 @@
-use std::fs::OpenOptions;
 use std::io::{Error, Write};
 use std::path::PathBuf;
-use std::time::{Duration, SystemTime};
+use std::time::Duration;
 
-use bincode::serialize;
-use memmap::MmapMut;
 use tantivy::Document;
 
-#[allow(dead_code)]
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum Action {
-    Create,
-    Update,
-    Delete,
-}
+use capnp::{message, serialize};
+use capnp::message::HeapAllocator;
 
-#[allow(dead_code)]
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Transaction {
-    timestamp: SystemTime,
-    opscode:   u64,
-    action:    Action,
-    document:  Document,
-}
-
-impl Transaction {
-    #[allow(dead_code)]
-    pub fn new(action: Action, opscode: u64, document: Document) -> Self {
-        Transaction {
-            action,
-            timestamp: SystemTime::now(),
-            opscode,
-            document,
-        }
-    }
-}
+use serde_json::to_vec;
+use std::fs::File;
+use std::io::BufWriter;
+use wal_capnp::transaction;
+use wal_capnp::Action;
+use wal_capnp::transaction::Builder;
 
 #[allow(dead_code)]
 pub struct TransactionLog {
@@ -43,9 +21,8 @@ pub struct TransactionLog {
     path:            PathBuf,
     segment_size:    u32, // Make all this configurable
     buffer_size:     u64,
-    buf_pos:         usize,
     age_of_buffer:   Duration,
-    mmap:            MmapMut,
+    buf:             BufWriter<File>,
 }
 
 impl TransactionLog {
@@ -63,24 +40,23 @@ impl TransactionLog {
         segment_path.push(format!("{}.{}", index_name, opscode));
         println!("{:?}", segment_path);
 
-        let file = OpenOptions::new().create(true).read(true).write(true).open(&segment_path).unwrap();
-        file.set_len(buffer_size)?;
-        let mmap = unsafe { MmapMut::map_mut(&file)? };
-
+        let file = File::create(segment_path)?;
+        let buf_file = BufWriter::new(file);
         Ok(TransactionLog {
             index_name,
             current_opscode: opscode,
-            mmap,
+            buf: buf_file,
             path,
             segment_size,
             buffer_size,
-            buf_pos: 0,
             age_of_buffer,
         })
     }
 
     #[allow(dead_code)]
-    fn rotate_file(&self, opscode: u32) -> Result<Self, Error> {
+    fn rotate_file(&mut self, opscode: u32) -> Result<Self, Error> {
+        self.flush()?;
+
         TransactionLog::from_config(
             self.index_name.clone(),
             opscode,
@@ -91,32 +67,37 @@ impl TransactionLog {
         )
     }
 
-    #[allow(dead_code)]
-    pub fn add_transaction(&mut self, transaction: Transaction) -> Result<(), Error> {
-        println!("{}", self.buf_pos);
-        let mut trans_bytes = serialize(&transaction).unwrap();
-        trans_bytes.push(b'\n');
-        let num_bytes = trans_bytes.len();
-
-        (&mut self.mmap[self.buf_pos..(self.buf_pos + num_bytes)]).write(&trans_bytes)?;
-        self.buf_pos += num_bytes;
-
-        Ok(())
+    fn build_transaction<'a>(timestamp: u64, opscode: u32, action: Action, doc: Document) -> Result<message::Builder<HeapAllocator>, Error> {
+        let mut message = message::Builder::new_default();
+        {
+            let mut trans = message.init_root::<transaction::Builder>();
+            trans.set_action(action);
+            trans.set_timestamp(timestamp);
+            trans.set_opscode(opscode);
+            let doc_bytes = to_vec(&doc)?;
+            let mut doc_builder = trans.init_document(doc_bytes.len() as u32);
+            doc_builder.write(&doc_bytes)?;
+        }
+        Ok(message)
     }
 
     #[allow(dead_code)]
-    pub fn flush(&self) -> Result<(), Error> { self.mmap.flush_async() }
+    pub fn add_transaction(&mut self, timestamp: u64, opscode: u32, action: Action, doc: Document) -> Result<(), Error> {
+        let message = TransactionLog::build_transaction(timestamp, opscode, action, doc)?;
+        serialize::write_message(&mut self.buf, &message)?;
+        Ok(())
+    }
+
+    pub fn flush(&mut self) -> Result<(), Error> { self.buf.flush() }
 }
 
 #[cfg(test)]
 mod tests {
 
     use super::*;
+    use std::time::SystemTime;
+    use std::time::UNIX_EPOCH;
     use tantivy::schema::*;
-    use std::io::{BufRead, BufReader};
-    use std::fs::File;
-    use bincode::*;
-    use std::io::Read;
 
     #[test]
     fn test_transaction_log() {
@@ -132,21 +113,33 @@ mod tests {
             Duration::from_secs(180),
         ).unwrap();
 
-        let test_transaction = Transaction::new(Action::Create, 0, doc!(text => "Some text for a test"));
-        let tt2 = Transaction::new(Action::Update, 0, doc!(text => "Some More text here..."));
+        fn now() -> u64 { SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() }
+        trans.add_transaction(now(), 1, Action::Create, doc!(text => "asdf")).unwrap();
+        trans
+            .add_transaction(now(), 2, Action::Update, doc!(text => "as123411111df"))
+            .unwrap();
+        trans
+            .add_transaction(now(), 2, Action::Delete, doc!(text => "as1234d123sf"))
+            .unwrap();
+        trans
+            .add_transaction(now(), 3, Action::Create, doc!(text => "as12asd34df"))
+            .unwrap();
+        trans
+            .add_transaction(now(), 3, Action::Update, doc!(text => "as1234w1123df"))
+            .unwrap();
+        trans.flush();
 
-        trans.add_transaction(test_transaction).unwrap();
-        //trans.add_transaction(tt2).unwrap();
+        use std::str::from_utf8;
+        let mut f = File::open(PathBuf::from("data\\test_index.0")).unwrap();
+        loop {
+            let msg = match serialize::read_message(&mut f, message::ReaderOptions::new()) {
+                Ok(m) => m,
+                Err(_) => break,
+            };
+            let m = msg.get_root::<transaction::Reader>().unwrap();
 
-        trans.flush().unwrap();
-
-        let mut read = PathBuf::from("data");
-        read.push("test_index.0");
-        let mut bytes = File::open(read).unwrap();
-        let mut readz = vec![];
-        bytes.read_to_end(&mut readz).unwrap();
-        let b: Transaction = deserialize(&readz).unwrap();
-        println!("{:?}", b);
+            println!("  {:?}", from_utf8(m.get_document().unwrap()).unwrap());
+        }
     }
 
 }

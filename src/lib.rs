@@ -26,7 +26,8 @@ extern crate crossbeam_channel;
 extern crate pretty_env_logger;
 
 extern crate bincode;
-extern crate crc16;
+extern crate byteorder;
+extern crate capnp;
 extern crate memmap;
 
 use tantivy::query::QueryParserError;
@@ -95,3 +96,4 @@ pub mod index;
 pub mod router;
 pub mod settings;
 mod transaction;
+mod wal_capnp;
