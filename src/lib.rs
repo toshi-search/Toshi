@@ -21,14 +21,10 @@ extern crate tantivy;
 
 #[macro_use]
 extern crate lazy_static;
+extern crate capnp;
 extern crate config;
 extern crate crossbeam_channel;
 extern crate pretty_env_logger;
-
-extern crate bincode;
-extern crate byteorder;
-extern crate capnp;
-extern crate memmap;
 
 use tantivy::query::QueryParserError;
 use tantivy::ErrorKind;
@@ -96,4 +92,11 @@ pub mod index;
 pub mod router;
 pub mod settings;
 mod transaction;
-mod wal_capnp;
+
+#[allow(dead_code)]
+pub mod wal_capnp {
+    #[cfg(target_family = "windows")]
+    include!(concat!(env!("OUT_DIR"), "\\proto", "\\wal_capnp.rs"));
+    #[cfg(target_family = "unix")]
+    include!(concat!(env!("OUT_DIR"), "/proto", "/wal_capnp.rs"));
+}

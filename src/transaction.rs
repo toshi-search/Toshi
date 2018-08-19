@@ -1,73 +1,73 @@
 use std::io::{Error, Write};
 use std::path::PathBuf;
-use std::time::Duration;
+use std::fs::File;
 
 use tantivy::Document;
-
-use capnp::{message, serialize};
-use capnp::message::HeapAllocator;
-
 use serde_json::to_vec;
-use std::fs::File;
-use std::io::BufWriter;
-use wal_capnp::transaction;
-use wal_capnp::Action;
-use wal_capnp::transaction::Builder;
 
+use capnp::message::HeapAllocator;
+use capnp::{message, serialize};
+use capnp::traits::*;
+
+use wal_capnp::{transaction, Action};
+
+#[derive(Clone)]
 #[allow(dead_code)]
-pub struct TransactionLog {
-    index_name:      String,
-    current_opscode: u32,
-    path:            PathBuf,
-    segment_size:    u32, // Make all this configurable
-    buffer_size:     u64,
-    age_of_buffer:   Duration,
-    buf:             BufWriter<File>,
+pub struct TransactionConfig {
+    buffer_size: usize,
 }
 
-impl TransactionLog {
-    #[allow(dead_code)]
-    pub fn from_config(
-        index_name: String,
-        opscode: u32,
-        path: PathBuf,
-        segment_size: u32,
-        buffer_size: u64,
-        age_of_buffer: Duration,
-    ) -> Result<Self, Error>
-    {
-        let mut segment_path = path.clone();
-        segment_path.push(format!("{}.{}", index_name, opscode));
-        println!("{:?}", segment_path);
+impl TransactionConfig {
+    pub fn new(buffer_size: usize) -> Self {
+        TransactionConfig{buffer_size}
+    }
+}
 
+pub struct TransactionLog {
+    index_name:    String,
+    opscode:       u32,
+    path:          PathBuf,
+    config:        TransactionConfig,
+    buf_size:      usize,
+    total_written: usize,
+    buf:           File,
+}
+
+#[allow(dead_code)]
+impl TransactionLog {
+    pub fn from_config(index_name: String, opscode: u32, path: PathBuf, config: TransactionConfig) -> Result<Self, Error> {
+        let segment_path = TransactionLog::create_filename(index_name.clone(), path.clone(), opscode)?;
         let file = File::create(segment_path)?;
-        let buf_file = BufWriter::new(file);
         Ok(TransactionLog {
             index_name,
-            current_opscode: opscode,
-            buf: buf_file,
+            opscode,
+            buf: file,
+            buf_size: 0,
+            total_written: 0,
             path,
-            segment_size,
-            buffer_size,
-            age_of_buffer,
+            config,
         })
     }
 
-    #[allow(dead_code)]
-    fn rotate_file(&mut self, opscode: u32) -> Result<Self, Error> {
-        self.flush()?;
-
-        TransactionLog::from_config(
-            self.index_name.clone(),
-            opscode,
-            self.path.clone(),
-            self.segment_size,
-            self.buffer_size,
-            self.age_of_buffer,
-        )
+    fn create_filename(index_name: String, path: PathBuf, opscode: u32) -> Result<PathBuf, Error> {
+        let mut segment_path = path.clone();
+        segment_path.push(format!("{}.{}", index_name, opscode));
+        Ok(segment_path)
     }
 
-    fn build_transaction<'a>(timestamp: u64, opscode: u32, action: Action, doc: Document) -> Result<message::Builder<HeapAllocator>, Error> {
+    fn rotate_file(&mut self, opscode: u32) -> Result<(), Error> {
+        self.flush()?;
+        let segment_path = TransactionLog::create_filename(self.index_name.clone(), self.path.clone(), opscode)?;
+        info!("Rotating to {:#?}", segment_path);
+        self.buf_size = 0;
+        self.buf = match File::create(segment_path) {
+            Ok(f) => f,
+            Err(e) => return Err(e),
+        };
+        Ok(())
+    }
+
+    fn build_transaction(timestamp: u64, opscode: u32, action: Action, doc: Document) -> Result<message::Builder<HeapAllocator>, Error> {
         let mut message = message::Builder::new_default();
         {
             let mut trans = message.init_root::<transaction::Builder>();
@@ -81,65 +81,82 @@ impl TransactionLog {
         Ok(message)
     }
 
-    #[allow(dead_code)]
     pub fn add_transaction(&mut self, timestamp: u64, opscode: u32, action: Action, doc: Document) -> Result<(), Error> {
         let message = TransactionLog::build_transaction(timestamp, opscode, action, doc)?;
+        let msg_size = serialize::compute_serialized_size_in_words(&message) * 8;
+        if (self.buf_size + msg_size) > self.config.buffer_size {
+            self.rotate_file(opscode)?
+        }
+        self.buf_size += msg_size;
+        self.total_written += msg_size;
         serialize::write_message(&mut self.buf, &message)?;
         Ok(())
     }
 
-    pub fn flush(&mut self) -> Result<(), Error> { self.buf.flush() }
+    pub fn current_size(&self) -> usize { self.buf_size }
+
+    pub fn total_size(&self) -> usize { self.total_written }
+
+    pub fn flush(&mut self) -> Result<(), Error> {
+        self.buf.flush()?;
+        self.buf.sync_all()
+    }
 }
 
 #[cfg(test)]
+#[allow(unused_must_use)]
 mod tests {
 
     use super::*;
     use std::time::SystemTime;
     use std::time::UNIX_EPOCH;
     use tantivy::schema::*;
+    use std::thread::sleep;
+    use std::time::Duration;
+    use std::fs::create_dir;
+
+    fn now() -> u64 { SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() }
 
     #[test]
     fn test_transaction_log() {
         let mut builder = SchemaBuilder::new();
         let text = builder.add_text_field("test_text", STORED);
 
-        let mut trans = TransactionLog::from_config(
-            "test_index".to_string(),
-            0,
-            PathBuf::from("data"),
-            10_000_000,
-            2_000,
-            Duration::from_secs(180),
-        ).unwrap();
-
-        fn now() -> u64 { SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() }
-        trans.add_transaction(now(), 1, Action::Create, doc!(text => "asdf")).unwrap();
-        trans
-            .add_transaction(now(), 2, Action::Update, doc!(text => "as123411111df"))
-            .unwrap();
-        trans
-            .add_transaction(now(), 2, Action::Delete, doc!(text => "as1234d123sf"))
-            .unwrap();
-        trans
-            .add_transaction(now(), 3, Action::Create, doc!(text => "as12asd34df"))
-            .unwrap();
-        trans
-            .add_transaction(now(), 3, Action::Update, doc!(text => "as1234w1123df"))
-            .unwrap();
-        trans.flush();
-
-        use std::str::from_utf8;
-        let mut f = File::open(PathBuf::from("data\\test_index.0")).unwrap();
-        loop {
-            let msg = match serialize::read_message(&mut f, message::ReaderOptions::new()) {
-                Ok(m) => m,
-                Err(_) => break,
-            };
-            let m = msg.get_root::<transaction::Reader>().unwrap();
-
-            println!("  {:?}", from_utf8(m.get_document().unwrap()).unwrap());
+        let cfg = TransactionConfig::new(400);
+        let index_name = "test_index".to_string();
+        let data_path = PathBuf::from("data");
+        if !data_path.exists() {
+            create_dir(&data_path).unwrap();
         }
+
+        let mut trans = TransactionLog::from_config(index_name, 0, data_path.clone(), cfg).unwrap();
+
+        trans.add_transaction(now(), 1, Action::Create, doc!(text => "asdf"));
+        trans.add_transaction(now(), 2, Action::Update, doc!(text => "as123411111df"));
+
+        sleep(Duration::from_secs(2));
+
+        trans.add_transaction(now(), 2, Action::Delete, doc!(text => "as1234d123sf"));
+        trans.add_transaction(now(), 3, Action::Create, doc!(text => "as12asd34df"));
+        assert_eq!(trans.current_size(), trans.total_size());
+
+        trans.add_transaction(now(), 3, Action::Update, doc!(text => "as1234w1123df"));
+        assert_ne!(trans.current_size(), trans.total_size());
+        assert_eq!(96, trans.current_size());
+
+
+//        let mut zero = data_path.clone();
+//        zero.push("test_index.0");
+//
+//        let mut f = File::open(zero).unwrap();
+//        loop {
+//            let msg = match serialize::read_message(&mut f, message::ReaderOptions::new()) {
+//                Ok(m) => m,
+//                Err(_) => break,
+//            };
+//            let m = msg.get_root::<transaction::Reader>().unwrap();
+//            println!("Action: {}, Timestamp: {}, Ops: {}, Doc: {:?}", m.get_action().unwrap().to_u16(), m.get_timestamp(), m.get_opscode(), from_utf8(m.get_document().unwrap()).unwrap());
+//        }
     }
 
 }
