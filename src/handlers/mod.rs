@@ -30,18 +30,18 @@ use serde_json;
 use std::error::Error;
 use std::sync::Arc;
 
-#[derive(Deserialize, StateData, StaticResponseExtender, Debug)]
+#[derive(Deserialize, StateData, StaticResponseExtender)]
 pub struct IndexPath {
     index: String,
 }
 
-#[derive(Deserialize, StateData, StaticResponseExtender, Debug)]
+#[derive(Deserialize, StateData, StaticResponseExtender)]
 pub struct QueryOptions {
     #[serde(default = "Settings::default_pretty")]
     pretty: bool,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Serialize)]
 pub struct ErrorResponse {
     reason: String,
 }
