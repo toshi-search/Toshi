@@ -46,7 +46,7 @@ before_script:
   - export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$HOME/lib"
   - cargo install cargo-update || echo "cargo-update already installed"
   - cargo install cargo-travis || echo "cargo-travis already installed"
-  - cargo install capnpc
+  - cargo install capnpc || echo "capnpc already installed"
   - cargo install-update -a
 
 script:
