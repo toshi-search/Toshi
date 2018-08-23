@@ -12,6 +12,8 @@ addons:
       - libdw-dev
       - binutils-dev
       - cmake
+      - gcc
+      - g++
     sources:
       - kalakris-cmake
 
@@ -30,10 +32,21 @@ before_install:
   - set -e
   - rustup self update
 
+install:
+  - curl -O https://capnproto.org/capnproto-c++-0.6.1.tar.gz
+  - tar zxf capnproto-c++-0.6.1.tar.gz
+  - cd capnproto-c++-0.6.1
+  - ./configure --prefix=$HOME
+  - make -j6 check
+  - sudo make install
+  - cd ../
+
 before_script:
-  - export PATH=$HOME/.cargo/bin:$PATH
+  - export PATH="$HOME/bin:$HOME/.cargo/bin:$PATH"
+  - export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$HOME/lib"
   - cargo install cargo-update || echo "cargo-update already installed"
   - cargo install cargo-travis || echo "cargo-travis already installed"
+  - cargo install capnpc
   - cargo install-update -a
 
 script:

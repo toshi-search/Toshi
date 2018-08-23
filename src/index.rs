@@ -201,23 +201,23 @@ pub mod tests {
     use super::*;
     use gotham::router::Router;
     use gotham::test::{TestClient, TestServer};
-    use std::sync::Arc;
-    use std::sync::RwLock;
+    use std::sync::{Arc, RwLock};
 
     pub fn create_test_index() -> Index {
         let mut builder = SchemaBuilder::new();
         let test_text = builder.add_text_field("test_text", STORED | TEXT);
         let test_int = builder.add_i64_field("test_i64", INT_STORED | INT_INDEXED);
         let test_unsign = builder.add_u64_field("test_u64", INT_STORED | INT_INDEXED);
+        let test_unindexed = builder.add_text_field("test_unindex", STORED);
 
         let schema = builder.build();
         let idx = Index::create_in_ram(schema);
         let mut writer = idx.writer(30_000_000).unwrap();
-        writer.add_document(doc!{ test_text => "Test Document 1", test_int => 2014i64,  test_unsign => 10u64 });
-        writer.add_document(doc!{ test_text => "Test Dockument 2", test_int => -2015i64, test_unsign => 11u64 });
-        writer.add_document(doc!{ test_text => "Test Duckiment 3", test_int => 2016i64,  test_unsign => 12u64 });
-        writer.add_document(doc!{ test_text => "Test Document 4", test_int => -2017i64, test_unsign => 13u64 });
-        writer.add_document(doc!{ test_text => "Test Document 5", test_int => 2018i64,  test_unsign => 14u64 });
+        writer.add_document(doc!{ test_text => "Test Document 1", test_int => 2014i64,  test_unsign => 10u64, test_unindexed => "no" });
+        writer.add_document(doc!{ test_text => "Test Dockument 2", test_int => -2015i64, test_unsign => 11u64, test_unindexed => "yes" });
+        writer.add_document(doc!{ test_text => "Test Duckiment 3", test_int => 2016i64,  test_unsign => 12u64, test_unindexed => "noo" });
+        writer.add_document(doc!{ test_text => "Test Document 4", test_int => -2017i64, test_unsign => 13u64, test_unindexed => "yess" });
+        writer.add_document(doc!{ test_text => "Test Document 5", test_int => 2018i64,  test_unsign => 14u64, test_unindexed => "nooo" });
         writer.commit().unwrap();
 
         idx
