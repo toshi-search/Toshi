@@ -13,12 +13,13 @@ pub const HEADER: &str = r#"
  Such Relevance, Much Index, Many Search, Wow
  "#;
 
+#[derive(PartialEq)]
 pub enum MergePolicyType {
     Log,
     NoMerge,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 pub struct ConfigMergePolicy {
     kind:           String,
     min_merge_size: Option<usize>,
@@ -36,7 +37,7 @@ impl ConfigMergePolicy {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 pub struct Settings {
     #[serde(default = "Settings::default_host")]
     pub host: String,
@@ -165,6 +166,7 @@ mod tests {
 
         let config = Settings::default(cfg).unwrap();
 
+        assert!(config.merge_policy.get_kind() == MergePolicyType::NoMerge);
         assert_eq!(config.merge_policy.kind, "nomerge");
         assert_eq!(config.merge_policy.level_log_size, None);
         assert_eq!(config.merge_policy.min_layer_size, None);
@@ -175,4 +177,14 @@ mod tests {
     #[should_panic]
     fn bad_config_file() { Settings::new("asdf/casdf").unwrap(); }
 
+    #[test]
+    #[should_panic]
+    fn bad_merge_type() {
+        let cfg = r#"
+            [merge_policy]
+            kind = "asdf1234""#;
+
+        let config = Settings::default(cfg).unwrap();
+        config.get_merge_policy();
+    }
 }

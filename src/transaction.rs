@@ -55,7 +55,7 @@ impl TransactionLog {
         if !base_path.exists() {
             match create_dir_all(base_path.clone()) {
                 Ok(_) => {}
-                Err(e) => return Err(e)
+                Err(e) => return Err(e),
             };
         }
         let segment_path = TransactionLog::create_filename(index_name, &base_path, opscode)?;

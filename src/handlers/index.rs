@@ -31,7 +31,7 @@ pub enum FieldValues {
     I64Field { field: String, value: i64 },
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct IndexHandler {
     catalog: Arc<RwLock<IndexCatalog>>,
 }

@@ -36,7 +36,7 @@ pub enum Queries {
     AllQuery,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct SearchHandler {
     catalog: Arc<RwLock<IndexCatalog>>,
 }
@@ -72,7 +72,6 @@ impl SearchHandler {
                     Ok(v) => v,
                     Err(ref e) => return handle_error(state, e),
                 };
-                info!("Query returned {} doc(s) on Index: {}", docs.len(), index.index);
 
                 let data = to_json(docs, query_options.pretty);
                 let resp = create_response(&state, StatusCode::Ok, data);
@@ -88,8 +87,6 @@ impl SearchHandler {
             Ok(v) => v,
             Err(ref e) => return Box::new(handle_error(state, e)),
         };
-        info!("Query returned {} doc(s) on Index: {}", docs.len(), index.index);
-
         let data = to_json(docs, query_options.pretty);
         let resp = create_response(&state, StatusCode::Ok, data);
         Box::new(future::ok((state, resp)))
@@ -242,9 +239,7 @@ pub mod tests {
             .perform()
             .unwrap();
 
-        //assert_eq!(req.status(), StatusCode::BadRequest);
-
-        println!("{}", req.read_utf8_body().unwrap())
+        assert_eq!(req.status(), StatusCode::BadRequest);
     }
 
     #[test]
@@ -312,8 +307,17 @@ pub mod tests {
     }
 
     #[test]
-    fn test_range_query() {
-        let body = r#"{ "query" : { "range" : { "test_i64" : { "gte" : 2012, "lt" : 2015 } } } }"#;
+    fn test_inclusive_range_query() {
+        let body = r#"{ "query" : { "range" : { "test_i64" : { "gte" : 2012, "lte" : 2015 } } } }"#;
+        let docs = run_query(body);
+
+        assert_eq!(docs.hits as usize, docs.docs.len());
+        assert_eq!(docs.docs[0].score, 1.0);
+    }
+
+    #[test]
+    fn test_exclusive_range_query() {
+        let body = r#"{ "query" : { "range" : { "test_i64" : { "gt" : 2012, "lt" : 2015 } } } }"#;
         let docs = run_query(body);
 
         assert_eq!(docs.hits as usize, docs.docs.len());

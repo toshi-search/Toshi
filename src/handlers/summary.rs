@@ -6,7 +6,7 @@ use super::super::Error;
 use super::*;
 use std::sync::RwLock;
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct SummaryHandler {
     catalog: Arc<RwLock<IndexCatalog>>,
 }

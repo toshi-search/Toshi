@@ -12,7 +12,6 @@ use tantivy::Index;
 
 use handlers::search::{Queries, Search};
 
-#[derive(Clone, Debug)]
 pub struct IndexCatalog {
     base_path:  PathBuf,
     collection: HashMap<String, Index>,
@@ -28,10 +27,6 @@ pub struct SearchResults {
 
 impl SearchResults {
     pub fn new(docs: Vec<ScoredDoc>) -> Self { SearchResults { hits: docs.len(), docs } }
-
-    pub fn len(&self) -> usize { self.docs.len() }
-
-    pub fn is_empty(&self) -> bool { self.docs.is_empty() }
 }
 
 #[derive(Serialize)]
@@ -78,9 +73,7 @@ impl IndexCatalog {
             Err(Error::UnknownIndex(format!("No Index exists at path: {}", path)))
         }
     }
-}
 
-impl IndexCatalog {
     pub fn add_index(&mut self, name: String, index: Index) { self.collection.insert(name, index); }
 
     #[allow(dead_code)]

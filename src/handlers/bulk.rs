@@ -17,7 +17,7 @@ use tantivy::IndexWriter;
 
 use crossbeam_channel::{unbounded, Receiver};
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct BulkHandler {
     catalog: Arc<RwLock<IndexCatalog>>,
 }
