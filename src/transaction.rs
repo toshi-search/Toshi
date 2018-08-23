@@ -11,7 +11,6 @@ use capnp::{message, serialize};
 
 use wal_capnp::{transaction, Action};
 
-#[derive(Debug, Clone)]
 pub struct Transaction {
     timestamp: u64,
     opscode:   u32,
