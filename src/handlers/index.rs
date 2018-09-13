@@ -2,11 +2,11 @@ use super::super::{Error, Result};
 use super::*;
 
 use futures::{future, Future, Stream};
+use std::collections::HashMap;
 use std::fs;
 use std::io::Result as IOResult;
 use std::panic::RefUnwindSafe;
 use std::sync::RwLock;
-use std::collections::HashMap;
 
 use hyper::Method;
 use tantivy::schema::*;
@@ -43,6 +43,11 @@ pub struct IndexHandler {
     catalog: Arc<RwLock<IndexCatalog>>,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct DocsAffected {
+    docs_affected: u32,
+}
+
 impl RefUnwindSafe for IndexHandler {}
 
 impl IndexHandler {
@@ -59,12 +64,17 @@ impl IndexHandler {
         if self.catalog.read().unwrap().exists(&index_path.index) {
             let f = Body::take_from(&mut state).concat2().then(move |body| match body {
                 Ok(b) => {
-                    let t: DeleteDoc = serde_json::from_slice(&b).unwrap();
+                    let t: DeleteDoc = match serde_json::from_slice(&b) {
+                        Ok(v) => v,
+                        Err(e) => return handle_error(state, &Error::IOError(e.to_string())),
+                    };
+                    let docs_affected: u32;
                     {
                         let index_lock = self.catalog.read().unwrap();
                         let index = index_lock.get_index(&index_path.index).unwrap();
                         let index_schema = index.schema();
                         let mut index_writer = index.writer(SETTINGS.writer_memory).unwrap();
+
                         for (field, value) in t.terms {
                             let f = match index_schema.get_field(&field) {
                                 Some(v) => v,
@@ -74,8 +84,10 @@ impl IndexHandler {
                             index_writer.delete_term(term);
                         }
                         index_writer.commit().unwrap();
+                        docs_affected = index.load_metas().unwrap().segments.iter().map(|seg| seg.num_deleted_docs()).sum();
                     }
-                    let resp = create_response(&state, StatusCode::Created, None);
+                    let affected = to_json(DocsAffected { docs_affected }, true);
+                    let resp = create_response(&state, StatusCode::Ok, affected);
                     future::ok((state, resp))
                 }
                 Err(ref e) => handle_error(state, e),
@@ -150,8 +162,8 @@ impl Handler for IndexHandler {
                         });
                         Box::new(f)
                     }
-                },
-                _ => unreachable!()
+                }
+                _ => unreachable!(),
             },
             None => Box::new(handle_error(state, &Error::UnknownIndex("No valid index in path".to_string()))),
         }
@@ -163,6 +175,7 @@ new_handler!(IndexHandler);
 #[cfg(test)]
 mod tests {
     use super::*;
+    use hyper::header::ContentType;
     use index::tests::*;
 
     #[test]
@@ -246,5 +259,44 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::Created);
+    }
+
+    #[test]
+    fn test_doc_delete() {
+        let idx = create_test_index();
+        let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
+        let test_server = create_test_client(&Arc::new(RwLock::new(catalog)));
+
+        let body = r#"{ "terms": {"test_text": "document"} }"#;
+
+        let response = test_server
+            .delete("http://localhost/test_index")
+            .with_body(body)
+            .with_header(ContentType(mime::APPLICATION_JSON))
+            .perform()
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::Ok);
+
+        let docs: DocsAffected = serde_json::from_slice(&response.read_body().unwrap()).unwrap();
+        assert_eq!(docs.docs_affected, 3);
+    }
+
+    #[test]
+    fn test_bad_json() {
+        let idx = create_test_index();
+        let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
+        let test_server = create_test_client(&Arc::new(RwLock::new(catalog)));
+
+        let body = r#"{ "test_text": "document" }"#;
+
+        let response = test_server
+          .delete("http://localhost/test_index")
+          .with_body(body)
+          .with_header(ContentType(mime::APPLICATION_JSON))
+          .perform()
+          .unwrap();
+
+        assert_eq!(response.status(), StatusCode::BadRequest);
     }
 }
