@@ -1,7 +1,5 @@
 use futures::future;
 
-use std::io::Result as IOResult;
-
 use super::super::Error;
 use super::*;
 use std::sync::RwLock;
@@ -31,7 +29,7 @@ impl Handler for SummaryHandler {
                 Err(ref e) => return Box::new(handle_error(state, e)),
             };
             let payload = to_json(metas, query_options.pretty);
-            let resp = create_response(&state, StatusCode::Ok, payload);
+            let resp = create_response(&state, StatusCode::OK, payload);
             Box::new(future::ok((state, resp)))
         } else {
             Box::new(handle_error(state, &Error::UnknownIndex(index_path.index)))
@@ -55,7 +53,7 @@ mod tests {
 
         let req = client.get("http://localhost/test_index/_summary").perform().unwrap();
 
-        assert_eq!(StatusCode::Ok, req.status());
+        assert_eq!(StatusCode::OK, req.status());
     }
 
 }
