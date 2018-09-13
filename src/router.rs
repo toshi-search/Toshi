@@ -1,5 +1,6 @@
 use gotham::router::builder::*;
 use gotham::router::Router;
+
 use hyper::Method;
 
 use handlers::*;
@@ -27,7 +28,7 @@ pub fn router_with_catalog(catalog: &Arc<RwLock<IndexCatalog>>) -> Router {
     build_simple_router(|route| {
         route.get("/").to_new_handler(root_handler);
         router_builder!(route, vec![Method::POST, Method::GET], "/:index", search_handler);
-        router_builder!(route, vec![Method::PUT], "/:index", index_handler);
+        router_builder!(route, vec![Method::PUT, Method::DELETE], "/:index", index_handler);
         router_builder!(route, vec![Method::POST], "/:index/_bulk", bulk_handler);
         router_builder!(route, vec![Method::GET], "/:index/_summary", summary_handler);
     })
