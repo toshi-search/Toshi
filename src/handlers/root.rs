@@ -1,7 +1,5 @@
 use futures::future;
 
-use std::io::Result as IOResult;
-
 use super::*;
 
 #[derive(Clone, Debug)]
@@ -14,7 +12,7 @@ impl RootHandler {
 impl Handler for RootHandler {
     fn handle(self, state: State) -> Box<HandlerFuture> {
         let body = self.0.into_bytes();
-        let resp = create_response(&state, StatusCode::Ok, Some((body, mime::TEXT_HTML)));
+        let resp = create_response(&state, StatusCode::OK, (body, mime::TEXT_HTML));
         Box::new(future::ok((state, resp)))
     }
 }

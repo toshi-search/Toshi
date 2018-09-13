@@ -3,7 +3,6 @@ use super::*;
 
 use futures::{future, Future, Stream};
 use std::fs;
-use std::io::Result as IOResult;
 use std::panic::RefUnwindSafe;
 use std::sync::RwLock;
 
@@ -82,7 +81,7 @@ impl Handler for IndexHandler {
                                 index_writer.add_document(doc);
                                 index_writer.commit().unwrap();
                             }
-                            let resp = create_response(&state, StatusCode::Created, None);
+                            let resp = create_empty_response(&state, StatusCode::CREATED);
                             future::ok((state, resp))
                         }
                         Err(ref e) => handle_error(state, e),
@@ -103,7 +102,7 @@ impl Handler for IndexHandler {
                             let new_index = Index::create_in_dir(index_path, schema).unwrap();
                             self.add_index(ui.index, new_index);
 
-                            let resp = create_response(&state, StatusCode::Created, None);
+                            let resp = create_empty_response(&state, StatusCode::CREATED);
                             future::ok((state, resp))
                         }
                         Err(ref e) => handle_error(state, e),
@@ -174,12 +173,12 @@ mod tests {
             .put("http://localhost/new_index", schema, mime::APPLICATION_JSON);
         let response = &request.perform().unwrap();
 
-        assert_eq!(response.status(), StatusCode::Created);
+        assert_eq!(response.status(), StatusCode::CREATED);
 
         let get_request = test_server.client().get("http://localhost/new_index");
         let get_response = get_request.perform().unwrap();
 
-        assert_eq!(StatusCode::Ok, get_response.status());
+        assert_eq!(StatusCode::OK, get_response.status());
         assert_eq!("{\"hits\":0,\"docs\":[]}", get_response.read_utf8_body().unwrap())
     }
 
@@ -203,6 +202,6 @@ mod tests {
             .perform()
             .unwrap();
 
-        assert_eq!(response.status(), StatusCode::Created);
+        assert_eq!(response.status(), StatusCode::CREATED);
     }
 }

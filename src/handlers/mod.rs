@@ -2,7 +2,7 @@ macro_rules! new_handler {
     ($N:ident) => {
         impl NewHandler for $N {
             type Instance = Self;
-            fn new_handler(&self) -> IOResult<Self::Instance> { Ok(self.clone()) }
+            fn new_handler(&self) -> gotham::error::Result<Self::Instance> { Ok(self.clone()) }
         }
     };
 }
@@ -21,7 +21,7 @@ use settings::{Settings, SETTINGS};
 
 use futures::{future, future::FutureResult};
 use gotham::handler::*;
-use gotham::http::response::create_response;
+use gotham::helpers::http::response::*;
 use gotham::state::*;
 use hyper::{Body, Response, StatusCode};
 use mime::{self, Mime};
@@ -54,20 +54,18 @@ impl ErrorResponse {
     }
 }
 
-fn to_json<T>(result: T, pretty: bool) -> Option<(Vec<u8>, Mime)>
-where T: Serialize {
-    Some(if pretty {
+fn to_json<T: Serialize>(result: T, pretty: bool) -> (Vec<u8>, Mime) {
+    if pretty {
         (serde_json::to_vec_pretty(&result).unwrap(), mime::APPLICATION_JSON)
     } else {
         (serde_json::to_vec(&result).unwrap(), mime::APPLICATION_JSON)
-    })
+    }
 }
 
 type FutureError = FutureResult<(State, Response<Body>), (State, HandlerError)>;
 
-fn handle_error<T>(state: State, err: &T) -> FutureError
-where T: Error + Sized {
+fn handle_error<T: Error + Sized>(state: State, err: &T) -> FutureError {
     let err = serde_json::to_vec(&ErrorResponse::new(&format!("{}", err))).unwrap();
-    let resp = create_response(&state, StatusCode::BadRequest, Some((err, mime::APPLICATION_JSON)));
+    let resp = create_response(&state, StatusCode::BAD_REQUEST, (err, mime::APPLICATION_JSON));
     future::ok((state, resp))
 }
