@@ -46,7 +46,7 @@ impl SearchHandler {
                 };
 
                 let data = to_json(docs, query_options.pretty);
-                let resp = create_response(&state, StatusCode::Ok, data);
+                let resp = create_response(&state, StatusCode::OK, data);
                 future::ok((state, resp))
             }
             Err(ref e) => handle_error(state, e),
@@ -60,7 +60,7 @@ impl SearchHandler {
             Err(ref e) => return Box::new(handle_error(state, e)),
         };
         let data = to_json(docs, query_options.pretty);
-        let resp = create_response(&state, StatusCode::Ok, data);
+        let resp = create_response(&state, StatusCode::OK, data);
         Box::new(future::ok((state, resp)))
     }
 }
@@ -103,7 +103,7 @@ pub mod tests {
             .post("http://localhost/test_index", query, mime::APPLICATION_JSON)
             .perform()
             .unwrap();
-        assert_eq!(req.status(), StatusCode::Ok);
+        assert_eq!(req.status(), StatusCode::OK);
         let body = req.read_body().unwrap();
         serde_json::from_slice(&body).unwrap()
     }
@@ -152,7 +152,7 @@ pub mod tests {
         let client = create_test_client(&Arc::new(RwLock::new(catalog)));
 
         let req = client.get("http://localhost/test_index").perform().unwrap();
-        assert_eq!(req.status(), StatusCode::Ok);
+        assert_eq!(req.status(), StatusCode::OK);
 
         let body = req.read_body().unwrap();
         let docs: TestResults = serde_json::from_slice(&body).unwrap();
@@ -167,10 +167,24 @@ pub mod tests {
         let client = create_test_client(&Arc::new(RwLock::new(catalog)));
         let req = client.get("http://localhost/bad_index").perform().unwrap();
 
-        assert_eq!(req.status(), StatusCode::BadRequest);
+        assert_eq!(req.status(), StatusCode::BAD_REQUEST);
     }
 
     #[test]
+<<<<<<< HEAD
+=======
+    fn test_no_index_error() {
+        let idx = create_test_index();
+        let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
+        let client = create_test_client(&Arc::new(RwLock::new(catalog)));
+        let req = client.get("http://localhost/").perform().unwrap();
+
+        assert_eq!(req.status(), StatusCode::OK);
+        assert_eq!(req.read_utf8_body().unwrap(), "Toshi Search, Version: 0.1.0")
+    }
+
+    #[test]
+>>>>>>> Updating to gotham master and 0.12 hyper
     fn test_bad_raw_query_syntax() {
         let idx = create_test_index();
         let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
@@ -182,7 +196,7 @@ pub mod tests {
             .perform()
             .unwrap();
 
-        assert_eq!(req.status(), StatusCode::BadRequest);
+        assert_eq!(req.status(), StatusCode::BAD_REQUEST);
         assert_eq!(
             r#"{"reason":"Query Parse Error: invalid digit found in string"}"#,
             req.read_utf8_body().unwrap()
@@ -201,7 +215,7 @@ pub mod tests {
             .perform()
             .unwrap();
 
-        assert_eq!(req.status(), StatusCode::BadRequest);
+        assert_eq!(req.status(), StatusCode::BAD_REQUEST);
     }
 
     #[test]
@@ -216,7 +230,7 @@ pub mod tests {
             .perform()
             .unwrap();
 
-        assert_eq!(req.status(), StatusCode::BadRequest);
+        assert_eq!(req.status(), StatusCode::BAD_REQUEST);
         assert_eq!(r#"{"reason":"Unknown Field: 'asdf' queried"}"#, req.read_utf8_body().unwrap())
     }
 
@@ -232,7 +246,7 @@ pub mod tests {
             .perform()
             .unwrap();
 
-        assert_eq!(req.status(), StatusCode::BadRequest);
+        assert_eq!(req.status(), StatusCode::BAD_REQUEST);
         assert_eq!(
             r#"{"reason":"Query Parse Error: invalid digit found in string"}"#,
             req.read_utf8_body().unwrap()
@@ -246,7 +260,7 @@ pub mod tests {
         let client = create_test_client(&Arc::new(RwLock::new(catalog)));
 
         let req = client.head("http://localhost/test_index").perform().unwrap();
-        assert_eq!(req.status(), StatusCode::MethodNotAllowed);
+        assert_eq!(req.status(), StatusCode::METHOD_NOT_ALLOWED);
     }
 
     #[test]

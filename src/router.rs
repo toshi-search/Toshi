@@ -1,6 +1,6 @@
 use gotham::router::builder::*;
 use gotham::router::Router;
-use hyper::{Delete, Get, Post, Put};
+use hyper::Method;
 
 use handlers::*;
 use index::IndexCatalog;

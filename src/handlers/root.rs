@@ -1,7 +1,5 @@
 use futures::future;
 
-use std::io::Result as IOResult;
-
 use super::*;
 
 #[derive(Clone, Debug)]
