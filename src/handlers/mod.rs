@@ -53,8 +53,7 @@ impl ErrorResponse {
     }
 }
 
-fn to_json<T>(result: T, pretty: bool) -> Option<(Vec<u8>, Mime)>
-where T: Serialize {
+fn to_json<T: Serialize>(result: T, pretty: bool) -> Option<(Vec<u8>, Mime)> {
     Some(if pretty {
         (serde_json::to_vec_pretty(&result).unwrap(), mime::APPLICATION_JSON)
     } else {
@@ -64,8 +63,7 @@ where T: Serialize {
 
 type FutureError = FutureResult<(State, Response<Body>), (State, HandlerError)>;
 
-fn handle_error<T>(state: State, err: &T) -> FutureError
-where T: failure::Fail + Sized {
+fn handle_error<T: failure::Fail + Sized>(state: State, err: &T) -> FutureError {
     let err = serde_json::to_vec(&ErrorResponse::new(&format!("{}", err))).unwrap();
     let resp = create_response(&state, StatusCode::BadRequest, Some((err, mime::APPLICATION_JSON)));
     future::ok((state, resp))
