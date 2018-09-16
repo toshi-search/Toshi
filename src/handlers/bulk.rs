@@ -96,7 +96,7 @@ impl Handler for BulkHandler {
                     let resp = create_response(&state, StatusCode::Created, None);
                     future::ok((state, resp))
                 }
-                Err(ref e) => handle_error(state, e),
+                Err(e) => handle_error(state, &Error::IOError(e.to_string())),
             });
         Box::new(response)
     }

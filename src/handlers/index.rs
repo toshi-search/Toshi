@@ -43,7 +43,7 @@ pub struct IndexHandler {
     catalog: Arc<RwLock<IndexCatalog>>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize)]
 pub struct DocsAffected {
     docs_affected: u32,
 }
@@ -291,11 +291,11 @@ mod tests {
         let body = r#"{ "test_text": "document" }"#;
 
         let response = test_server
-          .delete("http://localhost/test_index")
-          .with_body(body)
-          .with_header(ContentType(mime::APPLICATION_JSON))
-          .perform()
-          .unwrap();
+            .delete("http://localhost/test_index")
+            .with_body(body)
+            .with_header(ContentType(mime::APPLICATION_JSON))
+            .perform()
+            .unwrap();
 
         assert_eq!(response.status(), StatusCode::BadRequest);
     }

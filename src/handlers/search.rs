@@ -26,7 +26,7 @@ impl Search {
     }
 }
 
-#[derive(Deserialize, Debug, Clone, PartialEq)]
+#[derive(Deserialize, Clone, PartialEq, Debug)]
 #[serde(untagged)]
 pub enum Queries {
     TermQuery { term: HashMap<String, Value> },
@@ -67,7 +67,7 @@ impl SearchHandler {
                     Ok(s) => s,
                     Err(ref e) => return handle_error(state, e),
                 };
-                info!("Query: {:#?}", search);
+                info!("Query: {:?}", search);
                 let docs = match self.catalog.read().unwrap().search_index(&index.index, &search) {
                     Ok(v) => v,
                     Err(ref e) => return handle_error(state, e),
@@ -102,19 +102,19 @@ pub mod tests {
     use index::tests::*;
     use serde_json;
 
-    #[derive(Deserialize, Debug)]
+    #[derive(Deserialize)]
     pub struct TestResults {
         pub hits: i32,
         pub docs: Vec<TestDoc>,
     }
 
-    #[derive(Deserialize, Debug)]
+    #[derive(Deserialize)]
     pub struct TestDoc {
         pub score: f32,
         pub doc:   TestSchema,
     }
 
-    #[derive(Deserialize, Debug)]
+    #[derive(Deserialize)]
     pub struct TestSchema {
         pub test_text: Vec<String>,
         pub test_i64:  Vec<i64>,
@@ -222,7 +222,7 @@ pub mod tests {
 
         assert_eq!(req.status(), StatusCode::BadRequest);
         assert_eq!(
-            r#"{"reason":"Query Parse Error: Syntax error in query"}"#,
+            r#"{"reason":"Query Parse Error: invalid digit found in string"}"#,
             req.read_utf8_body().unwrap()
         )
     }

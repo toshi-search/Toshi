@@ -174,11 +174,11 @@ impl IndexCatalog {
                 };
 
                 let scored_docs: Vec<ScoredDoc> = collector
-                    .score_docs()
-                    .iter()
+                    .top_docs()
+                    .into_iter()
                     .map(|(score, doc)| {
-                        let d = searcher.doc(&doc).expect("Doc not found in segment");
-                        ScoredDoc::new(*score, schema.to_named_doc(&d))
+                        let d = searcher.doc(doc).expect("Doc not found in segment");
+                        ScoredDoc::new(score, schema.to_named_doc(&d))
                     }).collect();
 
                 Ok(SearchResults::new(scored_docs))

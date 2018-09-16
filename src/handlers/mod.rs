@@ -27,7 +27,6 @@ use hyper::{Body, Response, StatusCode};
 use mime::{self, Mime};
 use serde::Serialize;
 use serde_json;
-use std::error::Error;
 use std::sync::Arc;
 
 #[derive(Deserialize, StateData, StaticResponseExtender)]
@@ -66,7 +65,7 @@ where T: Serialize {
 type FutureError = FutureResult<(State, Response<Body>), (State, HandlerError)>;
 
 fn handle_error<T>(state: State, err: &T) -> FutureError
-where T: Error + Sized {
+where T: failure::Fail + Sized {
     let err = serde_json::to_vec(&ErrorResponse::new(&format!("{}", err))).unwrap();
     let resp = create_response(&state, StatusCode::BadRequest, Some((err, mime::APPLICATION_JSON)));
     future::ok((state, resp))

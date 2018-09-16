@@ -13,7 +13,7 @@ extern crate serde_json;
 extern crate log;
 
 #[macro_use]
-extern crate quick_error;
+extern crate failure;
 extern crate futures;
 
 #[cfg_attr(test, macro_use)]
@@ -27,38 +27,31 @@ extern crate crossbeam_channel;
 extern crate pretty_env_logger;
 
 use tantivy::query::QueryParserError;
-use tantivy::ErrorKind;
+use tantivy::Error as TError;
 
-quick_error! {
-    #[derive(Debug)]
-    pub enum Error {
-        IOError(err: String) {
-            display("IO Error: {}", err)
-        }
-        UnknownIndexField(err: String) {
-            display("Unknown Field: '{}' queried", err)
-        }
-        UnknownIndex(err: String) {
-            display("Unknown Index: '{}' queried", err)
-        }
-        QueryError(err: String) {
-            display("Query Parse Error: {}", err)
-        }
-    }
+#[derive(Debug, Fail)]
+pub enum Error {
+    #[fail(display = "IO Error: {}", _0)]
+    IOError(String),
+    #[fail(display = "Unknown Field: '{}' queried", _0)]
+    UnknownIndexField(String),
+    #[fail(display = "Unknown Index: '{}' queried", _0)]
+    UnknownIndex(String),
+    #[fail(display = "Query Parse Error: {}", _0)]
+    QueryError(String),
 }
 
-impl From<tantivy::Error> for Error {
+impl From<TError> for Error {
     fn from(err: tantivy::Error) -> Error {
-        match err.0 {
-            ErrorKind::CorruptedFile(p) | ErrorKind::PathDoesNotExist(p) | ErrorKind::FileAlreadyExists(p) => {
-                Error::IOError(format!("{:?}", p))
-            }
-            ErrorKind::IOError(e) => Error::IOError(e.to_string()),
-            ErrorKind::SchemaError(e) => Error::UnknownIndex(e.to_string()),
-            ErrorKind::Msg(e) | ErrorKind::InvalidArgument(e) => Error::IOError(e),
-            ErrorKind::Poisoned => Error::IOError("Poisoned".to_string()),
-            ErrorKind::ErrorInThread(e) => Error::IOError(e),
-            ErrorKind::FastFieldError(_) => Error::IOError("Fast Field Error".to_string()),
+        match err {
+            TError::CorruptedFile(p) | TError::PathDoesNotExist(p) | TError::FileAlreadyExists(p) => Error::IOError(format!("{:?}", p)),
+            TError::IOError(e) => Error::IOError(e.to_string()),
+            TError::SchemaError(e) => Error::UnknownIndex(e.to_string()),
+            TError::InvalidArgument(e) => Error::IOError(e),
+            TError::Poisoned => Error::IOError("Poisoned".to_string()),
+            TError::ErrorInThread(e) => Error::IOError(e),
+            TError::LockFailure(e) => Error::IOError(format!("Failed to acquire lock: {:?}", e)),
+            TError::FastFieldError(_) => Error::IOError("Fast Field Error".to_string()),
         }
     }
 }
