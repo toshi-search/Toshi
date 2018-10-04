@@ -11,32 +11,11 @@ use tantivy::schema::*;
 use tantivy::Index;
 
 use handlers::search::{Queries, Search};
+use results::*;
 
 pub struct IndexCatalog {
     base_path:  PathBuf,
     collection: HashMap<String, Index>,
-}
-
-#[derive(Serialize)]
-pub struct SearchResults {
-    // TODO: Add Timing
-    // TODO: Add Shard Information
-    hits: usize,
-    docs: Vec<ScoredDoc>,
-}
-
-impl SearchResults {
-    pub fn new(docs: Vec<ScoredDoc>) -> Self { SearchResults { hits: docs.len(), docs } }
-}
-
-#[derive(Serialize)]
-pub struct ScoredDoc {
-    score: f32,
-    doc:   NamedFieldDocument,
-}
-
-impl ScoredDoc {
-    pub fn new(score: f32, doc: NamedFieldDocument) -> Self { ScoredDoc { score, doc } }
 }
 
 impl IndexCatalog {
@@ -67,10 +46,10 @@ impl IndexCatalog {
         let p = PathBuf::from(path);
         if p.exists() {
             Index::open_in_dir(p)
-                .map_err(|_| Error::UnknownIndex(format!("No Index exists at path: {}", path)))
+                .map_err(|_| Error::UnknownIndex(format!("{}", path)))
                 .and_then(Ok)
         } else {
-            Err(Error::UnknownIndex(format!("No Index exists at path: {}", path)))
+            Err(Error::UnknownIndex(format!("{}", path)))
         }
     }
 

@@ -1,30 +1,27 @@
 #[macro_use]
 extern crate gotham_derive;
-extern crate gotham;
-extern crate hyper;
-extern crate mime;
-
 #[macro_use]
 extern crate serde_derive;
-extern crate serde;
-extern crate serde_json;
-
 #[macro_use]
 extern crate log;
-
 #[macro_use]
 extern crate failure;
-extern crate futures;
-
 #[cfg_attr(test, macro_use)]
 extern crate tantivy;
-
 #[macro_use]
 extern crate lazy_static;
 extern crate capnp;
 extern crate config;
 extern crate crossbeam_channel;
+extern crate futures;
+extern crate gotham;
+extern crate hyper;
+extern crate mime;
 extern crate pretty_env_logger;
+extern crate serde;
+extern crate serde_json;
+extern crate tokio;
+extern crate tokio_threadpool;
 
 use tantivy::query::QueryParserError;
 use tantivy::Error as TError;
@@ -35,7 +32,7 @@ pub enum Error {
     IOError(String),
     #[fail(display = "Unknown Field: '{}' queried", _0)]
     UnknownIndexField(String),
-    #[fail(display = "Unknown Index: '{}' queried", _0)]
+    #[fail(display = "Unknown Index: '{}' does not exist", _0)]
     UnknownIndex(String),
     #[fail(display = "Query Parse Error: {}", _0)]
     QueryError(String),
@@ -81,10 +78,13 @@ impl From<std::io::Error> for Error {
 pub type Result<T> = std::result::Result<T, Error>;
 
 mod handlers;
+mod results;
+mod transaction;
+
+pub mod commit;
 pub mod index;
 pub mod router;
 pub mod settings;
-mod transaction;
 
 #[allow(dead_code)]
 pub mod wal_capnp {
