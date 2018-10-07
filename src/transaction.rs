@@ -11,6 +11,7 @@ use capnp::{message, serialize};
 
 use wal_capnp::{transaction, Action};
 
+#[allow(unused)]
 pub struct Transaction {
     timestamp: u64,
     opscode:   u32,
@@ -32,11 +33,11 @@ impl<'a> Into<Transaction> for transaction::Reader<'a> {
 pub struct TransactionConfig {
     buffer_size: usize,
 }
-
+#[allow(unused)]
 impl TransactionConfig {
     pub fn new(buffer_size: usize) -> Self { TransactionConfig { buffer_size } }
 }
-
+#[allow(unused)]
 pub struct TransactionLog {
     index_name:    String,
     opscode:       u32,

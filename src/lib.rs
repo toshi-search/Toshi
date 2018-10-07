@@ -10,6 +10,7 @@ extern crate failure;
 extern crate tantivy;
 #[macro_use]
 extern crate lazy_static;
+extern crate atomic;
 extern crate capnp;
 extern crate config;
 extern crate crossbeam_channel;
@@ -39,14 +40,13 @@ pub enum Error {
 }
 
 impl From<TError> for Error {
-    fn from(err: tantivy::Error) -> Error {
+    fn from(err: tantivy::Error) -> Self {
         match err {
             TError::CorruptedFile(p) | TError::PathDoesNotExist(p) | TError::FileAlreadyExists(p) => Error::IOError(format!("{:?}", p)),
             TError::IOError(e) => Error::IOError(e.to_string()),
             TError::SchemaError(e) => Error::UnknownIndex(e.to_string()),
-            TError::InvalidArgument(e) => Error::IOError(e),
+            TError::InvalidArgument(e) | TError::ErrorInThread(e) => Error::IOError(e),
             TError::Poisoned => Error::IOError("Poisoned".to_string()),
-            TError::ErrorInThread(e) => Error::IOError(e),
             TError::LockFailure(e) => Error::IOError(format!("Failed to acquire lock: {:?}", e)),
             TError::FastFieldError(_) => Error::IOError("Fast Field Error".to_string()),
         }
@@ -54,7 +54,7 @@ impl From<TError> for Error {
 }
 
 impl From<QueryParserError> for Error {
-    fn from(qpe: QueryParserError) -> Error {
+    fn from(qpe: QueryParserError) -> Self {
         match qpe {
             QueryParserError::SyntaxError => Error::QueryError("Syntax error in query".to_string()),
             QueryParserError::FieldDoesNotExist(e) => Error::UnknownIndexField(e),
@@ -71,12 +71,17 @@ impl From<QueryParserError> for Error {
     }
 }
 
+impl<T> From<std::sync::PoisonError<T>> for Error {
+    fn from(err: std::sync::PoisonError<T>) -> Self { Error::IOError(err.to_string()) }
+}
+
 impl From<std::io::Error> for Error {
-    fn from(err: std::io::Error) -> Error { Error::IOError(err.to_string()) }
+    fn from(err: std::io::Error) -> Self { Error::IOError(err.to_string()) }
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
 
+mod handle;
 mod handlers;
 mod results;
 mod transaction;

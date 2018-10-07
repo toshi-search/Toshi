@@ -5,6 +5,7 @@ use tokio::prelude::*;
 use tokio::runtime::{Builder as RtBuilder, Runtime};
 use tokio::timer::Interval;
 use tokio_threadpool::Builder as TpBuilder;
+use settings::SETTINGS;
 
 pub struct IndexWatcher {
     catalog: Arc<RwLock<IndexCatalog>>,
@@ -12,6 +13,7 @@ pub struct IndexWatcher {
 }
 
 impl IndexWatcher {
+
     pub fn new(catalog: Arc<RwLock<IndexCatalog>>) -> Self {
         let mut pool = TpBuilder::new();
         pool.name_prefix("toshi-index-committer");
@@ -22,14 +24,22 @@ impl IndexWatcher {
     pub fn start(mut self) {
         let cat = Arc::clone(&self.catalog);
 
-        let task = Interval::new(Instant::now(), Duration::from_secs(10))
-            .for_each(move |i| {
-                info!("Hit the interval int={:?}", i);
-                if let Ok(cat) = cat.read() {
-                    cat.get_collection().into_iter().for_each(|(k, i)| {
-                        match i.writer(3000000) {
-                            Ok(mut w) => w.commit().unwrap(),
-                            Err(e) => panic!("Unable to obtain lock for {}, err={:?}", k, e)
+        let task = Interval::new(Instant::now(), Duration::from_secs(SETTINGS.auto_commit_duration))
+            .for_each(move |_| {
+                if let Ok(mut cat) = cat.write() {
+                    cat.get_mut_collection().iter_mut().for_each(|(key, index)| {
+                        let current_ops = index.get_opstamp();
+                        let writer = index.get_writer();
+                        match writer.lock() {
+                            Ok(mut w) => {
+                                if current_ops == w.commit_opstamp() {
+                                    info!("No update to index={}, opstamp={}", key, current_ops);
+                                } else {
+                                    let new_ops = w.commit().unwrap();
+                                    index.set_opstamp(new_ops);
+                                }
+                            }
+                            Err(e) => panic!("Unable to obtain lock for {}, err={:?}", key, e),
                         };
                     });
                 }

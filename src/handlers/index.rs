@@ -11,7 +11,6 @@ use std::sync::RwLock;
 use std::str::from_utf8;
 
 use hyper::Method;
-use serde_json::{self, Map as JsonObject, Value as JsonValue};
 use tantivy::schema::*;
 use tantivy::Index;
 
@@ -53,9 +52,14 @@ impl IndexHandler {
                     let docs_affected: u32;
                     {
                         let index_lock = self.catalog.read().unwrap();
-                        let index = index_lock.get_index(&index_path.index).unwrap();
+                        let index_handle = index_lock.get_index(&index_path.index).unwrap();
+                        let index = index_handle.get_index();
                         let index_schema = index.schema();
-                        let mut index_writer = index.writer(SETTINGS.writer_memory).unwrap();
+                        let writer = index_handle.get_writer();
+                        let mut index_writer = match writer.lock() {
+                            Ok(w) => w,
+                            Err(ref e) => return handle_error(state, &Error::IOError(e.to_string())),
+                        };
 
                         for (field, value) in t.terms {
                             let f = match index_schema.get_field(&field) {
@@ -82,16 +86,23 @@ impl IndexHandler {
 
     fn add_document(self, mut state: State, index_path: IndexPath) -> Box<HandlerFuture> {
         Box::new(Body::take_from(&mut state).concat2().then(move |body| match body {
-            Ok(b) => {
-                {
-                    let index_lock = self.catalog.read().unwrap();
-                    let index = index_lock.get_index(&index_path.index).unwrap();
-                    let index_schema = index.schema();
-                    let mut index_writer = index.writer(SETTINGS.writer_memory).unwrap();
-                    let mut doc = index_schema.parse_document(from_utf8(&b).unwrap()).unwrap();
-                    index_writer.add_document(doc);
-
-                    //index_writer.commit().unwrap();
+            Ok(ref b) => {
+                if let Ok(mut index_lock) = self.catalog.write() {
+                    if let Ok(ref mut index_handle) = index_lock.get_mut_index(&index_path.index) {
+                        let stamp: u64;
+                        {
+                            let index = index_handle.get_index();
+                            let index_schema = index.schema();
+                            let writer = index_handle.get_writer();
+                            let mut index_writer = match writer.lock() {
+                                Ok(w) => w,
+                                Err(ref e) => return handle_error(state, &Error::IOError(e.to_string())),
+                            };
+                            let mut doc = index_schema.parse_document(from_utf8(b).unwrap()).unwrap();
+                            stamp = index_writer.add_document(doc);
+                        }
+                        index_handle.set_opstamp(stamp);
+                    }
                 }
                 let resp = create_response(&state, StatusCode::Created, None);
                 future::ok((state, resp))

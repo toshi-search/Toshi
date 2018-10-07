@@ -11,6 +11,11 @@ use toshi::router::router_with_catalog;
 use toshi::settings::{HEADER, SETTINGS};
 
 pub fn main() {
+    let code = runner();
+    std::process::exit(code);
+}
+
+pub fn runner() -> i32 {
     std::env::set_var("RUST_LOG", &SETTINGS.log_level);
     pretty_env_logger::init();
 
@@ -18,7 +23,7 @@ pub fn main() {
         Ok(v) => v,
         Err(e) => {
             eprintln!("Error Encountered - {}", e.to_string());
-            return;
+            std::process::exit(1);
         }
     };
     let catalog_arc = Arc::new(RwLock::new(index_catalog));
@@ -27,5 +32,7 @@ pub fn main() {
     let addr = format!("{}:{}", &SETTINGS.host, SETTINGS.port);
 
     println!("{}", HEADER);
-    gotham::start(addr, router_with_catalog(&catalog_arc))
+    gotham::start(addr, router_with_catalog(&catalog_arc));
+
+    0
 }

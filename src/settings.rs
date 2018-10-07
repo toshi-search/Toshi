@@ -51,16 +51,19 @@ pub struct Settings {
     pub writer_memory: usize,
     #[serde(default = "Settings::default_json_parsing_threads")]
     pub json_parsing_threads: usize,
+    #[serde(default = "Settings::default_auto_commit_duration")]
+    pub auto_commit_duration: u64,
     #[serde(default = "Settings::default_bulk_buffer_size")]
     pub bulk_buffer_size: usize,
+
     #[serde(default = "Settings::default_merge_policy")]
     pub merge_policy: ConfigMergePolicy,
 }
 
 impl Settings {
-    pub fn new(path: &str) -> Result<Self, ConfigError> { Settings::from_config(File::with_name(path)) }
+    pub fn new(path: &str) -> Result<Self, ConfigError> { Self::from_config(File::with_name(path)) }
 
-    pub fn default(cfg: &str) -> Result<Self, ConfigError> { Settings::from_config(File::from_str(cfg, FileFormat::Toml)) }
+    pub fn default(cfg: &str) -> Result<Self, ConfigError> { Self::from_config(File::from_str(cfg, FileFormat::Toml)) }
 
     pub fn from_config<T: Source + Send + Sync + 'static>(c: T) -> Result<Self, ConfigError> {
         let mut cfg = Config::new();
@@ -80,6 +83,7 @@ impl Settings {
     pub fn default_writer_memory() -> usize { 200_000_000 }
     pub fn default_json_parsing_threads() -> usize { 4 }
     pub fn default_bulk_buffer_size() -> usize { 10000 }
+    pub fn default_auto_commit_duration() -> u64 { 10 }
     pub fn default_merge_policy() -> ConfigMergePolicy {
         ConfigMergePolicy {
             kind:           "log".to_string(),
