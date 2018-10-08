@@ -151,7 +151,7 @@ mod tests {
 
         let cfg = TransactionConfig::new(400);
         let index_name = "test_index";
-        let data_path = PathBuf::from("data");
+        let data_path = PathBuf::from("logs");
         if !data_path.exists() {
             create_dir(&data_path).unwrap();
         }

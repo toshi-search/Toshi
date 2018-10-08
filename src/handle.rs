@@ -14,7 +14,7 @@ impl IndexHandle {
     pub fn new(index: Index) -> Self {
         let i = index.writer(SETTINGS.writer_memory).unwrap();
         i.set_merge_policy(SETTINGS.get_merge_policy());
-        let current_opstamp = Atomic::new(i.commit_opstamp());
+        let current_opstamp = Atomic::new(0u64);
         let writer = Arc::new(Mutex::new(i));
         Self {
             index,
@@ -25,12 +25,11 @@ impl IndexHandle {
 
     pub fn get_index(&self) -> &Index { &self.index }
 
+    pub fn recreate_writer(self) -> Self { IndexHandle::new(self.index) }
+
     pub fn get_writer(&self) -> Arc<Mutex<IndexWriter>> { Arc::clone(&self.writer) }
 
-    pub fn get_opstamp(&self) -> u64 { self.current_opstamp.load(Ordering::SeqCst) }
+    pub fn get_opstamp(&self) -> u64 { self.current_opstamp.load(Ordering::Relaxed) }
 
-    pub fn set_opstamp(&self, opstamp: u64) {
-        info!("Setting opstamp={}", opstamp);
-        self.current_opstamp.store(opstamp, Ordering::SeqCst)
-    }
+    pub fn set_opstamp(&self, opstamp: u64) { self.current_opstamp.store(opstamp, Ordering::Relaxed) }
 }

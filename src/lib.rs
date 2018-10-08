@@ -25,6 +25,8 @@ extern crate tokio;
 extern crate tokio_threadpool;
 
 use tantivy::query::QueryParserError;
+
+use tantivy::schema::DocParsingError;
 use tantivy::Error as TError;
 
 #[derive(Debug, Fail)]
@@ -71,12 +73,26 @@ impl From<QueryParserError> for Error {
     }
 }
 
+impl From<DocParsingError> for Error {
+    fn from(err: DocParsingError) -> Self {
+        match err {
+            DocParsingError::NotJSON(e) => Error::IOError(e),
+            DocParsingError::NoSuchFieldInSchema(e) => Error::UnknownIndexField(e),
+            DocParsingError::ValueError(e, vpe) => Error::IOError(e),
+        }
+    }
+}
+
 impl<T> From<std::sync::PoisonError<T>> for Error {
     fn from(err: std::sync::PoisonError<T>) -> Self { Error::IOError(err.to_string()) }
 }
 
 impl From<std::io::Error> for Error {
     fn from(err: std::io::Error) -> Self { Error::IOError(err.to_string()) }
+}
+
+impl From<std::str::Utf8Error> for Error {
+    fn from(err: std::str::Utf8Error) -> Self { Error::IOError(err.to_string()) }
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

@@ -29,6 +29,17 @@ pub struct DocsAffected {
     docs_affected: u32,
 }
 
+#[derive(Deserialize)]
+pub struct IndexOptions {
+    commit: bool,
+}
+
+#[derive(Deserialize)]
+pub struct AddDocument {
+    pub options:  IndexOptions,
+    pub document: serde_json::Value,
+}
+
 impl RefUnwindSafe for IndexHandler {}
 
 impl IndexHandler {
@@ -84,13 +95,17 @@ impl IndexHandler {
         }
     }
 
+    fn parse_doc(&self, schema: &Schema, bytes: &[u8]) -> Result<Document> {
+        schema.parse_document(from_utf8(bytes)?).map_err(|e| e.into())
+    }
+
     fn add_document(self, mut state: State, index_path: IndexPath) -> Box<HandlerFuture> {
         Box::new(Body::take_from(&mut state).concat2().then(move |body| match body {
             Ok(ref b) => {
                 if let Ok(mut index_lock) = self.catalog.write() {
-                    if let Ok(ref mut index_handle) = index_lock.get_mut_index(&index_path.index) {
-                        let stamp: u64;
+                    if let Ok(index_handle) = index_lock.get_mut_index(&index_path.index) {
                         {
+                            let bb: AddDocument = serde_json::from_slice(b).unwrap();
                             let index = index_handle.get_index();
                             let index_schema = index.schema();
                             let writer = index_handle.get_writer();
@@ -98,10 +113,18 @@ impl IndexHandler {
                                 Ok(w) => w,
                                 Err(ref e) => return handle_error(state, &Error::IOError(e.to_string())),
                             };
-                            let mut doc = index_schema.parse_document(from_utf8(b).unwrap()).unwrap();
-                            stamp = index_writer.add_document(doc);
+                            let mut doc = match self.parse_doc(&index_schema, &bb.document.to_string().as_bytes()) {
+                                Ok(d) => d,
+                                Err(ref e) => return handle_error(state, e),
+                            };
+                            index_writer.add_document(doc);
+                            if bb.options.commit {
+                                index_writer.commit().unwrap();
+                                index_handle.set_opstamp(0);
+                            } else {
+                                index_handle.set_opstamp(index_handle.get_opstamp() + 1);
+                            }
                         }
-                        index_handle.set_opstamp(stamp);
                     }
                 }
                 let resp = create_response(&state, StatusCode::Created, None);
