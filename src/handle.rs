@@ -1,14 +1,13 @@
 use settings::SETTINGS;
 use tantivy::{Index, IndexWriter};
 
-use std::sync::atomic::{Ordering, AtomicUsize};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
-
 
 pub struct IndexHandle {
     index:               Index,
     writer:              Arc<Mutex<IndexWriter>>,
-    pub current_opstamp: AtomicUsize
+    current_opstamp: AtomicUsize,
 }
 
 impl IndexHandle {

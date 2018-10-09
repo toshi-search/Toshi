@@ -8,15 +8,14 @@ use std::io::Result as IOResult;
 use std::panic::RefUnwindSafe;
 use std::sync::RwLock;
 
-use std::str::from_utf8;
-
 use hyper::Method;
 use tantivy::schema::*;
 use tantivy::Index;
 
 #[derive(Deserialize)]
 pub struct DeleteDoc {
-    terms: HashMap<String, String>,
+    options: Option<IndexOptions>,
+    terms:       HashMap<String, String>,
 }
 
 #[derive(Clone)]
@@ -31,13 +30,14 @@ pub struct DocsAffected {
 
 #[derive(Deserialize)]
 pub struct IndexOptions {
+    #[serde(default)]
     commit: bool,
 }
 
 #[derive(Deserialize)]
 pub struct AddDocument {
-    pub options:  IndexOptions,
-    pub document: serde_json::Value,
+    options:  Option<IndexOptions>,
+    document: serde_json::Value,
 }
 
 impl RefUnwindSafe for IndexHandler {}
@@ -56,7 +56,7 @@ impl IndexHandler {
         if self.catalog.read().unwrap().exists(&index_path.index) {
             let f = Body::take_from(&mut state).concat2().then(move |body| match body {
                 Ok(b) => {
-                    let t: DeleteDoc = match serde_json::from_slice(&b) {
+                    let delete_doc: DeleteDoc = match serde_json::from_slice(&b) {
                         Ok(v) => v,
                         Err(e) => return handle_error(state, &Error::IOError(e.to_string())),
                     };
@@ -66,13 +66,13 @@ impl IndexHandler {
                         let index_handle = index_lock.get_index(&index_path.index).unwrap();
                         let index = index_handle.get_index();
                         let index_schema = index.schema();
-                        let writer = index_handle.get_writer();
-                        let mut index_writer = match writer.lock() {
+                        let writer_lock = index_handle.get_writer();
+                        let mut index_writer = match writer_lock.lock() {
                             Ok(w) => w,
                             Err(ref e) => return handle_error(state, &Error::IOError(e.to_string())),
                         };
 
-                        for (field, value) in t.terms {
+                        for (field, value) in delete_doc.terms {
                             let f = match index_schema.get_field(&field) {
                                 Some(v) => v,
                                 None => return handle_error(state, &Error::UnknownIndexField(field)),
@@ -80,7 +80,12 @@ impl IndexHandler {
                             let term = Term::from_field_text(f, &value);
                             index_writer.delete_term(term);
                         }
-                        index_writer.commit().unwrap();
+                        if let Some(opts) = delete_doc.options {
+                            if opts.commit {
+                                index_writer.commit().unwrap();
+                                index_handle.set_opstamp(0);
+                            }
+                        }
                         docs_affected = index.load_metas().unwrap().segments.iter().map(|seg| seg.num_deleted_docs()).sum();
                     }
                     let affected = to_json(DocsAffected { docs_affected }, true);
@@ -95,8 +100,8 @@ impl IndexHandler {
         }
     }
 
-    fn parse_doc(&self, schema: &Schema, bytes: &[u8]) -> Result<Document> {
-        schema.parse_document(from_utf8(bytes)?).map_err(|e| e.into())
+    fn parse_doc(&self, schema: &Schema, bytes: &str) -> Result<Document> {
+        schema.parse_document(bytes).map_err(|e| e.into())
     }
 
     fn add_document(self, mut state: State, index_path: IndexPath) -> Box<HandlerFuture> {
@@ -105,22 +110,24 @@ impl IndexHandler {
                 if let Ok(mut index_lock) = self.catalog.write() {
                     if let Ok(index_handle) = index_lock.get_mut_index(&index_path.index) {
                         {
-                            let bb: AddDocument = serde_json::from_slice(b).unwrap();
+                            let add_document: AddDocument = serde_json::from_slice(b).unwrap();
                             let index = index_handle.get_index();
                             let index_schema = index.schema();
-                            let writer = index_handle.get_writer();
-                            let mut index_writer = match writer.lock() {
+                            let writer_lock = index_handle.get_writer();
+                            let mut index_writer = match writer_lock.lock() {
                                 Ok(w) => w,
                                 Err(ref e) => return handle_error(state, &Error::IOError(e.to_string())),
                             };
-                            let mut doc = match self.parse_doc(&index_schema, &bb.document.to_string().as_bytes()) {
+                            let mut doc = match self.parse_doc(&index_schema, &add_document.document.to_string()) {
                                 Ok(d) => d,
                                 Err(ref e) => return handle_error(state, e),
                             };
                             index_writer.add_document(doc);
-                            if bb.options.commit {
-                                index_writer.commit().unwrap();
-                                index_handle.set_opstamp(0);
+                            if let Some(opts) = add_document.options {
+                                if opts.commit {
+                                    index_writer.commit().unwrap();
+                                    index_handle.set_opstamp(0);
+                                }
                             } else {
                                 index_handle.set_opstamp(index_handle.get_opstamp() + 1);
                             }
@@ -219,9 +226,11 @@ mod tests {
 
         let body = r#"
         {
+          "document": {
             "test_text":    "Babbaboo!",
             "test_u64":     10 ,
             "test_i64":     -10
+          }
         }"#;
 
         let response = test_server
@@ -238,7 +247,10 @@ mod tests {
         let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
         let test_server = create_test_client(&Arc::new(RwLock::new(catalog)));
 
-        let body = r#"{ "terms": {"test_text": "document"} }"#;
+        let body = r#"{
+          "options": {"commit": true},
+          "terms": {"test_text": "document"}
+          }"#;
 
         let response = test_server
             .delete("http://localhost/test_index")

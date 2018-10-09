@@ -7,7 +7,6 @@ use std::time::{Duration, Instant};
 use tokio::prelude::*;
 use tokio::runtime::{Builder as RtBuilder, Runtime};
 use tokio::timer::Interval;
-use tokio_threadpool::Builder as TpBuilder;
 
 pub struct IndexWatcher {
     catalog: Arc<RwLock<IndexCatalog>>,
@@ -16,10 +15,11 @@ pub struct IndexWatcher {
 
 impl IndexWatcher {
     pub fn new(catalog: Arc<RwLock<IndexCatalog>>) -> Self {
-        let mut pool = TpBuilder::new();
-        pool.name_prefix("toshi-index-committer").pool_size(2);
-
-        let runtime = RtBuilder::new().threadpool_builder(pool).build().unwrap();
+        let runtime = RtBuilder::new()
+            .core_threads(2)
+            .name_prefix("toshi-index-committer")
+            .build()
+            .unwrap();
         IndexWatcher { catalog, runtime }
     }
 
@@ -46,7 +46,8 @@ impl IndexWatcher {
                     });
                 }
                 Ok(())
-            }).map_err(|e| panic!("Error in timer={:?}", e));
+            })
+            .map_err(|e| panic!("Error in commit-watcher={:?}", e));
 
         self.runtime.spawn(future::lazy(|| task));
         self.runtime.shutdown_on_idle();

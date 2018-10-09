@@ -143,7 +143,8 @@ impl IndexCatalog {
                                     term_query += "}";
                                 }
                                 term_query
-                            }).collect::<Vec<String>>()
+                            })
+                            .collect::<Vec<String>>()
                             .join(" ");
 
                         let query = query_parser.parse_query(&terms)?;
@@ -169,7 +170,8 @@ impl IndexCatalog {
                     .map(|(score, doc)| {
                         let d = searcher.doc(doc).expect("Doc not found in segment");
                         ScoredDoc::new(score, schema.to_named_doc(&d))
-                    }).collect();
+                    })
+                    .collect();
 
                 Ok(SearchResults::new(scored_docs))
             }
