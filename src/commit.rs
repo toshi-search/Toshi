@@ -18,6 +18,7 @@ impl IndexWatcher {
     pub fn new(catalog: Arc<RwLock<IndexCatalog>>) -> Self {
         let mut pool = TpBuilder::new();
         pool.name_prefix("toshi-index-committer").pool_size(2);
+
         let runtime = RtBuilder::new().threadpool_builder(pool).build().unwrap();
         IndexWatcher { catalog, runtime }
     }
@@ -33,7 +34,7 @@ impl IndexWatcher {
                         match writer.lock() {
                             Ok(mut w) => {
                                 let current_ops = index.get_opstamp();
-                                if current_ops <= 0 {
+                                if current_ops == 0 {
                                     info!("No update to index={}, opstamp={}", key, current_ops);
                                 } else {
                                     w.commit().unwrap();

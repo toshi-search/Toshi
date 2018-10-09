@@ -10,7 +10,6 @@ extern crate failure;
 extern crate tantivy;
 #[macro_use]
 extern crate lazy_static;
-extern crate atomic;
 extern crate capnp;
 extern crate config;
 extern crate crossbeam_channel;
@@ -78,7 +77,7 @@ impl From<DocParsingError> for Error {
         match err {
             DocParsingError::NotJSON(e) => Error::IOError(e),
             DocParsingError::NoSuchFieldInSchema(e) => Error::UnknownIndexField(e),
-            DocParsingError::ValueError(e, vpe) => Error::IOError(e),
+            DocParsingError::ValueError(e, _) => Error::IOError(e),
         }
     }
 }
