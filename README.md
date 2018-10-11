@@ -11,9 +11,9 @@ to be that for ElasticSearch.
 Toshi will always target stable rust and will try our best to never make any use of unsafe. While underlying libraries may make some 
 use of unsafe, Toshi will make a concerted effort to vet these libraries in an effort to be completely free of unsafe Rust usage. The
 reason I chose this was because I felt that for this to actually become an attractive option for people to consider it would have to have
-be safe, stable and consistent. This was why stable rust was chosen because of the guarentees and safety it provides. I did not want to go down the rabbit hole of using nightly features to then have issues with their stability later on. Since Toshi is not 
+be safe, stable and consistent. This was why stable rust was chosen because of the guarantees and safety it provides. I did not want to go down the rabbit hole of using nightly features to then have issues with their stability later on. Since Toshi is not 
 meant to be a library I'm perfectly fine with having this requirement because people who would want to use this more than likely will 
-take it off the shelf and not modify it. So my motivation was to cater to that usecase when building Toshi.
+take it off the shelf and not modify it. So my motivation was to cater to that use case when building Toshi.
 
 #### Build Requirements
 At this current time Toshi should build and work fine on Windows, OSX and Linux. From dependency requirements you are going to be Rust >= 1.27 and cargo installed to build.
@@ -22,15 +22,32 @@ At this current time Toshi should build and work fine on Windows, OSX and Linux.
 
 There is a default config in config/config.toml
 
+```toml
+host = "localhost"
+port = 8080
+path = "data/"
+writer_memory = 200000000
+log_level = "debug"
+json_parsing_threads = 4
+bulk_buffer_size = 10000
+auto_commit_duration = 10
+
+[merge_policy]
+kind = "log"
+min_merge_size = 8
+min_layer_size = 10_000
+level_log_size = 0.75
+```
+
 ##### Host
 `host = "localhost"`
 
-The local hostname toshi will bind on upon start.
+The local hostname Toshi will bind on upon start.
 
 ##### Port
 `port = 8080`
 
-The port toshi will bind to upon start.
+The port Toshi will bind to upon start.
 
 ##### Path
 `path = "data/"`
@@ -60,6 +77,12 @@ This will control the buffer size for parsing documents into an index. It will c
 take up by blocking when the message buffer is filled. If you want to go totally off the rails you can set this to 0 in order to make
 the buffer unbounded.
 
+##### Auto Commit Duration
+`auto_commit_duration = 10`
+
+This controls how often an index will automatically commit documents if there are docs to be committed. Set this to 0 to disable this feature,
+but you will have to do commits yourself when you submit documents. 
+
 ##### Merge Policy
 ```toml
 [merge_policy]
@@ -67,7 +90,7 @@ kind = "log"
 ```
 
 Tantivy will merge index segments according to the configuration outlined here. There are 2 options for this. "log" which is the default 
-segment merge behavior. Log has 3 additional values to it as well. Any of these 3 values can be ommitted to use Tantivy's default value.
+segment merge behavior. Log has 3 additional values to it as well. Any of these 3 values can be omitted to use Tantivy's default value.
 The default values are listed below.
 
 ```toml
@@ -148,22 +171,24 @@ curl -X PUT \
 If everything succeeded we should receive a `201 CREATED` from this request and if you look in the data directory you configured you
 should now see a directory for the test_index you just created.
 
-Now we can add some documents to our Index.
+Now we can add some documents to our Index. The options field can be omitted if a user does not want to commit on every document addition, but
+for completeness it is included here.
 
 ```bash
 curl -X PUT \
   http://localhost:8080/test_index \
   -H 'Content-Type: application/json' \
   -d '{
-        "fields": [
-          {"field": "test_text", "value": "Babbaboo!" },
-          {"field": "test_u64",  "value": 10 },
-          {"field": "test_i64",  "value": -10 }
-        ]
+        "options": { "commit": true },
+        "document": {
+          "test_text": "Babbaboo!",
+          "test_u64": 10,
+          "test_i64": -10
+        }
     }'
 ```
 
-And finally we can retreive all the documents in an index with a simple get call
+And finally we can retrieve all the documents in an index with a simple get call
 
 ```bash
 curl -X GET http://localhost:8080/test_index -H 'Content-Type: application/json'
@@ -172,11 +197,6 @@ curl -X GET http://localhost:8080/test_index -H 'Content-Type: application/json'
 #### Running Tests
 
 `cargo test`
-
-#### Road Map
-- 1.0 Single Node Parity with Elastic
-- 2.0 Full Implementation of Elastic Search DSL
-- 3.0 Cluster Distribution based on Raft
 
 #### What is a Toshi?
 

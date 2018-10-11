@@ -15,7 +15,7 @@ use tantivy::Index;
 #[derive(Deserialize)]
 pub struct DeleteDoc {
     options: Option<IndexOptions>,
-    terms:       HashMap<String, String>,
+    terms:   HashMap<String, String>,
 }
 
 #[derive(Clone)]
@@ -86,7 +86,10 @@ impl IndexHandler {
                                 index_handle.set_opstamp(0);
                             }
                         }
-                        docs_affected = index.load_metas().unwrap().segments.iter().map(|seg| seg.num_deleted_docs()).sum();
+                        docs_affected = index
+                            .load_metas()
+                            .map(|meta| meta.segments.iter().map(|seg| seg.num_deleted_docs()).sum())
+                            .unwrap_or(0);
                     }
                     let affected = to_json(DocsAffected { docs_affected }, true);
                     let resp = create_response(&state, StatusCode::Ok, affected);
@@ -100,9 +103,7 @@ impl IndexHandler {
         }
     }
 
-    fn parse_doc(&self, schema: &Schema, bytes: &str) -> Result<Document> {
-        schema.parse_document(bytes).map_err(|e| e.into())
-    }
+    fn parse_doc(&self, schema: &Schema, bytes: &str) -> Result<Document> { schema.parse_document(bytes).map_err(|e| e.into()) }
 
     fn add_document(self, mut state: State, index_path: IndexPath) -> Box<HandlerFuture> {
         Box::new(Body::take_from(&mut state).concat2().then(move |body| match body {

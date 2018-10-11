@@ -9,3 +9,6 @@ auto_commit_duration = 10
 
 [merge_policy]
 kind = "log"
+min_merge_size = 8
+min_layer_size = 10_000
+level_log_size = 0.75

@@ -5,8 +5,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 pub struct IndexHandle {
-    index:               Index,
-    writer:              Arc<Mutex<IndexWriter>>,
+    index:           Index,
+    writer:          Arc<Mutex<IndexWriter>>,
     current_opstamp: AtomicUsize,
 }
 
