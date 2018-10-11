@@ -27,10 +27,13 @@ pub fn runner() -> i32 {
         }
     };
     let catalog_arc = Arc::new(RwLock::new(index_catalog));
-    let commit_watcher = IndexWatcher::new(Arc::clone(&catalog_arc));
-    commit_watcher.start();
-    let addr = format!("{}:{}", &SETTINGS.host, SETTINGS.port);
 
+    if SETTINGS.auto_commit_duration > 0 {
+        let commit_watcher = IndexWatcher::new(Arc::clone(&catalog_arc));
+        commit_watcher.start();
+    }
+
+    let addr = format!("{}:{}", &SETTINGS.host, SETTINGS.port);
     println!("{}", HEADER);
     gotham::start(addr, router_with_catalog(&catalog_arc));
 
