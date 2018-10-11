@@ -55,3 +55,50 @@ impl IndexWatcher {
 
     pub fn shutdown(self) { self.runtime.shutdown_now(); }
 }
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    use handlers::search::tests::*;
+    use hyper::StatusCode;
+    use index::tests::*;
+    use std::thread::sleep;
+    use std::time::Duration;
+
+    use serde_json;
+
+    #[test]
+    pub fn test_auto_commit() {
+        let idx = create_test_index();
+        let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
+        let arc = Arc::new(RwLock::new(catalog));
+        let test_server = create_test_client(&arc);
+        let watcher = IndexWatcher::new(Arc::clone(&arc));
+        watcher.start();
+
+        let body = r#"
+        {
+          "document": {
+            "test_text":    "Babbaboo!",
+            "test_u64":     10 ,
+            "test_i64":     -10
+          }
+        }"#;
+
+        let response = test_server
+            .put("http://localhost/test_index", body, mime::APPLICATION_JSON)
+            .perform()
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::Created);
+        sleep(Duration::from_secs(1));
+
+        let check_request = create_test_client(&arc)
+            .get("http://localhost/test_index?pretty=false")
+            .perform()
+            .unwrap();
+        let results: TestResults = serde_json::from_slice(&check_request.read_body().unwrap()).unwrap();
+        assert_eq!(6, results.hits);
+    }
+
+}

@@ -1,3 +1,4 @@
+#![warn(unused_extern_crates)]
 #[macro_use]
 extern crate gotham_derive;
 #[macro_use]
@@ -17,11 +18,9 @@ extern crate futures;
 extern crate gotham;
 extern crate hyper;
 extern crate mime;
-extern crate pretty_env_logger;
 extern crate serde;
 extern crate serde_json;
 extern crate tokio;
-extern crate tokio_threadpool;
 
 use tantivy::query::QueryParserError;
 
