@@ -16,6 +16,7 @@ use tantivy::Document;
 use tantivy::IndexWriter;
 
 use crossbeam_channel::{unbounded, Receiver};
+use std::sync::Mutex;
 
 #[derive(Clone)]
 pub struct BulkHandler {
@@ -27,13 +28,17 @@ impl RefUnwindSafe for BulkHandler {}
 impl BulkHandler {
     pub fn new(catalog: Arc<RwLock<IndexCatalog>>) -> Self { BulkHandler { catalog } }
 
-    fn index_documents(index_writer: &mut IndexWriter, doc_receiver: Receiver<Document>) -> Result<u64> {
-        // TODO: Add back performance metrics...
-        for doc in doc_receiver {
-            index_writer.add_document(doc);
-        }
-        match index_writer.commit() {
-            Ok(c) => Ok(c),
+    fn index_documents(index_writer: &Mutex<IndexWriter>, doc_receiver: Receiver<Document>) -> Result<u64> {
+        match index_writer.lock() {
+            Ok(ref mut w) => {
+                for doc in doc_receiver {
+                    w.add_document(doc);
+                }
+                match w.commit() {
+                    Ok(c) => Ok(c),
+                    Err(e) => Err(e.into()),
+                }
+            }
             Err(e) => Err(e.into()),
         }
     }
@@ -43,7 +48,8 @@ impl Handler for BulkHandler {
     fn handle(self, mut state: State) -> Box<HandlerFuture> {
         let path = IndexPath::take_from(&mut state);
         let index_lock = self.catalog.read().unwrap();
-        let index = index_lock.get_index(&path.index).unwrap();
+        let index_handle = index_lock.get_index(&path.index).unwrap();
+        let index = index_handle.get_index();
         let schema = index.schema();
         let (line_sender, line_recv) = SETTINGS.get_channel::<Vec<u8>>();
         let (doc_sender, doc_recv) = unbounded::<Document>();
@@ -66,12 +72,8 @@ impl Handler for BulkHandler {
             });
         }
 
-        let mut index_writer = match index.writer(SETTINGS.writer_memory) {
-            Ok(w) => w,
-            Err(ref e) => return Box::new(handle_error(state, e)),
-        };
-        index_writer.set_merge_policy(SETTINGS.get_merge_policy());
-        thread::spawn(move || BulkHandler::index_documents(&mut index_writer, doc_recv));
+        let writer = index_handle.get_writer();
+        thread::spawn(move || BulkHandler::index_documents(&writer, doc_recv));
 
         let body = Body::take_from(&mut state);
         let line_sender_clone = line_sender.clone();
@@ -88,7 +90,8 @@ impl Handler for BulkHandler {
                     line_sender_clone.send(l.to_vec());
                 }
                 future::ok(buf.clone())
-            }).then(move |r| match r {
+            })
+            .then(move |response| match response {
                 Ok(buf) => {
                     if !buf.is_empty() {
                         line_sender.send(buf.to_vec());

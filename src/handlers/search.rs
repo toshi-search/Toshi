@@ -198,17 +198,6 @@ pub mod tests {
     }
 
     #[test]
-    fn test_no_index_error() {
-        let idx = create_test_index();
-        let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
-        let client = create_test_client(&Arc::new(RwLock::new(catalog)));
-        let req = client.get("http://localhost/").perform().unwrap();
-
-        assert_eq!(req.status(), StatusCode::Ok);
-        assert_eq!(req.read_utf8_body().unwrap(), "Toshi Search, Version: 0.1.0")
-    }
-
-    #[test]
     fn test_bad_raw_query_syntax() {
         let idx = create_test_index();
         let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();

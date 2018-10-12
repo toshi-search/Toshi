@@ -10,33 +10,13 @@ use tantivy::query::{AllQuery, QueryParser};
 use tantivy::schema::*;
 use tantivy::Index;
 
+use handle::IndexHandle;
 use handlers::search::{Queries, Search};
+use results::*;
 
 pub struct IndexCatalog {
     base_path:  PathBuf,
-    collection: HashMap<String, Index>,
-}
-
-#[derive(Serialize)]
-pub struct SearchResults {
-    // TODO: Add Timing
-    // TODO: Add Shard Information
-    hits: usize,
-    docs: Vec<ScoredDoc>,
-}
-
-impl SearchResults {
-    pub fn new(docs: Vec<ScoredDoc>) -> Self { SearchResults { hits: docs.len(), docs } }
-}
-
-#[derive(Serialize)]
-pub struct ScoredDoc {
-    score: f32,
-    doc:   NamedFieldDocument,
-}
-
-impl ScoredDoc {
-    pub fn new(score: f32, doc: NamedFieldDocument) -> Self { ScoredDoc { score, doc } }
+    collection: HashMap<String, IndexHandle>,
 }
 
 impl IndexCatalog {
@@ -56,7 +36,8 @@ impl IndexCatalog {
     #[allow(dead_code)]
     pub fn with_index(name: String, index: Index) -> Result<Self> {
         let mut map = HashMap::new();
-        map.insert(name, index);
+        let h = IndexHandle::new(index);
+        map.insert(name, h);
         Ok(IndexCatalog {
             base_path:  PathBuf::new(),
             collection: map,
@@ -67,21 +48,29 @@ impl IndexCatalog {
         let p = PathBuf::from(path);
         if p.exists() {
             Index::open_in_dir(p)
-                .map_err(|_| Error::UnknownIndex(format!("No Index exists at path: {}", path)))
+                .map_err(|_| Error::UnknownIndex(path.to_string()))
                 .and_then(Ok)
         } else {
-            Err(Error::UnknownIndex(format!("No Index exists at path: {}", path)))
+            Err(Error::UnknownIndex(path.to_string()))
         }
     }
 
-    pub fn add_index(&mut self, name: String, index: Index) { self.collection.insert(name, index); }
+    pub fn add_index(&mut self, name: String, index: Index) { self.collection.insert(name, IndexHandle::new(index)); }
 
     #[allow(dead_code)]
-    pub fn get_collection(&self) -> &HashMap<String, Index> { &self.collection }
+    pub fn get_collection(&self) -> &HashMap<String, IndexHandle> { &self.collection }
+
+    pub fn get_mut_collection(&mut self) -> &mut HashMap<String, IndexHandle> { &mut self.collection }
 
     pub fn exists(&self, index: &str) -> bool { self.get_collection().contains_key(index) }
 
-    pub fn get_index(&self, name: &str) -> Result<&Index> { self.collection.get(name).ok_or_else(|| Error::UnknownIndex(name.to_string())) }
+    pub fn get_mut_index(&mut self, name: &str) -> Result<&mut IndexHandle> {
+        self.collection.get_mut(name).ok_or_else(|| Error::UnknownIndex(name.to_string()))
+    }
+
+    pub fn get_index(&self, name: &str) -> Result<&IndexHandle> {
+        self.collection.get(name).ok_or_else(|| Error::UnknownIndex(name.to_string()))
+    }
 
     pub fn refresh_catalog(&mut self) -> Result<()> {
         self.collection.clear();
@@ -101,14 +90,15 @@ impl IndexCatalog {
 
     pub fn search_index(&self, index: &str, search: &Search) -> Result<SearchResults> {
         match self.get_index(index) {
-            Ok(index) => {
-                index.load_searchers()?;
-                let searcher = index.searcher();
-                let schema = index.schema();
+            Ok(hand) => {
+                let idx = hand.get_index();
+                idx.load_searchers()?;
+                let searcher = idx.searcher();
+                let schema = idx.schema();
                 let fields: Vec<Field> = schema.fields().iter().filter_map(|e| schema.get_field(e.name())).collect();
 
                 let mut collector = TopCollector::with_limit(search.limit);
-                let mut query_parser = QueryParser::for_index(index, fields);
+                let mut query_parser = QueryParser::for_index(idx, fields);
                 query_parser.set_conjunction_by_default();
 
                 match &search.query {
@@ -153,7 +143,8 @@ impl IndexCatalog {
                                     term_query += "}";
                                 }
                                 term_query
-                            }).collect::<Vec<String>>()
+                            })
+                            .collect::<Vec<String>>()
                             .join(" ");
 
                         let query = query_parser.parse_query(&terms)?;
@@ -179,13 +170,16 @@ impl IndexCatalog {
                     .map(|(score, doc)| {
                         let d = searcher.doc(doc).expect("Doc not found in segment");
                         ScoredDoc::new(score, schema.to_named_doc(&d))
-                    }).collect();
+                    })
+                    .collect();
 
                 Ok(SearchResults::new(scored_docs))
             }
             Err(e) => Err(e),
         }
     }
+
+    pub fn clear(&mut self) { self.collection.clear(); }
 }
 
 #[cfg(test)]

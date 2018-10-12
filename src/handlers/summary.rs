@@ -23,7 +23,7 @@ impl Handler for SummaryHandler {
 
         if index_lock.exists(&index_path.index) {
             let index = match index_lock.get_index(&index_path.index) {
-                Ok(v) => v,
+                Ok(v) => v.get_index(),
                 Err(ref e) => return Box::new(handle_error(state, e)),
             };
             let metas = match index.load_metas() {
