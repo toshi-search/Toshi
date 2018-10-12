@@ -66,6 +66,7 @@ mod tests {
     use std::thread::sleep;
     use std::time::Duration;
 
+    use mime;
     use serde_json;
 
     #[test]
