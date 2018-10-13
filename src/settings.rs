@@ -75,15 +75,25 @@ impl Settings {
     }
 
     pub fn default_pretty() -> bool { false }
+
     pub fn default_result_limit() -> usize { 100 }
+
     pub fn default_host() -> String { "localhost".into() }
+
     pub fn default_path() -> String { "data/".into() }
+
     pub fn default_port() -> u16 { 8080 }
+
     pub fn default_level() -> String { "info".into() }
+
     pub fn default_writer_memory() -> usize { 200_000_000 }
+
     pub fn default_json_parsing_threads() -> usize { 4 }
+
     pub fn default_bulk_buffer_size() -> usize { 10000 }
+
     pub fn default_auto_commit_duration() -> u64 { 10 }
+
     pub fn default_merge_policy() -> ConfigMergePolicy {
         ConfigMergePolicy {
             kind:           "log".to_string(),

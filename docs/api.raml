@@ -1,0 +1,70 @@
+#%RAML 1.0
+title: Toshi Search
+version: 0.0.1
+baseUri: localhost:8080
+mediaType: application/json
+protocols: [HTTP, HTTPS]
+types:
+  Options:
+    type: object
+    properties:
+      commit?: boolean
+  Document:
+    type: object
+    description: A Tantivy Document in a Key, Value format
+  AddDocument:
+    type: object
+    properties:
+      options?: Options
+      document: Document
+
+/_version:
+  displayName: Get Version
+  description: Returns the current version of Toshi running.
+  get:
+    protocols: [HTTP, HTTPS]
+    responses:
+      200:
+        body:
+          application/json: |
+            {
+              "name": "Toshi Search",
+              "version": "Toshi Search, Version: 0.1.0"
+            }
+/{index}:
+  displayName: Index Operations
+  get:
+    protocols: [HTTP, HTTPS]
+    displayName: Get All Docs for an Index
+    responses:
+      200:
+  post:
+    protocols: [HTTP, HTTPS]
+    displayName: Return Docs Matching a Query
+    responses:
+      200:
+
+  put:
+    protocols: [HTTP, HTTPS]
+    displayName: Add A Document / Create An Index
+    description: If you provide a Tantivy schema it will create a new index. If you provide a document the document will be added to the defined Index
+    responses:
+      201:
+
+  delete:
+    protocols: [HTTP, HTTPS]
+    displayName: Delete Docs Containing Terms
+    responses:
+      200:
+  /_summary:
+    displayName: Index Summary
+    get:
+      protocols: [HTTP, HTTPS]
+      responses:
+        200:
+  /_bulk:
+    displayName: Bulk Ingest
+    post:
+      protocols: [HTTP, HTTPS]
+      responses:
+        200:

@@ -1,9 +1,8 @@
+use super::*;
+
 use futures::future;
 
 use std::io::Result as IOResult;
-
-use super::super::Error;
-use super::*;
 use std::sync::RwLock;
 
 #[derive(Clone)]
