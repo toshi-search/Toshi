@@ -23,7 +23,6 @@ extern crate serde_json;
 extern crate tokio;
 
 use tantivy::query::QueryParserError;
-
 use tantivy::schema::DocParsingError;
 use tantivy::Error as TError;
 

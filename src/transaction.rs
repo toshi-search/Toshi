@@ -126,7 +126,9 @@ impl TransactionLog {
     }
 
     pub fn current_size(&self) -> usize { self.buf_size }
+
     pub fn total_size(&self) -> usize { self.total_written }
+
     pub fn flush(&mut self) -> Result<(), Error> {
         self.buf.flush()?;
         self.buf.sync_all()

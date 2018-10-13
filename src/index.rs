@@ -5,14 +5,42 @@ use std::fs::read_dir;
 use std::iter::Iterator;
 use std::path::PathBuf;
 
+use serde_json::Value as JValue;
 use tantivy::collector::TopCollector;
 use tantivy::query::{AllQuery, QueryParser};
 use tantivy::schema::*;
 use tantivy::Index;
 
 use handle::IndexHandle;
-use handlers::search::{Queries, Search};
 use results::*;
+use settings::Settings;
+
+#[derive(Deserialize, Debug)]
+pub struct Search {
+    pub query: Queries,
+
+    #[serde(default = "Settings::default_result_limit")]
+    pub limit: usize,
+}
+
+impl Search {
+    pub fn all() -> Self {
+        Search {
+            query: Queries::AllDocs,
+            limit: Settings::default_result_limit(),
+        }
+    }
+}
+
+#[derive(Deserialize, Clone, PartialEq, Debug)]
+#[serde(untagged)]
+pub enum Queries {
+    TermSearch { term: HashMap<String, JValue> },
+    TermsSearch { terms: HashMap<String, Vec<String>> },
+    RangeSearch { range: HashMap<String, HashMap<String, i64>> },
+    RawSearch { raw: String },
+    AllDocs,
+}
 
 pub struct IndexCatalog {
     base_path:  PathBuf,
@@ -102,7 +130,7 @@ impl IndexCatalog {
                 query_parser.set_conjunction_by_default();
 
                 match &search.query {
-                    Queries::TermQuery { term } => {
+                    Queries::TermSearch { term } => {
                         let terms = term.iter().map(|(t, v)| format!("{}:{}", t, v)).collect::<Vec<String>>().join(" ");
 
                         let query = query_parser.parse_query(&terms)?;
@@ -110,7 +138,7 @@ impl IndexCatalog {
                         info!("{:#?}", query);
                         searcher.search(&*query, &mut collector)?;
                     }
-                    Queries::RangeQuery { range } => {
+                    Queries::RangeSearch { range } => {
                         info!("{:#?}", range);
                         let terms = range
                             .iter()
@@ -152,15 +180,12 @@ impl IndexCatalog {
                         info!("{:#?}", query);
                         searcher.search(&*query, &mut collector)?;
                     }
-                    Queries::AllQuery => {
-                        info!("Retrieving all docs...");
-                        searcher.search(&AllQuery, &mut collector)?;
-                    }
-                    Queries::RawQuery { raw } => {
+                    Queries::RawSearch { raw } => {
                         let query = query_parser.parse_query(&raw)?;
                         info!("{:#?}", query);
                         searcher.search(&*query, &mut collector)?;
                     }
+                    Queries::AllDocs => searcher.search(&AllQuery, &mut collector)?,
                     _ => unimplemented!(),
                 };
 

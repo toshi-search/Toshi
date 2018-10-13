@@ -1,4 +1,3 @@
-use super::super::Error;
 use super::*;
 
 use futures::{future, Future, Stream};

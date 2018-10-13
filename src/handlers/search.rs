@@ -1,40 +1,12 @@
-use super::settings::Settings;
 use super::*;
-use futures::{future, Future, Stream};
+use index::Search;
 
+use futures::{future, Future, Stream};
 use hyper::Method;
-use serde_json::Value;
-use std::collections::HashMap;
+
 use std::io::Result as IOResult;
 use std::panic::RefUnwindSafe;
 use std::sync::RwLock;
-
-#[derive(Deserialize, Debug)]
-pub struct Search {
-    pub query: Queries,
-
-    #[serde(default = "Settings::default_result_limit")]
-    pub limit: usize,
-}
-
-impl Search {
-    pub fn all() -> Self {
-        Search {
-            query: Queries::AllQuery,
-            limit: Settings::default_result_limit(),
-        }
-    }
-}
-
-#[derive(Deserialize, Clone, PartialEq, Debug)]
-#[serde(untagged)]
-pub enum Queries {
-    TermQuery { term: HashMap<String, Value> },
-    TermsQuery { terms: HashMap<String, Vec<String>> },
-    RangeQuery { range: HashMap<String, HashMap<String, i64>> },
-    RawQuery { raw: String },
-    AllQuery,
-}
 
 #[derive(Clone)]
 pub struct SearchHandler {
@@ -52,15 +24,15 @@ impl Handler for SearchHandler {
         let index = IndexPath::take_from(&mut state);
         let query_options = QueryOptions::take_from(&mut state);
         match *Method::borrow_from(&state) {
-            Method::Post => self.post_request(state, query_options, index),
-            Method::Get => self.get_request(state, &query_options, &index),
+            Method::Post => self.doc_search(state, query_options, index),
+            Method::Get => self.get_all_docs(state, &query_options, &index),
             _ => unreachable!(),
         }
     }
 }
 
 impl SearchHandler {
-    fn post_request(self, mut state: State, query_options: QueryOptions, index: IndexPath) -> Box<HandlerFuture> {
+    fn doc_search(self, mut state: State, query_options: QueryOptions, index: IndexPath) -> Box<HandlerFuture> {
         let f = Body::take_from(&mut state).concat2().then(move |body| match body {
             Ok(b) => {
                 let search: Search = match serde_json::from_slice(&b) {
@@ -82,7 +54,7 @@ impl SearchHandler {
         Box::new(f)
     }
 
-    fn get_request(self, state: State, query_options: &QueryOptions, index: &IndexPath) -> Box<HandlerFuture> {
+    fn get_all_docs(self, state: State, query_options: &QueryOptions, index: &IndexPath) -> Box<HandlerFuture> {
         let docs = match self.catalog.read().unwrap().search_index(&index.index, &Search::all()) {
             Ok(v) => v,
             Err(ref e) => return Box::new(handle_error(state, e)),
@@ -100,6 +72,7 @@ pub mod tests {
 
     use super::*;
     use index::tests::*;
+    use index::Queries;
     use serde_json;
 
     #[derive(Deserialize)]
@@ -150,21 +123,21 @@ pub mod tests {
 
         for q in queries {
             match q.query {
-                Queries::TermQuery { term } => {
+                Queries::TermSearch { term } => {
                     assert!(term.contains_key("user"));
                     assert_eq!(term.get("user").unwrap(), "Kimchy");
                 }
-                Queries::TermsQuery { terms } => {
+                Queries::TermsSearch { terms } => {
                     assert!(terms.contains_key("user"));
                     assert_eq!(terms.get("user").unwrap().len(), 2);
                     assert_eq!(terms.get("user").unwrap()[0], "kimchy");
                 }
-                Queries::RangeQuery { range } => {
+                Queries::RangeSearch { range } => {
                     assert!(range.contains_key("age"));
                     assert_eq!(*range.get("age").unwrap().get("gte").unwrap(), 10i64);
                     assert_eq!(*range.get("age").unwrap().get("lte").unwrap(), 20i64);
                 }
-                Queries::RawQuery { raw } => {
+                Queries::RawSearch { raw } => {
                     assert_eq!(raw, "year:[1 TO 10]");
                 }
                 _ => (),

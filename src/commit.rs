@@ -25,30 +25,23 @@ impl IndexWatcher {
 
     pub fn start(mut self) {
         let catalog = Arc::clone(&self.catalog);
-
         let task = Interval::new(Instant::now(), Duration::from_secs(SETTINGS.auto_commit_duration))
             .for_each(move |_| {
                 if let Ok(mut cat) = catalog.write() {
                     cat.get_mut_collection().iter_mut().for_each(|(key, index)| {
                         let writer = index.get_writer();
-                        match writer.lock() {
-                            Ok(mut w) => {
-                                let current_ops = index.get_opstamp();
-                                if current_ops == 0 {
-                                    info!("No update to index={}, opstamp={}", key, current_ops);
-                                } else {
-                                    w.commit().unwrap();
-                                    index.set_opstamp(0);
-                                }
-                            }
-                            Err(_) => (),
-                        };
+                        let current_ops = index.get_opstamp();
+                        if current_ops == 0 {
+                            info!("No update to index={}, opstamp={}", key, current_ops);
+                        } else if let Ok(mut w) = writer.lock() {
+                            w.commit().unwrap();
+                            index.set_opstamp(0);
+                        }
                     });
                 }
                 Ok(())
             })
             .map_err(|e| panic!("Error in commit-watcher={:?}", e));
-
         self.runtime.spawn(future::lazy(|| task));
         self.runtime.shutdown_on_idle();
     }
@@ -57,7 +50,7 @@ impl IndexWatcher {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
 
     use super::*;
     use handlers::search::tests::*;
@@ -92,7 +85,7 @@ mod tests {
             .perform()
             .unwrap();
         assert_eq!(response.status(), StatusCode::Created);
-        sleep(Duration::from_secs(1));
+        sleep(Duration::from_secs(2));
 
         let check_request = create_test_client(&arc)
             .get("http://localhost/test_index?pretty=false")
