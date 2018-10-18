@@ -2,6 +2,8 @@
 name    = "toshi"
 version = "0.1.0"
 authors = ["Stephen Carman <shcarman@gmail.com>"]
+description = "A full text search engine based on Tantivy"
+license = "MIT"
 build = "build.rs"
 
 [[bin]]
