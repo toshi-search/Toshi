@@ -43,13 +43,17 @@ pub enum Queries {
 }
 
 pub struct IndexCatalog {
-    base_path:  PathBuf,
-    collection: HashMap<String, IndexHandle>,
+    pub settings: Settings,
+    base_path:    PathBuf,
+    collection:   HashMap<String, IndexHandle>,
 }
 
 impl IndexCatalog {
-    pub fn new(base_path: PathBuf) -> Result<Self> {
+    pub fn with_path(base_path: PathBuf) -> Result<Self> { IndexCatalog::new(base_path, Settings::default()) }
+
+    pub fn new(base_path: PathBuf, settings: Settings) -> Result<Self> {
         let mut index_cat = IndexCatalog {
+            settings,
             base_path,
             collection: HashMap::new(),
         };
@@ -64,9 +68,11 @@ impl IndexCatalog {
     #[allow(dead_code)]
     pub fn with_index(name: String, index: Index) -> Result<Self> {
         let mut map = HashMap::new();
-        let h = IndexHandle::new(index);
+        let h =
+            IndexHandle::new(index, Settings::default()).unwrap_or_else(|_| panic!("Unable to open index: {} because it's locked", name));
         map.insert(name, h);
         Ok(IndexCatalog {
+            settings:   Settings::default(),
             base_path:  PathBuf::new(),
             collection: map,
         })
@@ -83,7 +89,11 @@ impl IndexCatalog {
         }
     }
 
-    pub fn add_index(&mut self, name: String, index: Index) { self.collection.insert(name, IndexHandle::new(index)); }
+    pub fn add_index(&mut self, name: String, index: Index) {
+        let handle =
+            IndexHandle::new(index, self.settings.clone()).unwrap_or_else(|_| panic!("Unable to open index: {} because it's locked", name));
+        self.collection.insert(name, handle);
+    }
 
     #[allow(dead_code)]
     pub fn get_collection(&self) -> &HashMap<String, IndexHandle> { &self.collection }
@@ -247,7 +257,7 @@ pub mod tests {
     #[cfg(not(target_family = "windows"))]
     #[test]
     fn test_catalog_errors() {
-        let catalog = IndexCatalog::new(PathBuf::from("asdf1234"));
+        let catalog = IndexCatalog::with_path(PathBuf::from("asdf1234"));
 
         match catalog {
             Ok(_) => {}

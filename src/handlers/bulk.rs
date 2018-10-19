@@ -51,10 +51,10 @@ impl Handler for BulkHandler {
         let index_handle = index_lock.get_index(&path.index).unwrap();
         let index = index_handle.get_index();
         let schema = index.schema();
-        let (line_sender, line_recv) = SETTINGS.get_channel::<Vec<u8>>();
+        let (line_sender, line_recv) = index_lock.settings.get_channel::<Vec<u8>>();
         let (doc_sender, doc_recv) = unbounded::<Document>();
 
-        for _ in 0..SETTINGS.json_parsing_threads {
+        for _ in 0..index_lock.settings.json_parsing_threads {
             let schema_clone = schema.clone();
             let doc_sender = doc_sender.clone();
             let line_recv_clone = line_recv.clone();

@@ -1,5 +1,4 @@
 use index::IndexCatalog;
-use settings::SETTINGS;
 
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
@@ -9,23 +8,28 @@ use tokio::runtime::{Builder as RtBuilder, Runtime};
 use tokio::timer::Interval;
 
 pub struct IndexWatcher {
-    catalog: Arc<RwLock<IndexCatalog>>,
-    runtime: Runtime,
+    commit_duration: u64,
+    catalog:         Arc<RwLock<IndexCatalog>>,
+    runtime:         Runtime,
 }
 
 impl IndexWatcher {
-    pub fn new(catalog: Arc<RwLock<IndexCatalog>>) -> Self {
+    pub fn new(catalog: Arc<RwLock<IndexCatalog>>, commit_duration: u64) -> Self {
         let runtime = RtBuilder::new()
             .core_threads(2)
             .name_prefix("toshi-index-committer")
             .build()
             .unwrap();
-        IndexWatcher { catalog, runtime }
+        IndexWatcher {
+            catalog,
+            runtime,
+            commit_duration,
+        }
     }
 
     pub fn start(mut self) {
         let catalog = Arc::clone(&self.catalog);
-        let task = Interval::new(Instant::now(), Duration::from_secs(SETTINGS.auto_commit_duration))
+        let task = Interval::new(Instant::now(), Duration::from_secs(self.commit_duration))
             .for_each(move |_| {
                 if let Ok(mut cat) = catalog.write() {
                     cat.get_mut_collection().iter_mut().for_each(|(key, index)| {
@@ -68,7 +72,7 @@ pub mod tests {
         let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
         let arc = Arc::new(RwLock::new(catalog));
         let test_server = create_test_client(&arc);
-        let watcher = IndexWatcher::new(Arc::clone(&arc));
+        let watcher = IndexWatcher::new(Arc::clone(&arc), 1);
         watcher.start();
 
         let body = r#"

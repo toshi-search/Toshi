@@ -46,6 +46,6 @@ mod tests {
 
         let req = client.get("http://localhost").perform().unwrap();
         assert_eq!(req.status(), StatusCode::Ok);
-        assert_eq!(req.read_utf8_body().unwrap(), r#"{"name":"Toshi Search","version":"0.1.0"}"#);
+        assert_eq!(req.read_utf8_body().unwrap(), r#"{"name":"Toshi Search","version":"0.1.1"}"#);
     }
 }

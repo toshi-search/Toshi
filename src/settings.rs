@@ -1,7 +1,9 @@
-use config::Source;
-use config::{Config, ConfigError, File, FileFormat};
+use clap::ArgMatches;
+use config::{Config, ConfigError, File, FileFormat, Source};
 use crossbeam_channel::*;
 use tantivy::merge_policy::*;
+
+use std::str::FromStr;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -19,7 +21,7 @@ pub enum MergePolicyType {
     NoMerge,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct ConfigMergePolicy {
     kind:           String,
     min_merge_size: Option<usize>,
@@ -37,7 +39,7 @@ impl ConfigMergePolicy {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct Settings {
     #[serde(default = "Settings::default_host")]
     pub host: String,
@@ -60,10 +62,40 @@ pub struct Settings {
     pub merge_policy: ConfigMergePolicy,
 }
 
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            host:                 Settings::default_host(),
+            port:                 Settings::default_port(),
+            path:                 Settings::default_path(),
+            log_level:            Settings::default_level(),
+            writer_memory:        Settings::default_writer_memory(),
+            json_parsing_threads: Settings::default_json_parsing_threads(),
+            auto_commit_duration: Settings::default_auto_commit_duration(),
+            bulk_buffer_size:     Settings::default_bulk_buffer_size(),
+            merge_policy:         Settings::default_merge_policy(),
+        }
+    }
+}
+
+impl FromStr for Settings {
+    type Err = ConfigError;
+
+    fn from_str(cfg: &str) -> Result<Self, ConfigError> { Self::from_config(File::from_str(cfg, FileFormat::Toml)) }
+}
+
 impl Settings {
     pub fn new(path: &str) -> Result<Self, ConfigError> { Self::from_config(File::with_name(path)) }
 
-    pub fn default(cfg: &str) -> Result<Self, ConfigError> { Self::from_config(File::from_str(cfg, FileFormat::Toml)) }
+    pub fn from_args(args: ArgMatches) -> Self {
+        Self {
+            host: args.value_of("host").unwrap().to_string(),
+            port: args.value_of("port").unwrap().parse::<u16>().unwrap(),
+            path: args.value_of("path").unwrap().to_string(),
+            log_level: args.value_of("level").unwrap().to_string(),
+            ..Default::default()
+        }
+    }
 
     pub fn from_config<T: Source + Send + Sync + 'static>(c: T) -> Result<Self, ConfigError> {
         let mut cfg = Config::new();
@@ -131,18 +163,13 @@ impl Settings {
     }
 }
 
-lazy_static! {
-    pub static ref SETTINGS: Settings = Settings::new("config/config.toml").expect("Bad Config");
-}
-
 #[cfg(test)]
 mod tests {
-
     use super::*;
 
     #[test]
     fn valid_default_config() {
-        let default = Settings::default("").unwrap();
+        let default = Settings::from_str("").unwrap();
         assert_eq!(default.host, "localhost");
         assert_eq!(default.port, 8080);
         assert_eq!(default.path, "data/");
@@ -165,7 +192,7 @@ mod tests {
             min_layer_size = 20
             min_merge_size = 30"#;
 
-        let config = Settings::default(cfg).unwrap();
+        let config = Settings::from_str(cfg).unwrap();
 
         assert_eq!(config.merge_policy.level_log_size.unwrap(), 10.5);
         assert_eq!(config.merge_policy.min_layer_size.unwrap(), 20);
@@ -178,7 +205,7 @@ mod tests {
             [merge_policy]
             kind = "nomerge""#;
 
-        let config = Settings::default(cfg).unwrap();
+        let config = Settings::from_str(cfg).unwrap();
 
         assert!(config.merge_policy.get_kind() == MergePolicyType::NoMerge);
         assert_eq!(config.merge_policy.kind, "nomerge");
@@ -198,7 +225,7 @@ mod tests {
             [merge_policy]
             kind = "asdf1234""#;
 
-        let config = Settings::default(cfg).unwrap();
+        let config = Settings::from_str(cfg).unwrap();
         config.get_merge_policy();
     }
 }

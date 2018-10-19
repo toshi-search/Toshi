@@ -2,6 +2,7 @@ macro_rules! new_handler {
     ($N:ident) => {
         impl NewHandler for $N {
             type Instance = Self;
+
             fn new_handler(&self) -> IOResult<Self::Instance> { Ok(self.clone()) }
         }
     };
@@ -17,7 +18,7 @@ pub use self::{bulk::BulkHandler, index::IndexHandler, root::RootHandler, search
 
 use super::*;
 use index::*;
-use settings::{Settings, SETTINGS};
+use settings::Settings;
 
 use futures::{future, future::FutureResult};
 use gotham::handler::*;

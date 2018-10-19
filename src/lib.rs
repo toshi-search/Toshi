@@ -7,11 +7,8 @@ extern crate serde_derive;
 extern crate log;
 #[macro_use]
 extern crate failure;
-#[cfg_attr(test, macro_use)]
-extern crate tantivy;
-#[macro_use]
-extern crate lazy_static;
 extern crate capnp;
+extern crate clap;
 extern crate config;
 extern crate crossbeam_channel;
 extern crate futures;
@@ -20,6 +17,8 @@ extern crate hyper;
 extern crate mime;
 extern crate serde;
 extern crate serde_json;
+#[cfg_attr(test, macro_use)]
+extern crate tantivy;
 extern crate tokio;
 
 use tantivy::query::QueryParserError;
