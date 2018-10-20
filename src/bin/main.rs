@@ -76,7 +76,7 @@ pub fn runner() -> i32 {
         info!("Reading config from: {}", cfg);
         Settings::new(cfg).expect("Invalid Config file")
     } else {
-        Settings::from_args(options)
+        Settings::from_args(&options)
     };
 
     std::env::set_var("RUST_LOG", &settings.log_level);

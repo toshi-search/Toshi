@@ -57,9 +57,12 @@ pub struct Settings {
     pub auto_commit_duration: u64,
     #[serde(default = "Settings::default_bulk_buffer_size")]
     pub bulk_buffer_size: usize,
-
     #[serde(default = "Settings::default_merge_policy")]
     pub merge_policy: ConfigMergePolicy,
+    #[serde(default = "Settings::default_consul_host")]
+    pub consul_host: String,
+    #[serde(default = "Settings::default_consul_port")]
+    pub consul_port: u16,
 }
 
 impl Default for Settings {
@@ -74,6 +77,8 @@ impl Default for Settings {
             auto_commit_duration: Settings::default_auto_commit_duration(),
             bulk_buffer_size:     Settings::default_bulk_buffer_size(),
             merge_policy:         Settings::default_merge_policy(),
+            consul_host:          Settings::default_consul_host(),
+            consul_port:          Settings::default_consul_port(),
         }
     }
 }
@@ -87,10 +92,10 @@ impl FromStr for Settings {
 impl Settings {
     pub fn new(path: &str) -> Result<Self, ConfigError> { Self::from_config(File::with_name(path)) }
 
-    pub fn from_args(args: ArgMatches) -> Self {
+    pub fn from_args(args: &ArgMatches) -> Self {
         Self {
             host: args.value_of("host").unwrap().to_string(),
-            port: args.value_of("port").unwrap().parse::<u16>().unwrap(),
+            port: args.value_of("port").unwrap().parse::<u16>().expect("Invalid port given."),
             path: args.value_of("path").unwrap().to_string(),
             log_level: args.value_of("level").unwrap().to_string(),
             ..Default::default()
@@ -110,13 +115,13 @@ impl Settings {
 
     pub fn default_result_limit() -> usize { 100 }
 
-    pub fn default_host() -> String { "localhost".into() }
+    pub fn default_host() -> String { "localhost".to_string() }
 
-    pub fn default_path() -> String { "data/".into() }
+    pub fn default_path() -> String { "data/".to_string() }
 
     pub fn default_port() -> u16 { 8080 }
 
-    pub fn default_level() -> String { "info".into() }
+    pub fn default_level() -> String { "info".to_string() }
 
     pub fn default_writer_memory() -> usize { 200_000_000 }
 
@@ -134,6 +139,10 @@ impl Settings {
             level_log_size: None,
         }
     }
+
+    pub fn default_consul_host() -> String { "localhost".to_string() }
+
+    pub fn default_consul_port() -> u16 { 8500 }
 
     pub fn get_channel<T>(&self) -> (Sender<T>, Receiver<T>) {
         if self.bulk_buffer_size == 0 {
@@ -181,6 +190,8 @@ mod tests {
         assert_eq!(default.merge_policy.level_log_size, None);
         assert_eq!(default.merge_policy.min_layer_size, None);
         assert_eq!(default.merge_policy.min_merge_size, None);
+        assert_eq!(default.consul_port, 8500);
+        assert_eq!(default.consul_host, "localhost");
     }
 
     #[test]
