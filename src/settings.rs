@@ -98,6 +98,12 @@ impl Settings {
             port: args.value_of("port").unwrap().parse::<u16>().expect("Invalid port given."),
             path: args.value_of("path").unwrap().to_string(),
             log_level: args.value_of("level").unwrap().to_string(),
+            consul_host: args.value_of("consul-host").unwrap().to_string(),
+            consul_port: args
+                .value_of("consul-port")
+                .unwrap()
+                .parse::<u16>()
+                .expect("Invalid port given for Consul."),
             ..Default::default()
         }
     }
