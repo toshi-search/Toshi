@@ -55,6 +55,20 @@ pub fn runner() -> i32 {
                 .takes_value(true)
                 .default_value("8080"),
         )
+        .arg(
+            Arg::with_name("consul-host")
+                .short("ch")
+                .long("consul-host")
+                .takes_value(true)
+                .default_value("localhost"),
+        )
+        .arg(
+            Arg::with_name("consul-port")
+                .short("cp")
+                .long("consul-port")
+                .takes_value(true)
+                .default_value("8500"),
+        )
         .get_matches();
 
     let settings = if options.is_present("config") {
