@@ -69,6 +69,13 @@ pub fn runner() -> i32 {
                 .takes_value(true)
                 .default_value("8500"),
         )
+        .arg(
+            Arg::with_name("cluster-name")
+                .short("cn")
+                .long("cluster-name")
+                .takes_value(true)
+                .default_value("default"),
+        )
         .get_matches();
 
     let settings = if options.is_present("config") {
