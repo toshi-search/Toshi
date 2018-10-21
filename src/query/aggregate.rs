@@ -42,6 +42,7 @@ impl<'a> SumCollector<'a> {
 }
 
 impl<'a> AggregateQuery<SummaryDoc> for SumCollector<'a> {
+
     fn result(&self) -> SummaryDoc {
         let result: u64 = self
             .collector
