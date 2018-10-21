@@ -1,7 +1,7 @@
 use super::*;
 
 use std::collections::HashMap;
-use std::fs::read_dir;
+use std::fs::{create_dir, read_dir};
 use std::iter::Iterator;
 use std::path::PathBuf;
 
@@ -112,7 +112,10 @@ impl IndexCatalog {
 
     pub fn refresh_catalog(&mut self) -> Result<()> {
         self.collection.clear();
-
+        if !self.base_path.exists() {
+            info!("Base data path {} does not exist, creating it...", self.base_path.display());
+            create_dir(self.base_path.clone())?;
+        }
         for dir in read_dir(self.base_path.clone())? {
             let entry = dir?.path();
             if let Some(entry_str) = entry.to_str() {
@@ -120,7 +123,7 @@ impl IndexCatalog {
                 let idx = IndexCatalog::load_index(entry_str)?;
                 self.add_index(pth.clone(), idx);
             } else {
-                return Err(Error::IOError(format!("Path {:?} is not a valid unicode path", entry)));
+                return Err(Error::IOError(format!("Path {} is not a valid unicode path", entry.display())));
             }
         }
         Ok(())
@@ -224,6 +227,7 @@ pub mod tests {
     use gotham::router::Router;
     use gotham::test::{TestClient, TestServer};
     use std::sync::{Arc, RwLock};
+    use std::fs::remove_dir;
 
     pub fn create_test_index() -> Index {
         let mut builder = SchemaBuilder::new();
@@ -254,15 +258,15 @@ pub mod tests {
         TestServer::new(router::router_with_catalog(catalog)).unwrap()
     }
 
-    #[cfg(not(target_family = "windows"))]
     #[test]
-    fn test_catalog_errors() {
-        let catalog = IndexCatalog::with_path(PathBuf::from("asdf1234"));
+    fn test_catalog_create_data_dir() {
+        let path = PathBuf::from("data_dir");
+        assert_eq!(path.exists(), false);
 
-        match catalog {
-            Ok(_) => {}
-            Err(Error::IOError(e)) => assert_eq!("No such file or directory (os error 2)", e),
-            _ => {}
-        }
+        let _catalog = IndexCatalog::with_path(path.clone()).unwrap();
+
+        assert_eq!(path.exists(), true);
+        assert_eq!(path.is_dir(), true);
+        remove_dir(path).unwrap();
     }
 }
