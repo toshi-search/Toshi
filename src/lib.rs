@@ -95,6 +95,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 mod handle;
 mod handlers;
+mod query;
 mod results;
 mod transaction;
 
