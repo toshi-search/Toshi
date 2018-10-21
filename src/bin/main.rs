@@ -57,14 +57,14 @@ pub fn runner() -> i32 {
         )
         .arg(
             Arg::with_name("consul-host")
-                .short("ch")
+                .short("C")
                 .long("consul-host")
                 .takes_value(true)
                 .default_value("localhost"),
         )
         .arg(
             Arg::with_name("consul-port")
-                .short("cp")
+                .short("P")
                 .long("consul-port")
                 .takes_value(true)
                 .default_value("8500"),
