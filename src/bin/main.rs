@@ -14,7 +14,7 @@ use toshi::commit::IndexWatcher;
 use toshi::index::IndexCatalog;
 use toshi::router::router_with_catalog;
 use toshi::settings::{Settings, HEADER};
-use toshi::cluster::consul::ConsulInterface;
+use toshi::consul_interface
 
 use clap::{App, Arg, ArgMatches};
 

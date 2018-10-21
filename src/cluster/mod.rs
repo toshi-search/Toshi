@@ -1,2 +1,2 @@
 /// Contains code related to clustering
-pub mod consul;
+pub mod consul_interface;
