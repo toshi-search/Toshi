@@ -54,13 +54,18 @@ impl SearchHandler {
     }
 
     fn get_all_docs(self, state: State, query_options: &QueryOptions, index: &IndexPath) -> Box<HandlerFuture> {
-        let docs = match self.catalog.read().unwrap().search_index(&index.index, &Search::all()) {
-            Ok(v) => v,
-            Err(ref e) => return Box::new(handle_error(state, e)),
-        };
-        let data = to_json(docs, query_options.pretty);
-        let resp = create_response(&state, StatusCode::OK, mime::APPLICATION_JSON, data);
-        Box::new(future::ok((state, resp)))
+        if let Ok(idx) = self.catalog.read() {
+            match idx.search_index(&index.index, &Search::all()) {
+                Ok(docs) => {
+                    let data = to_json(docs, query_options.pretty);
+                    let resp = create_response(&state, StatusCode::Ok, mime::APPLICATION_JSON, data);
+                    Box::new(future::ok((state, resp)))
+                }
+                Err(ref e) => Box::new(handle_error(state, e)),
+            }
+        } else {
+            Box::new(handle_error(state, &Error::IOError("Could not obtain lock on index".to_string())))
+        }
     }
 }
 
