@@ -71,7 +71,7 @@ pub fn runner() -> i32 {
         )
         .arg(
             Arg::with_name("cluster-name")
-                .short("cn")
+                .short("N")
                 .long("cluster-name")
                 .takes_value(true)
                 .default_value("default"),
