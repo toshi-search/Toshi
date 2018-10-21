@@ -14,6 +14,7 @@ use toshi::commit::IndexWatcher;
 use toshi::index::IndexCatalog;
 use toshi::router::router_with_catalog;
 use toshi::settings::{Settings, HEADER};
+use toshi::cluster::consul::ConsulInterface;
 
 use clap::{App, Arg, ArgMatches};
 
@@ -74,9 +75,15 @@ pub fn runner() -> i32 {
                 .short("N")
                 .long("cluster-name")
                 .takes_value(true)
-                .default_value("default"),
+                .default_value("hachiko"),
         )
         .get_matches();
+
+    // This section connects the node to a consul cluster if applicable
+    let consul_client: ConsulInterface;
+    if let Some(cluster_name) = options.value_of("cluster-name").unwrap() {
+        
+    }
 
     let settings = if options.is_present("config") {
         let cfg = options.value_of("config").unwrap();
