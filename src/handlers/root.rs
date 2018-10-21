@@ -12,7 +12,7 @@ impl RootHandler {
 impl Handler for RootHandler {
     fn handle(self, state: State) -> Box<HandlerFuture> {
         let body = self.0.into_bytes();
-        let resp = create_response(&state, StatusCode::OK, (body, mime::TEXT_HTML));
+        let resp = create_response(&state, StatusCode::OK, mime::TEXT_HTML, body);
         Box::new(future::ok((state, resp)))
     }
 }
