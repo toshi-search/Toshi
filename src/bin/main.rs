@@ -36,7 +36,7 @@ pub fn runner() -> i32 {
         )
         .arg(
             Arg::with_name("path")
-                .short("dp")
+                .short("d")
                 .long("data-path")
                 .takes_value(true)
                 .default_value("data/"),
