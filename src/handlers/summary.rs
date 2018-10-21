@@ -28,7 +28,7 @@ impl Handler for SummaryHandler {
                 Err(ref e) => return Box::new(handle_error(state, e)),
             };
             let payload = to_json(metas, query_options.pretty);
-            let resp = create_response(&state, StatusCode::OK, payload);
+            let resp = create_response(&state, StatusCode::OK, mime::APPLICATION_JSON, payload);
             Box::new(future::ok((state, resp)))
         } else {
             Box::new(handle_error(state, &Error::UnknownIndex(index_path.index)))

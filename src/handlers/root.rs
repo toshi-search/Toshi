@@ -22,8 +22,8 @@ impl RootHandler {
 
 impl Handler for RootHandler {
     fn handle(self, state: State) -> Box<HandlerFuture> {
-        let body = serde_json::to_vec(&self.0).unwrap();
-        let resp = create_response(&state, StatusCode::Ok, Some((body, mime::APPLICATION_JSON)));
+        let body = self.0.into_bytes();
+        let resp = create_response(&state, StatusCode::OK, mime::TEXT_HTML, body);
         Box::new(future::ok((state, resp)))
     }
 }

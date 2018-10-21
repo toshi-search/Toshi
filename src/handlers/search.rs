@@ -46,7 +46,7 @@ impl SearchHandler {
                 };
 
                 let data = to_json(docs, query_options.pretty);
-                let resp = create_response(&state, StatusCode::OK, data);
+                let resp = create_response(&state, StatusCode::OK, mime::APPLICATION_JSON, data);
                 future::ok((state, resp))
             }
             Err(ref e) => handle_error(state, e),
@@ -60,7 +60,7 @@ impl SearchHandler {
             Err(ref e) => return Box::new(handle_error(state, e)),
         };
         let data = to_json(docs, query_options.pretty);
-        let resp = create_response(&state, StatusCode::OK, data);
+        let resp = create_response(&state, StatusCode::OK, mime::APPLICATION_JSON, data);
         Box::new(future::ok((state, resp)))
     }
 }
@@ -171,8 +171,6 @@ pub mod tests {
     }
 
     #[test]
-<<<<<<< HEAD
-=======
     fn test_no_index_error() {
         let idx = create_test_index();
         let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
@@ -184,7 +182,6 @@ pub mod tests {
     }
 
     #[test]
->>>>>>> Updating to gotham master and 0.12 hyper
     fn test_bad_raw_query_syntax() {
         let idx = create_test_index();
         let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
