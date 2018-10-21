@@ -1,5 +1,6 @@
 extern crate gotham;
 extern crate pretty_env_logger;
+extern crate uuid;
 #[macro_use]
 extern crate log;
 #[macro_use]
@@ -14,7 +15,8 @@ use toshi::commit::IndexWatcher;
 use toshi::index::IndexCatalog;
 use toshi::router::router_with_catalog;
 use toshi::settings::{Settings, HEADER};
-use toshi::consul_interface
+use toshi::cluster::ConsulInterface;
+use toshi::cluster;
 
 use clap::{App, Arg, ArgMatches};
 
@@ -79,11 +81,7 @@ pub fn runner() -> i32 {
         )
         .get_matches();
 
-    // This section connects the node to a consul cluster if applicable
-    let consul_client: ConsulInterface;
-    if let Some(cluster_name) = options.value_of("cluster-name").unwrap() {
-        
-    }
+
 
     let settings = if options.is_present("config") {
         let cfg = options.value_of("config").unwrap();
@@ -95,6 +93,19 @@ pub fn runner() -> i32 {
 
     std::env::set_var("RUST_LOG", &settings.log_level);
     pretty_env_logger::init();
+
+    let mut consul_client: ConsulInterface = ConsulInterface::default().with_consul_client();
+    let node_id: String;
+
+    // If this node already has a node ID, read it
+    if let Some(nid) = cluster::read_node_id(&settings.path) {
+        node_id = nid;
+    } else {
+        // If no file exists containing the node ID, generate a new one and write it
+        let random_id = uuid::Uuid::new_v4();
+        cluster::write_node_id(random_id.to_hyphenated().to_string(), &settings.path);
+        node_id = random_id.to_hyphenated().to_string();
+    }
 
     let index_catalog = match IndexCatalog::new(PathBuf::from(&settings.path), settings.clone()) {
         Ok(v) => v,
@@ -111,6 +122,7 @@ pub fn runner() -> i32 {
     }
 
     let addr = format!("{}:{}", &settings.host, settings.port);
+    println!("Node ID: {}", node_id);
     println!("{}", HEADER);
     gotham::start(addr, router_with_catalog(&catalog_arc));
 
