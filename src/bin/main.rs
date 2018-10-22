@@ -106,6 +106,5 @@ pub fn runner() -> i32 {
     let addr = format!("{}:{}", &settings.host, settings.port);
     println!("{}", HEADER);
     gotham::start(addr, router_with_catalog(&catalog_arc));
-
     0
 }
