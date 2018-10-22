@@ -20,7 +20,7 @@ capnpc = "^0.9"
 [dependencies]
 gotham            = { git = "https://github.com/gotham-rs/gotham" }
 gotham_derive     = { git = "https://github.com/gotham-rs/gotham" }
-hyper             = "0.12"
+hyper             = "^0.12"
 mime              = "^0.3"
 serde             = "^1.0"
 serde_derive      = "^1.0"

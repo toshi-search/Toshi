@@ -4,7 +4,6 @@ use index::Search;
 use futures::{future, Future, Stream};
 use hyper::Method;
 
-use std::io::Result as IOResult;
 use std::panic::RefUnwindSafe;
 use std::sync::RwLock;
 
@@ -24,8 +23,8 @@ impl Handler for SearchHandler {
         let index = IndexPath::take_from(&mut state);
         let query_options = QueryOptions::take_from(&mut state);
         match *Method::borrow_from(&state) {
-            Method::Post => self.doc_search(state, query_options, index),
-            Method::Get => self.get_all_docs(state, &query_options, &index),
+            Method::POST => self.doc_search(state, query_options, index),
+            Method::GET => self.get_all_docs(state, &query_options, &index),
             _ => unreachable!(),
         }
     }
@@ -168,17 +167,6 @@ pub mod tests {
         let req = client.get("http://localhost/bad_index").perform().unwrap();
 
         assert_eq!(req.status(), StatusCode::BAD_REQUEST);
-    }
-
-    #[test]
-    fn test_no_index_error() {
-        let idx = create_test_index();
-        let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
-        let client = create_test_client(&Arc::new(RwLock::new(catalog)));
-        let req = client.get("http://localhost/").perform().unwrap();
-
-        assert_eq!(req.status(), StatusCode::OK);
-        assert_eq!(req.read_utf8_body().unwrap(), "Toshi Search, Version: 0.1.0")
     }
 
     #[test]

@@ -6,7 +6,7 @@ use std::fs;
 use std::panic::RefUnwindSafe;
 use std::sync::RwLock;
 
-use hyper::*;
+use hyper::{Method, StatusCode};
 use tantivy::schema::*;
 use tantivy::Index;
 
@@ -83,9 +83,6 @@ impl IndexHandler {
                                 index_writer.commit().unwrap();
                                 index_handle.set_opstamp(0);
                             }
-
-                            let resp = create_empty_response(&state, StatusCode::CREATED);
-                            future::ok((state, resp))
                         }
                         docs_affected = index
                             .load_metas()
@@ -133,16 +130,10 @@ impl IndexHandler {
                             } else {
                                 index_handle.set_opstamp(index_handle.get_opstamp() + 1);
                             }
-
-                            let new_index = Index::create_in_dir(index_path, schema).unwrap();
-                            self.add_index(ui.index, new_index);
-
-                            let resp = create_empty_response(&state, StatusCode::CREATED);
-                            future::ok((state, resp))
                         }
                     }
                 }
-                let resp = create_response(&state, StatusCode::Created, mime::APPLICATION_JSON, None);
+                let resp = create_empty_response(&state, StatusCode::CREATED);
                 future::ok((state, resp))
             }
             Err(ref e) => handle_error(state, e),
@@ -163,7 +154,7 @@ impl IndexHandler {
                 }
                 let new_index = Index::create_in_dir(ip, schema).unwrap();
                 self.add_index(index_path.index, new_index);
-                let resp = create_response(&state, StatusCode::Created, mime::APPLICATION_JSON, None);
+                let resp = create_response(&state, StatusCode::CREATED, mime::APPLICATION_JSON, Body::empty());
                 future::ok((state, resp))
             }
             Err(ref e) => handle_error(state, e),
@@ -176,8 +167,8 @@ impl Handler for IndexHandler {
         let url_index = IndexPath::try_take_from(&mut state);
         match url_index {
             Some(ui) => match *Method::borrow_from(&state) {
-                Method::Delete => self.delete_document(state, ui),
-                Method::Put => {
+                Method::DELETE => self.delete_document(state, ui),
+                Method::PUT => {
                     if self.catalog.read().unwrap().exists(&ui.index) {
                         self.add_document(state, ui)
                     } else {
@@ -196,7 +187,6 @@ new_handler!(IndexHandler);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hyper::header::ContentType;
     use index::tests::*;
 
     #[test]
@@ -261,12 +251,12 @@ mod tests {
           "terms": {"test_text": "document"}
           }"#;
 
-        let response = test_server.build_request_with_body(Method::DELETE, "http://localhost/test_index", body, mime::APPLICATION_JSON)
-            .with_header(CONTENT_TYPE, HeaderValue::from_str("applicaton/json").unwrap())
+        let response = test_server
+            .build_request_with_body(Method::DELETE, "http://localhost/test_index", body, mime::APPLICATION_JSON)
             .perform()
             .unwrap();
 
-        assert_eq!(response.status(), StatusCode::Ok);
+        assert_eq!(response.status(), StatusCode::OK);
 
         let docs: DocsAffected = serde_json::from_slice(&response.read_body().unwrap()).unwrap();
         assert_eq!(docs.docs_affected, 3);
@@ -280,11 +270,11 @@ mod tests {
 
         let body = r#"{ "test_text": "document" }"#;
 
-        let response = test_server.build_request_with_body(Method::DELETE, "http://localhost/test_index", body, mime::APPLICATION_JSON)
-            .with_header(CONTENT_TYPE, HeaderValue::from_str("applicaton/json").unwrap())
+        let response = test_server
+            .build_request_with_body(Method::DELETE, "http://localhost/test_index", body, mime::APPLICATION_JSON)
             .perform()
             .unwrap();
 
-        assert_eq!(response.status(), StatusCode::BadRequest);
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     }
 }

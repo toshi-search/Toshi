@@ -2,6 +2,7 @@ macro_rules! new_handler {
     ($N:ident) => {
         impl NewHandler for $N {
             type Instance = Self;
+
             fn new_handler(&self) -> gotham::error::Result<Self::Instance> { Ok(self.clone()) }
         }
     };
@@ -15,6 +16,7 @@ pub mod summary;
 
 pub use self::{bulk::BulkHandler, index::IndexHandler, root::RootHandler, search::SearchHandler, summary::SummaryHandler};
 
+use super::Error;
 use super::*;
 use index::*;
 use settings::Settings;
@@ -24,11 +26,10 @@ use gotham::handler::*;
 use gotham::helpers::http::response::*;
 use gotham::state::*;
 use hyper::{Body, Response, StatusCode};
-use mime::{self, Mime};
+use mime;
 use serde::Serialize;
 use serde_json;
 use std::sync::Arc;
-use gotham::http::response::create_response;
 
 #[derive(Deserialize, StateData, StaticResponseExtender)]
 pub struct IndexPath {

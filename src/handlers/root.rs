@@ -22,8 +22,8 @@ impl RootHandler {
 
 impl Handler for RootHandler {
     fn handle(self, state: State) -> Box<HandlerFuture> {
-        let body = self.0.into_bytes();
-        let resp = create_response(&state, StatusCode::OK, mime::TEXT_HTML, body);
+        let body = serde_json::to_vec(&self.0).unwrap();
+        let resp = create_response(&state, StatusCode::OK, mime::APPLICATION_JSON, body);
         Box::new(future::ok((state, resp)))
     }
 }
@@ -43,7 +43,7 @@ mod tests {
         let client = test_server.client();
 
         let req = client.get("http://localhost").perform().unwrap();
-        assert_eq!(req.status(), StatusCode::Ok);
+        assert_eq!(req.status(), StatusCode::OK);
         assert_eq!(req.read_utf8_body().unwrap(), r#"{"name":"Toshi Search","version":"0.1.1"}"#);
     }
 }

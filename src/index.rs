@@ -225,8 +225,8 @@ pub mod tests {
 
     use super::*;
     use gotham::test::{TestClient, TestServer};
-    use std::sync::{Arc, RwLock};
     use std::fs::remove_dir;
+    use std::sync::{Arc, RwLock};
 
     pub fn create_test_index() -> Index {
         let mut builder = SchemaBuilder::new();
