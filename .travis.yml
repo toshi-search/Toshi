@@ -35,23 +35,19 @@ matrix:
       dist: trusty
     - os: osx
       sudo: required
-    #- os: windows
+    - os: windows
+      sudo: required
 
 before_install:
   - rustup self update
 
 install:
-  - curl -O https://capnproto.org/capnproto-c++-0.6.1.tar.gz
-  - tar zxf capnproto-c++-0.6.1.tar.gz
-  - cd capnproto-c++-0.6.1
-  - ./configure --prefix=$HOME
-  - make -j6 check
-  - sudo make install
-  - cd ../
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then ./ci/install_capnp.sh; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then ./ci/install_capnp.sh; fi
+  - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then choco install capnproto; fi
 
 before_script:
-  - export PATH="$HOME/bin:$HOME/.cargo/bin:$PATH"
-  - export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$HOME/lib"
+  - if [[ "$TRAVIS_OS_NAME" != "windows" ]]; then ./ci/set_path.sh; fi
   - cargo install cargo-update || echo "cargo-update already installed"
   - cargo install cargo-travis || echo "cargo-travis already installed"
   - cargo install capnpc || echo "capnpc already installed"
