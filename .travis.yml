@@ -1,6 +1,8 @@
 language: rust
-sudo: required
-dist: trusty
+
+compiler:
+  - gcc
+  - clang
 
 cache: cargo
 
@@ -27,9 +29,15 @@ matrix:
     - rust: nightly
     - rust: beta
   fast_finish: true
+  include:
+    - os: linux
+      sudo: required
+      dist: trusty
+    - os: osx
+      sudo: required
+    #- os: windows
 
 before_install:
-  - set -e
   - rustup self update
 
 install:
@@ -53,5 +61,5 @@ script:
   - cargo build && cargo test
 
 after_success:
-  - cargo coverage --exclude-pattern '/toshi/src/bin,/src/bin,/bin,/target' && bash <(curl -s https://codecov.io/bash) -s target/kcov
-  - cargo coveralls --exclude-pattern '/toshi/src/bin,/src/bin,/bin,/target'
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then cargo coverage --exclude-pattern '/toshi/src/bin,/src/bin,/bin,/target' && bash <(curl -s https://codecov.io/bash) -s target/kcov; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then cargo coveralls --exclude-pattern '/toshi/src/bin,/src/bin,/bin,/target'; fi
