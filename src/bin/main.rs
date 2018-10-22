@@ -102,7 +102,7 @@ pub fn runner() -> i32 {
     let mut consul_client: ConsulInterface = ConsulInterface::default()
         .with_cluster_name(cluster_name.to_string());
     let reg_future = consul_client.register_cluster();
-    rt::spawn(reg_future);
+    rt::run(reg_future);
     let node_id: String;
 
     // If this node already has a node ID, read it

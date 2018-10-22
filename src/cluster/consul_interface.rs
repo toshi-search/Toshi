@@ -47,10 +47,9 @@ impl ConsulInterface {
     }
 
     /// Registers this node with Consul via HTTP
-    pub fn register(&mut self, node_id: &str) {
+    pub fn register(&mut self, _node_id: &str) {
         if let Some(ref cluster_name) = self.cluster_name {
             let uri = self.scheme.clone() + &self.address + ":" + &self.port + "/v1/kv/" + CONSUL_PREFIX + &cluster_name + "/";
-            let value: String = "test".to_string();
             let client = Client::new();
             let body = Body::empty();
             let mut req = Request::new(body);
@@ -74,15 +73,16 @@ impl ConsulInterface {
         let uri = self.scheme.clone() + "://" + &self.address + ":" + &self.port + "/v1/kv/" + CONSUL_PREFIX + &cluster_name + "/";
         let client = Client::new();
         let body = Body::empty();
-        let mut req = Request::new(body);
-        *req.uri_mut() = uri.parse().unwrap();
+        let req = Request::builder()
+            .method("PUT")
+            .uri(uri)
+            .body(body)
+            .unwrap();
         client.request(req)
                 .map(|_| {
-                    println!("Worked!");
                     ()
                 })
                 .map_err(|_| {
-                    println!("Error!");
                     ()
                 })
     }
