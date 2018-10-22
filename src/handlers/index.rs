@@ -3,11 +3,10 @@ use super::*;
 use futures::{future, Future, Stream};
 use std::collections::HashMap;
 use std::fs;
-use std::io::Result as IOResult;
 use std::panic::RefUnwindSafe;
 use std::sync::RwLock;
 
-use hyper::Method;
+use hyper::{Method, StatusCode};
 use tantivy::schema::*;
 use tantivy::Index;
 
@@ -90,8 +89,8 @@ impl IndexHandler {
                             .map(|meta| meta.segments.iter().map(|seg| seg.num_deleted_docs()).sum())
                             .unwrap_or(0);
                     }
-                    let affected = to_json(DocsAffected { docs_affected }, true);
-                    let resp = create_response(&state, StatusCode::Ok, affected);
+                    let body = to_json(DocsAffected { docs_affected }, true);
+                    let resp = create_response(&state, StatusCode::OK, mime::APPLICATION_JSON, body);
                     future::ok((state, resp))
                 }
                 Err(ref e) => handle_error(state, e),
@@ -134,7 +133,7 @@ impl IndexHandler {
                         }
                     }
                 }
-                let resp = create_response(&state, StatusCode::Created, None);
+                let resp = create_empty_response(&state, StatusCode::CREATED);
                 future::ok((state, resp))
             }
             Err(ref e) => handle_error(state, e),
@@ -155,7 +154,7 @@ impl IndexHandler {
                 }
                 let new_index = Index::create_in_dir(ip, schema).unwrap();
                 self.add_index(index_path.index, new_index);
-                let resp = create_response(&state, StatusCode::Created, None);
+                let resp = create_response(&state, StatusCode::CREATED, mime::APPLICATION_JSON, Body::empty());
                 future::ok((state, resp))
             }
             Err(ref e) => handle_error(state, e),
@@ -168,8 +167,8 @@ impl Handler for IndexHandler {
         let url_index = IndexPath::try_take_from(&mut state);
         match url_index {
             Some(ui) => match *Method::borrow_from(&state) {
-                Method::Delete => self.delete_document(state, ui),
-                Method::Put => {
+                Method::DELETE => self.delete_document(state, ui),
+                Method::PUT => {
                     if self.catalog.read().unwrap().exists(&ui.index) {
                         self.add_document(state, ui)
                     } else {
@@ -188,7 +187,6 @@ new_handler!(IndexHandler);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hyper::header::ContentType;
     use index::tests::*;
 
     #[test]
@@ -204,18 +202,19 @@ mod tests {
             { "name": "test_u64", "type": "u64", "options": { "indexed": true, "stored": true } }
          ]"#;
 
-        let request = test_server
-            .client()
-            .put("http://localhost/new_index", schema, mime::APPLICATION_JSON);
-        let response = &request.perform().unwrap();
+        {
+            let client = test_server.client();
+            let request = client.put("http://localhost/new_index", schema, mime::APPLICATION_JSON);
+            let response = &request.perform().unwrap();
 
-        assert_eq!(response.status(), StatusCode::Created);
+            assert_eq!(response.status(), StatusCode::CREATED);
 
-        let get_request = test_server.client().get("http://localhost/new_index");
-        let get_response = get_request.perform().unwrap();
+            let get_request = client.get("http://localhost/new_index");
+            let get_response = get_request.perform().unwrap();
 
-        assert_eq!(StatusCode::Ok, get_response.status());
-        assert_eq!("{\"hits\":0,\"docs\":[]}", get_response.read_utf8_body().unwrap())
+            assert_eq!(StatusCode::OK, get_response.status());
+            assert_eq!("{\"hits\":0,\"docs\":[]}", get_response.read_utf8_body().unwrap())
+        }
     }
 
     #[test]
@@ -238,7 +237,7 @@ mod tests {
             .perform()
             .unwrap();
 
-        assert_eq!(response.status(), StatusCode::Created);
+        assert_eq!(response.status(), StatusCode::CREATED);
     }
 
     #[test]
@@ -253,13 +252,11 @@ mod tests {
           }"#;
 
         let response = test_server
-            .delete("http://localhost/test_index")
-            .with_body(body)
-            .with_header(ContentType(mime::APPLICATION_JSON))
+            .build_request_with_body(Method::DELETE, "http://localhost/test_index", body, mime::APPLICATION_JSON)
             .perform()
             .unwrap();
 
-        assert_eq!(response.status(), StatusCode::Ok);
+        assert_eq!(response.status(), StatusCode::OK);
 
         let docs: DocsAffected = serde_json::from_slice(&response.read_body().unwrap()).unwrap();
         assert_eq!(docs.docs_affected, 3);
@@ -274,12 +271,10 @@ mod tests {
         let body = r#"{ "test_text": "document" }"#;
 
         let response = test_server
-            .delete("http://localhost/test_index")
-            .with_body(body)
-            .with_header(ContentType(mime::APPLICATION_JSON))
+            .build_request_with_body(Method::DELETE, "http://localhost/test_index", body, mime::APPLICATION_JSON)
             .perform()
             .unwrap();
 
-        assert_eq!(response.status(), StatusCode::BadRequest);
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     }
 }

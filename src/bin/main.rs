@@ -136,6 +136,5 @@ pub fn runner() -> i32 {
     println!("Node ID: {}", node_id);
     println!("{}", HEADER);
     gotham::start(addr, router_with_catalog(&catalog_arc));
-
     0
 }

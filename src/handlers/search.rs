@@ -4,7 +4,6 @@ use index::Search;
 use futures::{future, Future, Stream};
 use hyper::Method;
 
-use std::io::Result as IOResult;
 use std::panic::RefUnwindSafe;
 use std::sync::RwLock;
 
@@ -24,8 +23,8 @@ impl Handler for SearchHandler {
         let index = IndexPath::take_from(&mut state);
         let query_options = QueryOptions::take_from(&mut state);
         match *Method::borrow_from(&state) {
-            Method::Post => self.doc_search(state, query_options, index),
-            Method::Get => self.get_all_docs(state, &query_options, &index),
+            Method::POST => self.doc_search(state, query_options, index),
+            Method::GET => self.get_all_docs(state, &query_options, &index),
             _ => unreachable!(),
         }
     }
@@ -46,7 +45,7 @@ impl SearchHandler {
                 };
 
                 let data = to_json(docs, query_options.pretty);
-                let resp = create_response(&state, StatusCode::Ok, data);
+                let resp = create_response(&state, StatusCode::OK, mime::APPLICATION_JSON, data);
                 future::ok((state, resp))
             }
             Err(ref e) => handle_error(state, e),
@@ -60,7 +59,7 @@ impl SearchHandler {
             Err(ref e) => return Box::new(handle_error(state, e)),
         };
         let data = to_json(docs, query_options.pretty);
-        let resp = create_response(&state, StatusCode::Ok, data);
+        let resp = create_response(&state, StatusCode::OK, mime::APPLICATION_JSON, data);
         Box::new(future::ok((state, resp)))
     }
 }
@@ -103,7 +102,7 @@ pub mod tests {
             .post("http://localhost/test_index", query, mime::APPLICATION_JSON)
             .perform()
             .unwrap();
-        assert_eq!(req.status(), StatusCode::Ok);
+        assert_eq!(req.status(), StatusCode::OK);
         let body = req.read_body().unwrap();
         serde_json::from_slice(&body).unwrap()
     }
@@ -152,7 +151,7 @@ pub mod tests {
         let client = create_test_client(&Arc::new(RwLock::new(catalog)));
 
         let req = client.get("http://localhost/test_index").perform().unwrap();
-        assert_eq!(req.status(), StatusCode::Ok);
+        assert_eq!(req.status(), StatusCode::OK);
 
         let body = req.read_body().unwrap();
         let docs: TestResults = serde_json::from_slice(&body).unwrap();
@@ -167,7 +166,7 @@ pub mod tests {
         let client = create_test_client(&Arc::new(RwLock::new(catalog)));
         let req = client.get("http://localhost/bad_index").perform().unwrap();
 
-        assert_eq!(req.status(), StatusCode::BadRequest);
+        assert_eq!(req.status(), StatusCode::BAD_REQUEST);
     }
 
     #[test]
@@ -182,7 +181,7 @@ pub mod tests {
             .perform()
             .unwrap();
 
-        assert_eq!(req.status(), StatusCode::BadRequest);
+        assert_eq!(req.status(), StatusCode::BAD_REQUEST);
         assert_eq!(
             r#"{"reason":"Query Parse Error: invalid digit found in string"}"#,
             req.read_utf8_body().unwrap()
@@ -201,7 +200,7 @@ pub mod tests {
             .perform()
             .unwrap();
 
-        assert_eq!(req.status(), StatusCode::BadRequest);
+        assert_eq!(req.status(), StatusCode::BAD_REQUEST);
     }
 
     #[test]
@@ -216,7 +215,7 @@ pub mod tests {
             .perform()
             .unwrap();
 
-        assert_eq!(req.status(), StatusCode::BadRequest);
+        assert_eq!(req.status(), StatusCode::BAD_REQUEST);
         assert_eq!(r#"{"reason":"Unknown Field: 'asdf' queried"}"#, req.read_utf8_body().unwrap())
     }
 
@@ -232,7 +231,7 @@ pub mod tests {
             .perform()
             .unwrap();
 
-        assert_eq!(req.status(), StatusCode::BadRequest);
+        assert_eq!(req.status(), StatusCode::BAD_REQUEST);
         assert_eq!(
             r#"{"reason":"Query Parse Error: invalid digit found in string"}"#,
             req.read_utf8_body().unwrap()
@@ -246,7 +245,7 @@ pub mod tests {
         let client = create_test_client(&Arc::new(RwLock::new(catalog)));
 
         let req = client.head("http://localhost/test_index").perform().unwrap();
-        assert_eq!(req.status(), StatusCode::MethodNotAllowed);
+        assert_eq!(req.status(), StatusCode::METHOD_NOT_ALLOWED);
     }
 
     #[test]
