@@ -5,6 +5,7 @@ extern crate uuid;
 extern crate log;
 #[macro_use]
 extern crate clap;
+extern crate tokio;
 extern crate toshi;
 
 use std::path::PathBuf;
@@ -94,18 +95,28 @@ pub fn runner() -> i32 {
     std::env::set_var("RUST_LOG", &settings.log_level);
     pretty_env_logger::init();
 
-    let mut consul_client: ConsulInterface = ConsulInterface::default().with_consul_client();
+    let mut core = Core::new().unwrap();
+    let handle = core.handle();
+    let cluster_name = options.value_of("cluster-name").unwrap();
+    let mut consul_client: ConsulInterface = ConsulInterface::default()
+        .with_cluster_name(cluster_name.to_string())
+        .with_handler(handle);
+
     let node_id: String;
 
     // If this node already has a node ID, read it
     if let Some(nid) = cluster::read_node_id(&settings.path) {
+        info!("Node ID is: {}", nid);
         node_id = nid;
     } else {
         // If no file exists containing the node ID, generate a new one and write it
-        let random_id = uuid::Uuid::new_v4();
-        cluster::write_node_id(random_id.to_hyphenated().to_string(), &settings.path);
-        node_id = random_id.to_hyphenated().to_string();
+        let random_id = uuid::Uuid::new_v4().to_hyphenated().to_string();
+        info!("No Node ID found. Creating new one: {}", random_id);
+        node_id = random_id.clone();
+        cluster::write_node_id(random_id, &settings.path);
     }
+    handle.spawn(consul_client.register(&node_id));
+    
 
     let index_catalog = match IndexCatalog::new(PathBuf::from(&settings.path), settings.clone()) {
         Ok(v) => v,

@@ -63,6 +63,8 @@ pub struct Settings {
     pub consul_host: String,
     #[serde(default = "Settings::default_consul_port")]
     pub consul_port: u16,
+    #[serde(default = "Settings::default_cluster_name")]
+    pub cluster_name: String,
 }
 
 impl Default for Settings {
@@ -79,6 +81,7 @@ impl Default for Settings {
             merge_policy:         Settings::default_merge_policy(),
             consul_host:          Settings::default_consul_host(),
             consul_port:          Settings::default_consul_port(),
+            cluster_name:         Settings::default_cluster_name(),
         }
     }
 }
@@ -150,6 +153,8 @@ impl Settings {
 
     pub fn default_consul_port() -> u16 { 8500 }
 
+    pub fn default_cluster_name() -> String { "hachiko".to_string() }
+    
     pub fn get_channel<T>(&self) -> (Sender<T>, Receiver<T>) {
         if self.bulk_buffer_size == 0 {
             unbounded::<T>()

@@ -10,7 +10,6 @@ extern crate failure;
 extern crate capnp;
 extern crate clap;
 extern crate config;
-extern crate consul;
 extern crate crossbeam_channel;
 extern crate futures;
 extern crate gotham;

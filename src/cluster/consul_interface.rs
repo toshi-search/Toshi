@@ -1,11 +1,11 @@
 /// Provides an interface to a Consul cluster
-use consul::{Client, Service};
+use hyper;
 
-static CONSUL_PREFIX: &'static str = "/services/toshi/";
+static CONSUL_PREFIX: &'static str = "services/toshi/";
 
 /// Stub struct for a connection to Consul
 pub struct ConsulInterface {
-    client: Option<Client>,
+    tokio_handle: Option<Handle>,
     address: String,
     port: String,
     scheme: String,
@@ -44,15 +44,27 @@ impl ConsulInterface {
         self
     }
 
-    /// Generates a Consul client to make the actual calls to the cluster
-    pub fn with_consul_client(mut self) -> ConsulInterface {
-        let addr = self.scheme.clone() + "://"+&self.address+":"+&self.port;
-        self.client = Some(Client::new(&addr));
+    pub fn with_handler(mut self, handler: Handle) -> Self {
+        self.tokio_handle = Some(handler);
         self
     }
 
     /// Registers this node with Consul via HTTP
-    pub fn register(&self, node_id: &str) {
+    pub fn register(&mut self, node_id: &str) {
+        if let Some(ref cluster_name) = self.cluster_name {
+            let keypath = CONSUL_PREFIX.to_string() + &cluster_name + "/";
+            let value: String = "test".to_string();
+            if let Some(h) = self.tokio_handle.clone() {
+                let client = hyper::Client::configure()
+                                .keep_alive(true)
+                                .build(&h);
+            }
+        } else {
+            println!("No cluster name found!");
+        }
+    }
+
+    pub fn register_cluster(&mut self) {
 
     }
 }
@@ -60,7 +72,7 @@ impl ConsulInterface {
 impl Default for ConsulInterface {
     fn default() -> ConsulInterface {
         ConsulInterface {
-            client: None,
+            tokio_handle: None,
             address: String::from("127.0.0.1"),
             port: String::from("8500"),
             scheme: String::from("http"),

@@ -3,13 +3,13 @@ use std::io::prelude::*;
 use std::path::Path;
 
 static NODE_ID_FILENAME: &'static str = ".node_id.txt";
+static CLUSTER_NAME_FILENAME: &'static str = ".cluster_name.txt";
 
-pub fn write_node_id(id: String, p: &str) {
+pub fn write_node_id(id: String, _p: &str) {
     let path = NODE_ID_FILENAME;
     let path = Path::new(&path);
-    println!("Opening: {:?}", path);
     let mut file = File::create(path).unwrap();
-    file.write_all(id.as_bytes());
+    let _ = file.write_all(id.as_bytes());
 }
 
 pub fn read_node_id(p: &str) -> Option<String> {
