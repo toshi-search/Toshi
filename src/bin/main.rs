@@ -7,10 +7,13 @@ extern crate log;
 extern crate clap;
 extern crate tokio;
 extern crate toshi;
+extern crate hyper;
 
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::RwLock;
+
+use hyper::rt;
 
 use toshi::commit::IndexWatcher;
 use toshi::index::IndexCatalog;
@@ -95,13 +98,11 @@ pub fn runner() -> i32 {
     std::env::set_var("RUST_LOG", &settings.log_level);
     pretty_env_logger::init();
 
-    let mut core = Core::new().unwrap();
-    let handle = core.handle();
     let cluster_name = options.value_of("cluster-name").unwrap();
     let mut consul_client: ConsulInterface = ConsulInterface::default()
-        .with_cluster_name(cluster_name.to_string())
-        .with_handler(handle);
-
+        .with_cluster_name(cluster_name.to_string());
+    let reg_future = consul_client.register_cluster();
+    rt::spawn(reg_future);
     let node_id: String;
 
     // If this node already has a node ID, read it
@@ -115,9 +116,7 @@ pub fn runner() -> i32 {
         node_id = random_id.clone();
         cluster::write_node_id(random_id, &settings.path);
     }
-    handle.spawn(consul_client.register(&node_id));
     
-
     let index_catalog = match IndexCatalog::new(PathBuf::from(&settings.path), settings.clone()) {
         Ok(v) => v,
         Err(e) => {

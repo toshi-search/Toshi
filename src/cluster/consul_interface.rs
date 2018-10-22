@@ -1,11 +1,13 @@
 /// Provides an interface to a Consul cluster
-use hyper;
+use std::io::{self, Write};
+use hyper::{Client, Request};
+use hyper::rt::{self, Future, Stream};
+use hyper::body::Body;
 
 static CONSUL_PREFIX: &'static str = "services/toshi/";
 
 /// Stub struct for a connection to Consul
 pub struct ConsulInterface {
-    tokio_handle: Option<Handle>,
     address: String,
     port: String,
     scheme: String,
@@ -44,35 +46,51 @@ impl ConsulInterface {
         self
     }
 
-    pub fn with_handler(mut self, handler: Handle) -> Self {
-        self.tokio_handle = Some(handler);
-        self
-    }
-
     /// Registers this node with Consul via HTTP
     pub fn register(&mut self, node_id: &str) {
         if let Some(ref cluster_name) = self.cluster_name {
-            let keypath = CONSUL_PREFIX.to_string() + &cluster_name + "/";
+            let uri = self.scheme.clone() + &self.address + ":" + &self.port + "/v1/kv/" + CONSUL_PREFIX + &cluster_name + "/";
             let value: String = "test".to_string();
-            if let Some(h) = self.tokio_handle.clone() {
-                let client = hyper::Client::configure()
-                                .keep_alive(true)
-                                .build(&h);
-            }
+            let client = Client::new();
+            let body = Body::empty();
+            let mut req = Request::new(body);
+            *req.uri_mut() = uri.parse().unwrap();
+            let _ = client.request(req)
+                  .map(|res| {
+                      println!("Result was: {:?}", res);
+                  })
+                  .map(|err| {
+                      println!("Error registering was: {:?}", err);
+                  });
+            
         } else {
             println!("No cluster name found!");
         }
     }
 
-    pub fn register_cluster(&mut self) {
-
+    pub fn register_cluster(&mut self) -> impl Future<Item=(), Error=()> {
+        let cluster_name = self.cluster_name.clone();
+        let cluster_name = cluster_name.unwrap();
+        let uri = self.scheme.clone() + "://" + &self.address + ":" + &self.port + "/v1/kv/" + CONSUL_PREFIX + &cluster_name + "/";
+        let client = Client::new();
+        let body = Body::empty();
+        let mut req = Request::new(body);
+        *req.uri_mut() = uri.parse().unwrap();
+        client.request(req)
+                .map(|_| {
+                    println!("Worked!");
+                    ()
+                })
+                .map_err(|_| {
+                    println!("Error!");
+                    ()
+                })
     }
 }
 
 impl Default for ConsulInterface {
     fn default() -> ConsulInterface {
         ConsulInterface {
-            tokio_handle: None,
             address: String::from("127.0.0.1"),
             port: String::from("8500"),
             scheme: String::from("http"),
