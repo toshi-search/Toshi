@@ -88,7 +88,7 @@ pub mod tests {
             .put("http://localhost/test_index", body, mime::APPLICATION_JSON)
             .perform()
             .unwrap();
-        assert_eq!(response.status(), StatusCode::Created);
+        assert_eq!(response.status(), StatusCode::CREATED);
         sleep(Duration::from_secs(2));
 
         let check_request = create_test_client(&arc)

@@ -3,7 +3,7 @@ macro_rules! new_handler {
         impl NewHandler for $N {
             type Instance = Self;
 
-            fn new_handler(&self) -> IOResult<Self::Instance> { Ok(self.clone()) }
+            fn new_handler(&self) -> gotham::error::Result<Self::Instance> { Ok(self.clone()) }
         }
     };
 }
@@ -16,16 +16,17 @@ pub mod summary;
 
 pub use self::{bulk::BulkHandler, index::IndexHandler, root::RootHandler, search::SearchHandler, summary::SummaryHandler};
 
+use super::Error;
 use super::*;
 use index::*;
 use settings::Settings;
 
 use futures::{future, future::FutureResult};
 use gotham::handler::*;
-use gotham::http::response::create_response;
+use gotham::helpers::http::response::*;
 use gotham::state::*;
 use hyper::{Body, Response, StatusCode};
-use mime::{self, Mime};
+use mime;
 use serde::Serialize;
 use serde_json;
 use std::sync::Arc;
@@ -54,18 +55,18 @@ impl ErrorResponse {
     }
 }
 
-fn to_json<T: Serialize>(result: T, pretty: bool) -> Option<(Vec<u8>, Mime)> {
-    Some(if pretty {
-        (serde_json::to_vec_pretty(&result).unwrap(), mime::APPLICATION_JSON)
+fn to_json<T: Serialize>(result: T, pretty: bool) -> Vec<u8> {
+    if pretty {
+        serde_json::to_vec_pretty(&result).unwrap()
     } else {
-        (serde_json::to_vec(&result).unwrap(), mime::APPLICATION_JSON)
-    })
+        serde_json::to_vec(&result).unwrap()
+    }
 }
 
 type FutureError = FutureResult<(State, Response<Body>), (State, HandlerError)>;
 
 fn handle_error<T: failure::Fail + Sized + Send>(state: State, err: &T) -> FutureError {
     let err = serde_json::to_vec(&ErrorResponse::new(&format!("{}", err))).unwrap();
-    let resp = create_response(&state, StatusCode::BadRequest, Some((err, mime::APPLICATION_JSON)));
+    let resp = create_response(&state, StatusCode::BAD_REQUEST, mime::APPLICATION_JSON, err);
     future::ok((state, resp))
 }

@@ -224,10 +224,9 @@ impl IndexCatalog {
 pub mod tests {
 
     use super::*;
-    use gotham::router::Router;
     use gotham::test::{TestClient, TestServer};
-    use std::sync::{Arc, RwLock};
     use std::fs::remove_dir;
+    use std::sync::{Arc, RwLock};
 
     pub fn create_test_index() -> Index {
         let mut builder = SchemaBuilder::new();
@@ -249,12 +248,12 @@ pub mod tests {
         idx
     }
 
-    pub fn create_test_client(catalog: &Arc<RwLock<IndexCatalog>>) -> TestClient<Router> {
+    pub fn create_test_client(catalog: &Arc<RwLock<IndexCatalog>>) -> TestClient {
         let server = create_test_server(catalog);
         server.client()
     }
 
-    pub fn create_test_server(catalog: &Arc<RwLock<IndexCatalog>>) -> TestServer<Router> {
+    pub fn create_test_server(catalog: &Arc<RwLock<IndexCatalog>>) -> TestServer {
         TestServer::new(router::router_with_catalog(catalog)).unwrap()
     }
 
