@@ -42,12 +42,12 @@ before_install:
   - rustup self update
 
 install:
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then ./ci/install_capnp.sh; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then ./ci/install_capnp.sh; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then bash ./ci/install_capnp.sh; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then bash ./ci/install_capnp.sh; fi
   - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then choco install capnproto; fi
 
 before_script:
-  - if [[ "$TRAVIS_OS_NAME" != "windows" ]]; then ./ci/set_path.sh; fi
+  - if [[ "$TRAVIS_OS_NAME" != "windows" ]]; then source ./ci/set_path.sh; fi
   - cargo install cargo-update || echo "cargo-update already installed"
   - cargo install cargo-travis || echo "cargo-travis already installed"
   - cargo install capnpc || echo "capnpc already installed"
