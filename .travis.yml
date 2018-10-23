@@ -42,8 +42,8 @@ before_install:
   - rustup self update
 
 install:
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then bash ./ci/install_capnp.sh; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then bash ./ci/install_capnp.sh; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then chmod +x ./ci/install_capnp.sh && ./ci/install_capnp.sh; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then chmod +x ./ci/install_capnp.sh && ./ci/install_capnp.sh; fi
   - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then choco install capnproto; fi
 
 before_script:
