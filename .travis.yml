@@ -1,7 +1,6 @@
 language: rust
 
 compiler:
-  - gcc
   - clang
 
 cache: cargo
