@@ -121,6 +121,7 @@ pub fn runner() -> i32 {
     }
     consul_client.node_id = Some(node_id.clone());
     let reg_future = consul_client.register_node();
+    // Registers the node with Consul. Blocks since we don't want to proceed if we can't register.
     rt::run(reg_future);
     
     let index_catalog = match IndexCatalog::new(PathBuf::from(&settings.path), settings.clone()) {
