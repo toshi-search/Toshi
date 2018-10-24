@@ -6,7 +6,6 @@ use futures::{Future, Stream};
 use gotham::handler::*;
 use gotham::state::FromState;
 
-use std::io::Result as IOResult;
 use std::panic::RefUnwindSafe;
 use std::str::from_utf8;
 use std::sync::RwLock;
@@ -96,7 +95,7 @@ impl Handler for BulkHandler {
                     if !buf.is_empty() {
                         line_sender.send(buf.to_vec());
                     }
-                    let resp = create_response(&state, StatusCode::Created, None);
+                    let resp = create_empty_response(&state, StatusCode::CREATED);
                     future::ok((state, resp))
                 }
                 Err(e) => handle_error(state, &Error::IOError(e.to_string())),
@@ -136,7 +135,7 @@ mod tests {
             .perform()
             .unwrap();
 
-        assert_eq!(req.status(), StatusCode::Created);
+        assert_eq!(req.status(), StatusCode::CREATED);
 
         // Give it a second...
         std::thread::sleep(std::time::Duration::from_secs(1));
