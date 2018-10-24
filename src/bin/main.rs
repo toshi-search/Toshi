@@ -81,7 +81,7 @@ pub fn runner() -> i32 {
                 .short("N")
                 .long("cluster-name")
                 .takes_value(true)
-                .default_value("hachiko"),
+                .default_value("kitsune"),
         )
         .get_matches();
 
@@ -98,14 +98,17 @@ pub fn runner() -> i32 {
     std::env::set_var("RUST_LOG", &settings.log_level);
     pretty_env_logger::init();
 
+    // If this is the first node in a new cluster, we need to register the cluster name in Consul
     let cluster_name = options.value_of("cluster-name").unwrap();
     let mut consul_client: ConsulInterface = ConsulInterface::default()
         .with_cluster_name(cluster_name.to_string());
     let reg_future = consul_client.register_cluster();
+    // This blocks so that we don't proceed if we can't talk to Consul
     rt::run(reg_future);
-    let node_id: String;
 
-    // If this node already has a node ID, read it
+    // Now we need to register this node with the cluster. If it is a new node and has no file containing the node ID,
+    // we generate a new one and save it. Otherwise, read it in and register with consul.
+    let node_id: String;
     if let Some(nid) = cluster::read_node_id(&settings.path) {
         info!("Node ID is: {}", nid);
         node_id = nid;
@@ -116,6 +119,9 @@ pub fn runner() -> i32 {
         node_id = random_id.clone();
         cluster::write_node_id(random_id, &settings.path);
     }
+    consul_client.node_id = Some(node_id.clone());
+    let reg_future = consul_client.register_node();
+    rt::run(reg_future);
     
     let index_catalog = match IndexCatalog::new(PathBuf::from(&settings.path), settings.clone()) {
         Ok(v) => v,

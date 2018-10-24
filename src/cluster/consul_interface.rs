@@ -1,8 +1,11 @@
 /// Provides an interface to a Consul cluster
 use std::io::{self, Write};
 use hyper::{Client, Request};
+use hyper::client::Builder;
 use hyper::rt::{self, Future, Stream};
 use hyper::body::Body;
+
+use cluster::ClusterError;
 
 static CONSUL_PREFIX: &'static str = "services/toshi/";
 
@@ -12,7 +15,7 @@ pub struct ConsulInterface {
     port: String,
     scheme: String,
     cluster_name: Option<String>,
-    node_id: Option<String>,
+    pub node_id: Option<String>,
 }
 
 impl ConsulInterface {
@@ -46,38 +49,11 @@ impl ConsulInterface {
         self
     }
 
-    /// Registers this node with Consul via HTTP
-    pub fn register(&mut self, _node_id: &str) {
-        if let Some(ref cluster_name) = self.cluster_name {
-            let uri = self.scheme.clone() + &self.address + ":" + &self.port + "/v1/kv/" + CONSUL_PREFIX + &cluster_name + "/";
-            let client = Client::new();
-            let body = Body::empty();
-            let mut req = Request::new(body);
-            *req.uri_mut() = uri.parse().unwrap();
-            let _ = client.request(req)
-                  .map(|res| {
-                      println!("Result was: {:?}", res);
-                  })
-                  .map(|err| {
-                      println!("Error registering was: {:?}", err);
-                  });
-            
-        } else {
-            println!("No cluster name found!");
-        }
-    }
-
-    pub fn register_cluster(&mut self) -> impl Future<Item=(), Error=()> {
-        let cluster_name = self.cluster_name.clone();
-        let cluster_name = cluster_name.unwrap();
-        let uri = self.scheme.clone() + "://" + &self.address + ":" + &self.port + "/v1/kv/" + CONSUL_PREFIX + &cluster_name + "/";
+    /// Registers this node with Consul via HTTP API
+    pub fn register_node(&mut self) -> impl Future<Item=(), Error=()> {
+        let uri = self.base_consul_url() + &self.cluster_name() + "/" + &self.node_id() + "/";
         let client = Client::new();
-        let body = Body::empty();
-        let req = Request::builder()
-            .method("PUT")
-            .uri(uri)
-            .body(body)
-            .unwrap();
+        let req = self.put_request(&uri);
         client.request(req)
                 .map(|_| {
                     ()
@@ -85,6 +61,40 @@ impl ConsulInterface {
                 .map_err(|_| {
                     ()
                 })
+    }
+
+    /// Registers a cluster with Consul via the HTTP API
+    pub fn register_cluster(&mut self) -> impl Future<Item=(), Error=()> {
+        let uri = self.base_consul_url() + &self.cluster_name() + "/";
+        let client = Client::new();
+        let req = self.put_request(&uri);
+        client.request(req)
+                .map(|_| {
+                    ()
+                })
+                .map_err(|_| {
+                    ()
+                })
+    }
+
+    fn base_consul_url(&self) -> String {
+        self.scheme.clone() + "://" + &self.address + ":" + &self.port + "/v1/kv/" + CONSUL_PREFIX
+    }
+
+    fn put_request(&self, uri: &str) -> Request<Body> {
+        Request::builder()
+            .method("PUT")
+            .uri(uri)
+            .body(Body::empty())
+            .unwrap()
+    }
+
+    fn cluster_name(&self) -> String {
+        self.cluster_name.clone().unwrap()
+    }
+
+    fn node_id(&self) -> String {
+        self.node_id.clone().unwrap()
     }
 }
 

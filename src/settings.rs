@@ -153,7 +153,7 @@ impl Settings {
 
     pub fn default_consul_port() -> u16 { 8500 }
 
-    pub fn default_cluster_name() -> String { "hachiko".to_string() }
+    pub fn default_cluster_name() -> String { "kitsune".to_string() }
     
     pub fn get_channel<T>(&self) -> (Sender<T>, Receiver<T>) {
         if self.bulk_buffer_size == 0 {
