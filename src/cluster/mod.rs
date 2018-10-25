@@ -11,4 +11,10 @@ pub enum ClusterError {
     MissingNodeID,
     #[fail(display = "Unable to determine cluster ID")]
     MissingClusterID,
+    #[fail(display = "Unable to write node ID")]
+    FailedWritingNodeID,
+    #[fail(display = "Failed registering Node")]
+    FailedRegisteringNode,
+    #[fail(display = "Failed reading NodeID")]
+    FailedReadingNodeID,
 }

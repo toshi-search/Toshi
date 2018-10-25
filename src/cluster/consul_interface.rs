@@ -1,3 +1,5 @@
+use std;
+
 /// Provides an interface to a Consul cluster
 use std::io::{self, Write};
 use hyper::{Client, Request};
@@ -58,8 +60,9 @@ impl ConsulInterface {
                 .map(|_| {
                     ()
                 })
-                .map_err(|_| {
-                    ()
+                .map_err(|e| {
+                    error!("Error registering node: {:?}", e);
+                    std::process::exit(1);
                 })
     }
 
@@ -72,8 +75,9 @@ impl ConsulInterface {
                 .map(|_| {
                     ()
                 })
-                .map_err(|_| {
-                    ()
+                .map_err(|e| {
+                    error!("Error registering cluster: {:?}", e);
+                    std::process::exit(1);
                 })
     }
 

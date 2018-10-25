@@ -85,8 +85,6 @@ pub fn runner() -> i32 {
         )
         .get_matches();
 
-
-
     let settings = if options.is_present("config") {
         let cfg = options.value_of("config").unwrap();
         info!("Reading config from: {}", cfg);
@@ -99,7 +97,7 @@ pub fn runner() -> i32 {
     pretty_env_logger::init();
 
     // If this is the first node in a new cluster, we need to register the cluster name in Consul
-    let cluster_name = options.value_of("cluster-name").unwrap();
+    let cluster_name = options.value_of("cluster-name").expect("Unable to get cluster name");
     let mut consul_client: ConsulInterface = ConsulInterface::default()
         .with_cluster_name(cluster_name.to_string());
     let reg_future = consul_client.register_cluster();
@@ -109,7 +107,7 @@ pub fn runner() -> i32 {
     // Now we need to register this node with the cluster. If it is a new node and has no file containing the node ID,
     // we generate a new one and save it. Otherwise, read it in and register with consul.
     let node_id: String;
-    if let Some(nid) = cluster::read_node_id(&settings.path) {
+    if let Ok(nid) = cluster::read_node_id(&settings.path) {
         info!("Node ID is: {}", nid);
         node_id = nid;
     } else {
@@ -117,13 +115,16 @@ pub fn runner() -> i32 {
         let random_id = uuid::Uuid::new_v4().to_hyphenated().to_string();
         info!("No Node ID found. Creating new one: {}", random_id);
         node_id = random_id.clone();
-        cluster::write_node_id(random_id, &settings.path);
+        if let Err(err) = cluster::write_node_id(random_id, &settings.path) {
+            error!("{:?}", err);
+            std::process::exit(1);
+        }
     }
     consul_client.node_id = Some(node_id.clone());
     let reg_future = consul_client.register_node();
     // Registers the node with Consul. Blocks since we don't want to proceed if we can't register.
     rt::run(reg_future);
-    
+
     let index_catalog = match IndexCatalog::new(PathBuf::from(&settings.path), settings.clone()) {
         Ok(v) => v,
         Err(e) => {
