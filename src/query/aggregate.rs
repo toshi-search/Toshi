@@ -25,6 +25,12 @@ impl Into<Document> for SummaryDoc {
     }
 }
 
+#[derive(Deserialize, Debug)]
+#[serde(untagged)]
+pub enum Metrics {
+    SumAgg { field: String },
+}
+
 pub struct SumCollector<'a> {
     field:     Field,
     collector: TopScoreCollector,
