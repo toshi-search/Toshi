@@ -12,7 +12,7 @@ use tantivy::schema::*;
 use tantivy::Index;
 
 use handle::IndexHandle;
-use query::aggregate::{summary_schema, SumCollector};
+use query::{summary_schema, AggregateQuery, SumCollector};
 use results::*;
 use settings::Settings;
 
@@ -243,6 +243,7 @@ pub mod tests {
     use gotham::test::{TestClient, TestServer};
     use std::fs::remove_dir;
     use std::sync::{Arc, RwLock};
+    use tantivy::doc;
 
     pub fn create_test_index() -> Index {
         let mut builder = SchemaBuilder::new();

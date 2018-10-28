@@ -10,7 +10,7 @@ pub fn summary_schema() -> Schema {
     schema_builder.build()
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct SummaryDoc {
     field: Field,
     value: u64,
@@ -23,12 +23,6 @@ impl Into<Document> for SummaryDoc {
         info!("Doc: {:?}", doc);
         doc
     }
-}
-
-#[derive(Deserialize, Debug)]
-#[serde(untagged)]
-pub enum Metrics {
-    SumAgg { field: String },
 }
 
 pub struct SumCollector<'a> {
@@ -45,8 +39,10 @@ impl<'a> SumCollector<'a> {
             collector,
         }
     }
+}
 
-    pub fn result(&self) -> SummaryDoc {
+impl<'a> AggregateQuery<SummaryDoc> for SumCollector<'a> {
+    fn result(&self) -> SummaryDoc {
         let result: u64 = self
             .collector
             .docs()

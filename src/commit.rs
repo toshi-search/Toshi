@@ -81,7 +81,8 @@ pub mod tests {
           "document": {
             "test_text":    "Babbaboo!",
             "test_u64":     10 ,
-            "test_i64":     -10
+            "test_i64":     -10,
+            "test_unindex": "asdf1234"
           }
         }"#;
 
@@ -93,10 +94,12 @@ pub mod tests {
         sleep(Duration::from_secs(2));
 
         let check_request = create_test_client(&arc)
-            .get("http://localhost/test_index?pretty=false")
+            .get("http://localhost/test_index?pretty=true")
             .perform()
             .unwrap();
-        let results: TestResults = serde_json::from_slice(&check_request.read_body().unwrap()).unwrap();
+
+        let body = check_request.read_body().unwrap();
+        let results: TestResults = serde_json::from_slice(&body).unwrap();
         assert_eq!(6, results.hits);
     }
 

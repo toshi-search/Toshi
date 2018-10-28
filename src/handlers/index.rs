@@ -198,6 +198,7 @@ mod tests {
 
         let schema = r#"[
             { "name": "test_text", "type": "text", "options": { "indexing": { "record": "position", "tokenizer": "default" }, "stored": true } },
+            { "name": "test_unindex", "type": "text", "options": { "indexing": { "record": "position", "tokenizer": "default" }, "stored": true } },
             { "name": "test_i64", "type": "i64", "options": { "indexed": true, "stored": true } },
             { "name": "test_u64", "type": "u64", "options": { "indexed": true, "stored": true } }
          ]"#;

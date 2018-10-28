@@ -79,10 +79,10 @@ pub mod tests {
     use index::Queries;
     use serde_json;
 
-    #[derive(Deserialize)]
+    #[derive(Deserialize, Debug)]
     pub struct TestResults {
         pub hits: i32,
-        pub docs: Vec<TestDoc>,
+        pub docs: Vec<TestSchema>,
     }
 
     #[derive(Deserialize)]
@@ -91,11 +91,24 @@ pub mod tests {
         pub doc:   TestSchema,
     }
 
-    #[derive(Deserialize)]
+    #[derive(Deserialize, Debug)]
     pub struct TestSchema {
+        pub score: f32,
         pub test_text: Vec<String>,
         pub test_i64:  Vec<i64>,
         pub test_u64:  Vec<u64>,
+        pub test_unindex: Vec<String>
+    }
+
+    #[derive(Deserialize, Debug)]
+    pub struct TestSummaryDoc {
+        value: Vec<u64>,
+    }
+
+    #[derive(Deserialize, Debug)]
+    pub struct TestAgg {
+        pub hits: i32,
+        pub docs: Vec<TestSummaryDoc>
     }
 
     fn run_query(query: &'static str) -> TestResults {
@@ -107,9 +120,23 @@ pub mod tests {
             .post("http://localhost/test_index", query, mime::APPLICATION_JSON)
             .perform()
             .unwrap();
+
         assert_eq!(req.status(), StatusCode::OK);
-        let body = req.read_body().unwrap();
-        serde_json::from_slice(&body).unwrap()
+        serde_json::from_slice(&req.read_body().unwrap()).unwrap()
+    }
+
+    fn run_agg(query: &'static str) -> TestAgg {
+        let idx = create_test_index();
+        let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
+        let client = create_test_client(&Arc::new(RwLock::new(catalog)));
+
+        let req = client
+            .post("http://localhost/test_index", query, mime::APPLICATION_JSON)
+            .perform()
+            .unwrap();
+
+        assert_eq!(req.status(), StatusCode::OK);
+        serde_json::from_slice(&req.read_body().unwrap()).unwrap()
     }
 
     #[test]
@@ -259,7 +286,7 @@ pub mod tests {
         let docs = run_query(body);
 
         assert_eq!(docs.hits as usize, docs.docs.len());
-        assert_eq!(docs.docs[0].doc.test_text[0], "Test Document 5")
+        assert_eq!(docs.docs[0].test_text[0], "Test Document 5")
     }
 
     #[test]
@@ -288,5 +315,13 @@ pub mod tests {
 
         assert_eq!(docs.hits as usize, docs.docs.len());
         assert_eq!(docs.docs[0].score, 1.0);
+    }
+
+    #[test]
+    fn test_aggregate_sum() {
+        let body = r#"{ "query": { "field": "test_u64" } }"#;
+        let docs = run_agg(body);
+
+        assert_eq!(docs.docs[0].value[0], 60);
     }
 }
