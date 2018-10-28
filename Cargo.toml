@@ -35,6 +35,7 @@ failure           = "^0.1"
 crossbeam-channel = "^0.2"
 capnp             = "^0.9"
 clap              = "^2.32"
+uuid              = { version = "0.7", features = ["v4"] }
 
 [profile.release]
 opt-level = 3

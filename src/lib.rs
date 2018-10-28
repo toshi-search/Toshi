@@ -20,6 +20,7 @@ extern crate serde_json;
 #[cfg_attr(test, macro_use)]
 extern crate tantivy;
 extern crate tokio;
+extern crate uuid;
 
 use tantivy::query::QueryParserError;
 use tantivy::schema::DocParsingError;
@@ -102,6 +103,7 @@ pub mod commit;
 pub mod index;
 pub mod router;
 pub mod settings;
+pub mod cluster;
 
 #[allow(dead_code)]
 pub mod wal_capnp {
