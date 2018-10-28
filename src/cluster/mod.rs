@@ -1,4 +1,7 @@
-/// Contains code related to clustering
+//! Contains code related to clustering
+
+use std;
+
 pub mod consul_interface;
 pub mod node;
 
@@ -11,10 +14,10 @@ pub enum ClusterError {
     MissingNodeID,
     #[fail(display = "Unable to determine cluster ID")]
     MissingClusterID,
-    #[fail(display = "Unable to write node ID")]
-    FailedWritingNodeID,
+    #[fail(display = "Unable to write node ID: {}", _0)]
+    FailedWritingNodeID(std::io::Error),
     #[fail(display = "Failed registering Node")]
     FailedRegisteringNode,
-    #[fail(display = "Failed reading NodeID")]
-    FailedReadingNodeID,
+    #[fail(display = "Failed reading NodeID: {}", _0)]
+    FailedReadingNodeID(std::io::Error),
 }
