@@ -1,11 +1,14 @@
-use std;
+//! Provides an interface to a Consul cluster
 
-/// Provides an interface to a Consul cluster
-use std::io::{self, Write};
-use hyper::{Client, Request};
+use std;
+use std::net::SocketAddr;
+
+use hyper::body::Body;
 use hyper::client::Builder;
 use hyper::rt::{self, Future, Stream};
-use hyper::body::Body;
+use hyper::{Client, Request};
+
+use std::io::{self, Write};
 
 use cluster::ClusterError;
 
@@ -52,33 +55,25 @@ impl ConsulInterface {
     }
 
     /// Registers this node with Consul via HTTP API
-    pub fn register_node(&mut self) -> impl Future<Item=(), Error=()> {
+    pub fn register_node(&mut self) -> impl Future<Item = (), Error = ()> {
         let uri = self.base_consul_url() + &self.cluster_name() + "/" + &self.node_id() + "/";
         let client = Client::new();
         let req = self.put_request(&uri);
-        client.request(req)
-                .map(|_| {
-                    ()
-                })
-                .map_err(|e| {
-                    error!("Error registering node: {:?}", e);
-                    std::process::exit(1);
-                })
+        client.request(req).map(|_| ()).map_err(|e| {
+            error!("Error registering node: {:?}", e);
+            std::process::exit(1);
+        })
     }
 
     /// Registers a cluster with Consul via the HTTP API
-    pub fn register_cluster(&mut self) -> impl Future<Item=(), Error=()> {
+    pub fn register_cluster(&mut self) -> impl Future<Item = (), Error = ()> {
         let uri = self.base_consul_url() + &self.cluster_name() + "/";
         let client = Client::new();
         let req = self.put_request(&uri);
-        client.request(req)
-                .map(|_| {
-                    ()
-                })
-                .map_err(|e| {
-                    error!("Error registering cluster: {:?}", e);
-                    std::process::exit(1);
-                })
+        client.request(req).map(|_| ()).map_err(|e| {
+            error!("Error registering cluster: {:?}", e);
+            std::process::exit(1);
+        })
     }
 
     fn base_consul_url(&self) -> String {
@@ -86,11 +81,7 @@ impl ConsulInterface {
     }
 
     fn put_request(&self, uri: &str) -> Request<Body> {
-        Request::builder()
-            .method("PUT")
-            .uri(uri)
-            .body(Body::empty())
-            .unwrap()
+        Request::builder().method("PUT").uri(uri).body(Body::empty()).unwrap()
     }
 
     fn cluster_name(&self) -> String {
@@ -105,11 +96,11 @@ impl ConsulInterface {
 impl Default for ConsulInterface {
     fn default() -> ConsulInterface {
         ConsulInterface {
-            address: String::from("127.0.0.1"),
-            port: String::from("8500"),
+            address: "127.0.0.1".into(),
+            port: "8500".into(),
             scheme: String::from("http"),
             cluster_name: None,
-            node_id: None
+            node_id: None,
         }
     }
 }
