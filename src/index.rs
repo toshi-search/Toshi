@@ -70,9 +70,9 @@ impl IndexCatalog {
     #[allow(dead_code)]
     pub fn with_index(name: String, index: Index) -> Result<Self> {
         let mut map = HashMap::new();
-        let h =
+        let new_index =
             IndexHandle::new(index, Settings::default()).unwrap_or_else(|_| panic!("Unable to open index: {} because it's locked", name));
-        map.insert(name, h);
+        map.insert(name, new_index);
         Ok(IndexCatalog {
             settings:   Settings::default(),
             base_path:  PathBuf::new(),

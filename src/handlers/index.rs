@@ -188,6 +188,8 @@ new_handler!(IndexHandler);
 mod tests {
     use super::*;
     use index::tests::*;
+    use std::fs::remove_file;
+    use std::path::PathBuf;
 
     #[test]
     fn test_create_index() {
@@ -214,7 +216,10 @@ mod tests {
             let get_response = get_request.perform().unwrap();
 
             assert_eq!(StatusCode::OK, get_response.status());
-            assert_eq!("{\"hits\":0,\"docs\":[]}", get_response.read_utf8_body().unwrap())
+            assert_eq!("{\"hits\":0,\"docs\":[]}", get_response.read_utf8_body().unwrap());
+            let mut p = PathBuf::from("new_index");
+            p.push(".tantivy-indexer.lock");
+            remove_file(p).unwrap();
         }
     }
 

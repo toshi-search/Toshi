@@ -93,11 +93,11 @@ pub mod tests {
 
     #[derive(Deserialize, Debug)]
     pub struct TestSchema {
-        pub score: f32,
-        pub test_text: Vec<String>,
-        pub test_i64:  Vec<i64>,
-        pub test_u64:  Vec<u64>,
-        pub test_unindex: Vec<String>
+        pub score:        f32,
+        pub test_text:    Vec<String>,
+        pub test_i64:     Vec<i64>,
+        pub test_u64:     Vec<u64>,
+        pub test_unindex: Vec<String>,
     }
 
     #[derive(Deserialize, Debug)]
@@ -108,7 +108,7 @@ pub mod tests {
     #[derive(Deserialize, Debug)]
     pub struct TestAgg {
         pub hits: i32,
-        pub docs: Vec<TestSummaryDoc>
+        pub docs: Vec<TestSummaryDoc>,
     }
 
     fn run_query(query: &'static str) -> TestResults {
