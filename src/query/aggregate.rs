@@ -1,3 +1,4 @@
+use super::*;
 use tantivy::collector::*;
 use tantivy::schema::*;
 use tantivy::Document;
@@ -22,6 +23,12 @@ impl Into<Document> for SummaryDoc {
         info!("Doc: {:?}", doc);
         doc
     }
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(untagged)]
+pub enum Metrics {
+    SumAgg { field: String },
 }
 
 pub struct SumCollector<'a> {

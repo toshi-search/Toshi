@@ -58,7 +58,7 @@ impl SearchHandler {
             match idx.search_index(&index.index, &Search::all()) {
                 Ok(docs) => {
                     let data = to_json(docs, query_options.pretty);
-                    let resp = create_response(&state, StatusCode::Ok, mime::APPLICATION_JSON, data);
+                    let resp = create_response(&state, StatusCode::OK, mime::APPLICATION_JSON, data);
                     Box::new(future::ok((state, resp)))
                 }
                 Err(ref e) => Box::new(handle_error(state, e)),

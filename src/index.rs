@@ -12,7 +12,7 @@ use tantivy::schema::*;
 use tantivy::Index;
 
 use handle::IndexHandle;
-use query::aggregate::{SumCollector, summary_schema};
+use query::aggregate::{summary_schema, SumCollector};
 use results::*;
 use settings::Settings;
 
@@ -200,7 +200,8 @@ impl IndexCatalog {
                         info!("{:#?}", query);
                         searcher.search(&*query, &mut collector)?;
                     }
-                    Queries::SumAgg { field } => { // This can no doubt be simplified...
+                    Queries::SumAgg { field } => {
+                        // This can no doubt be simplified...
                         let mut agg_collector = TopCollector::with_limit(searcher.num_docs() as usize);
                         searcher.search(&AllQuery, &mut agg_collector)?;
                         let f = match schema.get_field(&field) {

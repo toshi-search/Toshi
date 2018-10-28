@@ -1,3 +1,4 @@
+use super::*;
 use index::IndexCatalog;
 
 use std::sync::{Arc, RwLock};
