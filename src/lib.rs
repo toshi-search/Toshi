@@ -18,6 +18,7 @@ extern crate serde_derive;
 extern crate serde_json;
 extern crate tantivy;
 extern crate tokio;
+extern crate uuid;
 
 use log::*;
 use tantivy::query::QueryParserError;
@@ -102,6 +103,7 @@ pub mod commit;
 pub mod index;
 pub mod router;
 pub mod settings;
+pub mod cluster;
 
 #[allow(dead_code)]
 pub mod wal_capnp {

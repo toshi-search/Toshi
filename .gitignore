@@ -1,4 +1,5 @@
 /target
 **/*.rs.bk
-/logs
-/new_index
+logs/
+new_index/
+.node_id.txt
