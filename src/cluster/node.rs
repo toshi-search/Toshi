@@ -49,6 +49,8 @@ pub struct NetworkMetadata {
 /// CPU data about the node. Usage is meant to be 0.0-1.0. Not sure how to calculate it yet.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CPUMetadata {
+    // Key is "physical" or "logical"
+    // Value is how many of each the OS reports
     number: HashMap<String, u32>,
     usage: f32,
 }
