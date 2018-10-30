@@ -16,11 +16,11 @@ static CONSUL_PREFIX: &'static str = "services/toshi/";
 
 /// Stub struct for a connection to Consul
 pub struct ConsulInterface {
-    address: String,
-    port: String,
-    scheme: String,
+    address:      String,
+    port:         String,
+    scheme:       String,
     cluster_name: Option<String>,
-    pub node_id: Option<String>,
+    pub node_id:  Option<String>,
 }
 
 impl ConsulInterface {
@@ -76,31 +76,23 @@ impl ConsulInterface {
         })
     }
 
-    fn base_consul_url(&self) -> String {
-        self.scheme.clone() + "://" + &self.address + ":" + &self.port + "/v1/kv/" + CONSUL_PREFIX
-    }
+    fn base_consul_url(&self) -> String { self.scheme.clone() + "://" + &self.address + ":" + &self.port + "/v1/kv/" + CONSUL_PREFIX }
 
-    fn put_request(&self, uri: &str) -> Request<Body> {
-        Request::builder().method("PUT").uri(uri).body(Body::empty()).unwrap()
-    }
+    fn put_request(&self, uri: &str) -> Request<Body> { Request::builder().method("PUT").uri(uri).body(Body::empty()).unwrap() }
 
-    fn cluster_name(&self) -> String {
-        self.cluster_name.clone().unwrap()
-    }
+    fn cluster_name(&self) -> String { self.cluster_name.clone().unwrap() }
 
-    fn node_id(&self) -> String {
-        self.node_id.clone().unwrap()
-    }
+    fn node_id(&self) -> String { self.node_id.clone().unwrap() }
 }
 
 impl Default for ConsulInterface {
     fn default() -> ConsulInterface {
         ConsulInterface {
-            address: "127.0.0.1".into(),
-            port: "8500".into(),
-            scheme: String::from("http"),
+            address:      "127.0.0.1".into(),
+            port:         "8500".into(),
+            scheme:       String::from("http"),
             cluster_name: None,
-            node_id: None,
+            node_id:      None,
         }
     }
 }

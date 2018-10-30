@@ -18,8 +18,8 @@ path = "src/lib.rs"
 capnpc = "^0.9"
 
 [dependencies]
-gotham            = { git = "https://github.com/gotham-rs/gotham", rev = "7ec494e" }
-gotham_derive     = { git = "https://github.com/gotham-rs/gotham", rev = "7ec494e" }
+gotham            = "0.3.0"
+gotham_derive     = "0.3.0"
 hyper             = "^0.12"
 mime              = "^0.3"
 serde             = "^1.0"
