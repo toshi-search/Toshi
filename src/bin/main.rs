@@ -5,9 +5,9 @@ extern crate uuid;
 extern crate log;
 #[macro_use]
 extern crate clap;
+extern crate hyper;
 extern crate tokio;
 extern crate toshi;
-extern crate hyper;
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -15,12 +15,12 @@ use std::sync::RwLock;
 
 use hyper::rt;
 
+use toshi::cluster;
+use toshi::cluster::ConsulInterface;
 use toshi::commit::IndexWatcher;
 use toshi::index::IndexCatalog;
 use toshi::router::router_with_catalog;
 use toshi::settings::{Settings, HEADER};
-use toshi::cluster::ConsulInterface;
-use toshi::cluster;
 
 use clap::{App, Arg, ArgMatches};
 
@@ -98,8 +98,7 @@ pub fn runner() -> i32 {
 
     // If this is the first node in a new cluster, we need to register the cluster name in Consul
     let cluster_name = options.value_of("cluster-name").expect("Unable to get cluster name");
-    let mut consul_client: ConsulInterface = ConsulInterface::default()
-        .with_cluster_name(cluster_name.to_string());
+    let mut consul_client: ConsulInterface = ConsulInterface::default().with_cluster_name(cluster_name.to_string());
     let reg_future = consul_client.register_cluster();
     // This blocks so that we don't proceed if we can't talk to Consul
     rt::run(reg_future);

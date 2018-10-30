@@ -99,11 +99,11 @@ mod handlers;
 mod results;
 mod transaction;
 
+pub mod cluster;
 pub mod commit;
 pub mod index;
 pub mod router;
 pub mod settings;
-pub mod cluster;
 
 #[allow(dead_code)]
 pub mod wal_capnp {
