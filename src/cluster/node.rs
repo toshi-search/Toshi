@@ -1,9 +1,8 @@
-use std::collections::HashMap;
 use std::fs::File;
 use std::io::prelude::*;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-use cluster::ClusterError;
+use cluster::{ClusterError, DiskType};
 
 static NODE_ID_FILENAME: &'static str = ".node_id.txt";
 static CLUSTER_NAME_FILENAME: &'static str = ".cluster_name.txt";
@@ -51,7 +50,8 @@ pub struct NetworkMetadata {
 pub struct CPUMetadata {
     // Key is "physical" or "logical"
     // Value is how many of each the OS reports
-    number: HashMap<String, u32>,
+    physical: u16,
+    logical: u16,
     usage: f32,
 }
 
@@ -67,7 +67,7 @@ pub struct RAMMetadata {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DiskMetadata {
     iowait: f64,
-    disk_type: String,
+    disk_type: DiskType,
     writes_per_second: f64,
     reads_per_second: f64,
     write_latency_ms: f64,
@@ -79,7 +79,7 @@ pub struct DiskMetadata {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DirectoryMetadata {
     device_path: String,
-    directory: String,
+    directory: PathBuf,
     max_size: u64,
     current_usage: u64,
     current_inodes: u64,

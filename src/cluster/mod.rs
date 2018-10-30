@@ -21,3 +21,9 @@ pub enum ClusterError {
     #[fail(display = "Failed reading NodeID: {}", _0)]
     FailedReadingNodeID(std::io::Error),
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub enum DiskType {
+    SSD,
+    HDD,
+}
