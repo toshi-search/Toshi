@@ -9,27 +9,6 @@ use super::CreateQuery;
 use query::range::RangeQuery;
 use std::collections::HashMap;
 
-use std::collections::HashMap;
-use std::ops::Bound;
-use std::ops::Bound::*;
-
-macro_rules! type_range {
-        ($($n:ident $t:ty),*) => {
-            #[derive(Deserialize, Debug, PartialEq)]
-            #[serde(untagged)]
-            pub enum Ranges {
-                $($n {
-                    gte: Option<$t>,
-                    lte: Option<$t>,
-                    lt: Option<$t>,
-                    gt: Option<$t>
-                },)*
-            }
-        };
-    }
-
-type_range!(U64Range u64, I64Range i64);
-
 #[derive(Deserialize, Debug, PartialEq)]
 pub struct BoolQuery {
     #[serde(default = "Vec::new")]
@@ -55,6 +34,7 @@ impl CreateQuery for BoolQuery {
         all_queries.append(&mut must_not);
         all_queries.append(&mut should);
         let query: Box<TantivyQuery> = Box::new(BooleanQuery::from(all_queries));
+        info!("{:?}", query);
         query
     }
 }
@@ -63,25 +43,6 @@ impl CreateQuery for BoolQuery {
 fn make_field_value(schema: &Schema, k: &str, v: &str) -> Term {
     let field = schema.get_field(k).unwrap_or_else(|| panic!("Field: {} does not exist", k));
     Term::from_field_text(field, v)
-}
-
-#[inline]
-fn create_ranges<T>(gte: Option<T>, lte: Option<T>, lt: Option<T>, gt: Option<T>) -> (Bound<T>, Bound<T>) {
-    let lower = if let Some(b) = gt {
-        Excluded(b)
-    } else if let Some(b) = gte {
-        Included(b)
-    } else {
-        panic!("No lower bound specified ");
-    };
-    let upper = if let Some(b) = lt {
-        Excluded(b)
-    } else if let Some(b) = lte {
-        Included(b)
-    } else {
-        panic!("No lower bound specified ");
-    };
-    (upper, lower)
 }
 
 fn parse_queries(schema: &Schema, occur: Occur, queries: &[TermQueries]) -> Vec<(Occur, Box<TantivyQuery>)> {

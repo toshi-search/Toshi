@@ -25,12 +25,6 @@ impl Into<Document> for SummaryDoc {
     }
 }
 
-#[derive(Deserialize, Debug)]
-#[serde(untagged)]
-pub enum Metrics {
-    SumAgg { field: String },
-}
-
 pub struct SumCollector<'a> {
     field:     Field,
     collector: TopScoreCollector,
@@ -48,7 +42,6 @@ impl<'a> SumCollector<'a> {
 }
 
 impl<'a> AggregateQuery<SummaryDoc> for SumCollector<'a> {
-
     fn result(&self) -> SummaryDoc {
         let result: u64 = self
             .collector

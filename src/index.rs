@@ -13,7 +13,6 @@ use tantivy::Index;
 
 use handle::IndexHandle;
 use query::{summary_schema, AggregateQuery, SumCollector};
-use query::aggregate::{summary_schema, SumCollector};
 use results::*;
 use settings::Settings;
 

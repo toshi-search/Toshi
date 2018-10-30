@@ -1,6 +1,8 @@
 //! Provides an interface to a Consul cluster
 
 use std;
+use log::error;
+
 use std::net::SocketAddr;
 
 use hyper::body::Body;
