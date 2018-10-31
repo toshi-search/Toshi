@@ -1,12 +1,7 @@
-use super::{CreateQuery, FuzzyTerm, Result, TermQueries};
+use super::{CreateQuery, Result, TermQueries};
 
-use tantivy::query::Query as TantivyQuery;
-use tantivy::query::{BooleanQuery, FuzzyTermQuery, Occur, TermQuery};
-use tantivy::schema::{IndexRecordOption, Schema};
-use tantivy::Term;
-
-use query::range::RangeQuery;
-use std::collections::HashMap;
+use tantivy::query::{BooleanQuery, Occur, Query};
+use tantivy::schema::Schema;
 
 #[derive(Deserialize, Debug, PartialEq)]
 pub struct BoolQuery {
@@ -23,60 +18,35 @@ pub struct BoolQuery {
 }
 
 impl CreateQuery for BoolQuery {
-    fn create_query(self, schema: &Schema) -> Result<Box<TantivyQuery>> {
-        let mut must = parse_queries(schema, Occur::Must, &self.must);
-        let mut must_not = parse_queries(schema, Occur::MustNot, &self.must_not);
-        //let _filter = parse_queries(schema, Occur::Should, &self.filter); // I don't think tantivy has this, but ES Does?
-        let mut should = parse_queries(schema, Occur::Should, &self.should);
-        let mut all_queries: Vec<(Occur, Box<TantivyQuery>)> = Vec::with_capacity(must.len() + must_not.len() + should.len());
-        all_queries.append(&mut must);
-        all_queries.append(&mut must_not);
-        all_queries.append(&mut should);
-        let query: Box<TantivyQuery> = Box::new(BooleanQuery::from(all_queries));
-        Ok(query)
+    fn create_query(self, schema: &Schema) -> Result<Box<Query>> {
+        let mut all_queries: Vec<(Occur, Box<Query>)> = Vec::new();
+        all_queries.append(&mut parse_queries(schema, Occur::Must, &self.must)?);
+        all_queries.append(&mut parse_queries(schema, Occur::MustNot, &self.must_not)?);
+        all_queries.append(&mut parse_queries(schema, Occur::Should, &self.should)?);
+        Ok(Box::new(BooleanQuery::from(all_queries)))
     }
 }
 
-fn make_field_value(schema: &Schema, k: &str, v: &str) -> Term {
-    let field = schema.get_field(k).unwrap_or_else(|| panic!("Field: {} does not exist", k));
-    Term::from_field_text(field, v)
-}
-
-fn parse_queries(schema: &Schema, occur: Occur, queries: &[TermQueries]) -> Vec<(Occur, Box<TantivyQuery>)> {
-    queries
-        .into_iter()
-        .map(|q| match q {
-            TermQueries::Fuzzy { fuzzy } => create_fuzzy_query(&schema, occur, &fuzzy),
-            TermQueries::Exact(q) => create_exact_query(&schema, occur, &q.term),
-            TermQueries::Range { range } => {
-                let range_query = RangeQuery::new(range.clone())
-                    .create_query(&schema)
-                    .unwrap_or_else(|e| panic!("Query Gen failed {:?}", e));
-                vec![(occur, range_query)]
+fn parse_queries(schema: &Schema, occur: Occur, queries: &[TermQueries]) -> Result<Vec<(Occur, Box<Query>)>> {
+    let mut results = Vec::with_capacity(queries.len());
+    for q in queries.into_iter() {
+        match q {
+            TermQueries::Fuzzy(f) => {
+                let fuzzy_query = f.clone().create_query(&schema)?;
+                results.push((occur, fuzzy_query));
             }
-        })
-        .flatten()
-        .collect()
-}
-
-fn create_fuzzy_query(schema: &Schema, occur: Occur, m: &HashMap<String, FuzzyTerm>) -> Vec<(Occur, Box<TantivyQuery>)> {
-    m.into_iter()
-        .map(|(k, v)| {
-            let term = make_field_value(schema, &k, &v.value);
-            let query: Box<TantivyQuery> = Box::new(FuzzyTermQuery::new(term, v.distance, v.transposition));
-            (occur, query)
-        })
-        .collect()
-}
-
-fn create_exact_query(schema: &Schema, occur: Occur, m: &HashMap<String, String>) -> Vec<(Occur, Box<TantivyQuery>)> {
-    m.into_iter()
-        .map(|(k, v)| {
-            let term = make_field_value(schema, &k, &v);
-            let query: Box<TantivyQuery> = Box::new(TermQuery::new(term, IndexRecordOption::Basic));
-            (occur, query)
-        })
-        .collect()
+            TermQueries::Exact(q) => {
+                let term_query = q.clone().create_query(&schema)?;
+                results.push((occur, term_query));
+            }
+            TermQueries::Range(r) => {
+                let range_query = r.clone().create_query(&schema)?;
+                results.push((occur, range_query));
+            }
+            _ => unimplemented!(),
+        };
+    }
+    Ok(results)
 }
 
 #[cfg(test)]
@@ -88,7 +58,18 @@ mod tests {
 
     #[test]
     fn test_bool_query() {
-        let test_json = r#"{"query":{"bool":{"must":[{"term":{"user":"kimchy"}}],"filter":[{"fuzzy":{"user":{"value":"kimchy"}}},{"range":{"age":{"gt":-10,"lte":20}}}],"must_not":[{"term":{"user":"kimchy"}},{"range":{"age":{"gt":-10,"lte":20}}}],"should":[{"term":{"user":"kimchy"}},{"range":{"age":{"gte":10,"lte":20}}}],"minimum_should_match":1,"boost":1.0}}}"#;
+        let test_json = r#"
+        {"query": {
+            "bool": {
+                "must": [ {"term": {"user": "kimchy"}}, {"fuzzy": {"user": {"value": "kimchy", "distance": 214}}} ],
+                "filter": [ {"range": {"age": {"gt": -10,"lte": 20}}} ],
+                "must_not": [{"term": {"user": "kimchy"}}, {"range": {"age": {"gt": -10, "lte": 20}}} ],
+                "should": [ {"term": {"user": "kimchy"}}, {"range": {"age": {"gte": 10,"lte": 20}}} ],
+                "minimum_should_match": 1,
+                "boost": 1.0
+              }
+            }
+        }"#;
         let mut builder = SchemaBuilder::new();
         let _text_field = builder.add_text_field("user", STORED | TEXT);
         let _u_field = builder.add_i64_field("age", FAST);
@@ -97,11 +78,12 @@ mod tests {
         let result = serde_json::from_str::<Request>(test_json).unwrap();
         assert_eq!(result.query.is_some(), true);
 
-        if let Query::Boolean { bool } = result.query.unwrap() {
+        if let super::super::Query::Boolean { bool } = result.query.unwrap() {
             assert_eq!(bool.should.is_empty(), false);
             assert_eq!(bool.must_not.len(), 2);
             let query = bool.create_query(&_schema).unwrap().downcast::<BooleanQuery>().unwrap();
-            assert_eq!(query.clauses().len(), 5);
+            println!("{:#?}", &query);
+            assert_eq!(query.clauses().len(), 6);
         }
     }
 }
