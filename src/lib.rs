@@ -7,6 +7,7 @@ extern crate serde_derive;
 extern crate log;
 #[macro_use]
 extern crate failure;
+extern crate bytesize;
 extern crate capnp;
 extern crate clap;
 extern crate config;
@@ -15,8 +16,10 @@ extern crate futures;
 extern crate gotham;
 extern crate hyper;
 extern crate mime;
+extern crate num_cpus;
 extern crate serde;
 extern crate serde_json;
+extern crate systemstat;
 #[cfg_attr(test, macro_use)]
 extern crate tantivy;
 extern crate tokio;
@@ -81,15 +84,21 @@ impl From<DocParsingError> for Error {
 }
 
 impl<T> From<std::sync::PoisonError<T>> for Error {
-    fn from(err: std::sync::PoisonError<T>) -> Self { Error::IOError(err.to_string()) }
+    fn from(err: std::sync::PoisonError<T>) -> Self {
+        Error::IOError(err.to_string())
+    }
 }
 
 impl From<std::io::Error> for Error {
-    fn from(err: std::io::Error) -> Self { Error::IOError(err.to_string()) }
+    fn from(err: std::io::Error) -> Self {
+        Error::IOError(err.to_string())
+    }
 }
 
 impl From<std::str::Utf8Error> for Error {
-    fn from(err: std::str::Utf8Error) -> Self { Error::IOError(err.to_string()) }
+    fn from(err: std::str::Utf8Error) -> Self {
+        Error::IOError(err.to_string())
+    }
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

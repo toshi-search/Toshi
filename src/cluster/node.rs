@@ -2,6 +2,10 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};
 
+use num_cpus;
+use systemstat;
+use systemstat::{Platform, System};
+
 use cluster::{ClusterError, DiskType};
 
 static NODE_ID_FILENAME: &'static str = ".node_id.txt";
@@ -30,11 +34,38 @@ pub fn read_node_id(p: &str) -> Result<String, ClusterError> {
 /// sub-structs, listed below. This will be serialized to JSON and sent to Consul.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Metadata {
-    network: NetworkMetadata,
-    cpu: CPUMetadata,
-    ram: RAMMetadata,
+    network: Option<NetworkMetadata>,
+    cpu: Option<CPUMetadata>,
+    ram: Option<RAMMetadata>,
     disks: Vec<DiskMetadata>,
     directories: Vec<DirectoryMetadata>,
+}
+
+impl Metadata {
+    pub fn gather() -> Metadata {
+        let sys = systemstat::System::new();
+        let cpu: Option<CPUMetadata>;
+        let ram: Option<RAMMetadata>;
+
+        if let Ok(cpu_metadata) = CPUMetadata::gather(&sys) {
+            cpu = Some(cpu_metadata);
+        } else {
+            cpu = None
+        }
+        if let Ok(ram_metadata) = RAMMetadata::gather(&sys) {
+            ram = Some(ram_metadata);
+        } else {
+            ram = None
+        }
+
+        Metadata {
+            network: None,
+            cpu: cpu,
+            ram: ram,
+            disks: Vec::new(),
+            directories: Vec::new(),
+        }
+    }
 }
 
 /// All network data about the node
@@ -50,38 +81,124 @@ pub struct NetworkMetadata {
 pub struct CPUMetadata {
     // Key is "physical" or "logical"
     // Value is how many of each the OS reports
-    physical: u16,
-    logical: u16,
-    usage: f32,
+    physical: usize,
+    logical: usize,
+    five_min_load_average: Option<f32>,
 }
 
-/// Metadata about the node's RAM. Units are in GB.
+impl CPUMetadata {
+    pub fn gather(sys: &systemstat::System) -> Result<CPUMetadata, ClusterError> {
+        let cpu = match sys.load_average() {
+            Ok(avg) => Some(avg.five),
+            Err(_) => None,
+        };
+        Ok(CPUMetadata {
+            logical: num_cpus::get(),
+            physical: num_cpus::get_physical(),
+            five_min_load_average: cpu,
+        })
+    }
+}
+
+/// Metadata about the node's RAM
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RAMMetadata {
-    total: u64,
-    free: u64,
-    used: u64,
+    total: usize,
+    free: usize,
+    used: usize,
+}
+
+impl RAMMetadata {
+    pub fn gather(sys: &systemstat::System) -> Result<RAMMetadata, ClusterError> {
+        match sys.memory() {
+            Ok(mem) => Ok(RAMMetadata {
+                total: mem.total.as_usize(),
+                free: mem.free.as_usize(),
+                used: (mem.total - mem.free).as_usize(),
+            }),
+            Err(e) => {
+                println!("Error retrieving RAM metadata: {:?}", e);
+                Err(ClusterError::GenericError)
+            }
+        }
+    }
 }
 
 /// Metadata about the block devices on the node
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DiskMetadata {
-    iowait: f64,
-    disk_type: DiskType,
-    writes_per_second: f64,
-    reads_per_second: f64,
-    write_latency_ms: f64,
-    read_latency_ms: f64,
-    device_path: String,
+    disk_type: Option<DiskType>,
+    write_wait_time: usize,
+    read_wait_time: usize,
+}
+
+impl DiskMetadata {
+    pub fn gather(block_device_name: &str, sys: &System) -> Result<DiskMetadata, ClusterError> {
+        match sys.block_device_statistics() {
+            Ok(stats) => {
+                for blkstats in stats.values() {
+                    if block_device_name == blkstats.name {
+                        return Ok(DiskMetadata {
+                            // read and write wait time are in ms
+                            write_wait_time: blkstats.write_ticks,
+                            read_wait_time: blkstats.read_ticks,
+                            disk_type: None,
+                        });
+                    }
+                }
+                error!("No block device with name: {} found", block_device_name);
+                Err(ClusterError::GenericError)
+            }
+            Err(_) => Err(ClusterError::GenericError),
+        }
+    }
 }
 
 /// Metadata about the directories on the node
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DirectoryMetadata {
-    device_path: String,
-    directory: PathBuf,
-    max_size: u64,
-    current_usage: u64,
-    current_inodes: u64,
-    free_inodes: u64,
+    directory: String,
+    max_size: usize,
+    current_usage: usize,
+    free_space: usize,
+}
+
+impl DirectoryMetadata {
+    pub fn gather(filesystem_path: &str, sys: &System) -> Result<DirectoryMetadata, ClusterError> {
+        match sys.mounts() {
+            Ok(mounts) => {
+                for mount in &mounts {
+                    if mount.fs_mounted_on == filesystem_path {
+                        return Ok(DirectoryMetadata {
+                            directory: mount.fs_mounted_on.clone(),
+                            max_size: mount.total.as_usize(),
+                            current_usage: (mount.total - mount.avail).as_usize(),
+                            free_space: mount.free.as_usize(),
+                        });
+                    }
+                }
+                Err(ClusterError::GenericError)
+            }
+            Err(_) => Err(ClusterError::GenericError),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_cpu_metadata() {
+        let sys = systemstat::System::new();
+        let cpu_metadata = CPUMetadata::gather(&sys);
+        assert!(cpu_metadata.is_ok())
+    }
+
+    #[test]
+    #[cfg(target_os = "linux")]
+    fn test_ram_metadata() {
+        let sys = systemstat::System::new();
+        let ram_metadata = RAMMetadata::gather(&sys);
+        assert!(ram_metadata.is_ok())
+    }
 }

@@ -20,6 +20,8 @@ pub enum ClusterError {
     FailedRegisteringNode,
     #[fail(display = "Failed reading NodeID: {}", _0)]
     FailedReadingNodeID(std::io::Error),
+    #[fail(display = "Dunno! Placeholder")]
+    GenericError,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
