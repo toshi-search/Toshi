@@ -1,11 +1,10 @@
-use super::*;
+use super::{CreateQuery, FuzzyTerm, Result, TermQueries};
 
 use tantivy::query::Query as TantivyQuery;
 use tantivy::query::{BooleanQuery, FuzzyTermQuery, Occur, TermQuery};
 use tantivy::schema::{IndexRecordOption, Schema};
 use tantivy::Term;
 
-use super::CreateQuery;
 use query::range::RangeQuery;
 use std::collections::HashMap;
 
@@ -24,7 +23,7 @@ pub struct BoolQuery {
 }
 
 impl CreateQuery for BoolQuery {
-    fn create_query(self, schema: &Schema) -> Box<TantivyQuery> {
+    fn create_query(self, schema: &Schema) -> Result<Box<TantivyQuery>> {
         let mut must = parse_queries(schema, Occur::Must, &self.must);
         let mut must_not = parse_queries(schema, Occur::MustNot, &self.must_not);
         //let _filter = parse_queries(schema, Occur::Should, &self.filter); // I don't think tantivy has this, but ES Does?
@@ -34,12 +33,10 @@ impl CreateQuery for BoolQuery {
         all_queries.append(&mut must_not);
         all_queries.append(&mut should);
         let query: Box<TantivyQuery> = Box::new(BooleanQuery::from(all_queries));
-        info!("{:?}", query);
-        query
+        Ok(query)
     }
 }
 
-#[inline]
 fn make_field_value(schema: &Schema, k: &str, v: &str) -> Term {
     let field = schema.get_field(k).unwrap_or_else(|| panic!("Field: {} does not exist", k));
     Term::from_field_text(field, v)
@@ -51,7 +48,12 @@ fn parse_queries(schema: &Schema, occur: Occur, queries: &[TermQueries]) -> Vec<
         .map(|q| match q {
             TermQueries::Fuzzy { fuzzy } => create_fuzzy_query(&schema, occur, &fuzzy),
             TermQueries::Exact(q) => create_exact_query(&schema, occur, &q.term),
-            TermQueries::Range { range } => vec![(occur, RangeQuery::new(range.clone()).create_query(&schema))],
+            TermQueries::Range { range } => {
+                let range_query = RangeQuery::new(range.clone())
+                    .create_query(&schema)
+                    .unwrap_or_else(|e| panic!("Query Gen failed {:?}", e));
+                vec![(occur, range_query)]
+            }
         })
         .flatten()
         .collect()
@@ -79,6 +81,7 @@ fn create_exact_query(schema: &Schema, occur: Occur, m: &HashMap<String, String>
 
 #[cfg(test)]
 mod tests {
+    use super::super::*;
     use super::*;
     use serde_json;
     use tantivy::schema::*;
@@ -97,7 +100,7 @@ mod tests {
         if let Query::Boolean { bool } = result.query.unwrap() {
             assert_eq!(bool.should.is_empty(), false);
             assert_eq!(bool.must_not.len(), 2);
-            let query = bool.create_query(&_schema).downcast::<BooleanQuery>().unwrap();
+            let query = bool.create_query(&_schema).unwrap().downcast::<BooleanQuery>().unwrap();
             assert_eq!(query.clauses().len(), 5);
         }
     }

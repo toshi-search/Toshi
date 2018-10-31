@@ -1,11 +1,5 @@
 use super::settings::Settings;
-pub use {
-    self::aggregate::{summary_schema, SumCollector, SummaryDoc},
-    self::bool::BoolQuery,
-    self::range::{RangeQuery, Ranges},
-};
-
-use log::{info, warn};
+use super::{Error, Result};
 
 use tantivy::query::Query as TantivyQuery;
 use tantivy::schema::Schema;
@@ -17,8 +11,14 @@ mod bool;
 mod bucket;
 mod range;
 
+pub use {
+    self::aggregate::{summary_schema, SumCollector, SummaryDoc},
+    self::bool::BoolQuery,
+    self::range::{RangeQuery, Ranges},
+};
+
 pub trait CreateQuery {
-    fn create_query(self, schema: &Schema) -> Box<TantivyQuery>;
+    fn create_query(self, schema: &Schema) -> Result<Box<TantivyQuery>>;
 }
 
 pub trait AggregateQuery<T> {

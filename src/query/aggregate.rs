@@ -1,8 +1,10 @@
-use super::*;
-use tantivy::collector::*;
-use tantivy::schema::*;
-use tantivy::Document;
-use tantivy::*;
+use log::info;
+
+use super::AggregateQuery;
+
+use tantivy::collector::{Collector, TopCollector};
+use tantivy::schema::{Field, IntOptions, Schema, SchemaBuilder, Value};
+use tantivy::{Document, Searcher, SegmentReader};
 
 pub fn summary_schema() -> Schema {
     let mut schema_builder = SchemaBuilder::new();
@@ -27,7 +29,7 @@ impl Into<Document> for SummaryDoc {
 
 pub struct SumCollector<'a> {
     field:     Field,
-    collector: TopScoreCollector,
+    collector: TopCollector,
     searcher:  &'a Searcher,
 }
 

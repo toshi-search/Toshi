@@ -1,18 +1,10 @@
 //! Provides an interface to a Consul cluster
 
-use std;
 use log::error;
 
-use std::net::SocketAddr;
-
 use hyper::body::Body;
-use hyper::client::Builder;
-use hyper::rt::{self, Future, Stream};
+use hyper::rt::Future;
 use hyper::{Client, Request};
-
-use std::io::{self, Write};
-
-use cluster::ClusterError;
 
 static CONSUL_PREFIX: &'static str = "services/toshi/";
 
