@@ -7,7 +7,6 @@ extern crate serde_derive;
 extern crate log;
 #[macro_use]
 extern crate failure;
-extern crate bytesize;
 extern crate capnp;
 extern crate clap;
 extern crate config;

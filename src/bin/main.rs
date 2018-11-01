@@ -5,7 +5,6 @@ extern crate uuid;
 extern crate log;
 #[macro_use]
 extern crate clap;
-extern crate bytesize;
 extern crate hyper;
 extern crate num_cpus;
 extern crate systemstat;

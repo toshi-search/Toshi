@@ -158,11 +158,6 @@ version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
-name = "bytesize"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-
-[[package]]
 name = "capnp"
 version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1582,7 +1577,6 @@ dependencies = [
 name = "toshi"
 version = "0.1.1"
 dependencies = [
- "bytesize 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "capnp 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "capnpc 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap 2.32.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1807,7 +1801,6 @@ dependencies = [
 "checksum byteorder 1.2.7 (registry+https://github.com/rust-lang/crates.io-index)" = "94f88df23a25417badc922ab0f5716cc1330e87f71ddd9203b3a3ccd9cedf75d"
 "checksum bytes 0.4.10 (registry+https://github.com/rust-lang/crates.io-index)" = "0ce55bd354b095246fc34caf4e9e242f5297a7fd938b090cadfea6eee614aa62"
 "checksum bytesize 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)" = "16d794c5fe594cfa8fbe8ae274de4048176c69f2d9ac5e637166e73b71d460b8"
-"checksum bytesize 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "716960a18f978640f25101b5cbf1c6f6b0d3192fab36a2d98ca96f0ecbe41010"
 "checksum capnp 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)" = "d8a848d1eaa3aca24cfacfa4b5c7cc0d671b9efa411c102394ce6a04b70c2225"
 "checksum capnpc 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)" = "6f85b818d7d9d63ca794b96b00ff28e2c44cfeeec6adb44fa4b4de8e05eb4e75"
 "checksum cargo_metadata 0.5.8 (registry+https://github.com/rust-lang/crates.io-index)" = "1efca0b863ca03ed4c109fb1c55e0bc4bbeb221d3e103d86251046b06a526bd0"

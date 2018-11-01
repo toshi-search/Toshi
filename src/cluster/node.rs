@@ -75,17 +75,16 @@ pub struct NetworkMetadata {
     port: u16,
 }
 
-/// CPU data about the node. Usage is meant to be 0.0-1.0. Not sure how to calculate it yet.
+/// CPU data about the node. Uses the load averages calculated by the kernel.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CPUMetadata {
-    // Key is "physical" or "logical"
-    // Value is how many of each the OS reports
     physical: usize,
     logical: usize,
     five_min_load_average: f32,
 }
 
 impl CPUMetadata {
+    /// Gathers metadata about the CPU of the system
     pub fn gather(sys: &systemstat::System) -> Result<CPUMetadata, ClusterError> {
         match sys.load_average() {
             Ok(avg) => Ok(CPUMetadata {
@@ -107,6 +106,7 @@ pub struct RAMMetadata {
 }
 
 impl RAMMetadata {
+    /// Gathers RAM metadata about the system it is running on
     pub fn gather(sys: &systemstat::System) -> Result<RAMMetadata, ClusterError> {
         match sys.memory() {
             Ok(mem) => Ok(RAMMetadata {
@@ -128,6 +128,7 @@ pub struct DiskMetadata {
 }
 
 impl DiskMetadata {
+    /// Gathers metadata about a specific block device
     pub fn gather(block_device_name: &str, sys: &System) -> Result<DiskMetadata, ClusterError> {
         match sys.block_device_statistics() {
             Ok(stats) => {
@@ -158,6 +159,7 @@ pub struct DirectoryMetadata {
 }
 
 impl DirectoryMetadata {
+    /// Gathers metadata about a specific directory
     pub fn gather(filesystem_path: &str, sys: &System) -> Result<DirectoryMetadata, ClusterError> {
         match sys.mounts() {
             Ok(mounts) => {
