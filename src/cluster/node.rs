@@ -57,7 +57,6 @@ impl Metadata {
         } else {
             ram = None
         }
-
         Metadata {
             network: None,
             cpu: cpu,
@@ -83,20 +82,19 @@ pub struct CPUMetadata {
     // Value is how many of each the OS reports
     physical: usize,
     logical: usize,
-    five_min_load_average: Option<f32>,
+    five_min_load_average: f32,
 }
 
 impl CPUMetadata {
     pub fn gather(sys: &systemstat::System) -> Result<CPUMetadata, ClusterError> {
-        let cpu = match sys.load_average() {
-            Ok(avg) => Some(avg.five),
-            Err(_) => None,
-        };
-        Ok(CPUMetadata {
-            logical: num_cpus::get(),
-            physical: num_cpus::get_physical(),
-            five_min_load_average: cpu,
-        })
+        match sys.load_average() {
+            Ok(avg) => Ok(CPUMetadata {
+                logical: num_cpus::get(),
+                physical: num_cpus::get_physical(),
+                five_min_load_average: avg.five,
+            }),
+            Err(e) => Err(ClusterError::FailedGettingCPUMetadata(e)),
+        }
     }
 }
 
@@ -116,10 +114,7 @@ impl RAMMetadata {
                 free: mem.free.as_usize(),
                 used: (mem.total - mem.free).as_usize(),
             }),
-            Err(e) => {
-                println!("Error retrieving RAM metadata: {:?}", e);
-                Err(ClusterError::GenericError)
-            }
+            Err(e) => Err(ClusterError::FailedGettingRAMMetadata(e)),
         }
     }
 }
@@ -146,10 +141,9 @@ impl DiskMetadata {
                         });
                     }
                 }
-                error!("No block device with name: {} found", block_device_name);
-                Err(ClusterError::GenericError)
+                Err(ClusterError::NoMatchingBlockDeviceFound(block_device_name.into()))
             }
-            Err(_) => Err(ClusterError::GenericError),
+            Err(e) => Err(ClusterError::FailedGettingBlockDeviceMetadata(e)),
         }
     }
 }
@@ -177,9 +171,9 @@ impl DirectoryMetadata {
                         });
                     }
                 }
-                Err(ClusterError::GenericError)
+                Err(ClusterError::NoMatchingDirectoryFound(filesystem_path.into()))
             }
-            Err(_) => Err(ClusterError::GenericError),
+            Err(e) => Err(ClusterError::FailedGettingDirectoryMetadata(e)),
         }
     }
 }
