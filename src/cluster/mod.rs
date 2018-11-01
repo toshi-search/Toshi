@@ -1,7 +1,6 @@
 //! Contains code related to clustering
 
 use std;
-use systemstat;
 
 pub mod consul_interface;
 pub mod node;
@@ -9,7 +8,7 @@ pub mod node;
 pub use self::consul_interface::ConsulInterface;
 pub use self::node::*;
 
-#[derive(Debug, Fail)]
+#[derive(Debug, Fail, Serialize, Deserialize)]
 pub enum ClusterError {
     #[fail(display = "Node has no ID")]
     MissingNodeID,

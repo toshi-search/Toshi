@@ -34,35 +34,20 @@ pub fn read_node_id(p: &str) -> Result<String, ClusterError> {
 /// sub-structs, listed below. This will be serialized to JSON and sent to Consul.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Metadata {
-    network: Option<NetworkMetadata>,
-    cpu: Option<CPUMetadata>,
-    ram: Option<RAMMetadata>,
-    disks: Vec<DiskMetadata>,
-    directories: Vec<DirectoryMetadata>,
+    cpu: Result<CPUMetadata, ClusterError>,
+    ram: Result<RAMMetadata, ClusterError>,
+    disks: Result<Vec<DiskMetadata>, ClusterError>,
+    directories: Result<Vec<DirectoryMetadata>, ClusterError>,
 }
 
 impl Metadata {
-    pub fn gather() -> Metadata {
+    pub fn gather(block_devices: Vec<&str>, directories: Vec<&str>) -> Metadata {
         let sys = systemstat::System::new();
-        let cpu: Option<CPUMetadata>;
-        let ram: Option<RAMMetadata>;
-
-        if let Ok(cpu_metadata) = CPUMetadata::gather(&sys) {
-            cpu = Some(cpu_metadata);
-        } else {
-            cpu = None
-        }
-        if let Ok(ram_metadata) = RAMMetadata::gather(&sys) {
-            ram = Some(ram_metadata);
-        } else {
-            ram = None
-        }
         Metadata {
-            network: None,
-            cpu: cpu,
-            ram: ram,
-            disks: Vec::new(),
-            directories: Vec::new(),
+            cpu: CPUMetadata::gather(&sys),
+            ram: RAMMetadata::gather(&sys),
+            disks: block_devices.iter().map(|d| DiskMetadata::gather(d, &sys)).collect(),
+            directories: directories.iter().map(|d| DirectoryMetadata::gather(d, &sys)).collect(),
         }
     }
 }
@@ -196,5 +181,12 @@ mod tests {
         let sys = systemstat::System::new();
         let ram_metadata = RAMMetadata::gather(&sys);
         assert!(ram_metadata.is_ok())
+    }
+
+    #[test]
+    fn test_directory_metadata() {
+        let sys = systemstat::System::new();
+        let disk_metadata = DiskMetadata::gather("/tmp", &sys);
+        assert!(disk_metadata.is_ok())
     }
 }
