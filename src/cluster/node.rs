@@ -15,7 +15,7 @@ pub fn write_node_id(id: String, _p: &str) -> Result<(), ClusterError> {
     let path = Path::new(&NODE_ID_FILENAME);
     match File::create(path) {
         Ok(_) => Ok(()),
-        Err(e) => Err(ClusterError::FailedWritingNodeID(e)),
+        Err(e) => Err(ClusterError::FailedWritingNodeID(e.to_string())),
     }
 }
 
@@ -23,10 +23,10 @@ pub fn read_node_id(p: &str) -> Result<String, ClusterError> {
     let path = NODE_ID_FILENAME;
     let path = Path::new(&path);
     let mut contents = String::new();
-    let mut handle = File::open(&path).map_err(|e| ClusterError::FailedReadingNodeID(e))?;
+    let mut handle = File::open(&path).map_err(|e| ClusterError::FailedReadingNodeID(e.to_string()))?;
     handle
         .read_to_string(&mut contents)
-        .map_err(|e| ClusterError::FailedReadingNodeID(e))?;
+        .map_err(|e| ClusterError::FailedReadingNodeID(e.to_string()))?;
     Ok(contents)
 }
 
@@ -41,6 +41,9 @@ pub struct Metadata {
 }
 
 impl Metadata {
+    /// Gathers metadata from all the subsystems. Accepts a list of block devices or mount points
+    /// about which to gather data. Note that the directories must be mountpoints (visible in mount)
+    /// not just any arbitrary directory.
     pub fn gather(block_devices: Vec<&str>, directories: Vec<&str>) -> Metadata {
         let sys = systemstat::System::new();
         Metadata {
@@ -77,7 +80,7 @@ impl CPUMetadata {
                 physical: num_cpus::get_physical(),
                 five_min_load_average: avg.five,
             }),
-            Err(e) => Err(ClusterError::FailedGettingCPUMetadata(e)),
+            Err(e) => Err(ClusterError::FailedGettingCPUMetadata(e.to_string())),
         }
     }
 }
@@ -99,7 +102,7 @@ impl RAMMetadata {
                 free: mem.free.as_usize(),
                 used: (mem.total - mem.free).as_usize(),
             }),
-            Err(e) => Err(ClusterError::FailedGettingRAMMetadata(e)),
+            Err(e) => Err(ClusterError::FailedGettingRAMMetadata(e.to_string())),
         }
     }
 }
@@ -123,13 +126,14 @@ impl DiskMetadata {
                             // read and write wait time are in ms
                             write_wait_time: blkstats.write_ticks,
                             read_wait_time: blkstats.read_ticks,
+                            // Currently do not have a good way to detect HDD or SSD, so this defaults to None for now
                             disk_type: None,
                         });
                     }
                 }
                 Err(ClusterError::NoMatchingBlockDeviceFound(block_device_name.into()))
             }
-            Err(e) => Err(ClusterError::FailedGettingBlockDeviceMetadata(e)),
+            Err(e) => Err(ClusterError::FailedGettingBlockDeviceMetadata(e.to_string())),
         }
     }
 }
@@ -160,7 +164,7 @@ impl DirectoryMetadata {
                 }
                 Err(ClusterError::NoMatchingDirectoryFound(filesystem_path.into()))
             }
-            Err(e) => Err(ClusterError::FailedGettingDirectoryMetadata(e)),
+            Err(e) => Err(ClusterError::FailedGettingDirectoryMetadata(e.to_string())),
         }
     }
 }
@@ -181,12 +185,5 @@ mod tests {
         let sys = systemstat::System::new();
         let ram_metadata = RAMMetadata::gather(&sys);
         assert!(ram_metadata.is_ok())
-    }
-
-    #[test]
-    fn test_directory_metadata() {
-        let sys = systemstat::System::new();
-        let disk_metadata = DiskMetadata::gather("/tmp", &sys);
-        assert!(disk_metadata.is_ok())
     }
 }

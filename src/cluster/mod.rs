@@ -15,23 +15,23 @@ pub enum ClusterError {
     #[fail(display = "Unable to determine cluster ID")]
     MissingClusterID,
     #[fail(display = "Unable to write node ID: {}", _0)]
-    FailedWritingNodeID(std::io::Error),
+    FailedWritingNodeID(String),
     #[fail(display = "Failed registering Node")]
     FailedRegisteringNode,
     #[fail(display = "Failed reading NodeID: {}", _0)]
-    FailedReadingNodeID(std::io::Error),
+    FailedReadingNodeID(String),
     #[fail(display = "Unable to retrieve disk metadata: {}", _0)]
-    FailedGettingDirectoryMetadata(std::io::Error),
+    FailedGettingDirectoryMetadata(String),
     #[fail(display = "Unable to retrieve block device metadata: {}", _0)]
-    FailedGettingBlockDeviceMetadata(std::io::Error),
+    FailedGettingBlockDeviceMetadata(String),
     #[fail(display = "Unable to find that directory: {}", _0)]
     NoMatchingDirectoryFound(String),
     #[fail(display = "Unable to find that block device: {}", _0)]
     NoMatchingBlockDeviceFound(String),
     #[fail(display = "Unable to read device RAM information: {}", _0)]
-    FailedGettingRAMMetadata(std::io::Error),
+    FailedGettingRAMMetadata(String),
     #[fail(display = "Unable to get CPU metadata: {}", _0)]
-    FailedGettingCPUMetadata(std::io::Error),
+    FailedGettingCPUMetadata(String),
 }
 
 #[derive(Debug, Serialize, Deserialize)]
