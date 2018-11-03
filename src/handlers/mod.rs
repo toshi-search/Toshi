@@ -26,6 +26,7 @@ use gotham::handler::*;
 use gotham::helpers::http::response::*;
 use gotham::state::*;
 use hyper::{Body, Response, StatusCode};
+use log::info;
 use mime;
 use serde::Serialize;
 use serde_json;

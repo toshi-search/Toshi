@@ -12,10 +12,12 @@ impl SearchResults {
 
 #[derive(Serialize)]
 pub struct ScoredDoc {
-    score: f32,
-    doc:   NamedFieldDocument,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    score: Option<f32>,
+    #[serde(flatten)]
+    doc: NamedFieldDocument,
 }
 
 impl ScoredDoc {
-    pub fn new(score: f32, doc: NamedFieldDocument) -> Self { ScoredDoc { score, doc } }
+    pub fn new(score: Option<f32>, doc: NamedFieldDocument) -> Self { ScoredDoc { score, doc } }
 }

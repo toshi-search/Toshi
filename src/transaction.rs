@@ -1,8 +1,8 @@
+use super::*;
 use std::fs::{create_dir_all, File};
-use std::io::{Error, Write};
+use std::io::Write;
 use std::path::PathBuf;
 
-use serde_json::to_vec;
 use tantivy::Document;
 
 use capnp::message::HeapAllocator;
@@ -50,13 +50,13 @@ pub struct TransactionLog {
 
 #[allow(dead_code)]
 impl TransactionLog {
-    pub fn from_config(index_name: &str, opscode: u32, path: &PathBuf, config: TransactionConfig) -> Result<Self, Error> {
+    pub fn from_config(index_name: &str, opscode: u32, path: &PathBuf, config: TransactionConfig) -> Result<Self> {
         let mut base_path = path.clone();
         base_path.push(index_name);
         if !base_path.exists() {
             match create_dir_all(base_path.clone()) {
                 Ok(_) => {}
-                Err(e) => return Err(e),
+                Err(e) => return Err(e.into()),
             };
         }
         let segment_path = TransactionLog::create_filename(index_name, &base_path, opscode)?;
@@ -81,39 +81,39 @@ impl TransactionLog {
         results
     }
 
-    fn create_filename(index_name: &str, path: &PathBuf, opscode: u32) -> Result<PathBuf, Error> {
+    fn create_filename(index_name: &str, path: &PathBuf, opscode: u32) -> Result<PathBuf> {
         let mut segment_path = path.clone();
         segment_path.push(format!("{}.{}", index_name, opscode));
         Ok(segment_path)
     }
 
-    fn rotate_file(&mut self, opscode: u32) -> Result<(), Error> {
+    fn rotate_file(&mut self, opscode: u32) -> Result<()> {
         self.flush()?;
         let segment_path = TransactionLog::create_filename(&self.index_name, &self.path, opscode)?;
         info!("Rotating to {:#?}", segment_path);
         self.buf_size = 0;
         self.buf = match File::create(segment_path) {
             Ok(f) => f,
-            Err(e) => return Err(e),
+            Err(e) => return Err(e.into()),
         };
         Ok(())
     }
 
-    fn build_transaction(timestamp: u64, opscode: u32, action: Action, doc: &Document) -> Result<message::Builder<HeapAllocator>, Error> {
+    fn build_transaction(timestamp: u64, opscode: u32, action: Action, doc: &Document) -> Result<message::Builder<HeapAllocator>> {
         let mut message = message::Builder::new_default();
         {
             let mut trans = message.init_root::<transaction::Builder>();
             trans.set_action(action);
             trans.set_timestamp(timestamp);
             trans.set_opscode(opscode);
-            let doc_bytes = to_vec(doc)?;
+            let doc_bytes = serde_json::to_vec(doc).expect("Unable to serialize doc to json.");
             let mut doc_builder = trans.init_document(doc_bytes.len() as u32);
             doc_builder.write_all(&doc_bytes)?;
         }
         Ok(message)
     }
 
-    pub fn add_transaction(&mut self, timestamp: u64, opscode: u32, action: Action, doc: &Document) -> Result<(), Error> {
+    pub fn add_transaction(&mut self, timestamp: u64, opscode: u32, action: Action, doc: &Document) -> Result<()> {
         let message = TransactionLog::build_transaction(timestamp, opscode, action, doc)?;
         let msg_size = serialize::compute_serialized_size_in_words(&message) * 8;
         if (self.buf_size + msg_size) > self.config.buffer_size {
@@ -129,9 +129,9 @@ impl TransactionLog {
 
     pub fn total_size(&self) -> usize { self.total_written }
 
-    pub fn flush(&mut self) -> Result<(), Error> {
+    pub fn flush(&mut self) -> Result<()> {
         self.buf.flush()?;
-        self.buf.sync_all()
+        self.buf.sync_all().map_err(|e| e.into())
     }
 }
 
@@ -142,6 +142,7 @@ mod tests {
     use super::*;
     use std::fs::create_dir;
     use std::time::{SystemTime, UNIX_EPOCH};
+    use tantivy::doc;
     use tantivy::schema::*;
 
     fn now() -> u64 { SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() }

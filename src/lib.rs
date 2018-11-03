@@ -1,22 +1,21 @@
 #![warn(unused_extern_crates)]
-#[macro_use]
-extern crate gotham_derive;
-#[macro_use]
-extern crate serde_derive;
-#[macro_use]
-extern crate log;
-#[macro_use]
-extern crate failure;
 extern crate capnp;
 extern crate clap;
 extern crate config;
 extern crate crossbeam_channel;
+#[macro_use]
+extern crate failure;
 extern crate futures;
 extern crate gotham;
+#[macro_use]
+extern crate gotham_derive;
 extern crate hyper;
+extern crate log;
 extern crate mime;
 extern crate num_cpus;
 extern crate serde;
+#[macro_use]
+extern crate serde_derive;
 extern crate serde_json;
 extern crate systemstat;
 #[cfg_attr(test, macro_use)]
@@ -24,6 +23,7 @@ extern crate tantivy;
 extern crate tokio;
 extern crate uuid;
 
+use log::*;
 use tantivy::query::QueryParserError;
 use tantivy::schema::DocParsingError;
 use tantivy::Error as TError;
@@ -104,6 +104,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 mod handle;
 mod handlers;
+mod query;
 mod results;
 mod transaction;
 
