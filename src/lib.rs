@@ -18,7 +18,6 @@ extern crate serde;
 extern crate serde_derive;
 extern crate serde_json;
 extern crate systemstat;
-#[cfg_attr(test, macro_use)]
 extern crate tantivy;
 extern crate tokio;
 extern crate uuid;
