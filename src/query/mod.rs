@@ -9,6 +9,7 @@ pub use {
     self::aggregate::{summary_schema, SumCollector, SummaryDoc},
     self::bool::BoolQuery,
     self::fuzzy::{FuzzyQuery, FuzzyTerm},
+    self::phrase::PhraseQuery,
     self::range::{RangeQuery, Ranges},
     self::regex::RegexQuery,
     self::term::ExactTerm,
@@ -56,6 +57,7 @@ pub struct Request {
 pub enum TermQueries {
     Fuzzy(FuzzyQuery),
     Exact(ExactTerm),
+    Phrase(PhraseQuery),
     Range(RangeQuery),
     Regex(RegexQuery),
 }

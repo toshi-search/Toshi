@@ -1,4 +1,4 @@
-use super::{make_field_value, CreateQuery, Result, Error};
+use super::{make_field_value, CreateQuery, Error, Result};
 
 use std::collections::HashMap;
 

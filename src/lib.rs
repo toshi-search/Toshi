@@ -46,6 +46,7 @@ impl From<TError> for Error {
             TError::InvalidArgument(e) | TError::ErrorInThread(e) => Error::IOError(e),
             TError::Poisoned => Error::IOError("Poisoned".to_string()),
             TError::LockFailure(e) => Error::IOError(format!("Failed to acquire lock: {:?}", e)),
+            TError::IndexAlreadyExists => Error::IOError(format!("Failed to acquire lock on index.")),
             TError::FastFieldError(_) => Error::IOError("Fast Field Error".to_string()),
         }
     }
