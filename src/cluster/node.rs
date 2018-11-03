@@ -10,16 +10,20 @@ use systemstat::{Platform, System};
 use cluster::{ClusterError, DiskType};
 
 static NODE_ID_FILENAME: &'static str = ".node_id.txt";
-static CLUSTER_NAME_FILENAME: &'static str = ".cluster_name.txt";
 
+/// Writes the node id to a file
 pub fn write_node_id(id: String) -> Result<(), ClusterError> {
     let path = Path::new(&NODE_ID_FILENAME);
     match File::create(path) {
-        Ok(_) => Ok(()),
+        Ok(mut f) => match f.write_all(id.as_bytes()) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(ClusterError::FailedWritingNodeID(e.to_string())),
+        },
         Err(e) => Err(ClusterError::FailedWritingNodeID(e.to_string())),
     }
 }
 
+/// Attempts to read the node ID from a file
 pub fn read_node_id(p: &str) -> Result<String, ClusterError> {
     let path = NODE_ID_FILENAME;
     let path = Path::new(&path);
