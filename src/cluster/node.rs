@@ -180,8 +180,11 @@ mod tests {
     }
 
     #[test]
-    #[cfg(target_os = "linux")]
     fn test_ram_metadata() {
+        if cfg!(target_os = "macos") {
+            println!("Test not supported on macos yet");
+            return;
+        }
         let sys = systemstat::System::new();
         let ram_metadata = RAMMetadata::gather(&sys);
         assert!(ram_metadata.is_ok())
