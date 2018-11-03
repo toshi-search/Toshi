@@ -1,6 +1,7 @@
 use std::fs::File;
 use std::io::prelude::*;
-use std::path::{Path, PathBuf};
+use std::path::Path;
+use std::time;
 
 use num_cpus;
 use systemstat;
@@ -11,7 +12,7 @@ use cluster::{ClusterError, DiskType};
 static NODE_ID_FILENAME: &'static str = ".node_id.txt";
 static CLUSTER_NAME_FILENAME: &'static str = ".cluster_name.txt";
 
-pub fn write_node_id(id: String, _p: &str) -> Result<(), ClusterError> {
+pub fn write_node_id(id: String) -> Result<(), ClusterError> {
     let path = Path::new(&NODE_ID_FILENAME);
     match File::create(path) {
         Ok(_) => Ok(()),
@@ -38,6 +39,9 @@ pub struct Metadata {
     ram: Result<RAMMetadata, ClusterError>,
     disks: Result<Vec<DiskMetadata>, ClusterError>,
     directories: Result<Vec<DirectoryMetadata>, ClusterError>,
+    start_time: Option<time::SystemTime>,
+    end_time: Option<time::SystemTime>,
+    duration: Option<time::Duration>,
 }
 
 impl Metadata {
@@ -46,12 +50,22 @@ impl Metadata {
     /// not just any arbitrary directory.
     pub fn gather(block_devices: Vec<&str>, directories: Vec<&str>) -> Metadata {
         let sys = systemstat::System::new();
-        Metadata {
+        let start_time = time::SystemTime::now();
+        let mut metadata = Metadata {
             cpu: CPUMetadata::gather(&sys),
             ram: RAMMetadata::gather(&sys),
             disks: block_devices.iter().map(|d| DiskMetadata::gather(d, &sys)).collect(),
             directories: directories.iter().map(|d| DirectoryMetadata::gather(d, &sys)).collect(),
-        }
+            start_time: None,
+            end_time: None,
+            duration: None,
+        };
+        let end_time = time::SystemTime::now();
+        let duration = start_time.duration_since(start_time).unwrap_or(time::Duration::new(0, 0));
+        metadata.start_time = Some(start_time);
+        metadata.end_time = Some(end_time);
+        metadata.duration = Some(duration);
+        metadata
     }
 }
 
