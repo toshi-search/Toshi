@@ -125,9 +125,9 @@ mod tests {
         let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
         let server = create_test_server(&Arc::new(RwLock::new(catalog)));
 
-        let body = r#"{"test_text": "asdf1234", "test_i64": 123, "test_u64": 321}
-        {"test_text": "asdf5678", "test_i64": 456, "test_u64": 678}
-        {"test_text": "asdf9012", "test_i64": -12, "test_u64": 901}"#;
+        let body = r#"{"test_text": "asdf1234", "test_i64": 123, "test_u64": 321, "test_unindex": "asdf"}
+        {"test_text": "asdf5678", "test_i64": 456, "test_u64": 678, "test_unindex": "asdf"}
+        {"test_text": "asdf9012", "test_i64": -12, "test_u64": 901, "test_unindex": "asdf"}"#;
 
         let req = server
             .client()

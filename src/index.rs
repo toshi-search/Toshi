@@ -12,6 +12,7 @@ use tantivy::schema::*;
 use tantivy::Index;
 
 use handle::IndexHandle;
+use query::{summary_schema, AggregateQuery, SumCollector};
 use results::*;
 use settings::Settings;
 
@@ -39,6 +40,7 @@ pub enum Queries {
     TermsSearch { terms: HashMap<String, Vec<String>> },
     RangeSearch { range: HashMap<String, HashMap<String, i64>> },
     RawSearch { raw: String },
+    SumAgg { field: String },
     AllDocs,
 }
 
@@ -68,9 +70,9 @@ impl IndexCatalog {
     #[allow(dead_code)]
     pub fn with_index(name: String, index: Index) -> Result<Self> {
         let mut map = HashMap::new();
-        let h =
+        let new_index =
             IndexHandle::new(index, Settings::default()).unwrap_or_else(|_| panic!("Unable to open index: {} because it's locked", name));
-        map.insert(name, h);
+        map.insert(name, new_index);
         Ok(IndexCatalog {
             settings:   Settings::default(),
             base_path:  PathBuf::new(),
@@ -198,6 +200,20 @@ impl IndexCatalog {
                         info!("{:#?}", query);
                         searcher.search(&*query, &mut collector)?;
                     }
+                    Queries::SumAgg { field } => {
+                        // This can no doubt be simplified...
+                        let mut agg_collector = TopCollector::with_limit(searcher.num_docs() as usize);
+                        searcher.search(&AllQuery, &mut agg_collector)?;
+                        let f = match schema.get_field(&field) {
+                            Some(f) => f,
+                            None => return Err(Error::QueryError(format!("Field {} does not exist", field))),
+                        };
+                        let sum_agg = SumCollector::new(f, &searcher, agg_collector);
+                        let doc = sum_agg.result().into();
+                        let agg_schema = summary_schema();
+                        let named_doc = ScoredDoc::new(None, agg_schema.to_named_doc(&doc));
+                        return Ok(SearchResults::new(vec![named_doc]));
+                    }
                     Queries::AllDocs => searcher.search(&AllQuery, &mut collector)?,
                     _ => unimplemented!(),
                 };
@@ -207,7 +223,7 @@ impl IndexCatalog {
                     .into_iter()
                     .map(|(score, doc)| {
                         let d = searcher.doc(doc).expect("Doc not found in segment");
-                        ScoredDoc::new(score, schema.to_named_doc(&d))
+                        ScoredDoc::new(Some(score), schema.to_named_doc(&d))
                     })
                     .collect();
 
@@ -227,6 +243,7 @@ pub mod tests {
     use gotham::test::{TestClient, TestServer};
     use std::fs::remove_dir;
     use std::sync::{Arc, RwLock};
+    use tantivy::doc;
 
     pub fn create_test_index() -> Index {
         let mut builder = SchemaBuilder::new();
