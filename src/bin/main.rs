@@ -109,7 +109,7 @@ pub fn runner() -> i32 {
         let random_id = uuid::Uuid::new_v4().to_hyphenated().to_string();
         info!("No Node ID found. Creating new one: {}", random_id);
         node_id = random_id.clone();
-        if let Err(err) = cluster::write_node_id(random_id, &settings.path) {
+        if let Err(err) = cluster::write_node_id(random_id) {
             error!("{:?}", err);
             std::process::exit(1);
         }
