@@ -174,6 +174,10 @@ mod tests {
     use super::*;
     #[test]
     fn test_cpu_metadata() {
+        if cfg!(target_os = "windows") {
+            println!("Test not supported on macos yet");
+            return;
+        }
         let sys = systemstat::System::new();
         let cpu_metadata = CPUMetadata::gather(&sys);
         assert!(cpu_metadata.is_ok())
