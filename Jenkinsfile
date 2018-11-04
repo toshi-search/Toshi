@@ -1,35 +1,35 @@
 pipeline {
-    agent {
-        docker { image 'rust:latest' }
+  agent {
+    docker {
+      image 'rust:latest'
     }
 
-    stages {
-        stage('Install Capn Proto') {
-            steps {
-                sh "apt-get -y install capnproto"
-            }
-        }
-        stage('Build Development') {
-            steps {
-                sh "cargo build"
-            }
-        }
-        stage('Test') {
-            steps {
-                sh "cargo test"
-            }
-        }
-        stage('Clippy') {
-            steps {
-                sh "cargo clippy --all"
-            }
-        }
-        stage('Rustfmt') {
-            steps {
-                // The build will fail if rustfmt thinks any changes are
-                // required.
-                sh "cargo fmt --all -- --write-mode diff"
-            }
-        }
+  }
+  stages {
+    stage('Install Capn Proto') {
+      steps {
+        sh 'sudo apt-get -y install capnproto'
+      }
     }
+    stage('Build Development') {
+      steps {
+        sh 'cargo build'
+      }
+    }
+    stage('Test') {
+      steps {
+        sh 'cargo test'
+      }
+    }
+    stage('Clippy') {
+      steps {
+        sh 'cargo clippy --all'
+      }
+    }
+    stage('Rustfmt') {
+      steps {
+        sh 'cargo fmt --all -- --write-mode diff'
+      }
+    }
+  }
 }
