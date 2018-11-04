@@ -1,14 +1,9 @@
 pipeline {
     agent {
-        docker { image 'rust:latest' }
+        docker { image 'toshisearch/builder:latest' }
     }
 
     stages {
-        stage('Install Capn Proto') {
-            steps {
-                sh "apt-get -y install capnproto"
-            }
-        }
         stage('Build Development') {
             steps {
                 sh "cargo build"
