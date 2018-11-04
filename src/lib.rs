@@ -12,13 +12,14 @@ extern crate gotham_derive;
 extern crate hyper;
 extern crate log;
 extern crate mime;
+extern crate num_cpus;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde_json;
+extern crate systemstat;
 extern crate tantivy;
 extern crate tokio;
-extern crate uuid;
 
 use log::*;
 use tantivy::query::QueryParserError;
@@ -80,15 +81,21 @@ impl From<DocParsingError> for Error {
 }
 
 impl<T> From<std::sync::PoisonError<T>> for Error {
-    fn from(err: std::sync::PoisonError<T>) -> Self { Error::IOError(err.to_string()) }
+    fn from(err: std::sync::PoisonError<T>) -> Self {
+        Error::IOError(err.to_string())
+    }
 }
 
 impl From<std::io::Error> for Error {
-    fn from(err: std::io::Error) -> Self { Error::IOError(err.to_string()) }
+    fn from(err: std::io::Error) -> Self {
+        Error::IOError(err.to_string())
+    }
 }
 
 impl From<std::str::Utf8Error> for Error {
-    fn from(err: std::str::Utf8Error) -> Self { Error::IOError(err.to_string()) }
+    fn from(err: std::str::Utf8Error) -> Self {
+        Error::IOError(err.to_string())
+    }
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
