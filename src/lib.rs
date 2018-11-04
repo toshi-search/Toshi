@@ -20,7 +20,6 @@ extern crate serde_json;
 extern crate systemstat;
 extern crate tantivy;
 extern crate tokio;
-extern crate uuid;
 
 use log::*;
 use tantivy::query::QueryParserError;

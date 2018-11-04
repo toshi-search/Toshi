@@ -101,7 +101,7 @@ pub fn runner() -> i32 {
     // Now we need to register this node with the cluster. If it is a new node and has no file containing the node ID,
     // we generate a new one and save it. Otherwise, read it in and register with consul.
     let node_id: String;
-    if let Ok(nid) = cluster::read_node_id(&settings.path) {
+    if let Ok(nid) = cluster::read_node_id() {
         info!("Node ID is: {}", nid);
         node_id = nid;
     } else {

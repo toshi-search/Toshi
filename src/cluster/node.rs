@@ -9,7 +9,7 @@ use systemstat::{Platform, System};
 
 use cluster::{ClusterError, DiskType};
 
-static NODE_ID_FILENAME: &'static str = ".node_id.txt";
+static NODE_ID_FILENAME: &'static str = ".node_id";
 
 /// Writes the node id to a file
 pub fn write_node_id(id: String) -> Result<(), ClusterError> {
@@ -24,7 +24,7 @@ pub fn write_node_id(id: String) -> Result<(), ClusterError> {
 }
 
 /// Attempts to read the node ID from a file
-pub fn read_node_id(p: &str) -> Result<String, ClusterError> {
+pub fn read_node_id() -> Result<String, ClusterError> {
     let path = NODE_ID_FILENAME;
     let path = Path::new(&path);
     let mut contents = String::new();

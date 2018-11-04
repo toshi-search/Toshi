@@ -1,7 +1,5 @@
 //! Contains code related to clustering
 
-use std;
-
 pub mod consul_interface;
 pub mod node;
 
