@@ -8,7 +8,7 @@ pipeline {
   stages {
     stage('Install Capn Proto') {
       steps {
-        sh 'sudo apt-get -y install capnproto'
+        sh 'apt-get -y install capnproto'
       }
     }
     stage('Build Development') {
