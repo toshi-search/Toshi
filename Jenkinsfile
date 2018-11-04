@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        table 'rust'
+        docker { image 'rust:latest' }
     }
 
     stages {
