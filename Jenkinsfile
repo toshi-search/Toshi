@@ -4,6 +4,11 @@ pipeline {
     }
 
     stages {
+        stage('Install Capn Proto') {
+            steps {
+                sh "apt-get -y install capnproto"
+            }
+        }
         stage('Build Development') {
             steps {
                 sh "cargo build"
