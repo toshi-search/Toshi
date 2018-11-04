@@ -16,7 +16,8 @@ pipeline {
         }
         stage('Clippy') {
             steps {
-                sh "cargo clippy --all"
+                sh "rustup component add clippy-preview"
+                sh "cargo clippy"
             }
         }
         stage('Rustfmt') {
