@@ -5,6 +5,7 @@ pub struct Range {
 }
 
 #[derive(Serialize)]
+#[allow(dead_code)]
 pub struct RangeResult {
     key: String,
     #[serde(skip_serializing_if = "Option::is_none")]
