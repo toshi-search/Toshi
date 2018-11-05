@@ -152,7 +152,11 @@ impl IndexHandler {
                 if !ip.exists() {
                     fs::create_dir(&ip).unwrap()
                 }
-                let new_index = Index::create_in_dir(ip, schema).unwrap();
+
+                let new_index = match Index::create_in_dir(ip, schema) {
+                    Ok(i) => i,
+                    Err(ref e) => return handle_error(state, e),
+                };
                 self.add_index(index_path.index, new_index);
                 let resp = create_response(&state, StatusCode::CREATED, mime::APPLICATION_JSON, Body::empty());
                 future::ok((state, resp))
@@ -208,7 +212,7 @@ mod tests {
         {
             let client = test_server.client();
             let request = client.put("http://localhost/new_index", schema, mime::APPLICATION_JSON);
-            let response = &request.perform().unwrap();
+            let response = request.perform().unwrap();
 
             assert_eq!(response.status(), StatusCode::CREATED);
 

@@ -1,40 +1,26 @@
+use super::super::{Error, Result};
 use log::info;
 
 use super::AggregateQuery;
 
 use tantivy::collector::{Collector, TopCollector};
-use tantivy::schema::{Field, IntOptions, Schema, SchemaBuilder, Value};
-use tantivy::{Document, Searcher, SegmentReader};
-
-pub fn summary_schema() -> Schema {
-    let mut schema_builder = SchemaBuilder::new();
-    schema_builder.add_u64_field("value", IntOptions::default());
-    schema_builder.build()
-}
+use tantivy::schema::{Field, SchemaBuilder, Value};
+use tantivy::{Searcher, SegmentReader};
 
 #[derive(Serialize, Debug)]
 pub struct SummaryDoc {
-    field: Field,
+    field: String,
     value: u64,
 }
 
-impl Into<Document> for SummaryDoc {
-    fn into(self) -> Document {
-        let mut doc = Document::new();
-        doc.add_u64(self.field, self.value);
-        info!("Doc: {:?}", doc);
-        doc
-    }
-}
-
 pub struct SumCollector<'a> {
-    field:     Field,
+    field:     String,
     collector: TopCollector,
     searcher:  &'a Searcher,
 }
 
 impl<'a> SumCollector<'a> {
-    pub fn new(field: Field, searcher: &'a Searcher, collector: TopCollector) -> Self {
+    pub fn new(field: String, searcher: &'a Searcher, collector: TopCollector) -> Self {
         Self {
             field,
             searcher,
@@ -44,32 +30,37 @@ impl<'a> SumCollector<'a> {
 }
 
 impl<'a> AggregateQuery<SummaryDoc> for SumCollector<'a> {
-    fn result(&self) -> SummaryDoc {
+    fn result(&self) -> Result<SummaryDoc> {
+        let field = self
+            .searcher
+            .schema()
+            .get_field(&self.field)
+            .ok_or_else(|| Error::QueryError(format!("Field {} does not exist", self.field)))?;
         let result: u64 = self
             .collector
             .docs()
             .into_iter()
-            .map(|d| {
+            .map(move |d| {
                 // At this point docs have already passed through the collector, if we are in map it means we have
                 // something
                 let doc = self.searcher.doc(d).unwrap();
-                doc.get_first(self.field)
+                doc.get_first(field)
                     .into_iter()
                     .map(|v| match v {
-                        Value::I64(i) => (*i) as u64,
-                        Value::U64(u) => *u,
+                        Value::I64(i) => Ok((*i) as u64),
+                        Value::U64(u) => Ok(*u),
                         // Should we even have these or only numerics?
-                        Value::Str(s) => (*s).len() as u64,
-                        Value::Bytes(b) => (*b).len() as u64,
-                        _ => panic!("Value is not numeric"),
+                        Value::Str(s) => Ok((*s).len() as u64),
+                        Value::Bytes(b) => Ok((*b).len() as u64),
+                        _ => Err(Error::QueryError("Unknown Type in Sum aggregate".into())),
                     })
-                    .sum::<u64>()
+                    .sum::<Result<u64>>()
             })
-            .sum();
-        SummaryDoc {
-            field: Field(0),
+            .sum::<Result<u64>>()?;
+        Ok(SummaryDoc {
+            field: self.field.clone(),
             value: result,
-        }
+        })
     }
 }
 

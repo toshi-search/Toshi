@@ -73,7 +73,6 @@ mod tests {
             assert_eq!(bool.should.is_empty(), false);
             assert_eq!(bool.must_not.len(), 2);
             let query = bool.create_query(&_schema).unwrap().downcast::<BooleanQuery>().unwrap();
-            println!("{:#?}", &query);
             assert_eq!(query.clauses().len(), 6);
         }
     }

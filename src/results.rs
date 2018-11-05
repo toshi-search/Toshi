@@ -1,13 +1,30 @@
+use query::SummaryDoc;
 use tantivy::schema::NamedFieldDocument;
 
 #[derive(Serialize)]
 pub struct SearchResults {
     hits: usize,
     docs: Vec<ScoredDoc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    aggregate: Option<Vec<SummaryDoc>>,
 }
 
 impl SearchResults {
-    pub fn new(docs: Vec<ScoredDoc>) -> Self { SearchResults { hits: docs.len(), docs } }
+    pub fn new(docs: Vec<ScoredDoc>) -> Self {
+        Self {
+            hits: docs.len(),
+            docs,
+            aggregate: None,
+        }
+    }
+
+    pub fn with_aggregates(docs: Vec<ScoredDoc>, aggregate: Vec<SummaryDoc>) -> Self {
+        Self {
+            hits: docs.len(),
+            docs,
+            aggregate: Some(aggregate),
+        }
+    }
 }
 
 #[derive(Serialize)]

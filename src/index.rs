@@ -5,44 +5,18 @@ use std::fs::{create_dir, read_dir};
 use std::iter::Iterator;
 use std::path::PathBuf;
 
-use serde_json::Value as JValue;
 use tantivy::collector::TopCollector;
 use tantivy::query::{AllQuery, QueryParser};
 use tantivy::schema::*;
 use tantivy::Index;
 
 use handle::IndexHandle;
+use query::CreateQuery;
+use query::Query;
+use query::Request;
 use query::{summary_schema, AggregateQuery, SumCollector};
 use results::*;
 use settings::Settings;
-
-#[derive(Deserialize, Debug)]
-pub struct Search {
-    pub query: Queries,
-
-    #[serde(default = "Settings::default_result_limit")]
-    pub limit: usize,
-}
-
-impl Search {
-    pub fn all() -> Self {
-        Search {
-            query: Queries::AllDocs,
-            limit: Settings::default_result_limit(),
-        }
-    }
-}
-
-#[derive(Deserialize, Clone, PartialEq, Debug)]
-#[serde(untagged)]
-pub enum Queries {
-    TermSearch { term: HashMap<String, JValue> },
-    TermsSearch { terms: HashMap<String, Vec<String>> },
-    RangeSearch { range: HashMap<String, HashMap<String, i64>> },
-    RawSearch { raw: String },
-    SumAgg { field: String },
-    AllDocs,
-}
 
 pub struct IndexCatalog {
     pub settings: Settings,
@@ -131,92 +105,53 @@ impl IndexCatalog {
         Ok(())
     }
 
-    pub fn search_index(&self, index: &str, search: &Search) -> Result<SearchResults> {
+    pub fn search_index(&self, index: &str, search: Request) -> Result<SearchResults> {
         match self.get_index(index) {
             Ok(hand) => {
                 let idx = hand.get_index();
                 idx.load_searchers()?;
                 let searcher = idx.searcher();
                 let schema = idx.schema();
-                let fields: Vec<Field> = schema.fields().iter().filter_map(|e| schema.get_field(e.name())).collect();
-
                 let mut collector = TopCollector::with_limit(search.limit);
-                let mut query_parser = QueryParser::for_index(idx, fields);
-                query_parser.set_conjunction_by_default();
 
-                match &search.query {
-                    Queries::TermSearch { term } => {
-                        let terms = term.iter().map(|(t, v)| format!("{}:{}", t, v)).collect::<Vec<String>>().join(" ");
-
-                        let query = query_parser.parse_query(&terms)?;
-                        info!("{}", terms);
-                        info!("{:#?}", query);
-                        searcher.search(&*query, &mut collector)?;
+                if let Some(query) = search.query {
+                    match query {
+                        Query::Regex(regex) => {
+                            let regex_query = regex.create_query(&schema)?;
+                            searcher.search(&*regex_query, &mut collector)?
+                        }
+                        Query::Phrase(phrase) => {
+                            let phrase_query = phrase.create_query(&schema)?;
+                            searcher.search(&*phrase_query, &mut collector)?
+                        }
+                        Query::Fuzzy(fuzzy) => {
+                            let fuzzy_query = fuzzy.create_query(&schema)?;
+                            searcher.search(&*fuzzy_query, &mut collector)?
+                        }
+                        Query::Exact(term) => {
+                            let exact_query = term.create_query(&schema)?;
+                            searcher.search(&*exact_query, &mut collector)?
+                        }
+                        Query::Boolean { bool } => {
+                            let bool_query = bool.create_query(&schema)?;
+                            searcher.search(&*bool_query, &mut collector)?
+                        }
+                        Query::Range(range) => {
+                            debug!("{:#?}", range);
+                            let range_query = range.create_query(&schema)?;
+                            debug!("{:?}", range_query);
+                            searcher.search(&*range_query, &mut collector)?
+                        }
+                        Query::Raw { raw } => {
+                            let fields: Vec<Field> = schema.fields().iter().filter_map(|e| schema.get_field(e.name())).collect();
+                            let query_parser = QueryParser::for_index(idx, fields);
+                            let query = query_parser.parse_query(&raw)?;
+                            debug!("{:#?}", query);
+                            searcher.search(&*query, &mut collector)?
+                        }
+                        Query::All => searcher.search(&AllQuery, &mut collector)?,
                     }
-                    Queries::RangeSearch { range } => {
-                        info!("{:#?}", range);
-                        let terms = range
-                            .iter()
-                            .map(|(field, value)| {
-                                let mut term_query = format!("{}:", field);
-                                let upper_inclusive = value.contains_key("lte");
-                                let lower_inclusive = value.contains_key("gte");
-
-                                if lower_inclusive {
-                                    term_query += "[";
-                                    if let Some(v) = value.get("gte") {
-                                        term_query += &v.to_string();
-                                    }
-                                } else {
-                                    term_query += "{";
-                                    if let Some(v) = value.get("gt") {
-                                        term_query += &v.to_string();
-                                    }
-                                }
-                                term_query += " TO ";
-                                if upper_inclusive {
-                                    if let Some(v) = value.get("lte") {
-                                        term_query += &v.to_string();
-                                    }
-                                    term_query += "]";
-                                } else {
-                                    if let Some(v) = value.get("lt") {
-                                        term_query += &v.to_string();
-                                    }
-                                    term_query += "}";
-                                }
-                                term_query
-                            })
-                            .collect::<Vec<String>>()
-                            .join(" ");
-
-                        let query = query_parser.parse_query(&terms)?;
-                        info!("{}", terms);
-                        info!("{:#?}", query);
-                        searcher.search(&*query, &mut collector)?;
-                    }
-                    Queries::RawSearch { raw } => {
-                        let query = query_parser.parse_query(&raw)?;
-                        info!("{:#?}", query);
-                        searcher.search(&*query, &mut collector)?;
-                    }
-                    Queries::SumAgg { field } => {
-                        // This can no doubt be simplified...
-                        let mut agg_collector = TopCollector::with_limit(searcher.num_docs() as usize);
-                        searcher.search(&AllQuery, &mut agg_collector)?;
-                        let f = match schema.get_field(&field) {
-                            Some(f) => f,
-                            None => return Err(Error::QueryError(format!("Field {} does not exist", field))),
-                        };
-                        let sum_agg = SumCollector::new(f, &searcher, agg_collector);
-                        let doc = sum_agg.result().into();
-                        let agg_schema = summary_schema();
-                        let named_doc = ScoredDoc::new(None, agg_schema.to_named_doc(&doc));
-                        return Ok(SearchResults::new(vec![named_doc]));
-                    }
-                    Queries::AllDocs => searcher.search(&AllQuery, &mut collector)?,
-                    _ => unimplemented!(),
-                };
+                }
 
                 let scored_docs: Vec<ScoredDoc> = collector
                     .top_docs()

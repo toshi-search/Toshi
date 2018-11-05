@@ -99,6 +99,10 @@ impl From<std::str::Utf8Error> for Error {
     }
 }
 
+impl From<serde_json::Error> for Error {
+    fn from(err: serde_json::Error) -> Self { Error::QueryError(err.to_string()) }
+}
+
 pub type Result<T> = std::result::Result<T, Error>;
 
 mod handle;

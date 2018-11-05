@@ -28,14 +28,20 @@ pub trait CreateQuery {
 }
 
 pub trait AggregateQuery<T> {
-    fn result(&self) -> T;
+    fn result(&self) -> Result<T>;
 }
 
 #[derive(Deserialize, Debug, PartialEq)]
 #[serde(untagged)]
 pub enum Query {
     Boolean { bool: BoolQuery },
+    Fuzzy(FuzzyQuery),
+    Exact(ExactTerm),
+    Phrase(PhraseQuery),
+    Regex(RegexQuery),
     Range(RangeQuery),
+    Raw { raw: String },
+    All,
 }
 
 #[derive(Deserialize, Debug, PartialEq)]
@@ -46,10 +52,20 @@ pub enum Metrics {
 
 #[derive(Deserialize, Debug)]
 pub struct Request {
-    aggs: Option<Metrics>,
-    query: Option<Query>,
+    pub aggs: Option<Metrics>,
+    pub query: Option<Query>,
     #[serde(default = "Settings::default_result_limit")]
     pub limit: usize,
+}
+
+impl Request {
+    pub fn all_docs() -> Self {
+        Self {
+            aggs:  None,
+            query: Some(Query::All),
+            limit: Settings::default_result_limit(),
+        }
+    }
 }
 
 #[derive(Deserialize, Debug, PartialEq)]
