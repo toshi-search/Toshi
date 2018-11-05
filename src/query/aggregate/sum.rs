@@ -1,10 +1,9 @@
 use super::super::{Error, Result};
-use log::info;
 
 use super::AggregateQuery;
 
 use tantivy::collector::{Collector, TopCollector};
-use tantivy::schema::{Field, SchemaBuilder, Value};
+use tantivy::schema::Value;
 use tantivy::{Searcher, SegmentReader};
 
 #[derive(Serialize, Debug)]

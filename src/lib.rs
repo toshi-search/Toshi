@@ -21,6 +21,8 @@ extern crate systemstat;
 extern crate tantivy;
 extern crate tokio;
 
+use gotham::handler::{IntoHandlerError, HandlerError};
+use failure::Fail;
 use log::*;
 use tantivy::query::QueryParserError;
 use tantivy::schema::DocParsingError;
@@ -36,6 +38,10 @@ pub enum Error {
     UnknownIndex(String),
     #[fail(display = "Query Parse Error: {}", _0)]
     QueryError(String),
+}
+
+impl IntoHandlerError for Error {
+    fn into_handler_error(self) -> HandlerError { self.compat().into_handler_error() }
 }
 
 impl From<TError> for Error {
@@ -82,21 +88,15 @@ impl From<DocParsingError> for Error {
 }
 
 impl<T> From<std::sync::PoisonError<T>> for Error {
-    fn from(err: std::sync::PoisonError<T>) -> Self {
-        Error::IOError(err.to_string())
-    }
+    fn from(err: std::sync::PoisonError<T>) -> Self { Error::IOError(err.to_string()) }
 }
 
 impl From<std::io::Error> for Error {
-    fn from(err: std::io::Error) -> Self {
-        Error::IOError(err.to_string())
-    }
+    fn from(err: std::io::Error) -> Self { Error::IOError(err.to_string()) }
 }
 
 impl From<std::str::Utf8Error> for Error {
-    fn from(err: std::str::Utf8Error) -> Self {
-        Error::IOError(err.to_string())
-    }
+    fn from(err: std::str::Utf8Error) -> Self { Error::IOError(err.to_string()) }
 }
 
 impl From<serde_json::Error> for Error {

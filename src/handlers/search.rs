@@ -36,19 +36,19 @@ impl SearchHandler {
             Ok(b) => {
                 let search: Request = match serde_json::from_slice(&b) {
                     Ok(s) => s,
-                    Err(ref e) => return handle_error(state, e),
+                    Err(e) => return handle_error(state, e),
                 };
                 info!("Query: {:?}", search);
                 let docs = match self.catalog.read().unwrap().search_index(&index.index, search) {
                     Ok(v) => v,
-                    Err(ref e) => return handle_error(state, e),
+                    Err(e) => return handle_error(state, e),
                 };
 
                 let data = to_json(docs, query_options.pretty);
                 let resp = create_response(&state, StatusCode::OK, mime::APPLICATION_JSON, data);
                 future::ok((state, resp))
             }
-            Err(ref e) => handle_error(state, e),
+            Err(e) => handle_error(state, e),
         });
         Box::new(f)
     }
@@ -61,10 +61,10 @@ impl SearchHandler {
                     let resp = create_response(&state, StatusCode::OK, mime::APPLICATION_JSON, data);
                     Box::new(future::ok((state, resp)))
                 }
-                Err(ref e) => Box::new(handle_error(state, e)),
+                Err(e) => Box::new(handle_error(state, e)),
             }
         } else {
-            Box::new(handle_error(state, &Error::IOError("Could not obtain lock on index".to_string())))
+            Box::new(handle_error(state, Error::IOError("Could not obtain lock on index".to_string())))
         }
     }
 }
@@ -285,6 +285,7 @@ pub mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_aggregate_sum() {
         let body = r#"{ "query": { "field": "test_u64" } }"#;
         let docs = run_agg(body);

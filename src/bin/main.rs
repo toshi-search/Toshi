@@ -42,43 +42,50 @@ pub fn runner() -> i32 {
                 .long("level")
                 .takes_value(true)
                 .default_value("info"),
-        ).arg(
+        )
+        .arg(
             Arg::with_name("path")
                 .short("d")
                 .long("data-path")
                 .takes_value(true)
                 .default_value("data/"),
-        ).arg(
+        )
+        .arg(
             Arg::with_name("host")
                 .short("h")
                 .long("host")
                 .takes_value(true)
                 .default_value("localhost"),
-        ).arg(
+        )
+        .arg(
             Arg::with_name("port")
                 .short("p")
                 .long("port")
                 .takes_value(true)
                 .default_value("8080"),
-        ).arg(
+        )
+        .arg(
             Arg::with_name("consul-host")
                 .short("C")
                 .long("consul-host")
                 .takes_value(true)
                 .default_value("localhost"),
-        ).arg(
+        )
+        .arg(
             Arg::with_name("consul-port")
                 .short("P")
                 .long("consul-port")
                 .takes_value(true)
                 .default_value("8500"),
-        ).arg(
+        )
+        .arg(
             Arg::with_name("cluster-name")
                 .short("N")
                 .long("cluster-name")
                 .takes_value(true)
                 .default_value("kitsune"),
-        ).get_matches();
+        )
+        .get_matches();
 
     let settings = if options.is_present("config") {
         let cfg = options.value_of("config").unwrap();

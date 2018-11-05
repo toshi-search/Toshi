@@ -6,7 +6,7 @@ use tantivy::schema::Schema;
 use tantivy::Term;
 
 pub use {
-    self::aggregate::{summary_schema, SumCollector, SummaryDoc},
+    self::aggregate::{SumCollector, SummaryDoc},
     self::bool::BoolQuery,
     self::fuzzy::{FuzzyQuery, FuzzyTerm},
     self::phrase::PhraseQuery,

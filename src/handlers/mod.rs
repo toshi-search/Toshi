@@ -66,7 +66,7 @@ fn to_json<T: Serialize>(result: T, pretty: bool) -> Vec<u8> {
 
 type FutureError = FutureResult<(State, Response<Body>), (State, HandlerError)>;
 
-fn handle_error<T: failure::Fail + Sized + Send>(state: State, err: &T) -> FutureError {
+fn handle_error<T: failure::Fail + Sized + Send>(state: State, err: T) -> FutureError {
     let err = serde_json::to_vec(&ErrorResponse::new(&format!("{}", err))).unwrap();
     let resp = create_response(&state, StatusCode::BAD_REQUEST, mime::APPLICATION_JSON, err);
     future::ok((state, resp))

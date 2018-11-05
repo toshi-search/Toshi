@@ -11,10 +11,7 @@ use tantivy::schema::*;
 use tantivy::Index;
 
 use handle::IndexHandle;
-use query::CreateQuery;
-use query::Query;
-use query::Request;
-use query::{summary_schema, AggregateQuery, SumCollector};
+use query::{CreateQuery, Query, Request, SumCollector};
 use results::*;
 use settings::Settings;
 
@@ -57,8 +54,8 @@ impl IndexCatalog {
     pub fn load_index(path: &str) -> Result<Index> {
         let p = PathBuf::from(path);
         if p.exists() {
-            Index::open_in_dir(p)
-                .map_err(|_| Error::UnknownIndex(path.to_string()))
+            Index::open_in_dir(&p)
+                .map_err(|_| Error::UnknownIndex(p.display().to_string()))
                 .and_then(Ok)
         } else {
             Err(Error::UnknownIndex(path.to_string()))

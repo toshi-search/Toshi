@@ -61,9 +61,10 @@ impl Handler for BulkHandler {
                 for line in line_recv_clone {
                     if !line.is_empty() {
                         match schema_clone.parse_document(from_utf8(&line).unwrap()) {
-                            Ok(doc) => doc_sender.send(doc),
-                            // TODO: Add better/more error handling here, right now if an error occurs it's
-                            // swallowed up, which is kind of bad.
+                            Ok(doc) => match doc_sender.send(doc) {
+                                Ok(()) => (),
+                                Err(err) => error!("Bulk commit failed: {:?}", err),
+                            },
                             Err(err) => error!("Failed to add doc: {:?}", err),
                         }
                     }
@@ -86,19 +87,25 @@ impl Handler for BulkHandler {
                     if split.peek().is_none() {
                         return future::ok(l.to_vec());
                     }
-                    line_sender_clone.send(l.to_vec());
+                    match line_sender_clone.send(l.to_vec()) {
+                        Ok(_) => (),
+                        Err(ref err) => return future::err(Error::IOError(err.to_string()).into_handler_error()),
+                    };
                 }
                 future::ok(buf.clone())
             })
             .then(move |response| match response {
                 Ok(buf) => {
                     if !buf.is_empty() {
-                        line_sender.send(buf.to_vec());
+                        match line_sender.send(buf.to_vec()) {
+                            Ok(_) => (),
+                            Err(ref err) => return handle_error(state, Error::IOError(err.to_string())),
+                        }
                     }
                     let resp = create_empty_response(&state, StatusCode::CREATED);
                     future::ok((state, resp))
                 }
-                Err(e) => handle_error(state, &Error::IOError(e.to_string())),
+                Err(e) => handle_error(state, Error::IOError(e.to_string())),
             });
         Box::new(response)
     }
