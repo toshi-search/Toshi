@@ -48,6 +48,7 @@ impl From<TError> for Error {
             TError::Poisoned => Error::IOError("Poisoned".to_string()),
             TError::LockFailure(e) => Error::IOError(format!("Failed to acquire lock: {:?}", e)),
             TError::FastFieldError(_) => Error::IOError("Fast Field Error".to_string()),
+            TError::IndexAlreadyExists => Error::IOError("Index Already Exists".into()),
         }
     }
 }
@@ -81,21 +82,15 @@ impl From<DocParsingError> for Error {
 }
 
 impl<T> From<std::sync::PoisonError<T>> for Error {
-    fn from(err: std::sync::PoisonError<T>) -> Self {
-        Error::IOError(err.to_string())
-    }
+    fn from(err: std::sync::PoisonError<T>) -> Self { Error::IOError(err.to_string()) }
 }
 
 impl From<std::io::Error> for Error {
-    fn from(err: std::io::Error) -> Self {
-        Error::IOError(err.to_string())
-    }
+    fn from(err: std::io::Error) -> Self { Error::IOError(err.to_string()) }
 }
 
 impl From<std::str::Utf8Error> for Error {
-    fn from(err: std::str::Utf8Error) -> Self {
-        Error::IOError(err.to_string())
-    }
+    fn from(err: std::str::Utf8Error) -> Self { Error::IOError(err.to_string()) }
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

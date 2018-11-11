@@ -154,7 +154,7 @@ impl IndexHandler {
                 }
                 let new_index = Index::create_in_dir(ip, schema).unwrap();
                 self.add_index(index_path.index, new_index);
-                let resp = create_response(&state, StatusCode::CREATED, mime::APPLICATION_JSON, Body::empty());
+                let resp = create_empty_response(&state, StatusCode::CREATED);
                 future::ok((state, resp))
             }
             Err(ref e) => handle_error(state, e),

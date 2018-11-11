@@ -65,6 +65,8 @@ pub struct Settings {
     pub consul_port: u16,
     #[serde(default = "Settings::default_cluster_name")]
     pub cluster_name: String,
+    #[serde(default = "Settings::default_enable_clustering")]
+    pub enable_clustering: bool,
 }
 
 impl Default for Settings {
@@ -82,6 +84,7 @@ impl Default for Settings {
             consul_host:          Settings::default_consul_host(),
             consul_port:          Settings::default_consul_port(),
             cluster_name:         Settings::default_cluster_name(),
+            enable_clustering:    Settings::default_enable_clustering(),
         }
     }
 }
@@ -154,6 +157,8 @@ impl Settings {
     pub fn default_consul_port() -> u16 { 8500 }
 
     pub fn default_cluster_name() -> String { "kitsune".to_string() }
+
+    pub fn default_enable_clustering() -> bool { false }
 
     pub fn get_channel<T>(&self) -> (Sender<T>, Receiver<T>) {
         if self.bulk_buffer_size == 0 {
