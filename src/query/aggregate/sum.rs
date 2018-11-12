@@ -28,9 +28,9 @@ impl Into<Document> for SummaryDoc {
 }
 
 pub struct SumCollector<'a> {
-    field:     Field,
+    field: Field,
     collector: TopCollector,
-    searcher:  &'a Searcher,
+    searcher: &'a Searcher,
 }
 
 impl<'a> SumCollector<'a> {
@@ -62,10 +62,8 @@ impl<'a> AggregateQuery<SummaryDoc> for SumCollector<'a> {
                         Value::Str(s) => (*s).len() as u64,
                         Value::Bytes(b) => (*b).len() as u64,
                         _ => panic!("Value is not numeric"),
-                    })
-                    .sum::<u64>()
-            })
-            .sum();
+                    }).sum::<u64>()
+            }).sum();
         SummaryDoc {
             field: Field(0),
             value: result,
@@ -78,7 +76,11 @@ impl<'a> Collector for SumCollector<'a> {
         self.collector.set_segment(segment_local_id, segment)
     }
 
-    fn collect(&mut self, doc: u32, score: f32) { self.collector.collect(doc, score); }
+    fn collect(&mut self, doc: u32, score: f32) {
+        self.collector.collect(doc, score);
+    }
 
-    fn requires_scoring(&self) -> bool { self.collector.requires_scoring() }
+    fn requires_scoring(&self) -> bool {
+        self.collector.requires_scoring()
+    }
 }

@@ -1,7 +1,7 @@
 #[derive(Deserialize, Debug)]
 pub struct Range {
     from: Option<u64>,
-    to:   Option<u64>,
+    to: Option<u64>,
 }
 
 #[derive(Serialize)]

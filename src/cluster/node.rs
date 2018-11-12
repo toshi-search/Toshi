@@ -39,13 +39,13 @@ pub fn read_node_id() -> Result<String, ClusterError> {
 /// sub-structs, listed below. This will be serialized to JSON and sent to Consul.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Metadata {
-    cpu:         Result<CPUMetadata, ClusterError>,
-    ram:         Result<RAMMetadata, ClusterError>,
-    disks:       Result<Vec<DiskMetadata>, ClusterError>,
+    cpu: Result<CPUMetadata, ClusterError>,
+    ram: Result<RAMMetadata, ClusterError>,
+    disks: Result<Vec<DiskMetadata>, ClusterError>,
     directories: Result<Vec<DirectoryMetadata>, ClusterError>,
-    start_time:  Option<time::SystemTime>,
-    end_time:    Option<time::SystemTime>,
-    duration:    Option<time::Duration>,
+    start_time: Option<time::SystemTime>,
+    end_time: Option<time::SystemTime>,
+    duration: Option<time::Duration>,
 }
 
 impl Metadata {
@@ -56,13 +56,13 @@ impl Metadata {
         let sys = systemstat::System::new();
         let start_time = time::SystemTime::now();
         let mut metadata = Metadata {
-            cpu:         CPUMetadata::gather(&sys),
-            ram:         RAMMetadata::gather(&sys),
-            disks:       block_devices.iter().map(|d| DiskMetadata::gather(d, &sys)).collect(),
+            cpu: CPUMetadata::gather(&sys),
+            ram: RAMMetadata::gather(&sys),
+            disks: block_devices.iter().map(|d| DiskMetadata::gather(d, &sys)).collect(),
             directories: directories.iter().map(|d| DirectoryMetadata::gather(d, &sys)).collect(),
-            start_time:  None,
-            end_time:    None,
-            duration:    None,
+            start_time: None,
+            end_time: None,
+            duration: None,
         };
         let end_time = time::SystemTime::now();
         let duration = start_time.duration_since(start_time).unwrap_or(time::Duration::new(0, 0));
@@ -84,8 +84,8 @@ pub struct NetworkMetadata {
 /// CPU data about the node. Uses the load averages calculated by the kernel.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CPUMetadata {
-    physical:              usize,
-    logical:               usize,
+    physical: usize,
+    logical: usize,
     five_min_load_average: f32,
 }
 
@@ -94,8 +94,8 @@ impl CPUMetadata {
     pub fn gather(sys: &systemstat::System) -> Result<CPUMetadata, ClusterError> {
         match sys.load_average() {
             Ok(avg) => Ok(CPUMetadata {
-                logical:               num_cpus::get(),
-                physical:              num_cpus::get_physical(),
+                logical: num_cpus::get(),
+                physical: num_cpus::get_physical(),
                 five_min_load_average: avg.five,
             }),
             Err(e) => Err(ClusterError::FailedGettingCPUMetadata(e.to_string())),
@@ -107,8 +107,8 @@ impl CPUMetadata {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RAMMetadata {
     total: usize,
-    free:  usize,
-    used:  usize,
+    free: usize,
+    used: usize,
 }
 
 impl RAMMetadata {
@@ -117,8 +117,8 @@ impl RAMMetadata {
         match sys.memory() {
             Ok(mem) => Ok(RAMMetadata {
                 total: mem.total.as_usize(),
-                free:  mem.free.as_usize(),
-                used:  (mem.total - mem.free).as_usize(),
+                free: mem.free.as_usize(),
+                used: (mem.total - mem.free).as_usize(),
             }),
             Err(e) => Err(ClusterError::FailedGettingRAMMetadata(e.to_string())),
         }
@@ -128,9 +128,9 @@ impl RAMMetadata {
 /// Metadata about the block devices on the node
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DiskMetadata {
-    disk_type:       Option<DiskType>,
+    disk_type: Option<DiskType>,
     write_wait_time: usize,
-    read_wait_time:  usize,
+    read_wait_time: usize,
 }
 
 impl DiskMetadata {
@@ -143,7 +143,7 @@ impl DiskMetadata {
                         return Ok(DiskMetadata {
                             // read and write wait time are in ms
                             write_wait_time: blkstats.write_ticks,
-                            read_wait_time:  blkstats.read_ticks,
+                            read_wait_time: blkstats.read_ticks,
                             // Currently do not have a good way to detect HDD or SSD, so this defaults to None for now
                             disk_type: None,
                         });
@@ -159,10 +159,10 @@ impl DiskMetadata {
 /// Metadata about the directories on the node
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DirectoryMetadata {
-    directory:     String,
-    max_size:      usize,
+    directory: String,
+    max_size: usize,
     current_usage: usize,
-    free_space:    usize,
+    free_space: usize,
 }
 
 impl DirectoryMetadata {
@@ -173,10 +173,10 @@ impl DirectoryMetadata {
                 for mount in &mounts {
                     if mount.fs_mounted_on == filesystem_path {
                         return Ok(DirectoryMetadata {
-                            directory:     mount.fs_mounted_on.clone(),
-                            max_size:      mount.total.as_usize(),
+                            directory: mount.fs_mounted_on.clone(),
+                            max_size: mount.total.as_usize(),
                             current_usage: (mount.total - mount.avail).as_usize(),
-                            free_space:    mount.free.as_usize(),
+                            free_space: mount.free.as_usize(),
                         });
                     }
                 }

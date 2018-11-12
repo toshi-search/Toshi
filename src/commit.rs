@@ -10,8 +10,8 @@ use tokio::timer::Interval;
 
 pub struct IndexWatcher {
     commit_duration: u64,
-    catalog:         Arc<RwLock<IndexCatalog>>,
-    runtime:         Runtime,
+    catalog: Arc<RwLock<IndexCatalog>>,
+    runtime: Runtime,
 }
 
 impl IndexWatcher {
@@ -45,13 +45,14 @@ impl IndexWatcher {
                     });
                 }
                 Ok(())
-            })
-            .map_err(|e| panic!("Error in commit-watcher={:?}", e));
+            }).map_err(|e| panic!("Error in commit-watcher={:?}", e));
         self.runtime.spawn(future::lazy(|| task));
         self.runtime.shutdown_on_idle();
     }
 
-    pub fn shutdown(self) { self.runtime.shutdown_now(); }
+    pub fn shutdown(self) {
+        self.runtime.shutdown_now();
+    }
 }
 
 #[cfg(test)]

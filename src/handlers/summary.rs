@@ -9,7 +9,9 @@ pub struct SummaryHandler {
 }
 
 impl SummaryHandler {
-    pub fn new(catalog: Arc<RwLock<IndexCatalog>>) -> Self { SummaryHandler { catalog } }
+    pub fn new(catalog: Arc<RwLock<IndexCatalog>>) -> Self {
+        SummaryHandler { catalog }
+    }
 }
 
 impl Handler for SummaryHandler {

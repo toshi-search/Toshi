@@ -7,7 +7,7 @@ pub struct RootHandler(ToshiInfo);
 
 #[derive(Clone, Debug, Serialize)]
 struct ToshiInfo {
-    name:    String,
+    name: String,
     version: String,
 }
 
