@@ -39,6 +39,7 @@ matrix:
 
 before_install:
   - rustup self update
+  - rustup install stable
   - rustup component add rustfmt-preview --toolchain stable
 
 install:

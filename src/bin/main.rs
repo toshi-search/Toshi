@@ -35,9 +35,11 @@ pub fn runner() -> i32 {
     let options: ArgMatches = App::new("Toshi Search")
         .version(crate_version!())
         .about(crate_description!())
+        .author(crate_authors!())
         .arg(
             Arg::with_name("config")
                 .short("c")
+                .long("config")
                 .takes_value(true)
                 .default_value("config/config.toml"),
         ).arg(
@@ -82,6 +84,11 @@ pub fn runner() -> i32 {
                 .long("cluster-name")
                 .takes_value(true)
                 .default_value("kitsune"),
+        ).arg(
+            Arg::with_name("enable-clustering")
+                .short("E")
+                .long("enable-clustering")
+                .takes_value(false),
         ).get_matches();
 
     let settings = if options.is_present("config") {
@@ -95,7 +102,7 @@ pub fn runner() -> i32 {
     std::env::set_var("RUST_LOG", &settings.log_level);
     pretty_env_logger::init();
 
-    if settings.enable_clustering {
+    if settings.enable_clustering || options.is_present("enable-clustering") {
         // If this is the first node in a new cluster, we need to register the cluster name in Consul
         let cluster_name = options.value_of("cluster-name").expect("Unable to get cluster name");
         let mut consul_client: ConsulInterface = ConsulInterface::default().with_cluster_name(cluster_name.to_string());
