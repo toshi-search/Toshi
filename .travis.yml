@@ -1,4 +1,6 @@
 language: rust
+sudo: required
+os: linux
 
 compiler:
   - clang
@@ -30,9 +32,6 @@ matrix:
     - os: windows
   fast_finish: true
   include:
-    - os: linux
-      sudo: required
-      dist: trusty
     - os: osx
       sudo: required
     - os: windows
