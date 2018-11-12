@@ -14,18 +14,18 @@ use wal_capnp::{transaction, Action};
 #[allow(unused)]
 pub struct Transaction {
     timestamp: u64,
-    opscode:   u32,
-    document:  Vec<u8>,
-    action:    u16,
+    opscode: u32,
+    document: Vec<u8>,
+    action: u16,
 }
 
 impl<'a> Into<Transaction> for transaction::Reader<'a> {
     fn into(self) -> Transaction {
         Transaction {
             timestamp: self.get_timestamp(),
-            opscode:   self.get_opscode(),
-            document:  self.get_document().unwrap().to_vec(),
-            action:    self.get_action().unwrap().to_u16(),
+            opscode: self.get_opscode(),
+            document: self.get_document().unwrap().to_vec(),
+            action: self.get_action().unwrap().to_u16(),
         }
     }
 }
@@ -35,17 +35,19 @@ pub struct TransactionConfig {
 }
 #[allow(unused)]
 impl TransactionConfig {
-    pub fn new(buffer_size: usize) -> Self { TransactionConfig { buffer_size } }
+    pub fn new(buffer_size: usize) -> Self {
+        TransactionConfig { buffer_size }
+    }
 }
 #[allow(unused)]
 pub struct TransactionLog {
-    index_name:    String,
-    opscode:       u32,
-    path:          PathBuf,
-    config:        TransactionConfig,
-    buf_size:      usize,
+    index_name: String,
+    opscode: u32,
+    path: PathBuf,
+    config: TransactionConfig,
+    buf_size: usize,
     total_written: usize,
-    buf:           File,
+    buf: File,
 }
 
 #[allow(dead_code)]
@@ -125,9 +127,13 @@ impl TransactionLog {
         Ok(())
     }
 
-    pub fn current_size(&self) -> usize { self.buf_size }
+    pub fn current_size(&self) -> usize {
+        self.buf_size
+    }
 
-    pub fn total_size(&self) -> usize { self.total_written }
+    pub fn total_size(&self) -> usize {
+        self.total_written
+    }
 
     pub fn flush(&mut self) -> Result<()> {
         self.buf.flush()?;
@@ -145,7 +151,9 @@ mod tests {
     use tantivy::doc;
     use tantivy::schema::*;
 
-    fn now() -> u64 { SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() }
+    fn now() -> u64 {
+        SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()
+    }
 
     #[test]
     fn test_transaction_log() {

@@ -23,7 +23,7 @@ pub enum MergePolicyType {
 
 #[derive(Deserialize, Clone)]
 pub struct ConfigMergePolicy {
-    kind:           String,
+    kind: String,
     min_merge_size: Option<usize>,
     min_layer_size: Option<u32>,
     level_log_size: Option<f64>,
@@ -65,23 +65,26 @@ pub struct Settings {
     pub consul_port: u16,
     #[serde(default = "Settings::default_cluster_name")]
     pub cluster_name: String,
+    #[serde(default = "Settings::default_enable_clustering")]
+    pub enable_clustering: bool,
 }
 
 impl Default for Settings {
     fn default() -> Self {
         Self {
-            host:                 Settings::default_host(),
-            port:                 Settings::default_port(),
-            path:                 Settings::default_path(),
-            log_level:            Settings::default_level(),
-            writer_memory:        Settings::default_writer_memory(),
+            host: Settings::default_host(),
+            port: Settings::default_port(),
+            path: Settings::default_path(),
+            log_level: Settings::default_level(),
+            writer_memory: Settings::default_writer_memory(),
             json_parsing_threads: Settings::default_json_parsing_threads(),
             auto_commit_duration: Settings::default_auto_commit_duration(),
-            bulk_buffer_size:     Settings::default_bulk_buffer_size(),
-            merge_policy:         Settings::default_merge_policy(),
-            consul_host:          Settings::default_consul_host(),
-            consul_port:          Settings::default_consul_port(),
-            cluster_name:         Settings::default_cluster_name(),
+            bulk_buffer_size: Settings::default_bulk_buffer_size(),
+            merge_policy: Settings::default_merge_policy(),
+            consul_host: Settings::default_consul_host(),
+            consul_port: Settings::default_consul_port(),
+            cluster_name: Settings::default_cluster_name(),
+            enable_clustering: Settings::default_enable_clustering(),
         }
     }
 }
@@ -89,11 +92,15 @@ impl Default for Settings {
 impl FromStr for Settings {
     type Err = ConfigError;
 
-    fn from_str(cfg: &str) -> Result<Self, ConfigError> { Self::from_config(File::from_str(cfg, FileFormat::Toml)) }
+    fn from_str(cfg: &str) -> Result<Self, ConfigError> {
+        Self::from_config(File::from_str(cfg, FileFormat::Toml))
+    }
 }
 
 impl Settings {
-    pub fn new(path: &str) -> Result<Self, ConfigError> { Self::from_config(File::with_name(path)) }
+    pub fn new(path: &str) -> Result<Self, ConfigError> {
+        Self::from_config(File::with_name(path))
+    }
 
     pub fn from_args(args: &ArgMatches) -> Self {
         Self {
@@ -120,40 +127,70 @@ impl Settings {
         cfg.try_into()
     }
 
-    pub fn default_pretty() -> bool { false }
+    pub fn default_pretty() -> bool {
+        false
+    }
 
-    pub fn default_result_limit() -> usize { 100 }
+    pub fn default_result_limit() -> usize {
+        100
+    }
 
-    pub fn default_host() -> String { "localhost".to_string() }
+    pub fn default_host() -> String {
+        "localhost".to_string()
+    }
 
-    pub fn default_path() -> String { "data/".to_string() }
+    pub fn default_path() -> String {
+        "data/".to_string()
+    }
 
-    pub fn default_port() -> u16 { 8080 }
+    pub fn default_port() -> u16 {
+        8080
+    }
 
-    pub fn default_level() -> String { "info".to_string() }
+    pub fn default_level() -> String {
+        "info".to_string()
+    }
 
-    pub fn default_writer_memory() -> usize { 200_000_000 }
+    pub fn default_writer_memory() -> usize {
+        200_000_000
+    }
 
-    pub fn default_json_parsing_threads() -> usize { 4 }
+    pub fn default_json_parsing_threads() -> usize {
+        4
+    }
 
-    pub fn default_bulk_buffer_size() -> usize { 10000 }
+    pub fn default_bulk_buffer_size() -> usize {
+        10000
+    }
 
-    pub fn default_auto_commit_duration() -> u64 { 10 }
+    pub fn default_auto_commit_duration() -> u64 {
+        10
+    }
 
     pub fn default_merge_policy() -> ConfigMergePolicy {
         ConfigMergePolicy {
-            kind:           "log".to_string(),
+            kind: "log".to_string(),
             min_merge_size: None,
             min_layer_size: None,
             level_log_size: None,
         }
     }
 
-    pub fn default_consul_host() -> String { "localhost".to_string() }
+    pub fn default_consul_host() -> String {
+        "localhost".to_string()
+    }
 
-    pub fn default_consul_port() -> u16 { 8500 }
+    pub fn default_consul_port() -> u16 {
+        8500
+    }
 
-    pub fn default_cluster_name() -> String { "kitsune".to_string() }
+    pub fn default_cluster_name() -> String {
+        "kitsune".to_string()
+    }
+
+    pub fn default_enable_clustering() -> bool {
+        false
+    }
 
     pub fn get_channel<T>(&self) -> (Sender<T>, Receiver<T>) {
         if self.bulk_buffer_size == 0 {
@@ -238,7 +275,9 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn bad_config_file() { Settings::new("asdf/casdf").unwrap(); }
+    fn bad_config_file() {
+        Settings::new("asdf/casdf").unwrap();
+    }
 
     #[test]
     #[should_panic]

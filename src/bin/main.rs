@@ -35,8 +35,14 @@ pub fn runner() -> i32 {
     let options: ArgMatches = App::new("Toshi Search")
         .version(crate_version!())
         .about(crate_description!())
-        .arg(Arg::with_name("config").short("c").takes_value(true))
+        .author(crate_authors!())
         .arg(
+            Arg::with_name("config")
+                .short("c")
+                .long("config")
+                .takes_value(true)
+                .default_value("config/config.toml"),
+        ).arg(
             Arg::with_name("level")
                 .short("l")
                 .long("level")
@@ -78,6 +84,11 @@ pub fn runner() -> i32 {
                 .long("cluster-name")
                 .takes_value(true)
                 .default_value("kitsune"),
+        ).arg(
+            Arg::with_name("enable-clustering")
+                .short("E")
+                .long("enable-clustering")
+                .takes_value(false),
         ).get_matches();
 
     let settings = if options.is_present("config") {
@@ -91,34 +102,38 @@ pub fn runner() -> i32 {
     std::env::set_var("RUST_LOG", &settings.log_level);
     pretty_env_logger::init();
 
-    // If this is the first node in a new cluster, we need to register the cluster name in Consul
-    let cluster_name = options.value_of("cluster-name").expect("Unable to get cluster name");
-    let mut consul_client: ConsulInterface = ConsulInterface::default().with_cluster_name(cluster_name.to_string());
-    let reg_future = consul_client.register_cluster();
-    // This blocks so that we don't proceed if we can't talk to Consul
-    rt::run(reg_future);
+    if settings.enable_clustering || options.is_present("enable-clustering") {
+        // If this is the first node in a new cluster, we need to register the cluster name in Consul
+        let cluster_name = options.value_of("cluster-name").expect("Unable to get cluster name");
+        let mut consul_client: ConsulInterface = ConsulInterface::default().with_cluster_name(cluster_name.to_string());
+        let reg_future = consul_client.register_cluster();
+        // This blocks so that we don't proceed if we can't talk to Consul
+        rt::run(reg_future);
 
-    // Now we need to register this node with the cluster. If it is a new node and has no file containing the node ID,
-    // we generate a new one and save it. Otherwise, read it in and register with consul.
-    let node_id: String;
-    if let Ok(nid) = cluster::read_node_id() {
-        info!("Node ID is: {}", nid);
-        node_id = nid;
-    } else {
-        // If no file exists containing the node ID, generate a new one and write it
-        let random_id = uuid::Uuid::new_v4().to_hyphenated().to_string();
-        info!("No Node ID found. Creating new one: {}", random_id);
-        node_id = random_id.clone();
-        if let Err(err) = cluster::write_node_id(random_id) {
-            error!("{:?}", err);
-            std::process::exit(1);
+        // Now we need to register this node with the cluster. If it is a new node and has no file containing the node ID,
+        // we generate a new one and save it. Otherwise, read it in and register with consul.
+        let node_id: String;
+        if let Ok(nid) = cluster::read_node_id() {
+            info!("Node ID is: {}", nid);
+            node_id = nid;
+        } else {
+            // If no file exists containing the node ID, generate a new one and write it
+            let random_id = uuid::Uuid::new_v4().to_hyphenated().to_string();
+            info!("No Node ID found. Creating new one: {}", random_id);
+            node_id = random_id.clone();
+            if let Err(err) = cluster::write_node_id(random_id) {
+                error!("{:?}", err);
+                std::process::exit(1);
+            }
         }
+        consul_client.node_id = Some(node_id.clone());
+        let reg_future = consul_client.register_node();
+        // Registers the node with Consul. Blocks since we don't want to proceed if we can't register.
+        rt::run(reg_future);
+        info!("Node ID: {}", node_id);
+    } else {
+        info!("Clustering disabled...")
     }
-    consul_client.node_id = Some(node_id.clone());
-    let reg_future = consul_client.register_node();
-    // Registers the node with Consul. Blocks since we don't want to proceed if we can't register.
-    rt::run(reg_future);
-
     let index_catalog = match IndexCatalog::new(PathBuf::from(&settings.path), settings.clone()) {
         Ok(v) => v,
         Err(e) => {
@@ -134,7 +149,7 @@ pub fn runner() -> i32 {
     }
 
     let addr = format!("{}:{}", &settings.host, settings.port);
-    println!("Node ID: {}", node_id);
+
     println!("{}", HEADER);
     gotham::start(addr, router_with_catalog(&catalog_arc));
     0

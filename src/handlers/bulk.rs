@@ -25,7 +25,9 @@ pub struct BulkHandler {
 impl RefUnwindSafe for BulkHandler {}
 
 impl BulkHandler {
-    pub fn new(catalog: Arc<RwLock<IndexCatalog>>) -> Self { BulkHandler { catalog } }
+    pub fn new(catalog: Arc<RwLock<IndexCatalog>>) -> Self {
+        BulkHandler { catalog }
+    }
 
     fn index_documents(index_writer: &Mutex<IndexWriter>, doc_receiver: Receiver<Document>) -> Result<u64> {
         match index_writer.lock() {
@@ -89,8 +91,7 @@ impl Handler for BulkHandler {
                     line_sender_clone.send(l.to_vec());
                 }
                 future::ok(buf.clone())
-            })
-            .then(move |response| match response {
+            }).then(move |response| match response {
                 Ok(buf) => {
                     if !buf.is_empty() {
                         line_sender.send(buf.to_vec());

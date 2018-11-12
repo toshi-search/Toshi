@@ -46,12 +46,14 @@ pub enum Queries {
 
 pub struct IndexCatalog {
     pub settings: Settings,
-    base_path:    PathBuf,
-    collection:   HashMap<String, IndexHandle>,
+    base_path: PathBuf,
+    collection: HashMap<String, IndexHandle>,
 }
 
 impl IndexCatalog {
-    pub fn with_path(base_path: PathBuf) -> Result<Self> { IndexCatalog::new(base_path, Settings::default()) }
+    pub fn with_path(base_path: PathBuf) -> Result<Self> {
+        IndexCatalog::new(base_path, Settings::default())
+    }
 
     pub fn new(base_path: PathBuf, settings: Settings) -> Result<Self> {
         let mut index_cat = IndexCatalog {
@@ -64,7 +66,9 @@ impl IndexCatalog {
         Ok(index_cat)
     }
 
-    pub fn base_path(&self) -> &PathBuf { &self.base_path }
+    pub fn base_path(&self) -> &PathBuf {
+        &self.base_path
+    }
 
     #[doc(hidden)]
     #[allow(dead_code)]
@@ -74,8 +78,8 @@ impl IndexCatalog {
             IndexHandle::new(index, Settings::default()).unwrap_or_else(|_| panic!("Unable to open index: {} because it's locked", name));
         map.insert(name, new_index);
         Ok(IndexCatalog {
-            settings:   Settings::default(),
-            base_path:  PathBuf::new(),
+            settings: Settings::default(),
+            base_path: PathBuf::new(),
             collection: map,
         })
     }
@@ -98,11 +102,17 @@ impl IndexCatalog {
     }
 
     #[allow(dead_code)]
-    pub fn get_collection(&self) -> &HashMap<String, IndexHandle> { &self.collection }
+    pub fn get_collection(&self) -> &HashMap<String, IndexHandle> {
+        &self.collection
+    }
 
-    pub fn get_mut_collection(&mut self) -> &mut HashMap<String, IndexHandle> { &mut self.collection }
+    pub fn get_mut_collection(&mut self) -> &mut HashMap<String, IndexHandle> {
+        &mut self.collection
+    }
 
-    pub fn exists(&self, index: &str) -> bool { self.get_collection().contains_key(index) }
+    pub fn exists(&self, index: &str) -> bool {
+        self.get_collection().contains_key(index)
+    }
 
     pub fn get_mut_index(&mut self, name: &str) -> Result<&mut IndexHandle> {
         self.collection.get_mut(name).ok_or_else(|| Error::UnknownIndex(name.to_string()))
@@ -186,8 +196,7 @@ impl IndexCatalog {
                                     term_query += "}";
                                 }
                                 term_query
-                            })
-                            .collect::<Vec<String>>()
+                            }).collect::<Vec<String>>()
                             .join(" ");
 
                         let query = query_parser.parse_query(&terms)?;
@@ -224,8 +233,7 @@ impl IndexCatalog {
                     .map(|(score, doc)| {
                         let d = searcher.doc(doc).expect("Doc not found in segment");
                         ScoredDoc::new(Some(score), schema.to_named_doc(&d))
-                    })
-                    .collect();
+                    }).collect();
 
                 Ok(SearchResults::new(scored_docs))
             }
@@ -233,7 +241,9 @@ impl IndexCatalog {
         }
     }
 
-    pub fn clear(&mut self) { self.collection.clear(); }
+    pub fn clear(&mut self) {
+        self.collection.clear();
+    }
 }
 
 #[cfg(test)]

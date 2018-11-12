@@ -13,7 +13,7 @@ use tantivy::Index;
 #[derive(Deserialize)]
 pub struct DeleteDoc {
     options: Option<IndexOptions>,
-    terms:   HashMap<String, String>,
+    terms: HashMap<String, String>,
 }
 
 #[derive(Clone)]
@@ -34,14 +34,16 @@ pub struct IndexOptions {
 
 #[derive(Deserialize)]
 pub struct AddDocument {
-    options:  Option<IndexOptions>,
+    options: Option<IndexOptions>,
     document: serde_json::Value,
 }
 
 impl RefUnwindSafe for IndexHandler {}
 
 impl IndexHandler {
-    pub fn new(catalog: Arc<RwLock<IndexCatalog>>) -> Self { IndexHandler { catalog } }
+    pub fn new(catalog: Arc<RwLock<IndexCatalog>>) -> Self {
+        IndexHandler { catalog }
+    }
 
     fn add_index(&mut self, name: String, index: Index) {
         match self.catalog.write() {
@@ -101,7 +103,9 @@ impl IndexHandler {
         }
     }
 
-    fn parse_doc(&self, schema: &Schema, bytes: &str) -> Result<Document> { schema.parse_document(bytes).map_err(|e| e.into()) }
+    fn parse_doc(&self, schema: &Schema, bytes: &str) -> Result<Document> {
+        schema.parse_document(bytes).map_err(|e| e.into())
+    }
 
     fn add_document(self, mut state: State, index_path: IndexPath) -> Box<HandlerFuture> {
         Box::new(Body::take_from(&mut state).concat2().then(move |body| match body {
@@ -154,7 +158,7 @@ impl IndexHandler {
                 }
                 let new_index = Index::create_in_dir(ip, schema).unwrap();
                 self.add_index(index_path.index, new_index);
-                let resp = create_response(&state, StatusCode::CREATED, mime::APPLICATION_JSON, Body::empty());
+                let resp = create_empty_response(&state, StatusCode::CREATED);
                 future::ok((state, resp))
             }
             Err(ref e) => handle_error(state, e),

@@ -48,6 +48,7 @@ impl From<TError> for Error {
             TError::Poisoned => Error::IOError("Poisoned".to_string()),
             TError::LockFailure(e) => Error::IOError(format!("Failed to acquire lock: {:?}", e)),
             TError::FastFieldError(_) => Error::IOError("Fast Field Error".to_string()),
+            TError::IndexAlreadyExists => Error::IOError("Index Already Exists".into()),
         }
     }
 }

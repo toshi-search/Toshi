@@ -5,10 +5,10 @@ use std::sync::{Arc, Mutex};
 use tantivy::{Index, IndexWriter};
 
 pub struct IndexHandle {
-    index:           Index,
-    writer:          Arc<Mutex<IndexWriter>>,
+    index: Index,
+    writer: Arc<Mutex<IndexWriter>>,
     current_opstamp: AtomicUsize,
-    settings:        Settings,
+    settings: Settings,
 }
 
 impl IndexHandle {
@@ -25,13 +25,23 @@ impl IndexHandle {
         })
     }
 
-    pub fn get_index(&self) -> &Index { &self.index }
+    pub fn get_index(&self) -> &Index {
+        &self.index
+    }
 
-    pub fn recreate_writer(self) -> Result<Self> { IndexHandle::new(self.index, self.settings.clone()) }
+    pub fn recreate_writer(self) -> Result<Self> {
+        IndexHandle::new(self.index, self.settings.clone())
+    }
 
-    pub fn get_writer(&self) -> Arc<Mutex<IndexWriter>> { Arc::clone(&self.writer) }
+    pub fn get_writer(&self) -> Arc<Mutex<IndexWriter>> {
+        Arc::clone(&self.writer)
+    }
 
-    pub fn get_opstamp(&self) -> usize { self.current_opstamp.load(Ordering::Relaxed) }
+    pub fn get_opstamp(&self) -> usize {
+        self.current_opstamp.load(Ordering::Relaxed)
+    }
 
-    pub fn set_opstamp(&self, opstamp: usize) { self.current_opstamp.store(opstamp, Ordering::Relaxed) }
+    pub fn set_opstamp(&self, opstamp: usize) {
+        self.current_opstamp.store(opstamp, Ordering::Relaxed)
+    }
 }

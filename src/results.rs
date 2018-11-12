@@ -7,7 +7,9 @@ pub struct SearchResults {
 }
 
 impl SearchResults {
-    pub fn new(docs: Vec<ScoredDoc>) -> Self { SearchResults { hits: docs.len(), docs } }
+    pub fn new(docs: Vec<ScoredDoc>) -> Self {
+        SearchResults { hits: docs.len(), docs }
+    }
 }
 
 #[derive(Serialize)]
@@ -19,5 +21,7 @@ pub struct ScoredDoc {
 }
 
 impl ScoredDoc {
-    pub fn new(score: Option<f32>, doc: NamedFieldDocument) -> Self { ScoredDoc { score, doc } }
+    pub fn new(score: Option<f32>, doc: NamedFieldDocument) -> Self {
+        ScoredDoc { score, doc }
+    }
 }
