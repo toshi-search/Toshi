@@ -1,6 +1,6 @@
 use clap::ArgMatches;
 use config::{Config, ConfigError, File, FileFormat, Source};
-use crossbeam_channel::*;
+use crossbeam::channel::{bounded, unbounded, Receiver, Sender};
 use tantivy::merge_policy::*;
 
 use std::str::FromStr;
@@ -105,14 +105,14 @@ impl Settings {
     pub fn from_args(args: &ArgMatches) -> Self {
         Self {
             host: args.value_of("host").unwrap().to_string(),
-            port: args.value_of("port").unwrap().parse::<u16>().expect("Invalid port given."),
+            port: args.value_of("port").unwrap().parse().expect("Invalid port given."),
             path: args.value_of("path").unwrap().to_string(),
             log_level: args.value_of("level").unwrap().to_string(),
             consul_host: args.value_of("consul-host").unwrap().to_string(),
             consul_port: args
                 .value_of("consul-port")
                 .unwrap()
-                .parse::<u16>()
+                .parse()
                 .expect("Invalid port given for Consul."),
             ..Default::default()
         }

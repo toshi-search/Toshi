@@ -98,7 +98,7 @@ impl IndexCatalog {
     pub fn add_index(&mut self, name: String, index: Index) {
         let handle =
             IndexHandle::new(index, self.settings.clone()).unwrap_or_else(|_| panic!("Unable to open index: {} because it's locked", name));
-        self.collection.insert(name, handle);
+        self.collection.entry(name).or_insert(handle);
     }
 
     #[allow(dead_code)]

@@ -2,7 +2,7 @@
 extern crate capnp;
 extern crate clap;
 extern crate config;
-extern crate crossbeam_channel;
+extern crate crossbeam;
 #[macro_use]
 extern crate failure;
 extern crate futures;
