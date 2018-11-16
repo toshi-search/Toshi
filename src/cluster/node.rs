@@ -1,38 +1,34 @@
-use std::fs::File;
-use std::io::prelude::*;
 use std::path::Path;
 use std::time;
 
+use futures::Future;
 use num_cpus;
 use systemstat;
 use systemstat::{Platform, System};
+use tokio::fs::File;
+
+use cluster::ClusterError;
 
 use cluster::{ClusterError, DiskType};
 
-static NODE_ID_FILENAME: &'static str = ".node_id";
-
-/// Writes the node id to a file
-pub fn write_node_id(id: String) -> Result<(), ClusterError> {
+pub fn write_node_id(id: String, _p: String) -> impl Future<Item = String, Error = ClusterError> {
     let path = Path::new(&NODE_ID_FILENAME);
-    match File::create(path) {
-        Ok(mut f) => match f.write_all(id.as_bytes()) {
-            Ok(_) => Ok(()),
-            Err(e) => Err(ClusterError::FailedWritingNodeID(e.to_string())),
-        },
-        Err(e) => Err(ClusterError::FailedWritingNodeID(e.to_string())),
-    }
+    File::create(path)
+        .and_then(|file| write_all(id.as_bytes(), file))
+        .map(|_| id)
+        .map_err(|e| ClusterError::FailedWritingNodeID(e))
 }
 
-/// Attempts to read the node ID from a file
-pub fn read_node_id() -> Result<String, ClusterError> {
+pub fn read_node_id(p: &str) -> impl Future<Item = String, Error = ClusterError> {
     let path = NODE_ID_FILENAME;
-    let path = Path::new(&path);
-    let mut contents = String::new();
-    let mut handle = File::open(&path).map_err(|e| ClusterError::FailedReadingNodeID(e.to_string()))?;
-    handle
-        .read_to_string(&mut contents)
-        .map_err(|e| ClusterError::FailedReadingNodeID(e.to_string()))?;
-    Ok(contents)
+    let path = Path::new(p).join(path).clone();
+
+    File::open(path).map_err(|e| ClusterError::FailedReadingNodeID(e)).and_then(|file| {
+        let buf = Vec::new();
+        tokio::io::read_to_end(file, buf)
+            .map(|(_, bytes)| String::from_utf8(bytes).unwrap())
+            .map_err(|e| ClusterError::FailedReadingNodeID(e))
+    })
 }
 
 /// Collection of all the metadata we can gather about the node. It is composed of
