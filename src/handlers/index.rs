@@ -7,6 +7,7 @@ use std::panic::RefUnwindSafe;
 use std::sync::RwLock;
 
 use hyper::{Method, StatusCode};
+use tantivy::directory::MmapDirectory;
 use tantivy::schema::*;
 use tantivy::Index;
 
@@ -144,6 +145,16 @@ impl IndexHandler {
         }))
     }
 
+    fn create_from_managed(&self, index_path: &IndexPath, schema: Schema) -> Result<Index> {
+        let mut ip = self.catalog.read()?.base_path().clone();
+        ip.push(&index_path.index);
+        if !ip.exists() {
+            fs::create_dir(&ip).map_err(|e| Error::IOError(e.to_string()))?;
+        }
+        let dir = MmapDirectory::open(ip).map_err(|e| Error::IOError(format!("{:?}", e)))?;
+        Index::open_or_create(dir, schema).map_err(|e| Error::IOError(format!("{:?}", e)))
+    }
+
     fn create_index(mut self, mut state: State, index_path: IndexPath) -> Box<HandlerFuture> {
         Box::new(Body::take_from(&mut state).concat2().then(move |body| match body {
             Ok(b) => {
@@ -151,12 +162,10 @@ impl IndexHandler {
                     Ok(v) => v,
                     Err(ref e) => return handle_error(state, e),
                 };
-                let mut ip = self.catalog.read().unwrap().base_path().clone();
-                ip.push(&index_path.index);
-                if !ip.exists() {
-                    fs::create_dir(&ip).unwrap()
-                }
-                let new_index = Index::create_in_dir(ip, schema).unwrap();
+                let new_index = match self.create_from_managed(&index_path, schema) {
+                    Ok(i) => i,
+                    Err(ref e) => return handle_error(state, e),
+                };
                 self.add_index(index_path.index, new_index);
                 let resp = create_empty_response(&state, StatusCode::CREATED);
                 future::ok((state, resp))

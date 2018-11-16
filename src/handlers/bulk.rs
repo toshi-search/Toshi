@@ -14,7 +14,7 @@ use std::thread;
 use tantivy::Document;
 use tantivy::IndexWriter;
 
-use crossbeam_channel::{unbounded, Receiver};
+use crossbeam::channel::{unbounded, Receiver};
 use std::sync::Mutex;
 
 #[derive(Clone)]
@@ -62,11 +62,14 @@ impl Handler for BulkHandler {
             thread::spawn(move || {
                 for line in line_recv_clone {
                     if !line.is_empty() {
-                        match schema_clone.parse_document(from_utf8(&line).unwrap()) {
-                            Ok(doc) => doc_sender.send(doc),
-                            // TODO: Add better/more error handling here, right now if an error occurs it's
-                            // swallowed up, which is kind of bad.
-                            Err(err) => error!("Failed to add doc: {:?}", err),
+                        if let Ok(text) = from_utf8(&line) {
+                            match schema_clone.parse_document(text) {
+                                Ok(doc) => match doc_sender.send(doc) {
+                                    Ok(_) => (),
+                                    Err(err) => error!("Error occurred in parsing thread: {:?}", err),
+                                },
+                                Err(err) => error!("Error occurred in parsing thread: {:?}", err),
+                            }
                         }
                     }
                 }
@@ -88,13 +91,19 @@ impl Handler for BulkHandler {
                     if split.peek().is_none() {
                         return future::ok(l.to_vec());
                     }
-                    line_sender_clone.send(l.to_vec());
+                    match line_sender_clone.send(l.to_vec()) {
+                        Ok(_) => (),
+                        Err(e) => return future::err(e.into_handler_error()),
+                    };
                 }
                 future::ok(buf.clone())
             }).then(move |response| match response {
                 Ok(buf) => {
                     if !buf.is_empty() {
-                        line_sender.send(buf.to_vec());
+                        match line_sender.send(buf.to_vec()) {
+                            Ok(_) => (),
+                            Err(e) => return handle_error(state, &Error::IOError(e.to_string())),
+                        };
                     }
                     let resp = create_empty_response(&state, StatusCode::CREATED);
                     future::ok((state, resp))
