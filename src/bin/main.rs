@@ -122,8 +122,7 @@ pub fn runner() -> i32 {
             }).and_then(move |id| {
                 consul_client.node_id = Some(id);
                 consul_client.register_node()
-            }).map(|_| ())
-            .map_err(|err| error!("Error: {}", err));
+            }).map_err(|err| error!("Error: {}", err));
 
         rt::run(connect_consul);
     } else {
