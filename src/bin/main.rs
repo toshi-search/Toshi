@@ -5,6 +5,7 @@ extern crate uuid;
 extern crate log;
 #[macro_use]
 extern crate clap;
+extern crate futures;
 extern crate hyper;
 extern crate num_cpus;
 extern crate systemstat;
@@ -16,7 +17,7 @@ use std::sync::Arc;
 use std::sync::RwLock;
 use uuid::Uuid;
 
-use hyper::rt::{self, Future};
+use futures::Future;
 
 use toshi::cluster;
 use toshi::cluster::ConsulInterface;
@@ -124,7 +125,10 @@ pub fn runner() -> i32 {
                 consul_client.register_node()
             }).map_err(|err| error!("Error: {}", err));
 
-        rt::run(connect_consul);
+        // Run the tokio runtime, this will start an event loop that will process
+        // the connect_consul future. It will block until the future is completed
+        // by either completing successfuly or erroring out.
+        tokio::run(connect_consul);
     } else {
         info!("Clustering disabled...")
     }
