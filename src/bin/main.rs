@@ -23,7 +23,7 @@ use toshi::cluster::ConsulInterface;
 use toshi::commit::IndexWatcher;
 use toshi::index::IndexCatalog;
 use toshi::router::router_with_catalog;
-use toshi::settings::Settings;
+use toshi::settings::{Settings, HEADER};
 
 use clap::{App, Arg, ArgMatches};
 

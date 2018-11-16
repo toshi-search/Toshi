@@ -5,30 +5,35 @@ use futures::Future;
 use num_cpus;
 use systemstat;
 use systemstat::{Platform, System};
-use tokio::fs::File;
-
-use cluster::ClusterError;
+use tokio::{fs::File, io::write_all};
 
 use cluster::{ClusterError, DiskType};
 
-pub fn write_node_id(id: String, _p: String) -> impl Future<Item = String, Error = ClusterError> {
-    let path = Path::new(&NODE_ID_FILENAME);
+static NODE_ID_FILENAME: &'static str = ".node_id";
+
+/// Write
+pub fn write_node_id(id: String, p: String) -> impl Future<Item = String, Error = ClusterError> {
+    let path = Path::new(&p).join(&NODE_ID_FILENAME);
+    let id_clone = id.clone();
+
     File::create(path)
-        .and_then(|file| write_all(id.as_bytes(), file))
-        .map(|_| id)
-        .map_err(|e| ClusterError::FailedWritingNodeID(e))
+        .and_then(move |file| write_all(file, id))
+        .and_then(move |_| Ok(id_clone))
+        .map_err(|e| ClusterError::FailedWritingNodeID(format!("{}", e)))
 }
 
 pub fn read_node_id(p: &str) -> impl Future<Item = String, Error = ClusterError> {
     let path = NODE_ID_FILENAME;
     let path = Path::new(p).join(path).clone();
 
-    File::open(path).map_err(|e| ClusterError::FailedReadingNodeID(e)).and_then(|file| {
-        let buf = Vec::new();
-        tokio::io::read_to_end(file, buf)
-            .map(|(_, bytes)| String::from_utf8(bytes).unwrap())
-            .map_err(|e| ClusterError::FailedReadingNodeID(e))
-    })
+    File::open(path)
+        .map_err(|e| ClusterError::FailedReadingNodeID(format!("{}", e)))
+        .and_then(|file| {
+            let buf = Vec::new();
+            tokio::io::read_to_end(file, buf)
+                .map(|(_, bytes)| String::from_utf8(bytes).unwrap())
+                .map_err(|e| ClusterError::FailedReadingNodeID(format!("{}", e)))
+        })
 }
 
 /// Collection of all the metadata we can gather about the node. It is composed of
