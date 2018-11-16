@@ -5,35 +5,43 @@ use futures::Future;
 use num_cpus;
 use systemstat;
 use systemstat::{Platform, System};
-use tokio::{fs::File, io::write_all};
+use tokio::{
+    fs::File,
+    io::{read_to_end, write_all},
+};
 
 use cluster::{ClusterError, DiskType};
 
 static NODE_ID_FILENAME: &'static str = ".node_id";
 
-/// Write
+/// Write node id to the path `p` provided, this will also append `.node_id`
 pub fn write_node_id(id: String, p: String) -> impl Future<Item = String, Error = ClusterError> {
+    // Append .node_id to the path provided
     let path = Path::new(&p).join(&NODE_ID_FILENAME);
+
+    // Clone the id so that we can pass it into the closure of the future that returns
+    // back to the user.
     let id_clone = id.clone();
 
+    // Create and write the id to the file and return the id
     File::create(path)
         .and_then(move |file| write_all(file, id))
         .and_then(move |_| Ok(id_clone))
         .map_err(|e| ClusterError::FailedWritingNodeID(format!("{}", e)))
 }
 
+/// Read the node id from the file provided
+///
+/// Note:This function will try and Read the file as UTF-8
 pub fn read_node_id(p: &str) -> impl Future<Item = String, Error = ClusterError> {
-    let path = NODE_ID_FILENAME;
-    let path = Path::new(p).join(path).clone();
+    // Append .node_id to the provided path
+    let path = Path::new(&p).join(&NODE_ID_FILENAME);
 
+    // Open an read the string to the end of the file and try to read it as UTF-8
     File::open(path)
+        .and_then(|file| read_to_end(file, Vec::new()))
         .map_err(|e| ClusterError::FailedReadingNodeID(format!("{}", e)))
-        .and_then(|file| {
-            let buf = Vec::new();
-            tokio::io::read_to_end(file, buf)
-                .map(|(_, bytes)| String::from_utf8(bytes).unwrap())
-                .map_err(|e| ClusterError::FailedReadingNodeID(format!("{}", e)))
-        })
+        .and_then(|(_, bytes)| String::from_utf8(bytes).map_err(|_| ClusterError::UnableToReadUTF8))
 }
 
 /// Collection of all the metadata we can gather about the node. It is composed of

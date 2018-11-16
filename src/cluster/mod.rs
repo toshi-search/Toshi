@@ -30,6 +30,8 @@ pub enum ClusterError {
     FailedGettingRAMMetadata(String),
     #[fail(display = "Unable to get CPU metadata: {}", _0)]
     FailedGettingCPUMetadata(String),
+    #[fail(display = "Unable to read content as UTF-8")]
+    UnableToReadUTF8,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
