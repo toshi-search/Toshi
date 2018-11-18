@@ -19,14 +19,10 @@ pub fn write_node_id(id: String, p: String) -> impl Future<Item = String, Error 
     // Append .node_id to the path provided
     let path = Path::new(&p).join(&NODE_ID_FILENAME);
 
-    // Clone the id so that we can pass it into the closure of the future that returns
-    // back to the user.
-    let id_clone = id.clone();
-
     // Create and write the id to the file and return the id
     File::create(path)
         .and_then(move |file| write_all(file, id))
-        .and_then(move |_| Ok(id_clone))
+        .map(|(_, id)| id)
         .map_err(|e| ClusterError::FailedWritingNodeID(format!("{}", e)))
 }
 
@@ -35,7 +31,7 @@ pub fn write_node_id(id: String, p: String) -> impl Future<Item = String, Error 
 /// Note:This function will try and Read the file as UTF-8
 pub fn read_node_id(p: &str) -> impl Future<Item = String, Error = ClusterError> {
     // Append .node_id to the provided path
-    let path = Path::new(&p).join(&NODE_ID_FILENAME);
+    let path = Path::new(p).join(&NODE_ID_FILENAME);
 
     // Open an read the string to the end of the file and try to read it as UTF-8
     File::open(path)

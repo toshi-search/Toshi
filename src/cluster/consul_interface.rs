@@ -66,7 +66,7 @@ impl ConsulInterface {
         let uri = self.base_consul_url() + &self.cluster_name() + "/";
         let client = Client::new();
         let req = self.put_request(&uri);
-        client.request(req).map(|_| ()).map_err(|_e| ClusterError::FailedRegisteringNode)
+        client.request(req).map(|_| ()).map_err(|_| ClusterError::FailedRegisteringNode)
     }
 
     fn base_consul_url(&self) -> String {
