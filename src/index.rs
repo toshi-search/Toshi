@@ -1,7 +1,7 @@
 use super::*;
 
 use std::collections::HashMap;
-use std::fs::{create_dir, read_dir};
+use std::fs::read_dir;
 use std::iter::Iterator;
 use std::path::PathBuf;
 
@@ -124,10 +124,7 @@ impl IndexCatalog {
 
     pub fn refresh_catalog(&mut self) -> Result<()> {
         self.collection.clear();
-        if !self.base_path.exists() {
-            info!("Base data path {} does not exist, creating it...", self.base_path.display());
-            create_dir(self.base_path.clone())?;
-        }
+
         for dir in read_dir(self.base_path.clone())? {
             let entry = dir?.path();
             if let Some(entry_str) = entry.to_str() {

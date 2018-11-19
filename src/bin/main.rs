@@ -12,12 +12,13 @@ extern crate systemstat;
 extern crate tokio;
 extern crate toshi;
 
-use std::path::PathBuf;
-use std::sync::Arc;
-use std::sync::RwLock;
-use uuid::Uuid;
-
 use futures::Future;
+use std::{
+    fs::create_dir,
+    path::{Path, PathBuf},
+    sync::{Arc, RwLock},
+};
+use uuid::Uuid;
 
 use toshi::cluster;
 use toshi::cluster::ConsulInterface;
@@ -103,6 +104,11 @@ pub fn runner() -> i32 {
 
     std::env::set_var("RUST_LOG", &settings.log_level);
     pretty_env_logger::init();
+
+    if !Path::new(&settings.path).exists() {
+        info!("Base data path {} does not exist, creating it...", settings.path);
+        create_dir(settings.path.clone()).expect("Unable to create data directory");
+    }
 
     if settings.enable_clustering || options.is_present("enable-clustering") {
         // If this is the first node in a new cluster, we need to register the cluster name in Consul
