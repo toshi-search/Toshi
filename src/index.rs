@@ -282,16 +282,4 @@ pub mod tests {
     pub fn create_test_server(catalog: &Arc<RwLock<IndexCatalog>>) -> TestServer {
         TestServer::new(router::router_with_catalog(catalog)).unwrap()
     }
-
-    #[test]
-    fn test_catalog_create_data_dir() {
-        let path = PathBuf::from("data_dir");
-        assert_eq!(path.exists(), false);
-
-        let _catalog = IndexCatalog::with_path(path.clone()).unwrap();
-
-        assert_eq!(path.exists(), true);
-        assert_eq!(path.is_dir(), true);
-        remove_dir(path).unwrap();
-    }
 }
