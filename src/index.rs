@@ -1,7 +1,7 @@
 use super::*;
 
 use std::collections::HashMap;
-use std::fs::{create_dir, read_dir};
+use std::fs::read_dir;
 use std::iter::Iterator;
 use std::path::PathBuf;
 
@@ -124,16 +124,15 @@ impl IndexCatalog {
 
     pub fn refresh_catalog(&mut self) -> Result<()> {
         self.collection.clear();
-        if !self.base_path.exists() {
-            info!("Base data path {} does not exist, creating it...", self.base_path.display());
-            create_dir(self.base_path.clone())?;
-        }
+
         for dir in read_dir(self.base_path.clone())? {
             let entry = dir?.path();
             if let Some(entry_str) = entry.to_str() {
-                let pth: String = entry_str.rsplit('/').take(1).collect();
-                let idx = IndexCatalog::load_index(entry_str)?;
-                self.add_index(pth.clone(), idx);
+                if !entry_str.ends_with(".node_id") {
+                    let pth: String = entry_str.rsplit('/').take(1).collect();
+                    let idx = IndexCatalog::load_index(entry_str)?;
+                    self.add_index(pth.clone(), idx);
+                }
             } else {
                 return Err(Error::IOError(format!("Path {} is not a valid unicode path", entry.display())));
             }
@@ -282,17 +281,5 @@ pub mod tests {
 
     pub fn create_test_server(catalog: &Arc<RwLock<IndexCatalog>>) -> TestServer {
         TestServer::new(router::router_with_catalog(catalog)).unwrap()
-    }
-
-    #[test]
-    fn test_catalog_create_data_dir() {
-        let path = PathBuf::from("data_dir");
-        assert_eq!(path.exists(), false);
-
-        let _catalog = IndexCatalog::with_path(path.clone()).unwrap();
-
-        assert_eq!(path.exists(), true);
-        assert_eq!(path.is_dir(), true);
-        remove_dir(path).unwrap();
     }
 }

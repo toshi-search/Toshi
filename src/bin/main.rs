@@ -5,17 +5,20 @@ extern crate uuid;
 extern crate log;
 #[macro_use]
 extern crate clap;
+extern crate futures;
 extern crate hyper;
 extern crate num_cpus;
 extern crate systemstat;
 extern crate tokio;
 extern crate toshi;
 
-use std::path::PathBuf;
-use std::sync::Arc;
-use std::sync::RwLock;
-
-use hyper::rt;
+use futures::Future;
+use std::{
+    fs::create_dir,
+    path::{Path, PathBuf},
+    sync::{Arc, RwLock},
+};
+use uuid::Uuid;
 
 use toshi::cluster;
 use toshi::cluster::ConsulInterface;
@@ -102,38 +105,46 @@ pub fn runner() -> i32 {
     std::env::set_var("RUST_LOG", &settings.log_level);
     pretty_env_logger::init();
 
+    if !Path::new(&settings.path).exists() {
+        info!("Base data path {} does not exist, creating it...", settings.path);
+        create_dir(settings.path.clone()).expect("Unable to create data directory");
+    }
+
     if settings.enable_clustering || options.is_present("enable-clustering") {
         // If this is the first node in a new cluster, we need to register the cluster name in Consul
         let cluster_name = options.value_of("cluster-name").expect("Unable to get cluster name");
         let mut consul_client: ConsulInterface = ConsulInterface::default().with_cluster_name(cluster_name.to_string());
-        let reg_future = consul_client.register_cluster();
-        // This blocks so that we don't proceed if we can't talk to Consul
-        rt::run(reg_future);
 
-        // Now we need to register this node with the cluster. If it is a new node and has no file containing the node ID,
-        // we generate a new one and save it. Otherwise, read it in and register with consul.
-        let node_id: String;
-        if let Ok(nid) = cluster::read_node_id() {
-            info!("Node ID is: {}", nid);
-            node_id = nid;
-        } else {
-            // If no file exists containing the node ID, generate a new one and write it
-            let random_id = uuid::Uuid::new_v4().to_hyphenated().to_string();
-            info!("No Node ID found. Creating new one: {}", random_id);
-            node_id = random_id.clone();
-            if let Err(err) = cluster::write_node_id(random_id) {
-                error!("{:?}", err);
-                std::process::exit(1);
-            }
-        }
-        consul_client.node_id = Some(node_id.clone());
-        let reg_future = consul_client.register_node();
-        // Registers the node with Consul. Blocks since we don't want to proceed if we can't register.
-        rt::run(reg_future);
-        info!("Node ID: {}", node_id);
+        let settings_path_read = settings.path.clone();
+        let settings_path_write = settings.path.clone();
+
+        // Build future that will connect to consul and register the node_id
+        let connect_consul = consul_client
+            .register_cluster()
+            .and_then(move |_| cluster::read_node_id(settings_path_read.as_str()))
+            .then(|result| match result {
+                Ok(id) => {
+                    let parsed_id = Uuid::parse_str(&id).expect("Parsed node ID is not a UUID");
+                    cluster::write_node_id(settings_path_write, parsed_id.to_hyphenated().to_string())
+                }
+
+                Err(_) => {
+                    let new_id = Uuid::new_v4();
+                    cluster::write_node_id(settings_path_write, new_id.to_hyphenated().to_string())
+                }
+            }).and_then(move |id| {
+                consul_client.node_id = Some(id);
+                consul_client.register_node()
+            }).map_err(|err| error!("Error: {}", err));
+
+        // Run the tokio runtime, this will start an event loop that will process
+        // the connect_consul future. It will block until the future is completed
+        // by either completing successfuly or erroring out.
+        tokio::run(connect_consul);
     } else {
         info!("Clustering disabled...")
     }
+
     let index_catalog = match IndexCatalog::new(PathBuf::from(&settings.path), settings.clone()) {
         Ok(v) => v,
         Err(e) => {
@@ -151,6 +162,7 @@ pub fn runner() -> i32 {
     let addr = format!("{}:{}", &settings.host, settings.port);
 
     println!("{}", HEADER);
+
     gotham::start(addr, router_with_catalog(&catalog_arc));
     0
 }
