@@ -15,10 +15,9 @@ use cluster::{ClusterError, DiskType};
 static NODE_ID_FILENAME: &'static str = ".node_id";
 
 /// Write node id to the path `p` provided, this will also append `.node_id`
-pub fn write_node_id(id: String, p: String) -> impl Future<Item = String, Error = ClusterError> {
+pub fn write_node_id(p: String, id: String) -> impl Future<Item = String, Error = ClusterError> {
     // Append .node_id to the path provided
     let path = Path::new(&p).join(&NODE_ID_FILENAME);
-
     // Create and write the id to the file and return the id
     File::create(path)
         .and_then(move |file| write_all(file, id))

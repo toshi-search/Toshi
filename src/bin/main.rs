@@ -116,10 +116,16 @@ pub fn runner() -> i32 {
         let connect_consul = consul_client
             .register_cluster()
             .and_then(move |_| cluster::read_node_id(settings_path_read.as_str()))
-            .and_then(move |id| {
-                let parsed_id = Uuid::parse_str(&id).unwrap_or(Uuid::new_v4());
+            .then(|result| match result {
+                Ok(id) => {
+                    let parsed_id = Uuid::parse_str(&id).expect("Parsed node ID is not a UUID");
+                    cluster::write_node_id(settings_path_write, parsed_id.to_hyphenated().to_string())
+                }
 
-                cluster::write_node_id(settings_path_write, parsed_id.to_hyphenated().to_string())
+                Err(_) => {
+                    let new_id = Uuid::new_v4();
+                    cluster::write_node_id(settings_path_write, new_id.to_hyphenated().to_string())
+                }
             }).and_then(move |id| {
                 consul_client.node_id = Some(id);
                 consul_client.register_node()

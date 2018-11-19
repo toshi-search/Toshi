@@ -131,9 +131,11 @@ impl IndexCatalog {
         for dir in read_dir(self.base_path.clone())? {
             let entry = dir?.path();
             if let Some(entry_str) = entry.to_str() {
-                let pth: String = entry_str.rsplit('/').take(1).collect();
-                let idx = IndexCatalog::load_index(entry_str)?;
-                self.add_index(pth.clone(), idx);
+                if !entry_str.ends_with(".node_id") {
+                    let pth: String = entry_str.rsplit('/').take(1).collect();
+                    let idx = IndexCatalog::load_index(entry_str)?;
+                    self.add_index(pth.clone(), idx);
+                }
             } else {
                 return Err(Error::IOError(format!("Path {} is not a valid unicode path", entry.display())));
             }
