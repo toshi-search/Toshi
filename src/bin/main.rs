@@ -5,6 +5,7 @@ extern crate uuid;
 extern crate log;
 #[macro_use]
 extern crate clap;
+extern crate ctrlc;
 extern crate futures;
 extern crate hyper;
 extern crate num_cpus;
@@ -28,6 +29,9 @@ use toshi::router::router_with_catalog;
 use toshi::settings::{Settings, HEADER};
 
 use clap::{App, Arg, ArgMatches};
+
+use std::sync::atomic::{AtomicBool, Ordering};
+use tokio::runtime::*;
 
 pub fn main() {
     let code = runner();
@@ -153,16 +157,26 @@ pub fn runner() -> i32 {
         }
     };
     let catalog_arc = Arc::new(RwLock::new(index_catalog));
+    let mut runtime = Builder::new().name_prefix("toshi-runtime").build().unwrap();
+    let running = Arc::new(AtomicBool::new(true));
+    let r = running.clone();
+
+    ctrlc::set_handler(move || {
+        info!("Shutting down...");
+        r.store(false, Ordering::SeqCst)
+    }).expect("Error Setting up shutdown handler");
 
     if settings.auto_commit_duration > 0 {
         let commit_watcher = IndexWatcher::new(Arc::clone(&catalog_arc), settings.auto_commit_duration);
-        commit_watcher.start();
+        commit_watcher.start(&mut runtime);
     }
 
     let addr = format!("{}:{}", &settings.host, settings.port);
-
     println!("{}", HEADER);
+    gotham::start_on_executor(addr, router_with_catalog(&catalog_arc), runtime.executor());
 
-    gotham::start(addr, router_with_catalog(&catalog_arc));
+    while running.load(Ordering::SeqCst) {}
+    runtime.shutdown_now().wait().unwrap();
+    catalog_arc.write().unwrap().clear();
     0
 }

@@ -37,7 +37,8 @@ capnp             = "^0.9"
 clap              = "^2.32"
 num_cpus          = "^1.0"
 systemstat        = { git = "https://github.com/toshi-search/systemstat", branch = "master" }
-uuid              = { version = "0.7", features = ["v4"] }
+uuid              = { version = "^0.7", features = ["v4"] }
+ctrlc             = { version = "^3.1", features = ["termination"] }
 
 [profile.release]
 opt-level = 3

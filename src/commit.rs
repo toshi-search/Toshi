@@ -5,30 +5,20 @@ use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
 use tokio::prelude::*;
-use tokio::runtime::{Builder as RtBuilder, Runtime};
+use tokio::runtime::Runtime;
 use tokio::timer::Interval;
 
 pub struct IndexWatcher {
     commit_duration: u64,
     catalog: Arc<RwLock<IndexCatalog>>,
-    runtime: Runtime,
 }
 
 impl IndexWatcher {
     pub fn new(catalog: Arc<RwLock<IndexCatalog>>, commit_duration: u64) -> Self {
-        let runtime = RtBuilder::new()
-            .core_threads(2)
-            .name_prefix("toshi-index-committer")
-            .build()
-            .unwrap();
-        IndexWatcher {
-            catalog,
-            runtime,
-            commit_duration,
-        }
+        IndexWatcher { catalog, commit_duration }
     }
 
-    pub fn start(mut self) {
+    pub fn start(&self, runtime: &mut Runtime) {
         let catalog = Arc::clone(&self.catalog);
         let task = Interval::new(Instant::now(), Duration::from_secs(self.commit_duration))
             .for_each(move |_| {
@@ -46,12 +36,7 @@ impl IndexWatcher {
                 }
                 Ok(())
             }).map_err(|e| panic!("Error in commit-watcher={:?}", e));
-        self.runtime.spawn(future::lazy(|| task));
-        self.runtime.shutdown_on_idle();
-    }
-
-    pub fn shutdown(self) {
-        self.runtime.shutdown_now();
+        runtime.spawn(future::lazy(|| task));
     }
 }
 
@@ -64,6 +49,7 @@ pub mod tests {
     use index::tests::*;
     use std::thread::sleep;
     use std::time::Duration;
+    use tokio::runtime::Builder;
 
     use mime;
     use serde_json;
@@ -74,8 +60,9 @@ pub mod tests {
         let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
         let arc = Arc::new(RwLock::new(catalog));
         let test_server = create_test_client(&arc);
+        let mut test_runtime = Builder::new().name_prefix("toshi-test-runtime").build().unwrap();
         let watcher = IndexWatcher::new(Arc::clone(&arc), 1);
-        watcher.start();
+        watcher.start(&mut test_runtime);
 
         let body = r#"
         {

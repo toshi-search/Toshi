@@ -29,7 +29,7 @@ impl CreateQuery for BoolQuery {
 
 fn parse_queries(schema: &Schema, occur: Occur, queries: &[TermQueries]) -> Result<Vec<(Occur, Box<Query>)>> {
     let mut results = Vec::with_capacity(queries.len());
-    for q in queries.into_iter() {
+    for q in queries.iter() {
         match q {
             TermQueries::Fuzzy(f) => {
                 let fuzzy_query = f.clone().create_query(&schema)?;
