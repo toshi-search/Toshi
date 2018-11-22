@@ -1,4 +1,6 @@
 language: rust
+sudo: required
+os: linux
 
 compiler:
   - clang
@@ -27,11 +29,9 @@ matrix:
   allow_failures:
     - rust: nightly
     - rust: beta
+    - os: windows
   fast_finish: true
   include:
-    - os: linux
-      sudo: required
-      dist: trusty
     - os: osx
       sudo: required
     - os: windows
@@ -39,6 +39,8 @@ matrix:
 
 before_install:
   - rustup self update
+  - rustup install stable
+  - rustup component add rustfmt-preview --toolchain stable
 
 install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then chmod +x ./ci/install_capnp.sh && ./ci/install_capnp.sh; fi
@@ -53,6 +55,7 @@ before_script:
   - cargo install-update -a
 
 script:
+  - cargo +stable fmt --all -- --check
   - cargo build && cargo test
 
 after_success:

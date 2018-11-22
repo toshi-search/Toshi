@@ -14,7 +14,7 @@ use tantivy::Index;
 #[derive(Deserialize)]
 pub struct DeleteDoc {
     options: Option<IndexOptions>,
-    terms:   HashMap<String, String>,
+    terms: HashMap<String, String>,
 }
 
 #[derive(Clone)]
@@ -35,14 +35,16 @@ pub struct IndexOptions {
 
 #[derive(Deserialize)]
 pub struct AddDocument {
-    options:  Option<IndexOptions>,
+    options: Option<IndexOptions>,
     document: serde_json::Value,
 }
 
 impl RefUnwindSafe for IndexHandler {}
 
 impl IndexHandler {
-    pub fn new(catalog: Arc<RwLock<IndexCatalog>>) -> Self { IndexHandler { catalog } }
+    pub fn new(catalog: Arc<RwLock<IndexCatalog>>) -> Self {
+        IndexHandler { catalog }
+    }
 
     fn add_index(&mut self, name: String, index: Index) {
         match self.catalog.write() {
@@ -102,7 +104,9 @@ impl IndexHandler {
         }
     }
 
-    fn parse_doc(&self, schema: &Schema, bytes: &str) -> Result<Document> { schema.parse_document(bytes).map_err(|e| e.into()) }
+    fn parse_doc(&self, schema: &Schema, bytes: &str) -> Result<Document> {
+        schema.parse_document(bytes).map_err(|e| e.into())
+    }
 
     fn add_document(self, mut state: State, index_path: IndexPath) -> Box<HandlerFuture> {
         Box::new(Body::take_from(&mut state).concat2().then(move |body| match body {
@@ -141,6 +145,16 @@ impl IndexHandler {
         }))
     }
 
+    fn create_from_managed(&self, index_path: &IndexPath, schema: Schema) -> Result<Index> {
+        let mut ip = self.catalog.read()?.base_path().clone();
+        ip.push(&index_path.index);
+        if !ip.exists() {
+            fs::create_dir(&ip).map_err(|e| Error::IOError(e.to_string()))?;
+        }
+        let dir = MmapDirectory::open(ip).map_err(|e| Error::IOError(format!("{:?}", e)))?;
+        Index::open_or_create(dir, schema).map_err(|e| Error::IOError(format!("{:?}", e)))
+    }
+
     fn create_index(mut self, mut state: State, index_path: IndexPath) -> Box<HandlerFuture> {
         Box::new(Body::take_from(&mut state).concat2().then(move |body| match body {
             Ok(b) => {
@@ -148,21 +162,12 @@ impl IndexHandler {
                     Ok(v) => v,
                     Err(e) => return handle_error(state, e),
                 };
-                let mut ip = self.catalog.read().unwrap().base_path().clone();
-                ip.push(&index_path.index);
-                if !ip.exists() {
-                    fs::create_dir(&ip).unwrap()
-                }
-                let dir = match MmapDirectory::open(ip) {
-                    Ok(d) => d,
-                    Err(err) => return handle_error(state, err),
-                };
-                let new_index = match Index::open_or_create(dir, schema) {
+                let new_index = match self.create_from_managed(&index_path, schema) {
                     Ok(i) => i,
-                    Err(e) => return handle_error(state, e),
+                    Err(ref e) => return handle_error(state, e),
                 };
                 self.add_index(index_path.index, new_index);
-                let resp = create_response(&state, StatusCode::CREATED, mime::APPLICATION_JSON, Body::empty());
+                let resp = create_empty_response(&state, StatusCode::CREATED);
                 future::ok((state, resp))
             }
             Err(e) => handle_error(state, e),

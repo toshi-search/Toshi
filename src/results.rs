@@ -36,5 +36,7 @@ pub struct ScoredDoc {
 }
 
 impl ScoredDoc {
-    pub fn new(score: Option<f32>, doc: NamedFieldDocument) -> Self { ScoredDoc { score, doc } }
+    pub fn new(score: Option<f32>, doc: NamedFieldDocument) -> Self {
+        ScoredDoc { score, doc }
+    }
 }

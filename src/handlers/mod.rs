@@ -3,7 +3,9 @@ macro_rules! new_handler {
         impl NewHandler for $N {
             type Instance = Self;
 
-            fn new_handler(&self) -> gotham::error::Result<Self::Instance> { Ok(self.clone()) }
+            fn new_handler(&self) -> gotham::error::Result<Self::Instance> {
+                Ok(self.clone())
+            }
         }
     };
 }

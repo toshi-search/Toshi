@@ -15,7 +15,9 @@ pub struct SearchHandler {
 impl RefUnwindSafe for SearchHandler {}
 
 impl SearchHandler {
-    pub fn new(catalog: Arc<RwLock<IndexCatalog>>) -> Self { SearchHandler { catalog } }
+    pub fn new(catalog: Arc<RwLock<IndexCatalog>>) -> Self {
+        SearchHandler { catalog }
+    }
 }
 
 impl Handler for SearchHandler {
@@ -87,15 +89,15 @@ pub mod tests {
     #[derive(Deserialize)]
     pub struct TestDoc {
         pub score: f32,
-        pub doc:   TestSchema,
+        pub doc: TestSchema,
     }
 
     #[derive(Deserialize, Debug)]
     pub struct TestSchema {
-        pub score:        f32,
-        pub test_text:    Vec<String>,
-        pub test_i64:     Vec<i64>,
-        pub test_u64:     Vec<u64>,
+        pub score: f32,
+        pub test_text: Vec<String>,
+        pub test_i64: Vec<i64>,
+        pub test_u64: Vec<u64>,
         pub test_unindex: Vec<String>,
     }
 

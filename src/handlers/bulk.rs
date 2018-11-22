@@ -14,7 +14,7 @@ use std::thread;
 use tantivy::Document;
 use tantivy::IndexWriter;
 
-use crossbeam_channel::{unbounded, Receiver};
+use crossbeam::channel::{unbounded, Receiver};
 use std::sync::Mutex;
 
 #[derive(Clone)]
@@ -25,7 +25,9 @@ pub struct BulkHandler {
 impl RefUnwindSafe for BulkHandler {}
 
 impl BulkHandler {
-    pub fn new(catalog: Arc<RwLock<IndexCatalog>>) -> Self { BulkHandler { catalog } }
+    pub fn new(catalog: Arc<RwLock<IndexCatalog>>) -> Self {
+        BulkHandler { catalog }
+    }
 
     fn index_documents(index_writer: &Mutex<IndexWriter>, doc_receiver: Receiver<Document>) -> Result<u64> {
         match index_writer.lock() {
@@ -60,12 +62,14 @@ impl Handler for BulkHandler {
             thread::spawn(move || {
                 for line in line_recv_clone {
                     if !line.is_empty() {
-                        match schema_clone.parse_document(from_utf8(&line).unwrap()) {
-                            Ok(doc) => match doc_sender.send(doc) {
-                                Ok(()) => (),
-                                Err(err) => error!("Bulk commit failed: {:?}", err),
-                            },
-                            Err(err) => error!("Failed to add doc: {:?}", err),
+                        if let Ok(text) = from_utf8(&line) {
+                            match schema_clone.parse_document(text) {
+                                Ok(doc) => match doc_sender.send(doc) {
+                                    Ok(_) => (),
+                                    Err(err) => error!("Error occurred in parsing thread: {:?}", err),
+                                },
+                                Err(err) => error!("Error occurred in parsing thread: {:?}", err),
+                            }
                         }
                     }
                 }
@@ -89,18 +93,17 @@ impl Handler for BulkHandler {
                     }
                     match line_sender_clone.send(l.to_vec()) {
                         Ok(_) => (),
-                        Err(ref err) => return future::err(Error::IOError(err.to_string()).into_handler_error()),
+                        Err(e) => return future::err(e.into_handler_error()),
                     };
                 }
                 future::ok(buf.clone())
-            })
-            .then(move |response| match response {
+            }).then(move |response| match response {
                 Ok(buf) => {
                     if !buf.is_empty() {
                         match line_sender.send(buf.to_vec()) {
                             Ok(_) => (),
-                            Err(ref err) => return handle_error(state, Error::IOError(err.to_string())),
-                        }
+                            Err(e) => return handle_error(state, &Error::IOError(e.to_string())),
+                        };
                     }
                     let resp = create_empty_response(&state, StatusCode::CREATED);
                     future::ok((state, resp))

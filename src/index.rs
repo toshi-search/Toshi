@@ -1,7 +1,7 @@
 use super::*;
 
 use std::collections::HashMap;
-use std::fs::{create_dir, read_dir};
+use std::fs::read_dir;
 use std::iter::Iterator;
 use std::path::PathBuf;
 
@@ -17,12 +17,14 @@ use settings::Settings;
 
 pub struct IndexCatalog {
     pub settings: Settings,
-    base_path:    PathBuf,
-    collection:   HashMap<String, IndexHandle>,
+    base_path: PathBuf,
+    collection: HashMap<String, IndexHandle>,
 }
 
 impl IndexCatalog {
-    pub fn with_path(base_path: PathBuf) -> Result<Self> { IndexCatalog::new(base_path, Settings::default()) }
+    pub fn with_path(base_path: PathBuf) -> Result<Self> {
+        IndexCatalog::new(base_path, Settings::default())
+    }
 
     pub fn new(base_path: PathBuf, settings: Settings) -> Result<Self> {
         let mut index_cat = IndexCatalog {
@@ -35,7 +37,9 @@ impl IndexCatalog {
         Ok(index_cat)
     }
 
-    pub fn base_path(&self) -> &PathBuf { &self.base_path }
+    pub fn base_path(&self) -> &PathBuf {
+        &self.base_path
+    }
 
     #[doc(hidden)]
     #[allow(dead_code)]
@@ -45,8 +49,8 @@ impl IndexCatalog {
             IndexHandle::new(index, Settings::default()).unwrap_or_else(|_| panic!("Unable to open index: {} because it's locked", name));
         map.insert(name, new_index);
         Ok(IndexCatalog {
-            settings:   Settings::default(),
-            base_path:  PathBuf::new(),
+            settings: Settings::default(),
+            base_path: PathBuf::new(),
             collection: map,
         })
     }
@@ -65,15 +69,21 @@ impl IndexCatalog {
     pub fn add_index(&mut self, name: String, index: Index) {
         let handle =
             IndexHandle::new(index, self.settings.clone()).unwrap_or_else(|_| panic!("Unable to open index: {} because it's locked", name));
-        self.collection.insert(name, handle);
+        self.collection.entry(name).or_insert(handle);
     }
 
     #[allow(dead_code)]
-    pub fn get_collection(&self) -> &HashMap<String, IndexHandle> { &self.collection }
+    pub fn get_collection(&self) -> &HashMap<String, IndexHandle> {
+        &self.collection
+    }
 
-    pub fn get_mut_collection(&mut self) -> &mut HashMap<String, IndexHandle> { &mut self.collection }
+    pub fn get_mut_collection(&mut self) -> &mut HashMap<String, IndexHandle> {
+        &mut self.collection
+    }
 
-    pub fn exists(&self, index: &str) -> bool { self.get_collection().contains_key(index) }
+    pub fn exists(&self, index: &str) -> bool {
+        self.get_collection().contains_key(index)
+    }
 
     pub fn get_mut_index(&mut self, name: &str) -> Result<&mut IndexHandle> {
         self.collection.get_mut(name).ok_or_else(|| Error::UnknownIndex(name.to_string()))
@@ -85,16 +95,15 @@ impl IndexCatalog {
 
     pub fn refresh_catalog(&mut self) -> Result<()> {
         self.collection.clear();
-        if !self.base_path.exists() {
-            info!("Base data path {} does not exist, creating it...", self.base_path.display());
-            create_dir(self.base_path.clone())?;
-        }
+
         for dir in read_dir(self.base_path.clone())? {
             let entry = dir?.path();
             if let Some(entry_str) = entry.to_str() {
-                let pth: String = entry_str.rsplit('/').take(1).collect();
-                let idx = IndexCatalog::load_index(entry_str)?;
-                self.add_index(pth.clone(), idx);
+                if !entry_str.ends_with(".node_id") {
+                    let pth: String = entry_str.rsplit('/').take(1).collect();
+                    let idx = IndexCatalog::load_index(entry_str)?;
+                    self.add_index(pth.clone(), idx);
+                }
             } else {
                 return Err(Error::IOError(format!("Path {} is not a valid unicode path", entry.display())));
             }
@@ -110,7 +119,6 @@ impl IndexCatalog {
                 let searcher = idx.searcher();
                 let schema = idx.schema();
                 let mut collector = TopCollector::with_limit(search.limit);
-
                 if let Some(query) = search.query {
                     match query {
                         Query::Regex(regex) => {
@@ -156,8 +164,7 @@ impl IndexCatalog {
                     .map(|(score, doc)| {
                         let d = searcher.doc(doc).expect("Doc not found in segment");
                         ScoredDoc::new(Some(score), schema.to_named_doc(&d))
-                    })
-                    .collect();
+                    }).collect();
 
                 Ok(SearchResults::new(scored_docs))
             }
@@ -165,7 +172,9 @@ impl IndexCatalog {
         }
     }
 
-    pub fn clear(&mut self) { self.collection.clear(); }
+    pub fn clear(&mut self) {
+        self.collection.clear();
+    }
 }
 
 #[cfg(test)]
@@ -204,17 +213,5 @@ pub mod tests {
 
     pub fn create_test_server(catalog: &Arc<RwLock<IndexCatalog>>) -> TestServer {
         TestServer::new(router::router_with_catalog(catalog)).unwrap()
-    }
-
-    #[test]
-    fn test_catalog_create_data_dir() {
-        let path = PathBuf::from("data_dir");
-        assert_eq!(path.exists(), false);
-
-        let _catalog = IndexCatalog::with_path(path.clone()).unwrap();
-
-        assert_eq!(path.exists(), true);
-        assert_eq!(path.is_dir(), true);
-        remove_dir(path).unwrap();
     }
 }

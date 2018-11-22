@@ -13,9 +13,9 @@ pub struct SummaryDoc {
 }
 
 pub struct SumCollector<'a> {
-    field:     String,
+    field: Field,
     collector: TopCollector,
-    searcher:  &'a Searcher,
+    searcher: &'a Searcher,
 }
 
 impl<'a> SumCollector<'a> {
@@ -49,15 +49,13 @@ impl<'a> AggregateQuery<SummaryDoc> for SumCollector<'a> {
                         Value::I64(i) => Ok((*i) as u64),
                         Value::U64(u) => Ok(*u),
                         // Should we even have these or only numerics?
-                        Value::Str(s) => Ok((*s).len() as u64),
-                        Value::Bytes(b) => Ok((*b).len() as u64),
-                        _ => Err(Error::QueryError("Unknown Type in Sum aggregate".into())),
-                    })
-                    .sum::<Result<u64>>()
-            })
-            .sum::<Result<u64>>()?;
-        Ok(SummaryDoc {
-            field: self.field.clone(),
+                        Value::Str(s) => (*s).len() as u64,
+                        Value::Bytes(b) => (*b).len() as u64,
+                        _ => panic!("Value is not numeric"),
+                    }).sum::<u64>()
+            }).sum();
+        SummaryDoc {
+            field: Field(0),
             value: result,
         })
     }
@@ -68,7 +66,11 @@ impl<'a> Collector for SumCollector<'a> {
         self.collector.set_segment(segment_local_id, segment)
     }
 
-    fn collect(&mut self, doc: u32, score: f32) { self.collector.collect(doc, score); }
+    fn collect(&mut self, doc: u32, score: f32) {
+        self.collector.collect(doc, score);
+    }
 
-    fn requires_scoring(&self) -> bool { self.collector.requires_scoring() }
+    fn requires_scoring(&self) -> bool {
+        self.collector.requires_scoring()
+    }
 }

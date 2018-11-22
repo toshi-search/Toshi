@@ -1,10 +1,11 @@
 #[derive(Deserialize, Debug)]
 pub struct Range {
     from: Option<u64>,
-    to:   Option<u64>,
+    to: Option<u64>,
 }
 
 #[derive(Serialize)]
+#[allow(dead_code)]
 pub struct RangeResult {
     key: String,
     #[serde(skip_serializing_if = "Option::is_none")]

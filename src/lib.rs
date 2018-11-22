@@ -2,7 +2,7 @@
 extern crate capnp;
 extern crate clap;
 extern crate config;
-extern crate crossbeam_channel;
+extern crate crossbeam;
 #[macro_use]
 extern crate failure;
 extern crate futures;
@@ -55,6 +55,7 @@ impl From<TError> for Error {
             TError::LockFailure(e) => Error::IOError(format!("Failed to acquire lock: {:?}", e)),
             TError::IndexAlreadyExists => Error::IOError(format!("Failed to acquire lock on index.")),
             TError::FastFieldError(_) => Error::IOError("Fast Field Error".to_string()),
+            TError::IndexAlreadyExists => Error::IOError("Index Already Exists".into()),
         }
     }
 }
