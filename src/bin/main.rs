@@ -41,13 +41,15 @@ pub fn main() -> Result<(), ()> {
 
     let (tx, shutdown_signal) = oneshot::channel();
 
+    let index_catalog = create_catalog(&settings);
+
     // Create the toshi application future, this future runs the entire
     // Toshi application. It will produce a oneshot channel message when
     // it has received the shutdown signal from the OS.
     let toshi = {
         // Create the future that runs forever and spawns the webserver
         // and clustering abilities of Toshi.
-        let server = run(settings);
+        let server = run(index_catalog.clone(), settings);
 
         // Create the future that waits for a shutdown signal and
         // triggers the oneshot shutdown_signal to tell the tokio
@@ -66,7 +68,17 @@ pub fn main() -> Result<(), ()> {
 
     // Gracefully shutdown the tokio runtime when a shutdown message has been
     // received on the shutdown_signal channel.
-    shutdown_signal.map_err(|_| ()).and_then(move |_| rt.shutdown_now()).wait()
+    shutdown_signal
+        .map_err(|_| ())
+        .and_then(move |_| {
+            index_catalog
+                .write()
+                .expect("Unable to acquire write lock on index catalog")
+                .clear();
+
+            Ok(())
+        }).and_then(move |_| rt.shutdown_now())
+        .wait()
 }
 
 // Extract the settings from the cli or config file
@@ -136,25 +148,29 @@ fn settings() -> Settings {
     settings
 }
 
-// Create the future that runs forever and spawns the webserver
-// and clustering abilities of Toshi.
-fn run(settings: Settings) -> impl Future<Item = (), Error = ()> {
-    if !Path::new(&settings.path).exists() {
-        info!("Base data path {} does not exist, creating it...", settings.path);
-        create_dir(settings.path.clone()).expect("Unable to create data directory");
-    }
-
-    let index_catalog = match IndexCatalog::new(PathBuf::from(&settings.path), settings.clone()) {
+fn create_catalog(settings: &Settings) -> Arc<RwLock<IndexCatalog>> {
+    let path = PathBuf::from(settings.path.clone());
+    let index_catalog = match IndexCatalog::new(path, settings.clone()) {
         Ok(v) => v,
         Err(e) => {
             eprintln!("Error Encountered - {}", e.to_string());
             std::process::exit(1);
         }
     };
-    let catalog_arc = Arc::new(RwLock::new(index_catalog));
+
+    Arc::new(RwLock::new(index_catalog))
+}
+
+// Create the future that runs forever and spawns the webserver
+// and clustering abilities of Toshi.
+fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: Settings) -> impl Future<Item = (), Error = ()> {
+    if !Path::new(&settings.path).exists() {
+        info!("Base data path {} does not exist, creating it...", settings.path);
+        create_dir(settings.path.clone()).expect("Unable to create data directory");
+    }
 
     if settings.auto_commit_duration > 0 {
-        let commit_watcher = IndexWatcher::new(Arc::clone(&catalog_arc), settings.auto_commit_duration);
+        let commit_watcher = IndexWatcher::new(catalog.clone(), settings.auto_commit_duration);
         commit_watcher.start();
     }
 
@@ -166,7 +182,7 @@ fn run(settings: Settings) -> impl Future<Item = (), Error = ()> {
     // the connect_consul future. It will block until the future is completed
     // by either completing successfuly or erroring out.
     connect_to_consul(settings.path.clone(), settings.cluster_name.into())
-        .and_then(move |_| gotham::init_server(addr, router_with_catalog(&catalog_arc)))
+        .and_then(move |_| gotham::init_server(addr, router_with_catalog(&catalog)))
 }
 
 // Spawn a future that will connect to the consul cluster from the provided path
