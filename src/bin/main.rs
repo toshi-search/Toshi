@@ -31,20 +31,46 @@ use toshi::{
 };
 
 pub fn main() -> Result<(), ()> {
+    // Get the toshi settings
+    let settings = settings();
+
+    std::env::set_var("RUST_LOG", &settings.log_level);
+    pretty_env_logger::init();
+
     let mut rt = Runtime::new().expect("failed to start new Runtime");
 
     let (tx, shutdown_signal) = oneshot::channel();
-    let server = {
-        let server = runner();
-        server.select(shutdown(tx)).map(|_| ()).map_err(|_| ())
+
+    // Create the toshi application future, this future runs the entire
+    // Toshi application. It will produce a oneshot channel message when
+    // it has received the shutdown signal from the OS.
+    let toshi = {
+        // Create the future that runs forever and spawns the webserver
+        // and clustering abilities of Toshi.
+        let server = run(settings);
+
+        // Create the future that waits for a shutdown signal and
+        // triggers the oneshot shutdown_signal to tell the tokio
+        // runtime it's time to gracefully.
+        let shutdown = shutdown(tx);
+
+        // Select between either future, this will resolve to the
+        // first future to resolve. Since, the server future runs forever
+        // the only time this will resolve is when the shutdown signal has been
+        // received and it will "throwaway" the server future. This gives Toshi
+        // an opportunity to clean up its resources.
+        server.select(shutdown)
     };
 
-    rt.spawn(server);
+    rt.spawn(toshi.map(|_| ()).map_err(|_| ()));
 
+    // Gracefully shutdown the tokio runtime when a shutdown message has been
+    // received on the shutdown_signal channel.
     shutdown_signal.map_err(|_| ()).and_then(move |_| rt.shutdown_now()).wait()
 }
 
-pub fn runner() -> impl Future<Item = (), Error = ()> {
+// Extract the settings from the cli or config file
+fn settings() -> Settings {
     let options: ArgMatches = App::new("Toshi Search")
         .version(crate_version!())
         .about(crate_description!())
@@ -107,9 +133,12 @@ pub fn runner() -> impl Future<Item = (), Error = ()> {
         Settings::from_args(&options)
     };
 
-    std::env::set_var("RUST_LOG", &settings.log_level);
-    pretty_env_logger::init();
+    settings
+}
 
+// Create the future that runs forever and spawns the webserver
+// and clustering abilities of Toshi.
+fn run(settings: Settings) -> impl Future<Item = (), Error = ()> {
     if !Path::new(&settings.path).exists() {
         info!("Base data path {} does not exist, creating it...", settings.path);
         create_dir(settings.path.clone()).expect("Unable to create data directory");
@@ -133,16 +162,15 @@ pub fn runner() -> impl Future<Item = (), Error = ()> {
 
     println!("{}", HEADER);
 
-    // If this is the first node in a new cluster, we need to register the cluster name in Consul
-    let cluster_name = options.value_of("cluster-name").expect("Unable to get cluster name");
-
     // Run the tokio runtime, this will start an event loop that will process
     // the connect_consul future. It will block until the future is completed
     // by either completing successfuly or erroring out.
-    connect_to_consul(settings.path.clone(), cluster_name.into())
+    connect_to_consul(settings.path.clone(), settings.cluster_name.into())
         .and_then(move |_| gotham::init_server(addr, router_with_catalog(&catalog_arc)))
 }
 
+// Spawn a future that will connect to the consul cluster from the provided path
+// and cluster name.
 fn connect_to_consul(path: String, cluster_name: String) -> impl Future<Item = (), Error = ()> {
     let mut consul_client = ConsulInterface::default().with_cluster_name(cluster_name.to_string());
 
@@ -169,9 +197,11 @@ fn connect_to_consul(path: String, cluster_name: String) -> impl Future<Item = (
         }).map_err(|e| error!("Error: {}", e))
 }
 
+// A future that takes a shutdown signal sender and will produce a message
+// on the channel once it has received the shutdown signal.
 fn shutdown(signal: oneshot::Sender<()>) -> impl Future<Item = (), Error = ()> {
-    // Create an infinite stream of "Ctrl+C" notifications. Each item received
-    // on this stream may represent multiple ctrl-c signals.
+    // Create a future that will take the first shutdown signal received and
+    // will produce a shutdown message on the signal channel passed in.
     tokio_signal::ctrl_c()
         .flatten_stream()
         .take(1)
