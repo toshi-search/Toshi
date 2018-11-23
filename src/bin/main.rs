@@ -10,8 +10,7 @@ extern crate tokio;
 extern crate toshi;
 extern crate uuid;
 
-use clap::{crate_authors, crate_description, crate_version};
-use clap::{App, Arg, ArgMatches};
+use clap::{crate_authors, crate_description, crate_version, App, Arg, ArgMatches};
 use futures::{sync::oneshot, Future, Stream};
 use log::{error, info};
 use std::{
