@@ -11,7 +11,7 @@ extern crate toshi;
 extern crate uuid;
 
 use clap::{crate_authors, crate_description, crate_version, App, Arg, ArgMatches};
-use futures::{sync::oneshot, Future, Stream};
+use futures::{future, sync::oneshot, Future, Stream};
 use log::{error, info};
 use std::{
     fs::create_dir,
@@ -40,7 +40,18 @@ pub fn main() -> Result<(), ()> {
 
     let (tx, shutdown_signal) = oneshot::channel();
 
-    let index_catalog = create_catalog(&settings);
+    let index_catalog = {
+        let path = PathBuf::from(settings.path.clone());
+        let index_catalog = match IndexCatalog::new(path, settings.clone()) {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("Error Encountered - {}", e.to_string());
+                std::process::exit(1);
+            }
+        };
+
+        Arc::new(RwLock::new(index_catalog))
+    };
 
     // Create the toshi application future, this future runs the entire
     // Toshi application. It will produce a oneshot channel message when
@@ -134,6 +145,11 @@ fn settings() -> Settings {
                 .long("cluster-name")
                 .takes_value(true)
                 .default_value("kitsune"),
+        ).arg(
+            Arg::with_name("enable-clustering")
+                .short("E")
+                .long("enable-clustering")
+                .takes_value(false),
         ).get_matches();
 
     let settings = if options.is_present("config") {
@@ -145,19 +161,6 @@ fn settings() -> Settings {
     };
 
     settings
-}
-
-fn create_catalog(settings: &Settings) -> Arc<RwLock<IndexCatalog>> {
-    let path = PathBuf::from(settings.path.clone());
-    let index_catalog = match IndexCatalog::new(path, settings.clone()) {
-        Ok(v) => v,
-        Err(e) => {
-            eprintln!("Error Encountered - {}", e.to_string());
-            std::process::exit(1);
-        }
-    };
-
-    Arc::new(RwLock::new(index_catalog))
 }
 
 // Create the future that runs forever and spawns the webserver
@@ -177,11 +180,18 @@ fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: Settings) -> impl Future<It
 
     println!("{}", HEADER);
 
-    // Run the tokio runtime, this will start an event loop that will process
-    // the connect_consul future. It will block until the future is completed
-    // by either completing successfuly or erroring out.
-    connect_to_consul(settings.path.clone(), settings.cluster_name.into())
-        .and_then(move |_| gotham::init_server(addr, router_with_catalog(&catalog)))
+    if settings.enable_clustering {
+        // Run the tokio runtime, this will start an event loop that will process
+        // the connect_consul future. It will block until the future is completed
+        // by either completing successfuly or erroring out.
+        let run = connect_to_consul(settings.path.clone(), settings.cluster_name.into())
+            .and_then(move |_| gotham::init_server(addr, router_with_catalog(&catalog)));
+
+        future::Either::A(run)
+    } else {
+        let run = gotham::init_server(addr, router_with_catalog(&catalog));
+        future::Either::B(run)
+    }
 }
 
 // Spawn a future that will connect to the consul cluster from the provided path
