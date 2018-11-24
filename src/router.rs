@@ -22,10 +22,10 @@ pub fn router_with_catalog(catalog: &Arc<RwLock<IndexCatalog>>) -> Router {
     let index_handler = IndexHandler::new(Arc::clone(catalog));
     let bulk_handler = BulkHandler::new(Arc::clone(catalog));
     let summary_handler = SummaryHandler::new(Arc::clone(catalog));
-    let root_handler = RootHandler::new(format!("Toshi Search, Version: {}", VERSION));
+    let root_handler = RootHandler::new(VERSION.into());
 
     build_simple_router(|route| {
-        route.get("/_version").to_new_handler(root_handler);
+        route.get("/").to_new_handler(root_handler);
         router_builder!(route, vec![Method::POST, Method::GET], "/:index", search_handler);
         router_builder!(route, vec![Method::PUT, Method::DELETE], "/:index", index_handler);
         router_builder!(route, vec![Method::POST], "/:index/_bulk", bulk_handler);

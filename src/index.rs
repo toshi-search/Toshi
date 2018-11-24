@@ -250,7 +250,6 @@ pub mod tests {
 
     use super::*;
     use gotham::test::{TestClient, TestServer};
-    use std::fs::remove_dir;
     use std::sync::{Arc, RwLock};
     use tantivy::doc;
 
