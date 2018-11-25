@@ -14,7 +14,8 @@ path = "src/bin/main.rs"
 path = "src/lib.rs"
 
 [dependencies]
-gotham            = "^0.3"
+#gotham            = "^0.3"
+gotham            = { git = "https://github.com/LucioFranco/gotham" }
 gotham_derive     = "^0.3"
 hyper             = "^0.12"
 mime              = "^0.3"
@@ -24,7 +25,7 @@ serde_json        = "^1.0"
 futures           = "^0.1"
 tantivy           = "^0.7"
 tokio             = "^0.1"
-tokio-signal 	   = "^0.2"
+tokio-signal 	  = "^0.2"
 config            = "^0.9"
 log               = "^0.4"
 pretty_env_logger = "^0.2"

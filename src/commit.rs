@@ -41,57 +41,55 @@ impl IndexWatcher {
     }
 }
 
-// #[cfg(test)]
-// pub mod tests {
-//     use super::*;
-//     use handlers::search::tests::*;
-//     use hyper::StatusCode;
-//     use index::tests::*;
-//     use std::thread::sleep;
-//     use std::time::Duration;
+#[cfg(test)]
+pub mod tests {
+    use super::*;
+    use handlers::search::tests::*;
+    use hyper::StatusCode;
+    use index::tests::*;
+    use std::thread::sleep;
+    use std::time::Duration;
 
-//     use futures::future;
-//     use mime;
-//     use serde_json;
+    use futures::future;
+    use mime;
+    use serde_json;
 
-//     #[test]
-//     pub fn test_auto_commit() {
-//         let fut = future::lazy(|| {
-//             let idx = create_test_index();
-//             let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
-//             let arc = Arc::new(RwLock::new(catalog));
-//             let test_server = create_test_client(&arc);
-//             let watcher = IndexWatcher::new(Arc::clone(&arc), 1);
-//             watcher.start();
+    #[test]
+    pub fn test_auto_commit() {
+        let idx = create_test_index();
+        let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
+        let arc = Arc::new(RwLock::new(catalog));
+        let server = create_test_server(&arc);
+        let client = server.client();
+        let watcher = IndexWatcher::new(Arc::clone(&arc), 1);
 
-//             let body = r#"
-//             {
-//               "document": {
-//                 "test_text":    "Babbaboo!",
-//                 "test_u64":     10 ,
-//                 "test_i64":     -10,
-//                 "test_unindex": "asdf1234"
-//               }
-//             }"#;
+        let fut = future::lazy(|| {
+            watcher.start();
+            future::ok::<(), ()>(())
+        });
+        server.spawn(fut);
 
-//             let response = test_server.put("http://localhost/test_index", body, mime::APPLICATION_JSON);
-//             //.perform()
-//             // .unwrap();
-//             // assert_eq!(response.status(), StatusCode::CREATED);
-//             // sleep(Duration::from_secs(3));
+        let body = r#"
+            {
+              "document": {
+                "test_text":    "Babbaboo!",
+                "test_u64":     10 ,
+                "test_i64":     -10,
+                "test_unindex": "asdf1234"
+              }
+            }"#;
 
-//             // let check_request = create_test_client(&arc)
-//             //     .get("http://localhost/test_index?pretty=true")
-//             //     .perform()
-//             //     .unwrap();
+        let response = client
+            .put("http://localhost/test_index", body, mime::APPLICATION_JSON)
+            .perform()
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::CREATED);
+        sleep(Duration::from_secs(3));
 
-//             // let body = check_request.read_body().unwrap();
-//             // let results: TestResults = serde_json::from_slice(&body).unwrap();
-//             // assert_eq!(6, results.hits);
+        let check_request = server.client().get("http://localhost/test_index?pretty=true").perform().unwrap();
 
-//             future::ok::<(), ()>(())
-//         });
-
-//         tokio::runtime::current_thread::Runtime::new().unwrap().block_on(fut).unwrap();
-//     }
-// }
+        let body = check_request.read_body().unwrap();
+        let results: TestResults = serde_json::from_slice(&body).unwrap();
+        assert_eq!(6, results.hits);
+    }
+}
