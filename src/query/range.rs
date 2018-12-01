@@ -45,19 +45,19 @@ impl CreateQuery for RangeQuery {
 fn create_ranges<T>(gte: &Option<Value>, lte: &Option<Value>, lt: &Option<Value>, gt: &Option<Value>) -> Result<(Bound<T>, Bound<T>)>
 where T: DeserializeOwned {
     let lower = if let Some(b) = gt {
-        let value = serde_json::from_value(b.clone()).map_err(|e| Error::from(e))?;
+        let value = serde_json::from_value(b.clone()).map_err(Error::from)?;
         Bound::Excluded(value)
     } else if let Some(b) = gte {
-        let value = serde_json::from_value(b.clone()).map_err(|e| Error::from(e))?;
+        let value = serde_json::from_value(b.clone()).map_err(Error::from)?;
         Bound::Included(value)
     } else {
         return Err(Error::QueryError("No lower bound specified".into()));
     };
     let upper = if let Some(b) = lt {
-        let value = serde_json::from_value(b.clone()).map_err(|e| Error::from(e))?;
+        let value = serde_json::from_value(b.clone()).map_err(Error::from)?;
         Bound::Excluded(value)
     } else if let Some(b) = lte {
-        let value = serde_json::from_value(b.clone()).map_err(|e| Error::from(e))?;
+        let value = serde_json::from_value(b.clone()).map_err(Error::from)?;
         Bound::Included(value)
     } else {
         return Err(Error::QueryError("No upper bound specified".into()));

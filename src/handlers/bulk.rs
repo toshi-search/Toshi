@@ -102,7 +102,7 @@ impl Handler for BulkHandler {
                     if !buf.is_empty() {
                         match line_sender.send(buf.to_vec()) {
                             Ok(_) => (),
-                            Err(e) => return handle_error(state, &Error::IOError(e.to_string())),
+                            Err(e) => return handle_error(state, Error::IOError(e.to_string())),
                         };
                     }
                     let resp = create_empty_response(&state, StatusCode::CREATED);

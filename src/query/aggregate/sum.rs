@@ -5,15 +5,16 @@ use super::AggregateQuery;
 use tantivy::collector::{Collector, TopCollector};
 use tantivy::schema::Value;
 use tantivy::{Searcher, SegmentReader};
+use tantivy::schema::Field;
 
 #[derive(Serialize, Debug)]
 pub struct SummaryDoc {
-    field: String,
+    field: Field,
     value: u64,
 }
 
 pub struct SumCollector<'a> {
-    field: Field,
+    field: String,
     collector: TopCollector,
     searcher: &'a Searcher,
 }
@@ -46,15 +47,16 @@ impl<'a> AggregateQuery<SummaryDoc> for SumCollector<'a> {
                 doc.get_first(field)
                     .into_iter()
                     .map(|v| match v {
-                        Value::I64(i) => Ok((*i) as u64),
-                        Value::U64(u) => Ok(*u),
+                        Value::I64(i) => (*i) as u64,
+                        Value::U64(u) => *u,
                         // Should we even have these or only numerics?
                         Value::Str(s) => (*s).len() as u64,
                         Value::Bytes(b) => (*b).len() as u64,
                         _ => panic!("Value is not numeric"),
                     }).sum::<u64>()
             }).sum();
-        SummaryDoc {
+
+        Ok(SummaryDoc {
             field: Field(0),
             value: result,
         })

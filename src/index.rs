@@ -11,7 +11,7 @@ use tantivy::schema::*;
 use tantivy::Index;
 
 use handle::IndexHandle;
-use query::{CreateQuery, Query, Request, SumCollector};
+use query::{CreateQuery, Query, Request};
 use results::*;
 use settings::Settings;
 

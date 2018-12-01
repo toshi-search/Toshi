@@ -164,7 +164,7 @@ impl IndexHandler {
                 };
                 let new_index = match self.create_from_managed(&index_path, schema) {
                     Ok(i) => i,
-                    Err(ref e) => return handle_error(state, e),
+                    Err(e) => return handle_error(state, e),
                 };
                 self.add_index(index_path.index, new_index);
                 let resp = create_empty_response(&state, StatusCode::CREATED);
