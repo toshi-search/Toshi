@@ -15,10 +15,10 @@ use tantivy::schema::{FieldType, Schema};
 #[serde(untagged)]
 pub enum Ranges {
     ValueRange {
-        gte:   Option<Value>,
-        lte:   Option<Value>,
-        lt:    Option<Value>,
-        gt:    Option<Value>,
+        gte: Option<Value>,
+        lte: Option<Value>,
+        lt: Option<Value>,
+        gt: Option<Value>,
         boost: Option<f32>,
     },
 }
@@ -43,7 +43,9 @@ impl CreateQuery for RangeQuery {
 
 #[inline]
 fn create_ranges<T>(gte: &Option<Value>, lte: &Option<Value>, lt: &Option<Value>, gt: &Option<Value>) -> Result<(Bound<T>, Bound<T>)>
-where T: DeserializeOwned {
+where
+    T: DeserializeOwned,
+{
     let lower = if let Some(b) = gt {
         let value = serde_json::from_value(b.clone()).map_err(Error::from)?;
         Bound::Excluded(value)

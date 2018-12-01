@@ -61,7 +61,7 @@ pub struct Request {
 impl Request {
     pub fn all_docs() -> Self {
         Self {
-            aggs:  None,
+            aggs: None,
             query: Some(Query::All),
             limit: Settings::default_result_limit(),
         }

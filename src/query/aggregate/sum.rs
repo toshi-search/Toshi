@@ -3,9 +3,8 @@ use super::super::{Error, Result};
 use super::AggregateQuery;
 
 use tantivy::collector::{Collector, TopCollector};
-use tantivy::schema::Value;
+use tantivy::schema::{Field, Value};
 use tantivy::{Searcher, SegmentReader};
-use tantivy::schema::Field;
 
 #[derive(Serialize, Debug)]
 pub struct SummaryDoc {

@@ -21,8 +21,8 @@ extern crate tantivy;
 extern crate tokio;
 extern crate uuid;
 
-use gotham::handler::{IntoHandlerError, HandlerError};
 use failure::Fail;
+use gotham::handler::{HandlerError, IntoHandlerError};
 use log::*;
 use tantivy::query::QueryParserError;
 use tantivy::schema::DocParsingError;
@@ -41,7 +41,9 @@ pub enum Error {
 }
 
 impl IntoHandlerError for Error {
-    fn into_handler_error(self) -> HandlerError { self.compat().into_handler_error() }
+    fn into_handler_error(self) -> HandlerError {
+        self.compat().into_handler_error()
+    }
 }
 
 impl From<TError> for Error {
@@ -106,7 +108,9 @@ impl From<std::str::Utf8Error> for Error {
 }
 
 impl From<serde_json::Error> for Error {
-    fn from(err: serde_json::Error) -> Self { Error::QueryError(err.to_string()) }
+    fn from(err: serde_json::Error) -> Self {
+        Error::QueryError(err.to_string())
+    }
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

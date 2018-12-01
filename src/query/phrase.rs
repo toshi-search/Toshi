@@ -11,7 +11,7 @@ pub struct PhraseQuery {
 }
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct TermPair {
-    terms:   Vec<String>,
+    terms: Vec<String>,
     offsets: Option<Vec<usize>>,
 }
 
@@ -33,8 +33,7 @@ impl CreateQuery for PhraseQuery {
                     .map(|(t, o)| match make_field_value(schema, &k, &t) {
                         Ok(f) => Ok((o, f)),
                         Err(e) => Err(e),
-                    })
-                    .collect::<Result<Vec<(usize, Term)>>>()?;
+                    }).collect::<Result<Vec<(usize, Term)>>>()?;
                 Ok(Box::new(TantivyPhraseQuery::new_with_offset(paired_terms)))
             } else {
                 let terms = v
