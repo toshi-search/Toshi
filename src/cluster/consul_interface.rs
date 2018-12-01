@@ -152,7 +152,7 @@ mod tests {
 
     #[test]
     fn test_register_cluster() {
-        let mut consul = ConsulInterface::default();
+        let consul = ConsulInterface::default();
         let _ = consul.register_cluster();
     }
 }
