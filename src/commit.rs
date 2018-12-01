@@ -19,7 +19,7 @@ impl IndexWatcher {
     }
 
     pub fn start(self) {
-        let catalog = self.catalog.clone();
+        let catalog = Arc::clone(&self.catalog);
         let task = Interval::new_interval(Duration::from_secs(self.commit_duration))
             .for_each(move |_| {
                 if let Ok(mut cat) = catalog.write() {

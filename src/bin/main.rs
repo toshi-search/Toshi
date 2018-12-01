@@ -30,7 +30,6 @@ use toshi::{
 };
 
 pub fn main() -> Result<(), ()> {
-    // Get the toshi settings
     let settings = settings();
 
     std::env::set_var("RUST_LOG", &settings.log_level);
@@ -79,7 +78,7 @@ pub fn main() -> Result<(), ()> {
     // Gracefully shutdown the tokio runtime when a shutdown message has been
     // received on the shutdown_signal channel.
     shutdown_signal
-        .map_err(|_| ())
+        .map_err(|_| unreachable!("Shutdown signal channel should not error, This is a bug."))
         .and_then(move |_| {
             index_catalog
                 .write()
@@ -183,7 +182,7 @@ fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: Settings) -> impl Future<It
     if settings.enable_clustering {
         // Run the tokio runtime, this will start an event loop that will process
         // the connect_consul future. It will block until the future is completed
-        // by either completing successfuly or erroring out.
+        // by either completing successfully or erroring out.
         let run = connect_to_consul(settings.path.clone(), settings.cluster_name.into())
             .and_then(move |_| gotham::init_server(addr, router_with_catalog(&catalog)));
 
