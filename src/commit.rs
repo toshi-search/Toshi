@@ -1,36 +1,26 @@
+use futures::{Future, Stream};
+use std::{
+    sync::{Arc, RwLock},
+    time::Duration,
+};
+use tokio::timer::Interval;
+
 use super::*;
 use index::IndexCatalog;
-
-use std::sync::{Arc, RwLock};
-use std::time::{Duration, Instant};
-
-use tokio::prelude::*;
-use tokio::runtime::{Builder as RtBuilder, Runtime};
-use tokio::timer::Interval;
 
 pub struct IndexWatcher {
     commit_duration: u64,
     catalog: Arc<RwLock<IndexCatalog>>,
-    runtime: Runtime,
 }
 
 impl IndexWatcher {
     pub fn new(catalog: Arc<RwLock<IndexCatalog>>, commit_duration: u64) -> Self {
-        let runtime = RtBuilder::new()
-            .core_threads(2)
-            .name_prefix("toshi-index-committer")
-            .build()
-            .unwrap();
-        IndexWatcher {
-            catalog,
-            runtime,
-            commit_duration,
-        }
+        IndexWatcher { catalog, commit_duration }
     }
 
-    pub fn start(mut self) {
+    pub fn start(self) {
         let catalog = Arc::clone(&self.catalog);
-        let task = Interval::new(Instant::now(), Duration::from_secs(self.commit_duration))
+        let task = Interval::new_interval(Duration::from_secs(self.commit_duration))
             .for_each(move |_| {
                 if let Ok(mut cat) = catalog.write() {
                     cat.get_mut_collection().iter_mut().for_each(|(key, index)| {
@@ -46,18 +36,13 @@ impl IndexWatcher {
                 }
                 Ok(())
             }).map_err(|e| panic!("Error in commit-watcher={:?}", e));
-        self.runtime.spawn(future::lazy(|| task));
-        self.runtime.shutdown_on_idle();
-    }
 
-    pub fn shutdown(self) {
-        self.runtime.shutdown_now();
+        tokio::spawn(task);
     }
 }
 
 #[cfg(test)]
 pub mod tests {
-
     use super::*;
     use handlers::search::tests::*;
     use hyper::StatusCode;
@@ -65,6 +50,7 @@ pub mod tests {
     use std::thread::sleep;
     use std::time::Duration;
 
+    use futures::future;
     use mime;
     use serde_json;
 
@@ -73,35 +59,37 @@ pub mod tests {
         let idx = create_test_index();
         let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
         let arc = Arc::new(RwLock::new(catalog));
-        let test_server = create_test_client(&arc);
+        let server = create_test_server(&arc);
+        let client = server.client();
         let watcher = IndexWatcher::new(Arc::clone(&arc), 1);
-        watcher.start();
+
+        let fut = future::lazy(|| {
+            watcher.start();
+            future::ok::<(), ()>(())
+        });
+        server.spawn(fut);
 
         let body = r#"
-        {
-          "document": {
-            "test_text":    "Babbaboo!",
-            "test_u64":     10 ,
-            "test_i64":     -10,
-            "test_unindex": "asdf1234"
-          }
-        }"#;
+            {
+              "document": {
+                "test_text":    "Babbaboo!",
+                "test_u64":     10 ,
+                "test_i64":     -10,
+                "test_unindex": "asdf1234"
+              }
+            }"#;
 
-        let response = test_server
+        let response = client
             .put("http://localhost/test_index", body, mime::APPLICATION_JSON)
             .perform()
             .unwrap();
         assert_eq!(response.status(), StatusCode::CREATED);
-        sleep(Duration::from_secs(2));
+        sleep(Duration::from_secs(3));
 
-        let check_request = create_test_client(&arc)
-            .get("http://localhost/test_index?pretty=true")
-            .perform()
-            .unwrap();
+        let check_request = server.client().get("http://localhost/test_index?pretty=true").perform().unwrap();
 
         let body = check_request.read_body().unwrap();
         let results: TestResults = serde_json::from_slice(&body).unwrap();
         assert_eq!(6, results.hits);
     }
-
 }
