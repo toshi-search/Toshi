@@ -29,7 +29,7 @@ impl CreateQuery for BoolQuery {
 
 fn parse_queries(schema: &Schema, occur: Occur, queries: &[TermQueries]) -> Result<Vec<(Occur, Box<Query>)>> {
     queries
-        .into_iter()
+        .iter()
         .map(|q| match q {
             TermQueries::Fuzzy(f) => Ok((occur, f.clone().create_query(&schema)?)),
             TermQueries::Exact(q) => Ok((occur, q.clone().create_query(&schema)?)),

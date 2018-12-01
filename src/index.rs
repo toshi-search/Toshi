@@ -45,8 +45,8 @@ impl IndexCatalog {
     #[allow(dead_code)]
     pub fn with_index(name: String, index: Index) -> Result<Self> {
         let mut map = HashMap::new();
-        let new_index =
-            IndexHandle::new(index, Settings::default()).unwrap_or_else(|_| panic!("Unable to open index: {} because it's locked", name));
+        let new_index = IndexHandle::new(index, Settings::default(), &name)
+            .unwrap_or_else(|_| panic!("Unable to open index: {} because it's locked", name));
         map.insert(name, new_index);
         Ok(IndexCatalog {
             settings: Settings::default(),
@@ -67,8 +67,8 @@ impl IndexCatalog {
     }
 
     pub fn add_index(&mut self, name: String, index: Index) {
-        let handle =
-            IndexHandle::new(index, self.settings.clone()).unwrap_or_else(|_| panic!("Unable to open index: {} because it's locked", name));
+        let handle = IndexHandle::new(index, self.settings.clone(), &name)
+            .unwrap_or_else(|_| panic!("Unable to open index: {} because it's locked", name));
         self.collection.entry(name).or_insert(handle);
     }
 
@@ -182,7 +182,6 @@ pub mod tests {
 
     use super::*;
     use gotham::test::{TestClient, TestServer};
-    use std::fs::remove_dir;
     use std::sync::{Arc, RwLock};
     use tantivy::doc;
 

@@ -2,23 +2,19 @@ language: rust
 sudo: required
 os: linux
 
-compiler:
-  - clang
+#compiler:
+#  - clang
 
 cache: cargo
 
 addons:
   apt:
     packages:
+      - zlib1g-dev
       - libcurl4-openssl-dev
-      - libelf-dev
+      - libiberty-dev
       - libdw-dev
       - binutils-dev
-      - cmake
-      - gcc
-      - g++
-    sources:
-      - kalakris-cmake
 
 rust:
   - stable
@@ -42,16 +38,10 @@ before_install:
   - rustup install stable
   - rustup component add rustfmt-preview --toolchain stable
 
-install:
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then chmod +x ./ci/install_capnp.sh && ./ci/install_capnp.sh; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then chmod +x ./ci/install_capnp.sh && ./ci/install_capnp.sh; fi
-  - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then choco install capnproto; fi
-
 before_script:
   - if [[ "$TRAVIS_OS_NAME" != "windows" ]]; then source ./ci/set_path.sh; fi
   - cargo install cargo-update || echo "cargo-update already installed"
   - cargo install cargo-travis || echo "cargo-travis already installed"
-  - cargo install capnpc || echo "capnpc already installed"
   - cargo install-update -a
 
 script:

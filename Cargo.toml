@@ -5,7 +5,6 @@ authors = ["Stephen Carman <shcarman@gmail.com>"]
 description = "A full text search engine based on Tantivy"
 repository = "https://github.com/toshi-search/Toshi"
 license = "MIT"
-build = "build.rs"
 
 [[bin]]
 name = "toshi"
@@ -13,9 +12,6 @@ path = "src/bin/main.rs"
 
 [lib]
 path = "src/lib.rs"
-
-[build-dependencies]
-capnpc = "^0.9"
 
 [dependencies]
 gotham            = "^0.3"
@@ -33,7 +29,6 @@ log               = "^0.4"
 pretty_env_logger = "^0.2"
 failure           = "^0.1"
 crossbeam         = "^0.5"
-capnp             = "^0.9"
 clap              = "^2.32"
 num_cpus          = "^1.0"
 systemstat        = { git = "https://github.com/toshi-search/systemstat", branch = "master" }

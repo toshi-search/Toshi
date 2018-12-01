@@ -9,10 +9,11 @@ pub struct IndexHandle {
     writer: Arc<Mutex<IndexWriter>>,
     current_opstamp: AtomicUsize,
     settings: Settings,
+    name: String,
 }
 
 impl IndexHandle {
-    pub fn new(index: Index, settings: Settings) -> Result<Self> {
+    pub fn new(index: Index, settings: Settings, name: &str) -> Result<Self> {
         let i = index.writer(settings.writer_memory)?;
         i.set_merge_policy(settings.get_merge_policy());
         let current_opstamp = AtomicUsize::new(0);
@@ -22,6 +23,7 @@ impl IndexHandle {
             writer,
             current_opstamp,
             settings,
+            name: name.into(),
         })
     }
 
@@ -29,8 +31,13 @@ impl IndexHandle {
         &self.index
     }
 
+    /// Returns the name of the Index
+    pub fn name(&self) -> String {
+        self.name.clone()
+    }
+
     pub fn recreate_writer(self) -> Result<Self> {
-        IndexHandle::new(self.index, self.settings.clone())
+        IndexHandle::new(self.index, self.settings.clone(), &self.name)
     }
 
     pub fn get_writer(&self) -> Arc<Mutex<IndexWriter>> {

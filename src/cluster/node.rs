@@ -69,7 +69,7 @@ impl Metadata {
             duration:    None,
         };
         let end_time = time::SystemTime::now();
-        let duration = start_time.duration_since(start_time).unwrap_or(time::Duration::new(0, 0));
+        let duration = start_time.duration_since(start_time).unwrap_or_else(|_| time::Duration::new(0, 0));
         metadata.start_time = Some(start_time);
         metadata.end_time = Some(end_time);
         metadata.duration = Some(duration);

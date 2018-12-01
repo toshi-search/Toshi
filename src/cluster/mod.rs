@@ -2,6 +2,7 @@
 
 pub mod consul_interface;
 pub mod node;
+pub mod shard;
 
 pub use self::consul_interface::ConsulInterface;
 pub use self::node::*;
@@ -32,6 +33,14 @@ pub enum ClusterError {
     FailedGettingCPUMetadata(String),
     #[fail(display = "Unable to read content as UTF-8")]
     UnableToReadUTF8,
+    #[fail(display = "Unable to create PrimaryShard: {}", _0)]
+    FailedCreatingPrimaryShard(String),
+    #[fail(display = "Unable to create ReplicaShard: {}", _0)]
+    FailedCreatingReplicaShard(String),
+    #[fail(display = "Unable to get index name: {}", _0)]
+    UnableToGetIndexName(String),
+    #[fail(display = "Unable to get index handle")]
+    UnableToGetIndexHandle,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
