@@ -23,17 +23,17 @@ impl Handler for SummaryHandler {
         if index_lock.exists(&index_path.index) {
             let index = match index_lock.get_index(&index_path.index) {
                 Ok(v) => v.get_index(),
-                Err(ref e) => return Box::new(handle_error(state, e)),
+                Err(e) => return Box::new(handle_error(state, e)),
             };
             let metas = match index.load_metas() {
                 Ok(v) => v,
-                Err(ref e) => return Box::new(handle_error(state, e)),
+                Err(e) => return Box::new(handle_error(state, e)),
             };
             let payload = to_json(metas, query_options.pretty);
             let resp = create_response(&state, StatusCode::OK, mime::APPLICATION_JSON, payload);
             Box::new(future::ok((state, resp)))
         } else {
-            Box::new(handle_error(state, &Error::UnknownIndex(index_path.index)))
+            Box::new(handle_error(state, Error::UnknownIndex(index_path.index)))
         }
     }
 }

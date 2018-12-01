@@ -28,25 +28,15 @@ impl CreateQuery for BoolQuery {
 }
 
 fn parse_queries(schema: &Schema, occur: Occur, queries: &[TermQueries]) -> Result<Vec<(Occur, Box<Query>)>> {
-    let mut results = Vec::with_capacity(queries.len());
-    for q in queries.iter() {
-        match q {
-            TermQueries::Fuzzy(f) => {
-                let fuzzy_query = f.clone().create_query(&schema)?;
-                results.push((occur, fuzzy_query));
-            }
-            TermQueries::Exact(q) => {
-                let term_query = q.clone().create_query(&schema)?;
-                results.push((occur, term_query));
-            }
-            TermQueries::Range(r) => {
-                let range_query = r.clone().create_query(&schema)?;
-                results.push((occur, range_query));
-            }
-            _ => unimplemented!(),
-        };
-    }
-    Ok(results)
+    queries
+        .iter()
+        .map(|q| match q {
+            TermQueries::Fuzzy(f) => Ok((occur, f.clone().create_query(&schema)?)),
+            TermQueries::Exact(q) => Ok((occur, q.clone().create_query(&schema)?)),
+            TermQueries::Range(r) => Ok((occur, r.clone().create_query(&schema)?)),
+            TermQueries::Phrase(p) => Ok((occur, p.clone().create_query(&schema)?)),
+            TermQueries::Regex(r) => Ok((occur, r.clone().create_query(&schema)?)),
+        }).collect::<Result<Vec<(Occur, Box<Query>)>>>()
 }
 
 #[cfg(test)]
@@ -61,10 +51,10 @@ mod tests {
         let test_json = r#"
         {"query": {
             "bool": {
-                "must": [ {"term": {"user": "kimchy"}}, {"fuzzy": {"user": {"value": "kimchy", "distance": 214}}} ],
-                "filter": [ {"range": {"age": {"gt": -10,"lte": 20}}} ],
-                "must_not": [{"term": {"user": "kimchy"}}, {"range": {"age": {"gt": -10, "lte": 20}}} ],
-                "should": [ {"term": {"user": "kimchy"}}, {"range": {"age": {"gte": 10,"lte": 20}}} ],
+                "must":     [ {"term": {"user": "kimchy"}}, {"fuzzy": {"user": {"value": "kimchy", "distance": 214}}} ],
+                "filter":   [ {"range": {"age": {"gt": -10,"lte": 20}}} ],
+                "must_not": [ {"term": {"user": "kimchy"}}, {"range": {"age": {"gt": -10, "lte": 20}}} ],
+                "should":   [ {"term": {"user": "kimchy"}}, {"range": {"age": {"gte": 10,"lte": 20}}} ],
                 "minimum_should_match": 1,
                 "boost": 1.0
               }
@@ -82,7 +72,6 @@ mod tests {
             assert_eq!(bool.should.is_empty(), false);
             assert_eq!(bool.must_not.len(), 2);
             let query = bool.create_query(&_schema).unwrap().downcast::<BooleanQuery>().unwrap();
-            println!("{:#?}", &query);
             assert_eq!(query.clauses().len(), 6);
         }
     }

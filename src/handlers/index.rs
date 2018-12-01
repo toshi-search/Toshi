@@ -59,7 +59,7 @@ impl IndexHandler {
                 Ok(b) => {
                     let delete_doc: DeleteDoc = match serde_json::from_slice(&b) {
                         Ok(v) => v,
-                        Err(e) => return handle_error(state, &Error::IOError(e.to_string())),
+                        Err(e) => return handle_error(state, Error::IOError(e.to_string())),
                     };
                     let docs_affected: u32;
                     {
@@ -70,13 +70,13 @@ impl IndexHandler {
                         let writer_lock = index_handle.get_writer();
                         let mut index_writer = match writer_lock.lock() {
                             Ok(w) => w,
-                            Err(ref e) => return handle_error(state, &Error::IOError(e.to_string())),
+                            Err(ref e) => return handle_error(state, Error::IOError(e.to_string())),
                         };
 
                         for (field, value) in delete_doc.terms {
                             let f = match index_schema.get_field(&field) {
                                 Some(v) => v,
-                                None => return handle_error(state, &Error::UnknownIndexField(field)),
+                                None => return handle_error(state, Error::UnknownIndexField(field)),
                             };
                             let term = Term::from_field_text(f, &value);
                             index_writer.delete_term(term);
@@ -96,11 +96,11 @@ impl IndexHandler {
                     let resp = create_response(&state, StatusCode::OK, mime::APPLICATION_JSON, body);
                     future::ok((state, resp))
                 }
-                Err(ref e) => handle_error(state, e),
+                Err(e) => handle_error(state, e),
             });
             Box::new(f)
         } else {
-            Box::new(handle_error(state, &Error::UnknownIndex(index_path.index)))
+            Box::new(handle_error(state, Error::UnknownIndex(index_path.index)))
         }
     }
 
@@ -120,11 +120,11 @@ impl IndexHandler {
                             let writer_lock = index_handle.get_writer();
                             let mut index_writer = match writer_lock.lock() {
                                 Ok(w) => w,
-                                Err(ref e) => return handle_error(state, &Error::IOError(e.to_string())),
+                                Err(ref e) => return handle_error(state, Error::IOError(e.to_string())),
                             };
                             let mut doc = match self.parse_doc(&index_schema, &add_document.document.to_string()) {
                                 Ok(d) => d,
-                                Err(ref e) => return handle_error(state, e),
+                                Err(e) => return handle_error(state, e),
                             };
                             index_writer.add_document(doc);
                             if let Some(opts) = add_document.options {
@@ -141,7 +141,7 @@ impl IndexHandler {
                 let resp = create_empty_response(&state, StatusCode::CREATED);
                 future::ok((state, resp))
             }
-            Err(ref e) => handle_error(state, e),
+            Err(e) => handle_error(state, e),
         }))
     }
 
@@ -160,17 +160,17 @@ impl IndexHandler {
             Ok(b) => {
                 let schema: Schema = match serde_json::from_slice(&b) {
                     Ok(v) => v,
-                    Err(ref e) => return handle_error(state, e),
+                    Err(e) => return handle_error(state, e),
                 };
                 let new_index = match self.create_from_managed(&index_path, schema) {
                     Ok(i) => i,
-                    Err(ref e) => return handle_error(state, e),
+                    Err(e) => return handle_error(state, e),
                 };
                 self.add_index(index_path.index, new_index);
                 let resp = create_empty_response(&state, StatusCode::CREATED);
                 future::ok((state, resp))
             }
-            Err(ref e) => handle_error(state, e),
+            Err(e) => handle_error(state, e),
         }))
     }
 }
@@ -190,7 +190,7 @@ impl Handler for IndexHandler {
                 }
                 _ => unreachable!(),
             },
-            None => Box::new(handle_error(state, &Error::UnknownIndex("No valid index in path".to_string()))),
+            None => Box::new(handle_error(state, Error::UnknownIndex("No valid index in path".into()))),
         }
     }
 }
@@ -221,7 +221,7 @@ mod tests {
         {
             let client = test_server.client();
             let request = client.put("http://localhost/new_index", schema, mime::APPLICATION_JSON);
-            let response = &request.perform().unwrap();
+            let response = request.perform().unwrap();
 
             assert_eq!(response.status(), StatusCode::CREATED);
 
