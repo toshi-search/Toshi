@@ -40,7 +40,7 @@ pub enum ClusterError {
     #[fail(display = "Unable to get index name: {}", _0)]
     UnableToGetIndexName(String),
     #[fail(display = "Unable to get index handle")]
-    UnableToGetIndexHandle(),
+    UnableToGetIndexHandle,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

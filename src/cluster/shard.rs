@@ -32,10 +32,7 @@ pub struct ReplicaShard {
 impl PrimaryShard {
     /// Creates and returns a new PrimaryShard with a random ID
     pub fn new() -> PrimaryShard {
-        PrimaryShard {
-            shard_id: Uuid::new_v4(),
-            index_handle: None,
-        }
+        PrimaryShard::default()
     }
 
     /// Adds an IndexHandle to a PrimaryShard
@@ -51,10 +48,19 @@ impl PrimaryShard {
     }
 }
 
+impl Default for PrimaryShard {
+    fn default() -> Self {
+        PrimaryShard {
+            shard_id: Uuid::new_v4(),
+            index_handle: None,
+        }
+    }
+}
+
 impl Shard for PrimaryShard {
     /// Returns the UUID for this shard
     fn shard_id(&self) -> Uuid {
-        self.shard_id.clone()
+        self.shard_id
     }
 
     /// Since this is not a Replica Shard, return None
@@ -71,7 +77,7 @@ impl Shard for PrimaryShard {
     fn index_name(&self) -> Result<String, ClusterError> {
         match self.index_handle {
             Some(ref handle) => Ok(handle.name()),
-            None => Err(ClusterError::UnableToGetIndexHandle()),
+            None => Err(ClusterError::UnableToGetIndexHandle),
         }
     }
 }
@@ -79,7 +85,7 @@ impl ReplicaShard {
     /// Creates and returns a new ReplicaShard that will be a read-only copy of a PrimaryShard
     pub fn new(primary_shard_id: Uuid) -> ReplicaShard {
         ReplicaShard {
-            primary_shard_id: primary_shard_id,
+            primary_shard_id,
             shard_id: Uuid::new_v4(),
             index_handle: None,
         }
@@ -101,13 +107,13 @@ impl ReplicaShard {
 impl Shard for ReplicaShard {
     /// Returns the UUID for this shard
     fn shard_id(&self) -> Uuid {
-        self.shard_id.clone()
+        self.shard_id
     }
 
     /// Since this is a replica shard, returns the ID of the shard it is
     /// a replica of
     fn primary_shard_id(&self) -> Option<Uuid> {
-        Some(self.primary_shard_id.clone())
+        Some(self.primary_shard_id)
     }
 
     /// Simple function to check if it is a primary shard
@@ -119,7 +125,7 @@ impl Shard for ReplicaShard {
     fn index_name(&self) -> Result<String, ClusterError> {
         match self.index_handle {
             Some(ref handle) => Ok(handle.name()),
-            None => Err(ClusterError::UnableToGetIndexHandle()),
+            None => Err(ClusterError::UnableToGetIndexHandle),
         }
     }
 }

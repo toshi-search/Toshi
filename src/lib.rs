@@ -1,5 +1,4 @@
 #![warn(unused_extern_crates)]
-extern crate capnp;
 extern crate clap;
 extern crate config;
 extern crate crossbeam;
@@ -106,18 +105,9 @@ mod handle;
 mod handlers;
 mod query;
 mod results;
-mod transaction;
 
 pub mod cluster;
 pub mod commit;
 pub mod index;
 pub mod router;
 pub mod settings;
-
-#[allow(dead_code)]
-pub mod wal_capnp {
-    #[cfg(target_family = "windows")]
-    include!(concat!(env!("OUT_DIR"), "\\proto", "\\wal_capnp.rs"));
-    #[cfg(target_family = "unix")]
-    include!(concat!(env!("OUT_DIR"), "/proto", "/wal_capnp.rs"));
-}
