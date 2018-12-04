@@ -1,11 +1,21 @@
 //! Contains code related to clustering
 
+pub mod placement {
+    #[cfg(target_family = "unix")]
+    include!(concat!(env!("OUT_DIR"), "/placement.rs"));
+
+    #[cfg(target_family = "windows")]
+    include!(concat!(env!("OUT_DIR"), "\\placement.rs"));
+}
+
 pub mod consul_interface;
 pub mod node;
+pub mod placement_server;
 pub mod shard;
 
 pub use self::consul_interface::ConsulInterface;
 pub use self::node::*;
+pub use self::placement_server::Place;
 
 #[derive(Debug, Fail, Serialize, Deserialize)]
 pub enum ClusterError {

@@ -1,25 +1,6 @@
-#![warn(unused_extern_crates)]
-extern crate clap;
-extern crate config;
-extern crate crossbeam;
-#[macro_use]
-extern crate failure;
-extern crate futures;
-extern crate gotham;
-#[macro_use]
-extern crate gotham_derive;
-extern crate hyper;
-extern crate log;
-extern crate mime;
-extern crate num_cpus;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
-extern crate serde_json;
-extern crate systemstat;
-extern crate tantivy;
-extern crate tokio;
-extern crate uuid;
 
 use failure::Fail;
 use gotham::handler::{HandlerError, IntoHandlerError};

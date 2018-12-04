@@ -1,15 +1,3 @@
-extern crate clap;
-extern crate futures;
-extern crate gotham;
-extern crate hyper;
-extern crate log;
-extern crate num_cpus;
-extern crate pretty_env_logger;
-extern crate systemstat;
-extern crate tokio;
-extern crate toshi;
-extern crate uuid;
-
 use clap::{crate_authors, crate_description, crate_version, App, Arg, ArgMatches};
 use futures::{future, sync::oneshot, Future, Stream};
 use log::{error, info};

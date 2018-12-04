@@ -12,6 +12,7 @@ pub struct SummaryDoc {
     value: u64,
 }
 
+#[allow(dead_code)]
 pub struct SumCollector<'a> {
     field: String,
     collector: TopCollector,
@@ -19,6 +20,7 @@ pub struct SumCollector<'a> {
 }
 
 impl<'a> SumCollector<'a> {
+    #[allow(dead_code)]
     pub fn new(field: String, searcher: &'a Searcher, collector: TopCollector) -> Self {
         Self {
             field,
