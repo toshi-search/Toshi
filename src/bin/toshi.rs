@@ -24,7 +24,7 @@ pub fn main() -> Result<(), ()> {
     std::env::set_var("RUST_LOG", &settings.log_level);
     pretty_env_logger::init();
 
-    let mut rt = Runtime::new().expect("failed to start new Runtime");
+    //let mut rt = Runtime::new().expect("failed to start new Runtime");
 
     let (tx, shutdown_signal) = oneshot::channel();
 
@@ -40,7 +40,7 @@ pub fn main() -> Result<(), ()> {
 
         Arc::new(RwLock::new(index_catalog))
     };
-
+    let auto_commit_duration = settings.auto_commit_duration;
     // Create the toshi application future, this future runs the entire
     // Toshi application. It will produce a oneshot channel message when
     // it has received the shutdown signal from the OS.
@@ -62,7 +62,11 @@ pub fn main() -> Result<(), ()> {
         server.select(shutdown)
     };
 
-    rt.spawn(toshi.map(|_| ()).map_err(|_| ()));
+    tokio::spawn(toshi.map(|_| ()).map_err(|_| ()));
+    if auto_commit_duration > 0 {
+        let commit_watcher = IndexWatcher::new(index_catalog.clone(), auto_commit_duration);
+        commit_watcher.start();
+    }
 
     // Gracefully shutdown the tokio runtime when a shutdown message has been
     // received on the shutdown_signal channel.
@@ -75,9 +79,7 @@ pub fn main() -> Result<(), ()> {
                 .clear();
 
             Ok(())
-        })
-        .and_then(move |_| rt.shutdown_now())
-        .wait()
+        }).wait()
 }
 
 // Extract the settings from the cli or config file
@@ -167,11 +169,6 @@ fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: Settings) -> impl Future<It
         create_dir(settings.path.clone()).expect("Unable to create data directory");
     }
 
-    if settings.auto_commit_duration > 0 {
-        let commit_watcher = IndexWatcher::new(catalog.clone(), settings.auto_commit_duration);
-        commit_watcher.start();
-    }
-
     let addr = format!("{}:{}", &settings.host, settings.port);
 
     println!("{}", HEADER);
@@ -180,7 +177,7 @@ fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: Settings) -> impl Future<It
         // Run the tokio runtime, this will start an event loop that will process
         // the connect_consul future. It will block until the future is completed
         // by either completing successfully or erroring out.
-        let run = connect_to_consul(settings.path.clone(), settings.cluster_name)
+        let run = connect_to_consul(&settings)
             .and_then(move |_| gotham::init_server(addr, router_with_catalog(&catalog)));
 
         future::Either::A(run)
@@ -192,11 +189,14 @@ fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: Settings) -> impl Future<It
 
 // Spawn a future that will connect to the consul cluster from the provided path
 // and cluster name.
-fn connect_to_consul(path: String, cluster_name: String) -> impl Future<Item = (), Error = ()> {
-    let mut consul_client = ConsulInterface::default().with_cluster_name(cluster_name.to_string());
+fn connect_to_consul(settings: &Settings) -> impl Future<Item = (), Error = ()> {
+    let consul_address = format!("{}:{}", &settings.consul_host, settings.consul_port);
+    let mut consul_client = ConsulInterface::default()
+        .with_cluster_name(settings.cluster_name.clone())
+        .with_address(consul_address);
 
-    let settings_path_read = path.clone();
-    let settings_path_write = path.clone();
+    let settings_path_read = settings.path.clone();
+    let settings_path_write = settings.path.clone();
 
     // Build future that will connect to consul and register the node_id
     consul_client

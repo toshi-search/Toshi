@@ -64,33 +64,23 @@ impl ConsulInterface {
     /// Registers this node with Consul via HTTP API
     pub fn register_node(&mut self) -> impl Future<Item = (), Error = ClusterError> {
         let uri = self.base_consul_url() + &self.cluster_name() + "/" + &self.node_id() + "/";
-        let client = Client::new();
-        let req = self.put_request(&uri, Body::empty());
-        client
-            .request(req)
-            .map(|_| ())
-            .map_err(|e| panic!("Error registering node: {:?}", e))
+        self.put_request(&uri, Body::empty())
+            .map_err(|err| ClusterError::FailedRegisteringNode(err.to_string()))
     }
 
     /// Registers a cluster with Consul via the HTTP API
     pub fn register_cluster(&self) -> impl Future<Item = (), Error = ClusterError> {
         let uri = self.base_consul_url() + &self.cluster_name() + "/";
-        let req = self.put_request(&uri, Body::empty());
-        self.client
-            .request(req)
-            .map(|_| ())
-            .map_err(|_| ClusterError::FailedRegisteringNode)
+        self.put_request(&uri, Body::empty())
+            .map_err(|err| ClusterError::FailedRegisteringCluster(err.to_string()))
     }
 
     /// Registers a shard with the Consul cluster
-    pub fn register_shard<T: Shard + serde::Serialize>(&mut self, shard: &T) -> impl Future<Item = (), Error = ()> {
+    pub fn register_shard<T: Shard + serde::Serialize>(&mut self, shard: &T) -> impl Future<Item = (), Error = ClusterError> {
         let uri = self.base_consul_url() + &self.cluster_name() + "/" + &shard.shard_id().to_hyphenated_ref().to_string() + "/";
         let json_body = serde_json::to_string(&shard).unwrap();
-        let req = self.put_request(&uri, json_body);
-        self.client
-            .request(req)
-            .map(|_| ())
-            .map_err(|e| panic!("Error registering shard: {:?}", e))
+        self.put_request(&uri, json_body)
+            .map_err(|err| ClusterError::FailedCreatingPrimaryShard(err.to_string()))
     }
 
     fn base_consul_url(&self) -> String {
@@ -103,11 +93,12 @@ impl ConsulInterface {
             .to_string()
     }
 
-    fn put_request<T>(&self, uri: &str, payload: T) -> Request<Body>
+    fn put_request<T>(&self, uri: &str, payload: T) -> impl Future<Item = (), Error = hyper::Error>
     where
         hyper::Body: std::convert::From<T>,
     {
-        Request::builder().method("PUT").uri(uri).body(Body::from(payload)).unwrap()
+        let req = Request::builder().method("PUT").uri(uri).body(Body::from(payload)).unwrap();
+        self.client.request(req).map(|_| ())
     }
 
     fn cluster_name(&self) -> String {
@@ -137,7 +128,6 @@ impl Default for ConsulInterface {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hyper::body::Payload;
 
     #[test]
     fn test_create_consul_interface() {
@@ -153,13 +143,6 @@ mod tests {
             .with_node_id("alpha".into())
             .with_scheme(Scheme::HTTP);
         assert_eq!(consul.cluster_name(), "kitsune");
-    }
-
-    #[test]
-    fn test_consul_cluster_put() {
-        let consul = ConsulInterface::default();
-        let test_req = consul.put_request(&consul.base_consul_url(), Body::empty());
-        assert_eq!(test_req.body().content_length().unwrap(), 0);
     }
 
     #[test]

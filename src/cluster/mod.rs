@@ -28,8 +28,10 @@ pub enum ClusterError {
     MissingClusterID,
     #[fail(display = "Unable to write node ID: {}", _0)]
     FailedWritingNodeID(String),
-    #[fail(display = "Failed registering Node")]
-    FailedRegisteringNode,
+    #[fail(display = "Failed registering cluster: {}", _0)]
+    FailedRegisteringCluster(String),
+    #[fail(display = "Failed registering Node: {}", _0)]
+    FailedRegisteringNode(String),
     #[fail(display = "Failed reading NodeID: {}", _0)]
     FailedReadingNodeID(String),
     #[fail(display = "Unable to retrieve disk metadata: {}", _0)]
