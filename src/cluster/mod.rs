@@ -11,14 +11,6 @@ pub mod placement {
     include!(concat!(env!("OUT_DIR"), "\\placement.rs"));
 }
 
-pub mod placement {
-    #[cfg(target_family = "unix")]
-    include!(concat!(env!("OUT_DIR"), "/placement.rs"));
-
-    #[cfg(target_family = "windows")]
-    include!(concat!(env!("OUT_DIR"), "\\placement.rs"));
-}
-
 pub mod consul_interface;
 pub mod node;
 pub mod placement_server;

@@ -50,24 +50,24 @@ impl Place {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use tokio::net::TcpStream;
-    use tower_h2::client::Connect;
-
-    pub struct Conn(SocketAddr);
-
-    #[test]
-    fn client_test() {
-        let addr: SocketAddr = "127.0.0.1:8081".parse().unwrap();
-        let mut server = Place::get_service(addr.clone());
-
-        let req = PlacementRequest {
-            index: "test".into(),
-            kind: IndexKind::Shard.into(),
-        };
-        let tcp_stream = Box::new(TcpStream::connect(&addr).and_then(|tcp| tcp.set_nodelay(true).map(move |_| tcp)));
-
-        let mut c = Connect::new(tcp_stream, Default::default(), DefaultExecutor::current());
-    }
+    //    use super::*;
+    //    use tokio::net::TcpStream;
+    //    use tower_h2::client::Connect;
+    //
+    //    pub struct Conn(SocketAddr);
+    //
+    //    #[test]
+    //    fn client_test() {
+    //        let addr: SocketAddr = "127.0.0.1:8081".parse().unwrap();
+    //        let mut server = Place::get_service(addr.clone());
+    //
+    //        let req = PlacementRequest {
+    //            index: "test".into(),
+    //            kind: IndexKind::Shard.into(),
+    //        };
+    //        let tcp_stream = Box::new(TcpStream::connect(&addr).and_then(|tcp| tcp.set_nodelay(true).map(move |_| tcp)));
+    //
+    //        let mut c = Connect::new(tcp_stream, Default::default(), DefaultExecutor::current());
+    //    }
 
 }
