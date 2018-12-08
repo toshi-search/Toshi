@@ -97,7 +97,8 @@ impl Handler for BulkHandler {
                     };
                 }
                 future::ok(buf.clone())
-            }).then(move |response| match response {
+            })
+            .then(move |response| match response {
                 Ok(buf) => {
                     if !buf.is_empty() {
                         match line_sender.send(buf.to_vec()) {

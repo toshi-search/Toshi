@@ -52,8 +52,10 @@ impl<'a> AggregateQuery<SummaryDoc> for SumCollector<'a> {
                         Value::Str(s) => (*s).len() as u64,
                         Value::Bytes(b) => (*b).len() as u64,
                         _ => panic!("Value is not numeric"),
-                    }).sum::<u64>()
-            }).sum();
+                    })
+                    .sum::<u64>()
+            })
+            .sum();
 
         Ok(SummaryDoc {
             field: Field(0),

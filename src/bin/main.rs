@@ -86,7 +86,8 @@ pub fn main() -> Result<(), ()> {
                 .clear();
 
             Ok(())
-        }).and_then(move |_| rt.shutdown_now())
+        })
+        .and_then(move |_| rt.shutdown_now())
         .wait()
 }
 
@@ -102,54 +103,63 @@ fn settings() -> Settings {
                 .long("config")
                 .takes_value(true)
                 .default_value("config/config.toml"),
-        ).arg(
+        )
+        .arg(
             Arg::with_name("level")
                 .short("l")
                 .long("level")
                 .takes_value(true)
                 .default_value("info"),
-        ).arg(
+        )
+        .arg(
             Arg::with_name("path")
                 .short("d")
                 .long("data-path")
                 .takes_value(true)
                 .default_value("data/"),
-        ).arg(
+        )
+        .arg(
             Arg::with_name("host")
                 .short("h")
                 .long("host")
                 .takes_value(true)
                 .default_value("localhost"),
-        ).arg(
+        )
+        .arg(
             Arg::with_name("port")
                 .short("p")
                 .long("port")
                 .takes_value(true)
                 .default_value("8080"),
-        ).arg(
+        )
+        .arg(
             Arg::with_name("consul-host")
                 .short("C")
                 .long("consul-host")
                 .takes_value(true)
                 .default_value("localhost"),
-        ).arg(
+        )
+        .arg(
             Arg::with_name("consul-port")
                 .short("P")
                 .long("consul-port")
                 .takes_value(true)
                 .default_value("8500"),
-        ).arg(
+        )
+        .arg(
             Arg::with_name("cluster-name")
                 .short("N")
                 .long("cluster-name")
                 .takes_value(true)
                 .default_value("kitsune"),
-        ).arg(
+        )
+        .arg(
             Arg::with_name("enable-clustering")
                 .short("E")
                 .long("enable-clustering")
                 .takes_value(false),
-        ).get_matches();
+        )
+        .get_matches();
 
     let settings = if options.is_present("config") {
         let cfg = options.value_of("config").unwrap();
@@ -170,10 +180,18 @@ fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: Settings) -> impl Future<It
         create_dir(settings.path.clone()).expect("Unable to create data directory");
     }
 
-    if settings.auto_commit_duration > 0 {
+    // Create the auto commit watcher future that spawns commit actions
+    // every interval.
+    let commit_watcher = if settings.auto_commit_duration > 0 {
         let commit_watcher = IndexWatcher::new(catalog.clone(), settings.auto_commit_duration);
-        commit_watcher.start();
-    }
+        future::Either::A(future::lazy(move || {
+            commit_watcher.start();
+
+            future::ok::<(), ()>(())
+        }))
+    } else {
+        future::Either::B(future::ok::<(), ()>(()))
+    };
 
     let addr = format!("{}:{}", &settings.host, settings.port);
 
@@ -184,11 +202,12 @@ fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: Settings) -> impl Future<It
         // the connect_consul future. It will block until the future is completed
         // by either completing successfully or erroring out.
         let run = connect_to_consul(settings.path.clone(), settings.cluster_name.into())
+            .and_then(move |_| commit_watcher)
             .and_then(move |_| gotham::init_server(addr, router_with_catalog(&catalog)));
 
         future::Either::A(run)
     } else {
-        let run = gotham::init_server(addr, router_with_catalog(&catalog));
+        let run = commit_watcher.and_then(move |_| gotham::init_server(addr, router_with_catalog(&catalog)));
         future::Either::B(run)
     }
 }
@@ -215,10 +234,12 @@ fn connect_to_consul(path: String, cluster_name: String) -> impl Future<Item = (
                 let new_id = Uuid::new_v4();
                 cluster::write_node_id(settings_path_write, new_id.to_hyphenated().to_string())
             }
-        }).and_then(move |id| {
+        })
+        .and_then(move |id| {
             consul_client.node_id = Some(id);
             consul_client.register_node()
-        }).map_err(|e| error!("Error: {}", e))
+        })
+        .map_err(|e| error!("Error: {}", e))
 }
 
 // A future that takes a shutdown signal sender and will produce a message
@@ -233,6 +254,7 @@ fn shutdown(signal: oneshot::Sender<()>) -> impl Future<Item = (), Error = ()> {
         .and_then(move |_| {
             info!("Gracefully shutting down...");
             Ok(signal.send(()))
-        }).map(|_| ())
+        })
+        .map(|_| ())
         .map_err(|_| unreachable!("ctrl-c should never error out"))
 }

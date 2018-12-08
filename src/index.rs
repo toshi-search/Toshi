@@ -164,7 +164,8 @@ impl IndexCatalog {
                     .map(|(score, doc)| {
                         let d = searcher.doc(doc).expect("Doc not found in segment");
                         ScoredDoc::new(Some(score), schema.to_named_doc(&d))
-                    }).collect();
+                    })
+                    .collect();
 
                 Ok(SearchResults::new(scored_docs))
             }
@@ -195,11 +196,11 @@ pub mod tests {
         let schema = builder.build();
         let idx = Index::create_in_ram(schema);
         let mut writer = idx.writer(30_000_000).unwrap();
-        writer.add_document(doc!{ test_text => "Test Document 1", test_int => 2014i64,  test_unsign => 10u64, test_unindexed => "no" });
-        writer.add_document(doc!{ test_text => "Test Dockument 2", test_int => -2015i64, test_unsign => 11u64, test_unindexed => "yes" });
-        writer.add_document(doc!{ test_text => "Test Duckiment 3", test_int => 2016i64,  test_unsign => 12u64, test_unindexed => "noo" });
-        writer.add_document(doc!{ test_text => "Test Document 4", test_int => -2017i64, test_unsign => 13u64, test_unindexed => "yess" });
-        writer.add_document(doc!{ test_text => "Test Document 5", test_int => 2018i64,  test_unsign => 14u64, test_unindexed => "nooo" });
+        writer.add_document(doc! { test_text => "Test Document 1", test_int => 2014i64,  test_unsign => 10u64, test_unindexed => "no" });
+        writer.add_document(doc! { test_text => "Test Dockument 2", test_int => -2015i64, test_unsign => 11u64, test_unindexed => "yes" });
+        writer.add_document(doc! { test_text => "Test Duckiment 3", test_int => 2016i64,  test_unsign => 12u64, test_unindexed => "noo" });
+        writer.add_document(doc! { test_text => "Test Document 4", test_int => -2017i64, test_unsign => 13u64, test_unindexed => "yess" });
+        writer.add_document(doc! { test_text => "Test Document 5", test_int => 2018i64,  test_unsign => 14u64, test_unindexed => "nooo" });
         writer.commit().unwrap();
 
         idx
