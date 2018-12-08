@@ -35,7 +35,8 @@ impl IndexWatcher {
                     });
                 }
                 Ok(())
-            }).map_err(|e| panic!("Error in commit-watcher={:?}", e));
+            })
+            .map_err(|e| panic!("Error in commit-watcher={:?}", e));
 
         tokio::spawn(task);
     }

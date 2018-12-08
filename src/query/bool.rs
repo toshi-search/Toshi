@@ -36,7 +36,8 @@ fn parse_queries(schema: &Schema, occur: Occur, queries: &[TermQueries]) -> Resu
             TermQueries::Range(r) => Ok((occur, r.clone().create_query(&schema)?)),
             TermQueries::Phrase(p) => Ok((occur, p.clone().create_query(&schema)?)),
             TermQueries::Regex(r) => Ok((occur, r.clone().create_query(&schema)?)),
-        }).collect::<Result<Vec<(Occur, Box<Query>)>>>()
+        })
+        .collect::<Result<Vec<(Occur, Box<Query>)>>>()
 }
 
 #[cfg(test)]
