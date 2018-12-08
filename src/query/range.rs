@@ -1,4 +1,5 @@
-use super::{CreateQuery, Error, Result};
+use crate::query::CreateQuery;
+use crate::{Error, Result};
 
 use log::warn;
 
@@ -6,6 +7,7 @@ use std::collections::HashMap;
 use std::ops::Bound;
 
 use serde::de::DeserializeOwned;
+use serde_derive::Deserialize;
 use serde_json::Value;
 
 use tantivy::query::{Query, RangeQuery as TantivyRangeQuery};

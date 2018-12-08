@@ -1,9 +1,12 @@
-use query::{make_field_value, CreateQuery};
-use std::collections::HashMap;
+use crate::query::{make_field_value, CreateQuery};
+use crate::{Error, Result};
+
+use serde_derive::{Deserialize, Serialize};
 use tantivy::query::{PhraseQuery as TantivyPhraseQuery, Query};
 use tantivy::schema::Schema;
 use tantivy::Term;
-use {Error, Result};
+
+use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct PhraseQuery {
@@ -33,7 +36,8 @@ impl CreateQuery for PhraseQuery {
                     .map(|(t, o)| match make_field_value(schema, &k, &t) {
                         Ok(f) => Ok((o, f)),
                         Err(e) => Err(e),
-                    }).collect::<Result<Vec<(usize, Term)>>>()?;
+                    })
+                    .collect::<Result<Vec<(usize, Term)>>>()?;
                 Ok(Box::new(TantivyPhraseQuery::new_with_offset(paired_terms)))
             } else {
                 let terms = v

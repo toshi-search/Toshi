@@ -18,21 +18,20 @@ pub mod summary;
 
 pub use self::{bulk::BulkHandler, index::IndexHandler, root::RootHandler, search::SearchHandler, summary::SummaryHandler};
 
-use super::Error;
-use super::*;
-use index::*;
-use settings::Settings;
+use crate::settings::Settings;
 
+use gotham::handler::HandlerError;
+use gotham::helpers::http::response::create_response;
+use gotham::state::State;
+use gotham_derive::{StateData, StaticResponseExtender};
+
+use failure::Fail;
 use futures::{future, future::FutureResult};
-use gotham::handler::*;
-use gotham::helpers::http::response::*;
-use gotham::state::*;
 use hyper::{Body, Response, StatusCode};
-use log::info;
-use mime;
 use serde::Serialize;
-use serde_json;
-use std::sync::Arc;
+use serde_derive::{Deserialize, Serialize};
+
+type FutureError = FutureResult<(State, Response<Body>), (State, HandlerError)>;
 
 #[derive(Deserialize, StateData, StaticResponseExtender)]
 pub struct IndexPath {
@@ -66,9 +65,7 @@ fn to_json<T: Serialize>(result: T, pretty: bool) -> Vec<u8> {
     }
 }
 
-type FutureError = FutureResult<(State, Response<Body>), (State, HandlerError)>;
-
-fn handle_error<T: failure::Fail + Sized + Send>(state: State, err: T) -> FutureError {
+fn handle_error<T: Fail + Sized + Send>(state: State, err: T) -> FutureError {
     let err = serde_json::to_vec(&ErrorResponse::new(&format!("{}", err))).unwrap();
     let resp = create_response(&state, StatusCode::BAD_REQUEST, mime::APPLICATION_JSON, err);
     future::ok((state, resp))

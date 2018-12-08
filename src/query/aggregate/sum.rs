@@ -1,7 +1,7 @@
-use super::super::{Error, Result};
+use crate::query::AggregateQuery;
+use crate::{Error, Result};
 
-use super::AggregateQuery;
-
+use serde_derive::Serialize;
 use tantivy::collector::{Collector, TopCollector};
 use tantivy::schema::{Field, Value};
 use tantivy::{Searcher, SegmentReader};
@@ -54,8 +54,10 @@ impl<'a> AggregateQuery<SummaryDoc> for SumCollector<'a> {
                         Value::Str(s) => (*s).len() as u64,
                         Value::Bytes(b) => (*b).len() as u64,
                         _ => panic!("Value is not numeric"),
-                    }).sum::<u64>()
-            }).sum();
+                    })
+                    .sum::<u64>()
+            })
+            .sum();
 
         Ok(SummaryDoc {
             field: Field(0),

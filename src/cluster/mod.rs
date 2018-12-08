@@ -1,6 +1,9 @@
 //! Contains code related to clustering
+use failure::Fail;
+use serde_derive::{Deserialize, Serialize};
 
 pub mod placement {
+    use prost_derive::{Enumeration, Message};
     #[cfg(target_family = "unix")]
     include!(concat!(env!("OUT_DIR"), "/placement.rs"));
 

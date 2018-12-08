@@ -1,11 +1,17 @@
-use super::*;
+use crate::handlers::{handle_error, to_json, IndexPath, QueryOptions};
+use crate::index::IndexCatalog;
+use crate::query::Request;
+use crate::Error;
 
 use futures::{future, Future, Stream};
-use hyper::Method;
+use gotham::handler::{Handler, HandlerFuture, NewHandler};
+use gotham::helpers::http::response::create_response;
+use gotham::state::{FromState, State};
+use hyper::{Body, Method, StatusCode};
+use log::info;
 
-use query::Request;
 use std::panic::RefUnwindSafe;
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 
 #[derive(Clone)]
 pub struct SearchHandler {
@@ -77,7 +83,8 @@ new_handler!(SearchHandler);
 pub mod tests {
 
     use super::*;
-    use index::tests::*;
+    use crate::index::tests::*;
+    use serde_derive::Deserialize;
     use serde_json;
 
     #[derive(Deserialize, Debug)]

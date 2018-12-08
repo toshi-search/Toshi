@@ -1,10 +1,5 @@
-extern crate serde;
-#[macro_use]
-extern crate serde_derive;
-
 use failure::Fail;
 use gotham::handler::{HandlerError, IntoHandlerError};
-use log::*;
 use tantivy::query::QueryParserError;
 use tantivy::schema::DocParsingError;
 use tantivy::Error as TError;

@@ -1,20 +1,21 @@
-use clap::{crate_authors, crate_description, crate_version, App, Arg, ArgMatches};
-use futures::{future, sync::oneshot, Future, Stream};
-use log::{error, info};
-use std::{
-    fs::create_dir,
-    path::{Path, PathBuf},
-    sync::{Arc, RwLock},
-};
-use tokio::runtime::Runtime;
-use uuid::Uuid;
-
 use toshi::{
     cluster::{self, ConsulInterface},
     commit::IndexWatcher,
     index::IndexCatalog,
     router::router_with_catalog,
     settings::{Settings, HEADER},
+};
+
+use clap::{crate_authors, crate_description, crate_version, App, Arg, ArgMatches};
+use futures::{future, sync::oneshot, Future, Stream};
+use log::{error, info};
+use tokio::runtime::Runtime;
+use uuid::Uuid;
+
+use std::{
+    fs::create_dir,
+    path::{Path, PathBuf},
+    sync::{Arc, RwLock},
 };
 
 pub fn main() -> Result<(), ()> {
@@ -74,7 +75,8 @@ pub fn main() -> Result<(), ()> {
                 .clear();
 
             Ok(())
-        }).and_then(move |_| rt.shutdown_now())
+        })
+        .and_then(move |_| rt.shutdown_now())
         .wait()
 }
 
@@ -90,64 +92,71 @@ fn settings() -> Settings {
                 .long("config")
                 .takes_value(true)
                 .default_value("config/config.toml"),
-        ).arg(
+        )
+        .arg(
             Arg::with_name("level")
                 .short("l")
                 .long("level")
                 .takes_value(true)
                 .default_value("info"),
-        ).arg(
+        )
+        .arg(
             Arg::with_name("path")
                 .short("d")
                 .long("data-path")
                 .takes_value(true)
                 .default_value("data/"),
-        ).arg(
+        )
+        .arg(
             Arg::with_name("host")
                 .short("h")
                 .long("host")
                 .takes_value(true)
                 .default_value("localhost"),
-        ).arg(
+        )
+        .arg(
             Arg::with_name("port")
                 .short("p")
                 .long("port")
                 .takes_value(true)
                 .default_value("8080"),
-        ).arg(
+        )
+        .arg(
             Arg::with_name("consul-host")
                 .short("C")
                 .long("consul-host")
                 .takes_value(true)
                 .default_value("localhost"),
-        ).arg(
+        )
+        .arg(
             Arg::with_name("consul-port")
                 .short("P")
                 .long("consul-port")
                 .takes_value(true)
                 .default_value("8500"),
-        ).arg(
+        )
+        .arg(
             Arg::with_name("cluster-name")
                 .short("N")
                 .long("cluster-name")
                 .takes_value(true)
                 .default_value("kitsune"),
-        ).arg(
+        )
+        .arg(
             Arg::with_name("enable-clustering")
                 .short("E")
                 .long("enable-clustering")
                 .takes_value(false),
-        ).get_matches();
+        )
+        .get_matches();
 
-    let settings = if options.is_present("config") {
+    if options.is_present("config") {
         let cfg = options.value_of("config").unwrap();
         info!("Reading config from: {}", cfg);
         Settings::new(cfg).expect("Invalid Config file")
     } else {
         Settings::from_args(&options)
-    };
-
-    settings
+    }
 }
 
 // Create the future that runs forever and spawns the webserver
@@ -171,7 +180,7 @@ fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: Settings) -> impl Future<It
         // Run the tokio runtime, this will start an event loop that will process
         // the connect_consul future. It will block until the future is completed
         // by either completing successfully or erroring out.
-        let run = connect_to_consul(settings.path.clone(), settings.cluster_name.into())
+        let run = connect_to_consul(settings.path.clone(), settings.cluster_name)
             .and_then(move |_| gotham::init_server(addr, router_with_catalog(&catalog)));
 
         future::Either::A(run)
@@ -203,10 +212,12 @@ fn connect_to_consul(path: String, cluster_name: String) -> impl Future<Item = (
                 let new_id = Uuid::new_v4();
                 cluster::write_node_id(settings_path_write, new_id.to_hyphenated().to_string())
             }
-        }).and_then(move |id| {
+        })
+        .and_then(move |id| {
             consul_client.node_id = Some(id);
             consul_client.register_node()
-        }).map_err(|e| error!("Error: {}", e))
+        })
+        .map_err(|e| error!("Error: {}", e))
 }
 
 // A future that takes a shutdown signal sender and will produce a message
@@ -221,6 +232,7 @@ fn shutdown(signal: oneshot::Sender<()>) -> impl Future<Item = (), Error = ()> {
         .and_then(move |_| {
             info!("Gracefully shutting down...");
             Ok(signal.send(()))
-        }).map(|_| ())
+        })
+        .map(|_| ())
         .map_err(|_| unreachable!("ctrl-c should never error out"))
 }

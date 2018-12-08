@@ -1,4 +1,4 @@
-use clap::{crate_authors, crate_description, crate_version, App, AppSettings, Arg, ArgMatches};
+use clap::{crate_authors, crate_description, crate_version, App, Arg, ArgMatches};
 use log::info;
 
 use toshi::cluster::Place;
@@ -19,7 +19,7 @@ fn main() {
     tokio::run(service);
 }
 
-fn settings<'a>() -> ArgMatches<'a> {
+fn settings() -> ArgMatches<'static> {
     App::new("Toshi Placement Driver")
         .version(crate_version!())
         .about(crate_description!())
@@ -30,29 +30,34 @@ fn settings<'a>() -> ArgMatches<'a> {
                 .long("host")
                 .takes_value(true)
                 .default_value("127.0.0.1"),
-        ).arg(
+        )
+        .arg(
             Arg::with_name("port")
                 .short("p")
                 .long("port")
                 .takes_value(true)
                 .default_value("8081"),
-        ).arg(
+        )
+        .arg(
             Arg::with_name("level")
                 .short("l")
                 .long("level")
                 .takes_value(true)
                 .default_value("info"),
-        ).arg(
+        )
+        .arg(
             Arg::with_name("consul-host")
                 .short("C")
                 .long("consul-host")
                 .takes_value(true)
                 .default_value("localhost"),
-        ).arg(
+        )
+        .arg(
             Arg::with_name("consul-port")
                 .short("P")
                 .long("consul-port")
                 .takes_value(true)
                 .default_value("8500"),
-        ).get_matches()
+        )
+        .get_matches()
 }

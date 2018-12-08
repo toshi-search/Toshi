@@ -1,23 +1,23 @@
 //! Provides an interface to a Consul cluster
-
-use log::error;
+use crate::cluster::shard::Shard;
+use crate::cluster::ClusterError;
+use crate::{Error, Result};
 
 use hyper::body::Body;
+use hyper::client::HttpConnector;
+use hyper::http::uri::Scheme;
 use hyper::rt::Future;
-use hyper::{Client, Request};
-use serde_json;
+use hyper::{Client, Request, Uri};
+use hyper_tls::HttpsConnector;
 
-use cluster::shard::Shard;
-use cluster::ClusterError;
-
-static CONSUL_PREFIX: &'static str = "services/toshi/";
+static CONSUL_PREFIX: &'static str = "/v1/kv/services/toshi/";
 
 /// Stub struct for a connection to Consul
 pub struct ConsulInterface {
     address: String,
-    port: String,
-    scheme: String,
+    scheme: Scheme,
     cluster_name: Option<String>,
+    client: Client<HttpsConnector<HttpConnector>>,
     pub node_id: Option<String>,
 }
 
@@ -28,15 +28,13 @@ impl ConsulInterface {
         self
     }
 
-    /// Sets the port for the Consul HTTP library
-    pub fn with_port(mut self, port: String) -> Self {
-        self.port = port;
-        self
-    }
-
     /// Sets the scheme (http or https) for the Consul server
-    pub fn with_scheme(mut self, scheme: String) -> Self {
+    pub fn with_scheme(mut self, scheme: Scheme) -> Self {
         self.scheme = scheme;
+        self.client = {
+            let https = HttpsConnector::new(4).expect("Could not create TLS for Hyper");
+            Client::builder().build(https)
+        };
         self
     }
 
@@ -52,39 +50,57 @@ impl ConsulInterface {
         self
     }
 
+    pub fn build_uri(self) -> Result<Uri> {
+        Uri::builder()
+            .scheme(self.scheme.clone())
+            .authority(self.address.as_bytes())
+            .path_and_query(CONSUL_PREFIX)
+            .build()
+            .map_err(|err| Error::IOError(err.to_string()))
+    }
+
+    //fn place_kv(&self, key: String, value: String) -> impl Future<Item = (), Error = ClusterError> {}
+
     /// Registers this node with Consul via HTTP API
     pub fn register_node(&mut self) -> impl Future<Item = (), Error = ClusterError> {
         let uri = self.base_consul_url() + &self.cluster_name() + "/" + &self.node_id() + "/";
         let client = Client::new();
         let req = self.put_request(&uri, Body::empty());
-        client.request(req).map(|_| ()).map_err(|e| {
-            error!("Error registering node: {:?}", e);
-            std::process::exit(1);
-        })
+        client
+            .request(req)
+            .map(|_| ())
+            .map_err(|e| panic!("Error registering node: {:?}", e))
     }
 
     /// Registers a cluster with Consul via the HTTP API
     pub fn register_cluster(&self) -> impl Future<Item = (), Error = ClusterError> {
         let uri = self.base_consul_url() + &self.cluster_name() + "/";
-        let client = Client::new();
         let req = self.put_request(&uri, Body::empty());
-        client.request(req).map(|_| ()).map_err(|_| ClusterError::FailedRegisteringNode)
+        self.client
+            .request(req)
+            .map(|_| ())
+            .map_err(|_| ClusterError::FailedRegisteringNode)
     }
 
     /// Registers a shard with the Consul cluster
     pub fn register_shard<T: Shard + serde::Serialize>(&mut self, shard: &T) -> impl Future<Item = (), Error = ()> {
         let uri = self.base_consul_url() + &self.cluster_name() + "/" + &shard.shard_id().to_hyphenated_ref().to_string() + "/";
-        let client = Client::new();
         let json_body = serde_json::to_string(&shard).unwrap();
         let req = self.put_request(&uri, json_body);
-        client.request(req).map(|_| ()).map_err(|e| {
-            error!("Error registering shard: {:?}", e);
-            std::process::exit(1);
-        })
+        self.client
+            .request(req)
+            .map(|_| ())
+            .map_err(|e| panic!("Error registering shard: {:?}", e))
     }
 
     fn base_consul_url(&self) -> String {
-        self.scheme.clone() + "://" + &self.address + ":" + &self.port + "/v1/kv/" + CONSUL_PREFIX
+        Uri::builder()
+            .scheme(self.scheme.clone())
+            .authority(self.address.as_bytes())
+            .path_and_query(CONSUL_PREFIX)
+            .build()
+            .expect("Problem building base Consul URL")
+            .to_string()
     }
 
     fn put_request<T>(&self, uri: &str, payload: T) -> Request<Body>
@@ -106,11 +122,14 @@ impl ConsulInterface {
 impl Default for ConsulInterface {
     fn default() -> ConsulInterface {
         ConsulInterface {
-            address: "127.0.0.1".into(),
-            port: "8500".into(),
-            scheme: String::from("http"),
+            address: "127.0.0.1:8500".into(),
+            scheme: Scheme::HTTP,
             cluster_name: Some(String::from("kitsune")),
             node_id: Some(String::from("alpha")),
+            client: {
+                let https = HttpsConnector::new(4).expect("Could not create TLS for Hyper");
+                Client::builder().build(https)
+            },
         }
     }
 }
@@ -129,11 +148,10 @@ mod tests {
     #[test]
     fn test_consul_cluster_name() {
         let consul = ConsulInterface::default()
-            .with_cluster_name("kitsune".to_string())
-            .with_address("127.0.0.1".into())
+            .with_cluster_name("kitsune".into())
+            .with_address("127.0.0.1:8500".into())
             .with_node_id("alpha".into())
-            .with_scheme("http".into())
-            .with_port("8500".into());
+            .with_scheme(Scheme::HTTP);
         assert_eq!(consul.cluster_name(), "kitsune");
     }
 

@@ -1,12 +1,13 @@
+use crate::index::IndexCatalog;
+
 use futures::{Future, Stream};
+use log::info;
+use tokio::timer::Interval;
+
 use std::{
     sync::{Arc, RwLock},
     time::Duration,
 };
-use tokio::timer::Interval;
-
-use super::*;
-use index::IndexCatalog;
 
 pub struct IndexWatcher {
     commit_duration: u64,
@@ -35,7 +36,8 @@ impl IndexWatcher {
                     });
                 }
                 Ok(())
-            }).map_err(|e| panic!("Error in commit-watcher={:?}", e));
+            })
+            .map_err(|e| panic!("Error in commit-watcher={:?}", e));
 
         tokio::spawn(task);
     }
@@ -44,9 +46,9 @@ impl IndexWatcher {
 #[cfg(test)]
 pub mod tests {
     use super::*;
-    use handlers::search::tests::*;
+    use crate::handlers::search::tests::*;
+    use crate::index::tests::*;
     use hyper::StatusCode;
-    use index::tests::*;
     use std::thread::sleep;
     use std::time::Duration;
 

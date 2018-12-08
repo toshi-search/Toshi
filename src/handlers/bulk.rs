@@ -1,21 +1,22 @@
-use super::*;
+use crate::handlers::{handle_error, IndexPath};
+use crate::index::IndexCatalog;
+use crate::{Error, Result};
 
-use futures::future;
-use futures::{Future, Stream};
-
-use gotham::handler::*;
-use gotham::state::FromState;
+use futures::{future, Future, Stream};
+use gotham::handler::{Handler, HandlerFuture, IntoHandlerError, NewHandler};
+use gotham::helpers::http::response::create_empty_response;
+use gotham::state::{FromState, State};
+use hyper::{Body, StatusCode};
+use log::error;
 
 use std::panic::RefUnwindSafe;
 use std::str::from_utf8;
-use std::sync::RwLock;
+use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 
-use tantivy::Document;
-use tantivy::IndexWriter;
+use tantivy::{Document, IndexWriter};
 
 use crossbeam::channel::{unbounded, Receiver};
-use std::sync::Mutex;
 
 #[derive(Clone)]
 pub struct BulkHandler {
@@ -97,7 +98,8 @@ impl Handler for BulkHandler {
                     };
                 }
                 future::ok(buf.clone())
-            }).then(move |response| match response {
+            })
+            .then(move |response| match response {
                 Ok(buf) => {
                     if !buf.is_empty() {
                         match line_sender.send(buf.to_vec()) {
@@ -119,10 +121,10 @@ new_handler!(BulkHandler);
 #[cfg(test)]
 mod tests {
 
-    use super::search::tests::*;
     use super::*;
-    use index::tests::*;
-    use index::IndexCatalog;
+    use crate::handlers::search::tests::*;
+    use crate::index::tests::*;
+    use crate::index::IndexCatalog;
 
     use mime;
     use serde_json;
