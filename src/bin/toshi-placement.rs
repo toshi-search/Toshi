@@ -1,6 +1,8 @@
 use clap::{crate_authors, crate_description, crate_version, App, Arg, ArgMatches};
+use hyper::http::uri::Scheme;
 use log::info;
 
+use toshi::cluster::ConsulInterface;
 use toshi::cluster::Place;
 use toshi::settings::HEADER;
 
@@ -8,13 +10,18 @@ fn main() {
     let settings = settings();
     let host = settings.value_of("host").unwrap();
     let port = settings.value_of("port").unwrap();
+    let consul_host = settings.value_of("consul-host").unwrap();
+    let consul_port = settings.value_of("consul-port").unwrap();
+
     std::env::set_var("RUST_LOG", settings.value_of("level").unwrap());
     pretty_env_logger::init();
 
     println!("{}", HEADER);
     info!("Starting Toshi Placement Service...");
     let addr = format!("{}:{}", host, port).parse().unwrap();
-    let service = Place::get_service(addr);
+    let consul_addr = format!("{}:{}", consul_host, consul_port).parse().unwrap();
+    let consul = ConsulInterface::default().with_address(consul_addr).with_scheme(Scheme::HTTP);
+    let service = Place::get_service(addr, consul);
 
     tokio::run(service);
 }

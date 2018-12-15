@@ -24,6 +24,10 @@ gotham            = { git = "https://github.com/gotham-rs/gotham", rev = "9e60d8
 gotham_derive     = { git = "https://github.com/gotham-rs/gotham", rev = "9e60d8752fd5bb569f4156e60ee1919198702273" }
 tower-grpc        = { git = "https://github.com/tower-rs/tower-grpc" }
 tower-h2          = { git = "https://github.com/tower-rs/tower-h2" }
+tower-util        = { git = "https://github.com/tower-rs/tower" }
+tower-http        = { git = "https://github.com/tower-rs/tower-http" }
+http = "0.1.14"
+tokio-connect     = { git = "https://github.com/carllerche/tokio-connect" }
 bytes             = "^0.4"
 prost             = "^0.4"
 prost-derive      = "^0.4"

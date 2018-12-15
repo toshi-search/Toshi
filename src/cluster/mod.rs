@@ -54,6 +54,10 @@ pub enum ClusterError {
     FailedCreatingReplicaShard(String),
     #[fail(display = "Unable to get index name: {}", _0)]
     UnableToGetIndexName(String),
+    #[fail(display = "Error parsing response from Consul: {}", _0)]
+    ErrorParsingConsulJSON(String),
+    #[fail(display = "Request from Consul returned an error: {}", _0)]
+    ErrorInConsulResponse(String),
     #[fail(display = "Unable to get index handle")]
     UnableToGetIndexHandle,
 }

@@ -1,36 +1,56 @@
 use std::net::SocketAddr;
 
-use futures::{future, Future, Stream};
+use futures::{Future, Stream};
 use log::{error, info};
-
 use tokio::executor::DefaultExecutor;
 use tokio::net::TcpListener;
+use tower_grpc::{Code, Error, Request, Response, Status};
+use tower_h2::client::Connection;
+use tower_h2::{Body, Server};
+use tower_http::AddOrigin;
 
-use tower_grpc::{Error, Request, Response};
-use tower_h2::Server;
-
-use crate::cluster::placement::{server, IndexKind, PlacementReply, PlacementRequest};
+use crate::cluster::consul_interface::NodeData;
+use crate::cluster::placement::client::Placement;
+use crate::cluster::placement::{server, PlacementReply, PlacementRequest};
+use crate::cluster::shard::Shard;
+use crate::cluster::ConsulInterface;
 
 #[derive(Clone, Debug)]
-pub struct Place;
+pub struct Place {
+    consul: ConsulInterface,
+}
+
+type PlacementFuture = Box<dyn Future<Item = Response<PlacementReply>, Error = Error> + Send + 'static>;
 
 impl server::Placement for Place {
-    type GetPlacementFuture = future::FutureResult<Response<PlacementReply>, Error>;
+    type GetPlacementFuture = PlacementFuture;
 
     fn get_placement(&mut self, request: Request<PlacementRequest>) -> Self::GetPlacementFuture {
         info!("Request = {:?}", request);
-        let response = Response::new(PlacementReply {
-            host: "localhost:90189271876281".into(),
-            kind: IndexKind::Shard.into(),
-        });
-
-        future::ok(response)
+        self.determine_placement(request)
     }
 }
 
 impl Place {
-    pub fn get_service(addr: SocketAddr) -> impl Future<Item = (), Error = ()> {
-        let service = server::PlacementServer::new(Place);
+    pub fn determine_placement(&mut self, req: Request<PlacementRequest>) -> PlacementFuture {
+        //        let index = req.get_ref().index.clone();
+        //        let task = self
+        //            .consul
+        //            .get_index(index, true)
+        //            .map_err(|err| Error::Grpc(Status::with_code_and_message(Code::Internal, err.to_string())))
+        //            .and_then(move |c| {
+        //                let kind = req.get_ref().kind.clone();
+        //                let item: NodeData = c.get().skip(1).take(1).map(|k| k.Value.unwrap()).last().unwrap();
+        //                let place = item.primaries.last().unwrap().shard_id().to_hyphenated().to_string();
+        //
+        //                Ok(Response::new(PlacementReply { node: place, kind }))
+        //            });
+
+        Box::new(futures::future::ok(Response::new(PlacementReply { node: "".into(), kind: 1 })))
+    }
+
+    pub fn get_service(addr: SocketAddr, consul: ConsulInterface) -> impl Future<Item = (), Error = ()> {
+        let service = server::PlacementServer::new(Place { consul });
         let executor = DefaultExecutor::current();
         let mut h2 = Server::new(service, Default::default(), executor);
 
@@ -46,28 +66,60 @@ impl Place {
             })
             .map_err(|err| error!("Server Error: {:?}", err))
     }
+
+    pub fn create_client<C>(uri: http::Uri, conn: C) -> Placement<AddOrigin<C>> {
+        use tower_http::add_origin;
+
+        let conn: AddOrigin<C> = add_origin::Builder::new().uri(uri).build(conn).unwrap();
+        Placement::new(conn)
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    //    use super::*;
-    //    use tokio::net::TcpStream;
-    //    use tower_h2::client::Connect;
-    //
-    //    pub struct Conn(SocketAddr);
-    //
-    //    #[test]
-    //    fn client_test() {
-    //        let addr: SocketAddr = "127.0.0.1:8081".parse().unwrap();
-    //        let mut server = Place::get_service(addr.clone());
-    //
-    //        let req = PlacementRequest {
-    //            index: "test".into(),
-    //            kind: IndexKind::Shard.into(),
-    //        };
-    //        let tcp_stream = Box::new(TcpStream::connect(&addr).and_then(|tcp| tcp.set_nodelay(true).map(move |_| tcp)));
-    //
-    //        let mut c = Connect::new(tcp_stream, Default::default(), DefaultExecutor::current());
-    //    }
+    use tokio::net::tcp::ConnectFuture;
+    use tokio::net::TcpStream;
+    use tower_h2::client::Connect;
+    use tower_util::MakeService;
 
+    use super::*;
+
+    pub struct Conn(SocketAddr);
+
+    impl tokio_connect::Connect for Conn {
+        type Connected = TcpStream;
+        type Error = std::io::Error;
+        type Future = ConnectFuture;
+
+        fn connect(&self) -> Self::Future {
+            TcpStream::connect(&self.0)
+        }
+    }
+
+    #[test]
+    fn client_test() {
+        let uri: http::Uri = format!("http://localhost:8081").parse().unwrap();
+        let socket_addr: SocketAddr = "127.0.0.1:8081".parse().unwrap();
+        let tcp_stream = Conn(socket_addr);
+
+        let service = Place::get_service(socket_addr, ConsulInterface::default());
+        let mut c = Connect::new(tcp_stream, Default::default(), DefaultExecutor::current());
+
+        let place = c.make_service(())
+            .map(move |conn| Place::create_client(uri, conn))
+            .and_then(|mut client| {
+                let req = Request::new(PlacementRequest {
+                    index: "test".into(),
+                    kind: 1,
+                });
+
+                client.get_placement(req).map_err(|e| panic!("gRPC request failed; err={:?}", e))
+            })
+            .map(|resp| println!("Response = {:#?}", resp))
+            .map_err(|e| println!("ERROR = {:#?}", e));
+
+        let s = service.select(place).map(|_| ()).map_err(|_| ());
+
+        tokio::run(s);
+    }
 }

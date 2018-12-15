@@ -1,18 +1,13 @@
 syntax = "proto3";
 
-option java_multiple_files = true;
-option java_package = "io.toshi.placement";
-option java_outer_classname = "ToshiPlacement";
-
 package placement;
 
 service Placement {
-    rpc getPlacement (PlacementRequest) returns (PlacementReply) {
-    }
+    rpc getPlacement (PlacementRequest) returns (PlacementReply);
 }
 
 enum IndexKind {
-    SHARD = 0;
+    PRIMARY = 0;
     REPLICA = 1;
 }
 
@@ -22,6 +17,6 @@ message PlacementRequest {
 }
 
 message PlacementReply {
-    string host = 1;
+    string node = 1;
     IndexKind kind = 2;
 }
