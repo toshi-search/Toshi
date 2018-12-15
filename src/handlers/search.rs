@@ -71,8 +71,6 @@ impl SearchHandler {
     }
 }
 
-new_handler!(SearchHandler);
-
 #[cfg(test)]
 pub mod tests {
 

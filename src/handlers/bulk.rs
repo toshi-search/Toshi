@@ -1,35 +1,29 @@
-use super::*;
+use super::{IndexPath, Error, QueryOptions};
+use crate::index::IndexCatalog;
 
 use futures::future;
 use futures::{Future, Stream};
 
-use gotham::handler::*;
-use gotham::state::FromState;
-
-use std::panic::RefUnwindSafe;
 use std::str::from_utf8;
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock, Mutex};
 use std::thread;
 
 use tantivy::Document;
 use tantivy::IndexWriter;
 
 use crossbeam::channel::{unbounded, Receiver};
-use std::sync::Mutex;
 
 #[derive(Clone)]
 pub struct BulkHandler {
     catalog: Arc<RwLock<IndexCatalog>>,
 }
 
-impl RefUnwindSafe for BulkHandler {}
-
 impl BulkHandler {
     pub fn new(catalog: Arc<RwLock<IndexCatalog>>) -> Self {
         BulkHandler { catalog }
     }
 
-    fn index_documents(index_writer: &Mutex<IndexWriter>, doc_receiver: Receiver<Document>) -> Result<u64> {
+    fn index_documents(index_writer: &Mutex<IndexWriter>, doc_receiver: Receiver<Document>) -> Result<u64, Error> {
         match index_writer.lock() {
             Ok(ref mut w) => {
                 for doc in doc_receiver {
@@ -45,88 +39,80 @@ impl BulkHandler {
     }
 }
 
-impl Handler for BulkHandler {
-    fn handle(self, mut state: State) -> Box<HandlerFuture> {
-        let path = IndexPath::take_from(&mut state);
-        let index_lock = self.catalog.read().unwrap();
-        let index_handle = index_lock.get_index(&path.index).unwrap();
-        let index = index_handle.get_index();
-        let schema = index.schema();
-        let (line_sender, line_recv) = index_lock.settings.get_channel::<Vec<u8>>();
-        let (doc_sender, doc_recv) = unbounded::<Document>();
+impl_web! {
+    impl BulkHandler {
+        #[post("/:index/_bulk")]
+        #[content_type("application/json")]
+        fn handle(self, body: Vec<u8>, path: IndexPath, query_options: QueryOptions) -> Result<(), ()> {
+            let index_lock = self.catalog.read().map_err(|_| ())?;
+            let index_handle = index_lock.get_index(&path.index).map_err(|_| ())?;
+            let index = index_handle.get_index();
+            let schema = index.schema();
+            let (line_sender, line_recv) = index_lock.settings.get_channel::<Vec<u8>>();
+            let (doc_sender, doc_recv) = unbounded::<Document>();
 
-        for _ in 0..index_lock.settings.json_parsing_threads {
-            let schema_clone = schema.clone();
-            let doc_sender = doc_sender.clone();
-            let line_recv_clone = line_recv.clone();
-            thread::spawn(move || {
-                for line in line_recv_clone {
-                    if !line.is_empty() {
-                        if let Ok(text) = from_utf8(&line) {
-                            match schema_clone.parse_document(text) {
-                                Ok(doc) => match doc_sender.send(doc) {
-                                    Ok(_) => (),
-                                    Err(err) => error!("Error occurred in parsing thread: {:?}", err),
-                                },
-                                Err(err) => error!("Error occurred in parsing thread: {:?}", err),
+            for _ in 0..index_lock.settings.json_parsing_threads {
+                let schema_clone = schema.clone();
+                let doc_sender = doc_sender.clone();
+                let line_recv_clone = line_recv.clone();
+                thread::spawn(move || {
+                    for line in line_recv_clone {
+                        if !line.is_empty() {
+                            if let Ok(text) = from_utf8(&line) {
+                                match schema_clone.parse_document(text) {
+                                    Ok(doc) => doc_sender.send(doc).map_err(|_| ()),
+                                    Err(err) => Err(())
+                                }
                             }
                         }
                     }
-                }
-            });
-        }
+                });
+            }
 
-        let writer = index_handle.get_writer();
-        thread::spawn(move || BulkHandler::index_documents(&writer, doc_recv));
+            let writer = index_handle.get_writer();
+            thread::spawn(move || BulkHandler::index_documents(&writer, doc_recv));
 
-        let body = Body::take_from(&mut state);
-        let line_sender_clone = line_sender.clone();
-
-        let response = body
-            .map_err(|e| e.into_handler_error())
-            .fold(Vec::new(), move |mut buf, line| {
-                buf.extend(line);
-                let mut split = buf.split(|b| *b == b'\n').peekable();
-                while let Some(l) = split.next() {
-                    if split.peek().is_none() {
-                        return future::ok(l.to_vec());
-                    }
-                    match line_sender_clone.send(l.to_vec()) {
-                        Ok(_) => (),
-                        Err(e) => return future::err(e.into_handler_error()),
-                    };
-                }
-                future::ok(buf.clone())
-            })
-            .then(move |response| match response {
-                Ok(buf) => {
-                    if !buf.is_empty() {
-                        match line_sender.send(buf.to_vec()) {
+            let line_sender_clone = line_sender.clone();
+            let response = body
+                .map_err(|e| e.into_handler_error())
+                .fold(Vec::new(), move |mut buf, line| {
+                    buf.extend(line);
+                    let mut split = buf.split(|b| *b == b'\n').peekable();
+                    while let Some(l) = split.next() {
+                        if split.peek().is_none() {
+                            return future::ok(l.to_vec());
+                        }
+                        match line_sender_clone.send(l.to_vec()) {
                             Ok(_) => (),
-                            Err(e) => return handle_error(state, Error::IOError(e.to_string())),
+                            Err(e) => return future::err(e.into_handler_error()),
                         };
                     }
-                    let resp = create_empty_response(&state, StatusCode::CREATED);
-                    future::ok((state, resp))
-                }
-                Err(e) => handle_error(state, Error::IOError(e.to_string())),
-            });
-        Box::new(response)
+                    future::ok(buf.clone())
+                })
+                .then(move |response| match response {
+                    Ok(buf) => {
+                        if !buf.is_empty() {
+                            return line_sender.send(buf.to_vec()).map_err(|_| ())
+                        }
+                        Ok(())
+                    }
+                    Err(e) => Err(())
+                });
+            Ok(())
+        }
     }
 }
-
-new_handler!(BulkHandler);
-
 #[cfg(test)]
 mod tests {
 
-    use super::search::tests::*;
     use super::*;
     use index::tests::*;
     use index::IndexCatalog;
 
+    use hyper::StatusCode;
     use mime;
     use serde_json;
+    use handlers::search::tests::TestResults;
 
     // TODO: Need Error coverage testing here.
 

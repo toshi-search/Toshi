@@ -6,23 +6,22 @@ extern crate crossbeam;
 extern crate failure;
 extern crate futures;
 extern crate gotham;
-#[macro_use]
-extern crate gotham_derive;
+
 extern crate hyper;
 extern crate log;
 extern crate mime;
 extern crate num_cpus;
 extern crate serde;
-#[macro_use]
 extern crate serde_derive;
 extern crate serde_json;
 extern crate systemstat;
 extern crate tantivy;
 extern crate tokio;
 extern crate uuid;
+#[macro_use]
+extern crate tower_web;
 
 use failure::Fail;
-use gotham::handler::{HandlerError, IntoHandlerError};
 use log::*;
 use tantivy::query::QueryParserError;
 use tantivy::schema::DocParsingError;
@@ -38,12 +37,6 @@ pub enum Error {
     UnknownIndex(String),
     #[fail(display = "Query Parse Error: {}", _0)]
     QueryError(String),
-}
-
-impl IntoHandlerError for Error {
-    fn into_handler_error(self) -> HandlerError {
-        self.compat().into_handler_error()
-    }
 }
 
 impl From<TError> for Error {
@@ -123,5 +116,5 @@ mod results;
 pub mod cluster;
 pub mod commit;
 pub mod index;
-pub mod router;
+//pub mod router;
 pub mod settings;

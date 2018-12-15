@@ -1,7 +1,6 @@
-use super::*;
-
-use futures::future;
-use std::sync::RwLock;
+use std::sync::{RwLock, Arc};
+use super::{IndexPath, QueryOptions, to_json};
+use crate::index::IndexCatalog;
 
 #[derive(Clone)]
 pub struct SummaryHandler {
@@ -14,31 +13,23 @@ impl SummaryHandler {
     }
 }
 
-impl Handler for SummaryHandler {
-    fn handle(self, mut state: State) -> Box<HandlerFuture> {
-        let index_path = IndexPath::take_from(&mut state);
-        let query_options = QueryOptions::take_from(&mut state);
-        let index_lock = self.catalog.read().unwrap();
-
-        if index_lock.exists(&index_path.index) {
-            let index = match index_lock.get_index(&index_path.index) {
-                Ok(v) => v.get_index(),
-                Err(e) => return Box::new(handle_error(state, e)),
-            };
-            let metas = match index.load_metas() {
-                Ok(v) => v,
-                Err(e) => return Box::new(handle_error(state, e)),
-            };
-            let payload = to_json(metas, query_options.pretty);
-            let resp = create_response(&state, StatusCode::OK, mime::APPLICATION_JSON, payload);
-            Box::new(future::ok((state, resp)))
-        } else {
-            Box::new(handle_error(state, Error::UnknownIndex(index_path.index)))
+impl_web! {
+    impl SummaryHandler {
+        #[get("/:index/_summary")]
+        #[content_type("application/json")]
+        fn handle(&self, index_path: IndexPath, query_options: QueryOptions) -> Result<Vec<u8>, ()> {
+            let index_lock = self.catalog.read().unwrap();
+            if index_lock.exists(&index_path.index) {
+                let index = index_lock.get_index(&index_path.index).map_err(|_| ())?;
+                let metas = index.load_metas().map_err(|_| ())?;
+                let payload = to_json(metas, query_options.pretty);
+                Ok(payload)
+            } else {
+                Err(())
+            }
         }
     }
 }
-
-new_handler!(SummaryHandler);
 
 #[cfg(test)]
 mod tests {
@@ -54,7 +45,7 @@ mod tests {
 
         let req = client.get("http://localhost/test_index/_summary").perform().unwrap();
 
-        assert_eq!(StatusCode::OK, req.status());
+        assert_eq!(hyper::StatusCode::OK, req.status());
     }
 
 }

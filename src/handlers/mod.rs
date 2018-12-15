@@ -1,15 +1,3 @@
-macro_rules! new_handler {
-    ($N:ident) => {
-        impl NewHandler for $N {
-            type Instance = Self;
-
-            fn new_handler(&self) -> gotham::error::Result<Self::Instance> {
-                Ok(self.clone())
-            }
-        }
-    };
-}
-
 pub mod bulk;
 pub mod index;
 pub mod root;
@@ -34,18 +22,18 @@ use serde::Serialize;
 use serde_json;
 use std::sync::Arc;
 
-#[derive(Deserialize, StateData, StaticResponseExtender)]
+#[derive(Extract)]
 pub struct IndexPath {
     index: String,
 }
 
-#[derive(Deserialize, StateData, StaticResponseExtender)]
+#[derive(Extract)]
 pub struct QueryOptions {
     #[serde(default = "Settings::default_pretty")]
     pretty: bool,
 }
 
-#[derive(Serialize)]
+#[derive(Response)]
 pub struct ErrorResponse {
     reason: String,
 }
@@ -69,7 +57,7 @@ fn to_json<T: Serialize>(result: T, pretty: bool) -> Vec<u8> {
 type FutureError = FutureResult<(State, Response<Body>), (State, HandlerError)>;
 
 fn handle_error<T: failure::Fail + Sized + Send>(state: State, err: T) -> FutureError {
-    let err = serde_json::to_vec(&ErrorResponse::new(&format!("{}", err))).unwrap();
+    let err = serde_json::to_string(&ErrorResponse::new(&format!("{}", err))).unwrap();
     let resp = create_response(&state, StatusCode::BAD_REQUEST, mime::APPLICATION_JSON, err);
     future::ok((state, resp))
 }
