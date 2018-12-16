@@ -1,8 +1,8 @@
 use std::net::SocketAddr;
 use std::sync::{Arc, RwLock};
 
-use tokio::prelude::*;
 use tokio::net::TcpListener;
+use tokio::prelude::*;
 use tower_web::ServiceBuilder;
 
 use handlers::*;
@@ -18,10 +18,10 @@ pub fn router_with_catalog(addr: &SocketAddr, catalog: &Arc<RwLock<IndexCatalog>
     let listener = TcpListener::bind(addr).unwrap().incoming();
 
     ServiceBuilder::new()
-      .resource(search_handler)
-//      .resource(index_handler)
-      .resource(bulk_handler)
-      .resource(summary_handler)
-      .resource(root_handler)
-      .serve(listener)
+        .resource(search_handler)
+//        .resource(index_handler)
+        .resource(bulk_handler)
+        .resource(summary_handler)
+        .resource(root_handler)
+        .serve(listener)
 }

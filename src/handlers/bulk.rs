@@ -1,4 +1,4 @@
-use super::{Error, IndexPath, QueryOptions, CreatedResponse};
+use crate::handlers::{CreatedResponse, Error};
 use crate::index::IndexCatalog;
 
 use std::str::from_utf8;
@@ -40,9 +40,10 @@ impl BulkHandler {
 impl_web! {
     impl BulkHandler {
         #[post("/:index/_bulk")]
-        fn handle(&self, body: Vec<u8>, path: IndexPath, _query_options: QueryOptions) -> Result<CreatedResponse, ()> {
+        #[content_type("application/json")]
+        fn handle(&self, body: Vec<u8>, index: String) -> Result<CreatedResponse, ()> {
             let index_lock = self.catalog.read().map_err(|_| ())?;
-            let index_handle = index_lock.get_index(&path.index).map_err(|_| ())?;
+            let index_handle = index_lock.get_index(&index).map_err(|_| ())?;
             let index = index_handle.get_index();
             let schema = index.schema();
             let (line_sender, line_recv) = index_lock.settings.get_channel::<Vec<u8>>();
@@ -57,8 +58,8 @@ impl_web! {
                         if !line.is_empty() {
                             if let Ok(text) = from_utf8(&line) {
                                 match schema_clone.parse_document(text) {
-                                    Ok(doc) => doc_sender.send(doc).map_err(|_| ()),
-                                    Err(_) => Err(())
+                                    Ok(doc) => doc_sender.send(doc).unwrap(),
+                                    Err(_) => ()
                                 };
                             }
                         }
@@ -84,7 +85,7 @@ impl_web! {
                     buf.clone()
                 });
             if !response.is_empty() {
-                line_sender.send(response.to_vec()).map_err(|_| ());
+                line_sender.send(response.to_vec()).unwrap();
             }
             Ok(CreatedResponse)
         }
@@ -100,7 +101,6 @@ mod tests {
 
     use handlers::search::tests::TestResults;
     use hyper::StatusCode;
-    use mime;
     use serde_json;
 
     // TODO: Need Error coverage testing here.

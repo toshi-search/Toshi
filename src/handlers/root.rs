@@ -2,7 +2,6 @@
 pub struct RootHandler(ToshiInfo);
 
 #[derive(Debug, Clone, Response)]
-#[web(status = "200")]
 struct ToshiInfo {
     name: String,
     version: String,

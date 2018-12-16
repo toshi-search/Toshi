@@ -50,7 +50,7 @@ pub enum Metrics {
     SumAgg { field: String },
 }
 
-#[derive(Extract, Debug)]
+#[derive(Deserialize)]
 pub struct Request {
     pub aggs: Option<Metrics>,
     pub query: Option<Query>,

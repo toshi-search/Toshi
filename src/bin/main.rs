@@ -1,6 +1,5 @@
 extern crate clap;
 extern crate futures;
-extern crate gotham;
 extern crate hyper;
 extern crate log;
 extern crate num_cpus;
@@ -21,6 +20,7 @@ use std::{
 use tokio::runtime::Runtime;
 use uuid::Uuid;
 
+use std::net::SocketAddr;
 use toshi::{
     cluster::{self, ConsulInterface},
     commit::IndexWatcher,
@@ -28,7 +28,6 @@ use toshi::{
     router::router_with_catalog,
     settings::{Settings, HEADER},
 };
-use std::net::SocketAddr;
 
 pub fn main() -> Result<(), ()> {
     let settings = settings();

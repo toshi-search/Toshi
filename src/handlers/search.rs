@@ -5,7 +5,6 @@ use log::info;
 use query::Request;
 use results::SearchResults;
 
-use crate::handlers::{IndexPath, QueryOptions};
 use crate::index::IndexCatalog;
 
 #[derive(Clone)]
@@ -23,15 +22,19 @@ impl_web! {
     impl SearchHandler {
 
         #[post("/:index")]
-        fn doc_search(&self, body: Request, _query_options: QueryOptions, index: IndexPath) -> Result<SearchResults, ()> {
+        #[content_type("application/json")]
+        fn doc_search(&self, body: Vec<u8>, index: String) -> Result<SearchResults, ()> {
             info!("Query: {:?}", body);
-            let docs = self.catalog.read().unwrap().search_index(&index.index, body).map_err(|_| ())?;
+            let request: Request = serde_json::from_slice(&body).map_err(|_| ())?;
+            let docs = self.catalog.read().unwrap().search_index(&index, request).map_err(|_| ())?;
             Ok(docs)
         }
 
         #[get("/:index")]
-        fn get_all_docs(&self, query_options: QueryOptions, index: IndexPath) -> Result<SearchResults, ()> {
-            self.doc_search(Request::all_docs(), query_options, index)
+        #[content_type("application/json")]
+        fn get_all_docs(&self, index: String) -> Result<SearchResults, ()> {
+            let docs = self.catalog.read().unwrap().search_index(&index, Request::all_docs()).map_err(|_| ())?;
+            Ok(docs)
         }
     }
 }
