@@ -1,17 +1,18 @@
-use super::{IndexPath, Error, QueryOptions};
+use super::{Error, IndexPath, QueryOptions, CreatedResponse};
 use crate::index::IndexCatalog;
-
 use futures::future;
 use futures::{Future, Stream};
 
 use std::str::from_utf8;
-use std::sync::{Arc, RwLock, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 
 use tantivy::Document;
 use tantivy::IndexWriter;
 
 use crossbeam::channel::{unbounded, Receiver};
+use tower_web::util::BufStream;
+use std::iter::Iterator;
 
 #[derive(Clone)]
 pub struct BulkHandler {
@@ -39,11 +40,10 @@ impl BulkHandler {
     }
 }
 
-impl_web! {
+//impl_web! {
     impl BulkHandler {
-        #[post("/:index/_bulk")]
-        #[content_type("application/json")]
-        fn handle(self, body: Vec<u8>, path: IndexPath, query_options: QueryOptions) -> Result<(), ()> {
+//        #[post("/:index/_bulk")]
+        fn handle(self, body: Vec<u8>, path: IndexPath, query_options: QueryOptions) -> Result<CreatedResponse, ()> {
             let index_lock = self.catalog.read().map_err(|_| ())?;
             let index_handle = index_lock.get_index(&path.index).map_err(|_| ())?;
             let index = index_handle.get_index();
@@ -62,7 +62,7 @@ impl_web! {
                                 match schema_clone.parse_document(text) {
                                     Ok(doc) => doc_sender.send(doc).map_err(|_| ()),
                                     Err(err) => Err(())
-                                }
+                                };
                             }
                         }
                     }
@@ -74,34 +74,26 @@ impl_web! {
 
             let line_sender_clone = line_sender.clone();
             let response = body
-                .map_err(|e| e.into_handler_error())
+                .into_iter()
                 .fold(Vec::new(), move |mut buf, line| {
-                    buf.extend(line);
+                    buf.push(line);
                     let mut split = buf.split(|b| *b == b'\n').peekable();
                     while let Some(l) = split.next() {
                         if split.peek().is_none() {
-                            return future::ok(l.to_vec());
+                            return l.to_vec();
                         }
-                        match line_sender_clone.send(l.to_vec()) {
-                            Ok(_) => (),
-                            Err(e) => return future::err(e.into_handler_error()),
-                        };
+                        line_sender_clone.send(l.to_vec()).unwrap()
                     }
-                    future::ok(buf.clone())
-                })
-                .then(move |response| match response {
-                    Ok(buf) => {
-                        if !buf.is_empty() {
-                            return line_sender.send(buf.to_vec()).map_err(|_| ())
-                        }
-                        Ok(())
-                    }
-                    Err(e) => Err(())
+                    buf.clone()
                 });
-            Ok(())
+            if !response.is_empty() {
+                line_sender.send(response.to_vec()).map_err(|_| ());
+            }
+            Ok(CreatedResponse)
         }
     }
-}
+//}
+
 #[cfg(test)]
 mod tests {
 
@@ -109,10 +101,10 @@ mod tests {
     use index::tests::*;
     use index::IndexCatalog;
 
+    use handlers::search::tests::TestResults;
     use hyper::StatusCode;
     use mime;
     use serde_json;
-    use handlers::search::tests::TestResults;
 
     // TODO: Need Error coverage testing here.
 

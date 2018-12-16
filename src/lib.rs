@@ -116,5 +116,5 @@ mod results;
 pub mod cluster;
 pub mod commit;
 pub mod index;
-//pub mod router;
+pub mod router;
 pub mod settings;

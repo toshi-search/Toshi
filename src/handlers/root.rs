@@ -3,7 +3,7 @@ use tokio::prelude::*;
 #[derive(Clone, Debug)]
 pub struct RootHandler(ToshiInfo);
 
-#[derive(Response, Serialize)]
+#[derive(Debug, Clone, Response, Serialize)]
 #[web(status = "200")]
 struct ToshiInfo {
     name: String,
@@ -13,7 +13,7 @@ struct ToshiInfo {
 impl RootHandler {
     pub fn new(version: &str) -> Self {
         RootHandler(ToshiInfo {
-            version,
+            version: version.into(),
             name: "Toshi Search".into(),
         })
     }
@@ -24,7 +24,7 @@ impl_web! {
         #[get("/")]
         #[content_type("application/json")]
         fn root(&self) -> Result<ToshiInfo, ()> {
-            Ok(&self.0)
+            Ok(self.0.clone())
         }
     }
 }
@@ -39,18 +39,20 @@ mod tests {
 
     #[test]
     fn test_tower() {
-        ServiceBuilder::new().resource(RootHandler::new(VERSION)).run(&([127, 0, 0, 1], 8080).into()).unwrap();
+        ServiceBuilder::new()
+            .resource(RootHandler::new(VERSION))
+            .run(&([127, 0, 0, 1], 8080).into())
+            .unwrap();
     }
-
 
     #[test]
     fn test_root() {
-//        let handler = RootHandler::new(VERSION);
-//        let test_server = TestServer::new(handler).unwrap();
-//        let client = test_server.client();
-//
-//        let req = client.get("http://localhost").perform().unwrap();
-//        assert_eq!(req.status(), StatusCode::OK);
-//        assert_eq!(req.read_utf8_body().unwrap(), r#"{"name":"Toshi Search","version":"0.1.1"}"#);
+        //        let handler = RootHandler::new(VERSION);
+        //        let test_server = TestServer::new(handler).unwrap();
+        //        let client = test_server.client();
+        //
+        //        let req = client.get("http://localhost").perform().unwrap();
+        //        assert_eq!(req.status(), StatusCode::OK);
+        //        assert_eq!(req.read_utf8_body().unwrap(), r#"{"name":"Toshi Search","version":"0.1.1"}"#);
     }
 }

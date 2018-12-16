@@ -7,20 +7,10 @@ pub mod summary;
 pub use self::{bulk::BulkHandler, index::IndexHandler, root::RootHandler, search::SearchHandler, summary::SummaryHandler};
 
 use super::Error;
-use super::*;
-use index::*;
 use settings::Settings;
 
-use futures::{future, future::FutureResult};
-use gotham::handler::*;
-use gotham::helpers::http::response::*;
-use gotham::state::*;
-use hyper::{Body, Response, StatusCode};
-use log::info;
-use mime;
 use serde::Serialize;
 use serde_json;
-use std::sync::Arc;
 
 #[derive(Extract)]
 pub struct IndexPath {
@@ -34,6 +24,8 @@ pub struct QueryOptions {
 }
 
 #[derive(Response)]
+pub struct CreatedResponse;
+
 pub struct ErrorResponse {
     reason: String,
 }
@@ -52,12 +44,4 @@ fn to_json<T: Serialize>(result: T, pretty: bool) -> Vec<u8> {
     } else {
         serde_json::to_vec(&result).unwrap()
     }
-}
-
-type FutureError = FutureResult<(State, Response<Body>), (State, HandlerError)>;
-
-fn handle_error<T: failure::Fail + Sized + Send>(state: State, err: T) -> FutureError {
-    let err = serde_json::to_string(&ErrorResponse::new(&format!("{}", err))).unwrap();
-    let resp = create_response(&state, StatusCode::BAD_REQUEST, mime::APPLICATION_JSON, err);
-    future::ok((state, resp))
 }

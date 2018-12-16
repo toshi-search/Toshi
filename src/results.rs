@@ -1,11 +1,10 @@
 use query::SummaryDoc;
 use tantivy::schema::NamedFieldDocument;
 
-#[derive(Serialize)]
+#[derive(Response)]
 pub struct SearchResults {
     hits: usize,
     docs: Vec<ScoredDoc>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     aggregate: Option<Vec<SummaryDoc>>,
 }
 

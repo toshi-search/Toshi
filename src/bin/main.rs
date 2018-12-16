@@ -203,11 +203,11 @@ fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: Settings) -> impl Future<It
         // by either completing successfully or erroring out.
         let run = connect_to_consul(settings.path.clone(), settings.cluster_name.into())
             .and_then(move |_| commit_watcher)
-            .and_then(move |_| gotham::init_server(addr, router_with_catalog(&catalog)));
+            .and_then(move |_| router_with_catalog(&catalog));
 
         future::Either::A(run)
     } else {
-        let run = commit_watcher.and_then(move |_| gotham::init_server(addr, router_with_catalog(&catalog)));
+        let run = commit_watcher.and_then(move |_| router_with_catalog(&catalog));
         future::Either::B(run)
     }
 }

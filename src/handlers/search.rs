@@ -1,18 +1,19 @@
-use super::*;
+use crate::handlers::{QueryOptions, IndexPath};
+use crate::index::IndexCatalog;
+use super::Error;
 
 use futures::{future, Future, Stream};
 use hyper::Method;
-
+use log::info;
 use query::Request;
-use std::panic::RefUnwindSafe;
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
+use tantivy::Document;
+use results::SearchResults;
 
 #[derive(Clone)]
 pub struct SearchHandler {
     catalog: Arc<RwLock<IndexCatalog>>,
 }
-
-impl RefUnwindSafe for SearchHandler {}
 
 impl SearchHandler {
     pub fn new(catalog: Arc<RwLock<IndexCatalog>>) -> Self {
@@ -20,53 +21,23 @@ impl SearchHandler {
     }
 }
 
-impl Handler for SearchHandler {
-    fn handle(self, mut state: State) -> Box<HandlerFuture> {
-        let index = IndexPath::take_from(&mut state);
-        let query_options = QueryOptions::take_from(&mut state);
-        match *Method::borrow_from(&state) {
-            Method::POST => self.doc_search(state, query_options, index),
-            Method::GET => self.get_all_docs(state, &query_options, &index),
-            _ => unreachable!(),
+impl_web! {
+    impl SearchHandler {
+
+        #[post("/:index")]
+        fn doc_search(&self, body: Request, query_options: QueryOptions, index: IndexPath) -> Result<SearchResults, ()> {
+            info!("Query: {:?}", body);
+            let docs = self.catalog.read().unwrap().search_index(&index.index, body).map_err(|_| ())?;
+            Ok(docs)
         }
-    }
-}
 
-impl SearchHandler {
-    fn doc_search(self, mut state: State, query_options: QueryOptions, index: IndexPath) -> Box<HandlerFuture> {
-        let f = Body::take_from(&mut state).concat2().then(move |body| match body {
-            Ok(b) => {
-                let search: Request = match serde_json::from_slice(&b) {
-                    Ok(s) => s,
-                    Err(e) => return handle_error(state, e),
-                };
-                info!("Query: {:?}", search);
-                let docs = match self.catalog.read().unwrap().search_index(&index.index, search) {
-                    Ok(v) => v,
-                    Err(e) => return handle_error(state, e),
-                };
-
-                let data = to_json(docs, query_options.pretty);
-                let resp = create_response(&state, StatusCode::OK, mime::APPLICATION_JSON, data);
-                future::ok((state, resp))
+        #[get("/:index")]
+        fn get_all_docs(&self, query_options: QueryOptions, index: IndexPath) -> Result<SearchResults, ()> {
+            if let Ok(idx) = self.catalog.read() {
+                self.doc_search(Request::all_docs(), query_options, index)
+            } else {
+                Err(())
             }
-            Err(e) => handle_error(state, e),
-        });
-        Box::new(f)
-    }
-
-    fn get_all_docs(self, state: State, query_options: &QueryOptions, index: &IndexPath) -> Box<HandlerFuture> {
-        if let Ok(idx) = self.catalog.read() {
-            match idx.search_index(&index.index, Request::all_docs()) {
-                Ok(docs) => {
-                    let data = to_json(docs, query_options.pretty);
-                    let resp = create_response(&state, StatusCode::OK, mime::APPLICATION_JSON, data);
-                    Box::new(future::ok((state, resp)))
-                }
-                Err(e) => Box::new(handle_error(state, e)),
-            }
-        } else {
-            Box::new(handle_error(state, Error::IOError("Could not obtain lock on index".to_string())))
         }
     }
 }
