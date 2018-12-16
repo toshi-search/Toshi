@@ -1,17 +1,16 @@
-use crate::handlers::{CreatedResponse, IndexPath, QueryOptions};
+use crate::handlers::{CreatedResponse, IndexPath};
 use crate::index::IndexCatalog;
 use crate::Error;
-use futures::{future, Future, Stream};
 use std::collections::HashMap;
 use std::fs;
 use std::sync::{Arc, RwLock};
 
-use hyper::{Method, StatusCode};
 use tantivy::directory::MmapDirectory;
 use tantivy::schema::*;
 use tantivy::Index;
+use std::path::PathBuf;
 
-#[derive(Extract)]
+#[derive(Extract, Deserialize)]
 pub struct DeleteDoc {
     options: Option<IndexOptions>,
     terms: HashMap<String, String>,
@@ -22,7 +21,7 @@ pub struct IndexHandler {
     catalog: Arc<RwLock<IndexCatalog>>,
 }
 
-#[derive(Response)]
+#[derive(Response, Deserialize)]
 pub struct DocsAffected {
     docs_affected: u32,
 }
@@ -44,42 +43,41 @@ impl IndexHandler {
         IndexHandler { catalog }
     }
 
-    fn add_index(&mut self, name: String, index: Index) {
+    fn add_index(&mut self, name: String, index: Index) -> Result<(), ()> {
         match self.catalog.write() {
-            Ok(ref mut cat) => cat.add_index(name, index),
-            Err(e) => panic!("{}", e),
+            Ok(ref mut cat) => Ok(cat.add_index(name, index)),
+            Err(_) => Err(()),
         }
     }
 
-    fn create_from_managed(&self, index_path: &IndexPath, schema: Schema) -> Result<Index, Error> {
-        let mut ip = self.catalog.read()?.base_path().clone();
-        ip.push(&index_path.index);
-        if !ip.exists() {
-            fs::create_dir(&ip).map_err(|e| Error::IOError(e.to_string()))?;
+    fn create_from_managed(mut base_path: PathBuf, index_path: &IndexPath, schema: Schema) -> Result<Index, Error> {
+        base_path.push(&index_path.index);
+        if !base_path.exists() {
+            fs::create_dir(&base_path).map_err(|e| Error::IOError(e.to_string()))?;
         }
-        let dir = MmapDirectory::open(ip).map_err(|e| Error::IOError(format!("{:?}", e)))?;
-        Index::open_or_create(dir, schema).map_err(|e| Error::IOError(format!("{:?}", e)))
+        let dir = MmapDirectory::open(base_path).map_err(|e| Error::IOError(e.to_string()))?;
+        Index::open_or_create(dir, schema).map_err(|e| Error::IOError(e.to_string()))
     }
 
-    fn parse_doc(&self, schema: &Schema, bytes: &str) -> Result<Document, Error> {
+    fn parse_doc(schema: &Schema, bytes: &str) -> Result<Document, Error> {
         schema.parse_document(bytes).map_err(|e| e.into())
     }
 
-    fn create_index(&mut self, body: Schema, index_path: IndexPath) -> Result<CreatedResponse, ()> {
-        let new_index = self.create_from_managed(&index_path, body).map_err(|_| ())?;
+    fn create_index(&mut self, base_path: PathBuf, body: Schema, index_path: IndexPath) -> Result<CreatedResponse, ()> {
+        let new_index = IndexHandler::create_from_managed(base_path, &index_path, body).map_err(|_| ())?;
         self.add_index(index_path.index, new_index);
         Ok(CreatedResponse)
     }
 
-    fn add_document(&self, body: AddDocument, index_path: IndexPath) -> Result<CreatedResponse, ()> {
-        if let Ok(mut index_lock) = self.catalog.write() {
-            if let Ok(index_handle) = index_lock.get_mut_index(&index_path.index) {
+    fn add_document(&mut self, body: AddDocument, index_path: IndexPath) -> Result<CreatedResponse, ()> {
+        if let Ok(ref mut index_lock) = self.catalog.write() {
+            if let Ok(ref mut index_handle) = &mut index_lock.get_mut_index(&index_path.index) {
                 {
                     let index = index_handle.get_index();
                     let index_schema = index.schema();
                     let writer_lock = index_handle.get_writer();
                     let mut index_writer = writer_lock.lock().map_err(|_| ())?;
-                    let mut doc = self.parse_doc(&index_schema, &body.document.to_string()).map_err(|_| ())?;
+                    let doc: Document = IndexHandler::parse_doc(&index_schema, &body.document.to_string()).map_err(|_| ())?;
                     index_writer.add_document(doc);
                     if let Some(opts) = body.options {
                         if opts.commit {
@@ -95,55 +93,60 @@ impl IndexHandler {
         Ok(CreatedResponse)
     }
 }
-//impl_web! {
+impl_web! {
     impl IndexHandler {
 
-//        #[delete("/:index")]
-        fn delete_document(&mut self, body: DeleteDoc, index_path: IndexPath) -> Result<DocsAffected, ()> {
-            if self.catalog.read().unwrap().exists(&index_path.index) {
-                        let docs_affected: u32;
-                        {
-                            let index_lock = self.catalog.read().unwrap();
-                            let index_handle = index_lock.get_index(&index_path.index).map_err(|_| ())?;
-                            let index = index_handle.get_index();
-                            let index_schema = index.schema();
-                            let writer_lock = index_handle.get_writer();
-                            let mut index_writer = writer_lock.lock().map_err(|_| ())?;
+        #[post("/:index/_delete")]
+        fn delete_document(&mut self, body: Vec<u8>, index: IndexPath) -> Result<DocsAffected, ()> {
+            let doc: DeleteDoc = serde_json::from_slice(&body).map_err(|_| ())?;
+            if self.catalog.read().unwrap().exists(&index.index) {
+                let docs_affected: u32;
+                {
+                    let index_lock = self.catalog.read().unwrap();
+                    let index_handle = index_lock.get_index(&index.index).map_err(|_| ())?;
+                    let index = index_handle.get_index();
+                    let index_schema = index.schema();
+                    let writer_lock = index_handle.get_writer();
+                    let mut index_writer = writer_lock.lock().map_err(|_| ())?;
 
-                            for (field, value) in body.terms {
-                                let f = index_schema.get_field(&field).unwrap();
-                                let term = Term::from_field_text(f, &value);
-                                index_writer.delete_term(term);
-                            }
-                            if let Some(opts) = body.options {
-                                if opts.commit {
-                                    index_writer.commit().unwrap();
-                                    index_handle.set_opstamp(0);
-                                }
-                            }
-                            docs_affected = index
-                                .load_metas()
-                                .map(|meta| meta.segments.iter().map(|seg| seg.num_deleted_docs()).sum())
-                                .unwrap_or(0);
+                    for (field, value) in doc.terms {
+                        let mut f = index_schema.get_field(&field).unwrap();
+                        let mut term = Term::from_field_text(f, &value);
+                        index_writer.delete_term(term);
+                    }
+                    if let Some(opts) = doc.options {
+                        if opts.commit {
+                            index_writer.commit().unwrap();
+                            index_handle.set_opstamp(0);
                         }
-                        Ok(DocsAffected { docs_affected })
-                    } else {
+                    }
+                    docs_affected = index
+                        .load_metas()
+                        .map(|meta| meta.segments.iter().map(|seg| seg.num_deleted_docs()).sum())
+                        .unwrap_or(0);
+                }
+                Ok(DocsAffected { docs_affected })
+            } else {
                 Err(())
             }
         }
 
-//        #[put("/:index")]
-        fn put_index(&mut self, body: Vec<u8>, index_path: IndexPath) -> Result<CreatedResponse, ()> {
-            if self.catalog.read().unwrap().exists(&index_path.index) {
-                let doc: AddDocument = serde_json::from_slice(&body).map_err(|_| ())?;
-                self.add_document(doc, index_path)
-            } else {
-                let create: Schema = serde_json::from_slice(&body).map_err(|_| ())?;
-                self.create_index(create, index_path)
-            }
+        #[post("/:index")]
+        fn put_index(&mut self, body: Vec<u8>, index: IndexPath) -> Result<CreatedResponse, ()> {
+            let doc: AddDocument = serde_json::from_slice(&body).map_err(|_| ())?;
+            self.add_document(doc, index)
+        }
+
+
+        #[post("/:index/_create")]
+        fn create(&mut self, body: Vec<u8>, index: IndexPath) -> Result<CreatedResponse, ()> {
+            let schema: Schema = serde_json::from_slice(&body).map_err(|_| ())?;
+            let ip = self.catalog.read().map_err(|_| ())?.base_path().clone();
+
+            self.create_index(ip, schema, index)
         }
     }
-//}
+}
 
 #[cfg(test)]
 mod tests {
@@ -151,6 +154,9 @@ mod tests {
     use index::tests::*;
     use std::fs::remove_file;
     use std::path::PathBuf;
+
+    use hyper::{Method, StatusCode};
+    use serde_json;
 
     #[test]
     fn test_create_index() {

@@ -5,14 +5,10 @@ extern crate crossbeam;
 #[macro_use]
 extern crate failure;
 extern crate futures;
-extern crate gotham;
-
 extern crate hyper;
 extern crate log;
-extern crate mime;
 extern crate num_cpus;
 extern crate serde;
-extern crate serde_derive;
 extern crate serde_json;
 extern crate systemstat;
 extern crate tantivy;

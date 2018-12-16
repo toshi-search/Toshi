@@ -14,8 +14,6 @@ path = "src/bin/main.rs"
 path = "src/lib.rs"
 
 [dependencies]
-gotham            = { git = "https://github.com/gotham-rs/gotham", rev = "9e60d8752fd5bb569f4156e60ee1919198702273"}
-gotham_derive     = { git = "https://github.com/gotham-rs/gotham", rev = "9e60d8752fd5bb569f4156e60ee1919198702273"}
 tower-web         = "0.3.3"
 hyper             = "^0.12"
 mime              = "^0.3"

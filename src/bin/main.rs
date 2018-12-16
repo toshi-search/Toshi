@@ -28,6 +28,7 @@ use toshi::{
     router::router_with_catalog,
     settings::{Settings, HEADER},
 };
+use std::net::SocketAddr;
 
 pub fn main() -> Result<(), ()> {
     let settings = settings();
@@ -193,7 +194,7 @@ fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: Settings) -> impl Future<It
         future::Either::B(future::ok::<(), ()>(()))
     };
 
-    let addr = format!("{}:{}", &settings.host, settings.port);
+    let addr: SocketAddr = format!("{}:{}", &settings.host, settings.port).parse().unwrap();
 
     println!("{}", HEADER);
 
@@ -203,11 +204,11 @@ fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: Settings) -> impl Future<It
         // by either completing successfully or erroring out.
         let run = connect_to_consul(settings.path.clone(), settings.cluster_name.into())
             .and_then(move |_| commit_watcher)
-            .and_then(move |_| router_with_catalog(&catalog));
+            .and_then(move |_| router_with_catalog(&addr, &catalog));
 
         future::Either::A(run)
     } else {
-        let run = commit_watcher.and_then(move |_| router_with_catalog(&catalog));
+        let run = commit_watcher.and_then(move |_| router_with_catalog(&addr, &catalog));
         future::Either::B(run)
     }
 }

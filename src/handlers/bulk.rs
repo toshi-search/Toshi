@@ -1,7 +1,5 @@
 use super::{Error, IndexPath, QueryOptions, CreatedResponse};
 use crate::index::IndexCatalog;
-use futures::future;
-use futures::{Future, Stream};
 
 use std::str::from_utf8;
 use std::sync::{Arc, Mutex, RwLock};
@@ -11,7 +9,6 @@ use tantivy::Document;
 use tantivy::IndexWriter;
 
 use crossbeam::channel::{unbounded, Receiver};
-use tower_web::util::BufStream;
 use std::iter::Iterator;
 
 #[derive(Clone)]
@@ -40,10 +37,10 @@ impl BulkHandler {
     }
 }
 
-//impl_web! {
+impl_web! {
     impl BulkHandler {
-//        #[post("/:index/_bulk")]
-        fn handle(self, body: Vec<u8>, path: IndexPath, query_options: QueryOptions) -> Result<CreatedResponse, ()> {
+        #[post("/:index/_bulk")]
+        fn handle(&self, body: Vec<u8>, path: IndexPath, _query_options: QueryOptions) -> Result<CreatedResponse, ()> {
             let index_lock = self.catalog.read().map_err(|_| ())?;
             let index_handle = index_lock.get_index(&path.index).map_err(|_| ())?;
             let index = index_handle.get_index();
@@ -61,7 +58,7 @@ impl BulkHandler {
                             if let Ok(text) = from_utf8(&line) {
                                 match schema_clone.parse_document(text) {
                                     Ok(doc) => doc_sender.send(doc).map_err(|_| ()),
-                                    Err(err) => Err(())
+                                    Err(_) => Err(())
                                 };
                             }
                         }
@@ -92,7 +89,7 @@ impl BulkHandler {
             Ok(CreatedResponse)
         }
     }
-//}
+}
 
 #[cfg(test)]
 mod tests {

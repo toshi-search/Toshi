@@ -1,4 +1,4 @@
-use super::{to_json, IndexPath, QueryOptions};
+use super::{IndexPath, QueryOptions};
 use crate::index::IndexCatalog;
 use std::sync::{Arc, RwLock};
 
@@ -17,12 +17,12 @@ impl_web! {
     impl SummaryHandler {
         #[get("/:index/_summary")]
         #[content_type("application/json")]
-        fn handle(&self, index_path: IndexPath, query_options: QueryOptions) -> Result<Vec<u8>, ()> {
+        fn handle(&self, index_path: IndexPath, _query_options: QueryOptions) -> Result<String, ()> {
             let index_lock = self.catalog.read().unwrap();
             if index_lock.exists(&index_path.index) {
                 let index = index_lock.get_index(&index_path.index).map_err(|_| ())?;
                 let metas = index.get_index().load_metas().map_err(|_| ())?;
-                let payload = to_json(metas, query_options.pretty);
+                let payload = serde_json::to_string(&metas).map_err(|_| ())?;
                 Ok(payload)
             } else {
                 Err(())

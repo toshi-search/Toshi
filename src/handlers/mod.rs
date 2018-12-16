@@ -9,15 +9,12 @@ pub use self::{bulk::BulkHandler, index::IndexHandler, root::RootHandler, search
 use super::Error;
 use settings::Settings;
 
-use serde::Serialize;
-use serde_json;
-
-#[derive(Extract)]
+#[derive(Extract, Deserialize)]
 pub struct IndexPath {
     index: String,
 }
 
-#[derive(Extract)]
+#[derive(Extract, Deserialize)]
 pub struct QueryOptions {
     #[serde(default = "Settings::default_pretty")]
     pretty: bool,
@@ -25,23 +22,3 @@ pub struct QueryOptions {
 
 #[derive(Response)]
 pub struct CreatedResponse;
-
-pub struct ErrorResponse {
-    reason: String,
-}
-
-impl ErrorResponse {
-    pub fn new(reason: &str) -> Self {
-        ErrorResponse {
-            reason: reason.to_string(),
-        }
-    }
-}
-
-fn to_json<T: Serialize>(result: T, pretty: bool) -> Vec<u8> {
-    if pretty {
-        serde_json::to_vec_pretty(&result).unwrap()
-    } else {
-        serde_json::to_vec(&result).unwrap()
-    }
-}

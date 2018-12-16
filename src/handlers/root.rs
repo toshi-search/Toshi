@@ -1,9 +1,7 @@
-use tokio::prelude::*;
-
 #[derive(Clone, Debug)]
 pub struct RootHandler(ToshiInfo);
 
-#[derive(Debug, Clone, Response, Serialize)]
+#[derive(Debug, Clone, Response)]
 #[web(status = "200")]
 struct ToshiInfo {
     name: String,
@@ -32,7 +30,6 @@ impl_web! {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use gotham::test::TestServer;
     use settings::VERSION;
 
     use tower_web::ServiceBuilder;

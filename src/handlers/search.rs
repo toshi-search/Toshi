@@ -1,14 +1,12 @@
-use crate::handlers::{QueryOptions, IndexPath};
-use crate::index::IndexCatalog;
-use super::Error;
-
-use futures::{future, Future, Stream};
-use hyper::Method;
-use log::info;
-use query::Request;
 use std::sync::{Arc, RwLock};
-use tantivy::Document;
+
+use log::info;
+
+use query::Request;
 use results::SearchResults;
+
+use crate::handlers::{IndexPath, QueryOptions};
+use crate::index::IndexCatalog;
 
 #[derive(Clone)]
 pub struct SearchHandler {
@@ -25,7 +23,7 @@ impl_web! {
     impl SearchHandler {
 
         #[post("/:index")]
-        fn doc_search(&self, body: Request, query_options: QueryOptions, index: IndexPath) -> Result<SearchResults, ()> {
+        fn doc_search(&self, body: Request, _query_options: QueryOptions, index: IndexPath) -> Result<SearchResults, ()> {
             info!("Query: {:?}", body);
             let docs = self.catalog.read().unwrap().search_index(&index.index, body).map_err(|_| ())?;
             Ok(docs)
@@ -33,21 +31,19 @@ impl_web! {
 
         #[get("/:index")]
         fn get_all_docs(&self, query_options: QueryOptions, index: IndexPath) -> Result<SearchResults, ()> {
-            if let Ok(idx) = self.catalog.read() {
-                self.doc_search(Request::all_docs(), query_options, index)
-            } else {
-                Err(())
-            }
+            self.doc_search(Request::all_docs(), query_options, index)
         }
     }
 }
 
 #[cfg(test)]
 pub mod tests {
+    use hyper::StatusCode;
+    use serde_json;
+
+    use index::tests::*;
 
     use super::*;
-    use index::tests::*;
-    use serde_json;
 
     #[derive(Deserialize, Debug)]
     pub struct TestResults {
@@ -91,7 +87,7 @@ pub mod tests {
             .perform()
             .unwrap();
 
-        assert_eq!(req.status(), StatusCode::OK);
+        assert_eq!(req.status(), hyper::StatusCode::OK);
         serde_json::from_slice(&req.read_body().unwrap()).unwrap()
     }
 
