@@ -3,9 +3,9 @@ use tantivy::schema::NamedFieldDocument;
 
 #[derive(Response)]
 pub struct SearchResults {
-    hits: usize,
-    docs: Vec<ScoredDoc>,
-    aggregate: Option<Vec<SummaryDoc>>,
+    pub hits: usize,
+    pub docs: Vec<ScoredDoc>,
+    pub aggregate: Option<Vec<SummaryDoc>>,
 }
 
 impl SearchResults {

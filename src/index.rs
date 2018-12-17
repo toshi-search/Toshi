@@ -66,10 +66,11 @@ impl IndexCatalog {
         }
     }
 
-    pub fn add_index(&mut self, name: String, index: Index) {
+    pub fn add_index(&mut self, name: String, index: Index) -> Result<()> {
         let handle = IndexHandle::new(index, self.settings.clone(), &name)
             .unwrap_or_else(|_| panic!("Unable to open index: {} because it's locked", name));
         self.collection.entry(name).or_insert(handle);
+        Ok(())
     }
 
     #[allow(dead_code)]
@@ -182,7 +183,6 @@ impl IndexCatalog {
 pub mod tests {
 
     use super::*;
-    use gotham::test::{TestClient, TestServer};
     use std::sync::{Arc, RwLock};
     use tantivy::doc;
 
@@ -204,14 +204,5 @@ pub mod tests {
         writer.commit().unwrap();
 
         idx
-    }
-
-    pub fn create_test_client(catalog: &Arc<RwLock<IndexCatalog>>) -> TestClient {
-        let server = create_test_server(catalog);
-        server.client()
-    }
-
-    pub fn create_test_server(catalog: &Arc<RwLock<IndexCatalog>>) -> TestServer {
-        TestServer::new(router::router_with_catalog(catalog)).unwrap()
     }
 }

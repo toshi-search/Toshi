@@ -161,15 +161,13 @@ fn settings() -> Settings {
         )
         .get_matches();
 
-    let settings = if options.is_present("config") {
+    if options.is_present("config") {
         let cfg = options.value_of("config").unwrap();
         info!("Reading config from: {}", cfg);
         Settings::new(cfg).expect("Invalid Config file")
     } else {
         Settings::from_args(&options)
-    };
-
-    settings
+    }
 }
 
 // Create the future that runs forever and spawns the webserver
@@ -201,7 +199,7 @@ fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: Settings) -> impl Future<It
         // Run the tokio runtime, this will start an event loop that will process
         // the connect_consul future. It will block until the future is completed
         // by either completing successfully or erroring out.
-        let run = connect_to_consul(settings.path.clone(), settings.cluster_name.into())
+        let run = connect_to_consul(settings.path.clone(), settings.cluster_name)
             .and_then(move |_| commit_watcher)
             .and_then(move |_| router_with_catalog(&addr, &catalog));
 
@@ -217,13 +215,12 @@ fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: Settings) -> impl Future<It
 fn connect_to_consul(path: String, cluster_name: String) -> impl Future<Item = (), Error = ()> {
     let mut consul_client = ConsulInterface::default().with_cluster_name(cluster_name.to_string());
 
-    let settings_path_read = path.clone();
-    let settings_path_write = path.clone();
+    let settings_path_write = path.to_string();
 
     // Build future that will connect to consul and register the node_id
     consul_client
         .register_cluster()
-        .and_then(move |_| cluster::read_node_id(settings_path_read.as_str()))
+        .and_then(move |_| cluster::read_node_id(&path))
         .then(|result| match result {
             Ok(id) => {
                 let parsed_id = Uuid::parse_str(&id).expect("Parsed node ID is not a UUID");
