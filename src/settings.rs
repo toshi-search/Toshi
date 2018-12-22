@@ -1,6 +1,7 @@
 use clap::ArgMatches;
 use config::{Config, ConfigError, File, FileFormat, Source};
 use crossbeam::channel::{bounded, unbounded, Receiver, Sender};
+use serde_derive::Deserialize;
 use tantivy::merge_policy::*;
 
 use std::str::FromStr;

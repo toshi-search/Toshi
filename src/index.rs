@@ -1,19 +1,19 @@
-use super::*;
+use crate::handle::IndexHandle;
+use crate::query::{CreateQuery, Query, Request};
+use crate::results::*;
+use crate::settings::Settings;
+use crate::{Error, Result};
 
-use std::collections::HashMap;
-use std::fs::read_dir;
-use std::iter::Iterator;
-use std::path::PathBuf;
-
+use log::{debug, info};
 use tantivy::collector::TopCollector;
 use tantivy::query::{AllQuery, QueryParser};
 use tantivy::schema::*;
 use tantivy::Index;
 
-use handle::IndexHandle;
-use query::{CreateQuery, Query, Request};
-use results::*;
-use settings::Settings;
+use std::collections::HashMap;
+use std::fs::read_dir;
+use std::iter::Iterator;
+use std::path::PathBuf;
 
 pub struct IndexCatalog {
     pub settings: Settings,
@@ -212,6 +212,6 @@ pub mod tests {
     }
 
     pub fn create_test_server(catalog: &Arc<RwLock<IndexCatalog>>) -> TestServer {
-        TestServer::new(router::router_with_catalog(catalog)).unwrap()
+        TestServer::new(crate::router::router_with_catalog(catalog)).unwrap()
     }
 }

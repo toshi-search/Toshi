@@ -1,6 +1,9 @@
 use futures::future;
-
-use super::*;
+use gotham::handler::{Handler, HandlerFuture, NewHandler};
+use gotham::helpers::http::response::create_response;
+use gotham::state::State;
+use hyper::StatusCode;
+use serde_derive::Serialize;
 
 #[derive(Clone, Debug)]
 pub struct RootHandler(ToshiInfo);
@@ -33,8 +36,8 @@ new_handler!(RootHandler);
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::settings::VERSION;
     use gotham::test::TestServer;
-    use settings::VERSION;
 
     #[test]
     fn test_root() {

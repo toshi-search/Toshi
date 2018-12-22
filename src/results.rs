@@ -1,5 +1,7 @@
-use query::SummaryDoc;
 use tantivy::schema::NamedFieldDocument;
+
+use crate::query::SummaryDoc;
+use serde_derive::Serialize;
 
 #[derive(Serialize)]
 pub struct SearchResults {

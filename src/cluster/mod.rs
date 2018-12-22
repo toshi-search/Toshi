@@ -1,11 +1,24 @@
 //! Contains code related to clustering
+use failure::Fail;
+use serde_derive::{Deserialize, Serialize};
+
+pub mod placement {
+    use prost_derive::{Enumeration, Message};
+    #[cfg(target_family = "unix")]
+    include!(concat!(env!("OUT_DIR"), "/placement.rs"));
+
+    #[cfg(target_family = "windows")]
+    include!(concat!(env!("OUT_DIR"), "\\placement.rs"));
+}
 
 pub mod consul_interface;
 pub mod node;
+pub mod placement_server;
 pub mod shard;
 
 pub use self::consul_interface::ConsulInterface;
 pub use self::node::*;
+pub use self::placement_server::Place;
 
 #[derive(Debug, Fail, Serialize, Deserialize)]
 pub enum ClusterError {
@@ -15,8 +28,10 @@ pub enum ClusterError {
     MissingClusterID,
     #[fail(display = "Unable to write node ID: {}", _0)]
     FailedWritingNodeID(String),
-    #[fail(display = "Failed registering Node")]
-    FailedRegisteringNode,
+    #[fail(display = "Failed registering cluster: {}", _0)]
+    FailedRegisteringCluster(String),
+    #[fail(display = "Failed registering Node: {}", _0)]
+    FailedRegisteringNode(String),
     #[fail(display = "Failed reading NodeID: {}", _0)]
     FailedReadingNodeID(String),
     #[fail(display = "Unable to retrieve disk metadata: {}", _0)]
@@ -39,6 +54,10 @@ pub enum ClusterError {
     FailedCreatingReplicaShard(String),
     #[fail(display = "Unable to get index name: {}", _0)]
     UnableToGetIndexName(String),
+    #[fail(display = "Error parsing response from Consul: {}", _0)]
+    ErrorParsingConsulJSON(String),
+    #[fail(display = "Request from Consul returned an error: {}", _0)]
+    ErrorInConsulResponse(String),
     #[fail(display = "Unable to get index handle")]
     UnableToGetIndexHandle,
 }

@@ -1,15 +1,21 @@
-use super::*;
+use crate::handlers::{handle_error, to_json, IndexPath};
+use crate::index::IndexCatalog;
+use crate::{Error, Result};
 
 use futures::{future, Future, Stream};
+use gotham::handler::{Handler, HandlerFuture, NewHandler};
+use gotham::helpers::http::response::{create_empty_response, create_response};
+use gotham::state::{FromState, State};
+use hyper::{Body, Method, StatusCode};
+use serde_derive::{Deserialize, Serialize};
+use tantivy::directory::MmapDirectory;
+use tantivy::schema::*;
+use tantivy::{Document, Index};
+
 use std::collections::HashMap;
 use std::fs;
 use std::panic::RefUnwindSafe;
-use std::sync::RwLock;
-
-use hyper::{Method, StatusCode};
-use tantivy::directory::MmapDirectory;
-use tantivy::schema::*;
-use tantivy::Index;
+use std::sync::{Arc, RwLock};
 
 #[derive(Deserialize)]
 pub struct DeleteDoc {
@@ -122,7 +128,7 @@ impl IndexHandler {
                                 Ok(w) => w,
                                 Err(ref e) => return handle_error(state, Error::IOError(e.to_string())),
                             };
-                            let mut doc = match self.parse_doc(&index_schema, &add_document.document.to_string()) {
+                            let doc = match self.parse_doc(&index_schema, &add_document.document.to_string()) {
                                 Ok(d) => d,
                                 Err(e) => return handle_error(state, e),
                             };
@@ -200,7 +206,7 @@ new_handler!(IndexHandler);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use index::tests::*;
+    use crate::index::tests::*;
     use std::fs::remove_file;
     use std::path::PathBuf;
 

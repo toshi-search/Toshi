@@ -1,8 +1,8 @@
-use std::path::Path;
-use std::time;
+use crate::cluster::{ClusterError, DiskType};
 
 use futures::Future;
 use num_cpus;
+use serde_derive::{Deserialize, Serialize};
 use systemstat;
 use systemstat::{Platform, System};
 use tokio::{
@@ -10,7 +10,8 @@ use tokio::{
     io::{read_to_end, write_all},
 };
 
-use cluster::{ClusterError, DiskType};
+use std::path::Path;
+use std::time;
 
 static NODE_ID_FILENAME: &'static str = ".node_id";
 

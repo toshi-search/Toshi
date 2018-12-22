@@ -1,7 +1,14 @@
-use super::*;
+use crate::handlers::{handle_error, to_json, IndexPath, QueryOptions};
+use crate::index::IndexCatalog;
+use crate::Error;
 
 use futures::future;
-use std::sync::RwLock;
+use gotham::handler::{Handler, HandlerFuture, NewHandler};
+use gotham::helpers::http::response::create_response;
+use gotham::state::{FromState, State};
+use hyper::StatusCode;
+
+use std::sync::{Arc, RwLock};
 
 #[derive(Clone)]
 pub struct SummaryHandler {
@@ -44,7 +51,7 @@ new_handler!(SummaryHandler);
 mod tests {
 
     use super::*;
-    use index::tests::*;
+    use crate::index::tests::*;
 
     #[test]
     fn get_summary_data() {
