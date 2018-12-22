@@ -46,8 +46,8 @@ impl IndexWatcher {
 pub mod tests {
     use super::*;
     use crate::handlers::search::tests::*;
-    use hyper::StatusCode;
     use crate::index::tests::*;
+    use hyper::StatusCode;
     use std::thread::sleep;
     use std::time::Duration;
 
