@@ -1,6 +1,6 @@
-use cluster::ClusterError;
-use handle::IndexHandle;
-use settings::Settings;
+use crate::cluster::ClusterError;
+use crate::handle::IndexHandle;
+use crate::settings::Settings;
 use tantivy::Index;
 use uuid::Uuid;
 

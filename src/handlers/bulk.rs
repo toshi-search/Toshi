@@ -122,8 +122,8 @@ mod tests {
 
     use super::search::tests::*;
     use super::*;
-    use index::tests::*;
-    use index::IndexCatalog;
+    use crate::index::tests::*;
+    use crate::index::IndexCatalog;
 
     use mime;
     use serde_json;

@@ -10,7 +10,7 @@ use tokio::{
     io::{read_to_end, write_all},
 };
 
-use cluster::{ClusterError, DiskType};
+use crate::cluster::{ClusterError, DiskType};
 
 static NODE_ID_FILENAME: &'static str = ".node_id";
 

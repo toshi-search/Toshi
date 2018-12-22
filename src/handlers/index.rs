@@ -200,7 +200,7 @@ new_handler!(IndexHandler);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use index::tests::*;
+    use crate::index::tests::*;
     use std::fs::remove_file;
     use std::path::PathBuf;
 

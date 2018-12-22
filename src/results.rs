@@ -1,4 +1,4 @@
-use query::SummaryDoc;
+use crate::query::SummaryDoc;
 use tantivy::schema::NamedFieldDocument;
 
 #[derive(Serialize)]

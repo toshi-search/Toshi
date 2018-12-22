@@ -3,7 +3,7 @@ use super::*;
 use futures::{future, Future, Stream};
 use hyper::Method;
 
-use query::Request;
+use crate::query::Request;
 use std::panic::RefUnwindSafe;
 use std::sync::RwLock;
 
@@ -77,7 +77,7 @@ new_handler!(SearchHandler);
 pub mod tests {
 
     use super::*;
-    use index::tests::*;
+    use crate::index::tests::*;
     use serde_json;
 
     #[derive(Deserialize, Debug)]

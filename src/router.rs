@@ -2,9 +2,9 @@ use gotham::router::builder::*;
 use gotham::router::Router;
 use hyper::Method;
 
-use handlers::*;
-use index::IndexCatalog;
-use settings::VERSION;
+use crate::handlers::*;
+use crate::index::IndexCatalog;
+use crate::settings::VERSION;
 
 use std::sync::{Arc, RwLock};
 

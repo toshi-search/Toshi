@@ -34,7 +34,7 @@ new_handler!(RootHandler);
 mod tests {
     use super::*;
     use gotham::test::TestServer;
-    use settings::VERSION;
+    use crate::settings::VERSION;
 
     #[test]
     fn test_root() {

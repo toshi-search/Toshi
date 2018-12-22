@@ -44,7 +44,7 @@ new_handler!(SummaryHandler);
 mod tests {
 
     use super::*;
-    use index::tests::*;
+    use crate::index::tests::*;
 
     #[test]
     fn get_summary_data() {

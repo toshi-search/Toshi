@@ -7,8 +7,8 @@ use hyper::rt::Future;
 use hyper::{Client, Request};
 use serde_json;
 
-use cluster::shard::Shard;
-use cluster::ClusterError;
+use crate::cluster::shard::Shard;
+use crate::cluster::ClusterError;
 
 static CONSUL_PREFIX: &'static str = "services/toshi/";
 

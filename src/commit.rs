@@ -6,7 +6,7 @@ use std::{
 use tokio::timer::Interval;
 
 use super::*;
-use index::IndexCatalog;
+use crate::index::IndexCatalog;
 
 pub struct IndexWatcher {
     commit_duration: u64,
@@ -45,9 +45,9 @@ impl IndexWatcher {
 #[cfg(test)]
 pub mod tests {
     use super::*;
-    use handlers::search::tests::*;
+    use crate::handlers::search::tests::*;
     use hyper::StatusCode;
-    use index::tests::*;
+    use crate::index::tests::*;
     use std::thread::sleep;
     use std::time::Duration;
 

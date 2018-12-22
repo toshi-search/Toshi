@@ -10,10 +10,10 @@ use tantivy::query::{AllQuery, QueryParser};
 use tantivy::schema::*;
 use tantivy::Index;
 
-use handle::IndexHandle;
-use query::{CreateQuery, Query, Request};
-use results::*;
-use settings::Settings;
+use crate::handle::IndexHandle;
+use crate::query::{CreateQuery, Query, Request};
+use crate::results::*;
+use crate::settings::Settings;
 
 pub struct IndexCatalog {
     pub settings: Settings,

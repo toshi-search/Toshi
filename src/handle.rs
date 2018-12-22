@@ -1,5 +1,5 @@
 use super::Result;
-use settings::Settings;
+use crate::settings::Settings;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use tantivy::{Index, IndexWriter};

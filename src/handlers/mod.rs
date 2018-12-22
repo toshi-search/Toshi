@@ -20,8 +20,8 @@ pub use self::{bulk::BulkHandler, index::IndexHandler, root::RootHandler, search
 
 use super::Error;
 use super::*;
-use index::*;
-use settings::Settings;
+use crate::index::*;
+use crate::settings::Settings;
 
 use futures::{future, future::FutureResult};
 use gotham::handler::*;
