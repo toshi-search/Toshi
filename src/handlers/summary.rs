@@ -42,8 +42,7 @@ mod tests {
         let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
         let client = Arc::new(RwLock::new(catalog));
 
-
-//        assert_eq!(hyper::StatusCode::OK, req.status());
+        //        assert_eq!(hyper::StatusCode::OK, req.status());
     }
 
 }

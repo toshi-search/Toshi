@@ -1,14 +1,14 @@
 use crate::handlers::{CreatedResponse, Error};
 use crate::index::IndexCatalog;
 
+use std::iter::Iterator;
 use std::str::from_utf8;
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
-use std::iter::Iterator;
 
+use crossbeam::channel::{unbounded, Receiver};
 use tantivy::Document;
 use tantivy::IndexWriter;
-use crossbeam::channel::{unbounded, Receiver};
 
 #[derive(Clone)]
 pub struct BulkHandler {
@@ -41,6 +41,7 @@ impl_web! {
         #[post("/:index/_bulk")]
         #[content_type("application/json")]
         pub fn handle(&self, body: Vec<u8>, index: String) -> Result<CreatedResponse, ()> {
+
             let index_lock = self.catalog.read().map_err(|_| ())?;
             let index_handle = index_lock.get_index(&index).map_err(|_| ())?;
             let index = index_handle.get_index();
@@ -94,15 +95,14 @@ impl_web! {
 mod tests {
 
     use super::*;
-    use index::tests::*;
-    use index::IndexCatalog;
     use handlers::SearchHandler;
+    use index::tests::*;
+    use std::thread::sleep;
+    use std::time::Duration;
 
     #[test]
     fn test_bulk_index() {
-        let idx = create_test_index();
-        let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
-        let server = Arc::new(RwLock::new(catalog));
+        let server = create_test_catalog("test_index");
         let handler = BulkHandler::new(Arc::clone(&server));
         let body = r#"
         {"test_text": "asdf1234", "test_i64": 123, "test_u64": 321, "test_unindex": "asdf"}
@@ -111,6 +111,8 @@ mod tests {
 
         let index_docs = handler.handle(body.as_bytes().to_vec(), "test_index".into());
         assert_eq!(index_docs.is_ok(), true);
+        sleep(Duration::from_secs(1));
+
         let search = SearchHandler::new(Arc::clone(&server));
         let check_docs = search.get_all_docs("test_index".into()).unwrap();
         assert_eq!(check_docs.hits, 8);

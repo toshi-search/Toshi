@@ -1,7 +1,7 @@
 use query::SummaryDoc;
 use tantivy::schema::NamedFieldDocument;
 
-#[derive(Response)]
+#[derive(Response, Serialize)]
 pub struct SearchResults {
     pub hits: usize,
     pub docs: Vec<ScoredDoc>,
@@ -29,9 +29,9 @@ impl SearchResults {
 #[derive(Serialize)]
 pub struct ScoredDoc {
     #[serde(skip_serializing_if = "Option::is_none")]
-    score: Option<f32>,
+    pub score: Option<f32>,
     #[serde(flatten)]
-    doc: NamedFieldDocument,
+    pub doc: NamedFieldDocument,
 }
 
 impl ScoredDoc {

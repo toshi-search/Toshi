@@ -50,7 +50,7 @@ pub enum Metrics {
     SumAgg { field: String },
 }
 
-#[derive(Deserialize)]
+#[derive(Extract, Deserialize, Debug)]
 pub struct Request {
     pub aggs: Option<Metrics>,
     pub query: Option<Query>,
@@ -59,6 +59,14 @@ pub struct Request {
 }
 
 impl Request {
+    pub fn new(query: Option<Query>, aggs: Option<Metrics>, limit: usize) -> Self {
+        Request {
+            query,
+            aggs,
+            limit,
+        }
+    }
+
     pub fn all_docs() -> Self {
         Self {
             aggs: None,

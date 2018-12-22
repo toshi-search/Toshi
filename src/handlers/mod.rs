@@ -13,5 +13,5 @@ pub struct QueryOptions {
     pretty: Option<i32>,
 }
 
-#[derive(Response)]
+#[derive(Response, Debug)]
 pub struct CreatedResponse;

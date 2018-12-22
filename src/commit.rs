@@ -75,6 +75,6 @@ pub mod tests {
                 "test_unindex": "asdf1234"
               }
             }"#;
-//        assert_eq!(6, results.hits);
+        //        assert_eq!(6, results.hits);
     }
 }

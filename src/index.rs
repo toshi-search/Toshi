@@ -103,7 +103,7 @@ impl IndexCatalog {
                 if !entry_str.ends_with(".node_id") {
                     let pth: String = entry_str.rsplit('/').take(1).collect();
                     let idx = IndexCatalog::load_index(entry_str)?;
-                    self.add_index(pth.clone(), idx);
+                    self.add_index(pth.clone(), idx)?;
                 }
             } else {
                 return Err(Error::IOError(format!("Path {} is not a valid unicode path", entry.display())));
@@ -185,6 +185,12 @@ pub mod tests {
     use super::*;
     use std::sync::{Arc, RwLock};
     use tantivy::doc;
+
+    pub fn create_test_catalog(name: &str) -> Arc<RwLock<IndexCatalog>> {
+        let idx = create_test_index();
+        let catalog = IndexCatalog::with_index(name.into(), idx).unwrap();
+        Arc::new(RwLock::new(catalog))
+    }
 
     pub fn create_test_index() -> Index {
         let mut builder = SchemaBuilder::new();

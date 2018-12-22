@@ -11,6 +11,9 @@ use tantivy::schema::*;
 use tantivy::Index;
 
 #[derive(Extract, Deserialize)]
+pub struct SchemaBody(Schema);
+
+#[derive(Extract, Deserialize)]
 pub struct DeleteDoc {
     options: Option<IndexOptions>,
     terms: HashMap<String, String>,
@@ -39,7 +42,6 @@ pub struct AddDocument {
 }
 
 impl IndexHandler {
-
     pub fn new(catalog: Arc<RwLock<IndexCatalog>>) -> Self {
         IndexHandler { catalog }
     }
@@ -66,155 +68,141 @@ impl IndexHandler {
 }
 
 impl_web! {
-impl IndexHandler {
-    #[delete("/:index")]
-    #[content_type("application/json")]
-    fn delete_document(&self, body: Vec<u8>, index: String) -> Result<DocsAffected, ()> {
-        let doc: DeleteDoc = serde_json::from_slice(&body).map_err(|_| ())?;
-        if self.catalog.read().unwrap().exists(&index) {
-            let docs_affected: u32;
-            {
-                let index_lock = self.catalog.read().unwrap();
-                let index_handle = index_lock.get_index(&index).map_err(|_| ())?;
-                let index = index_handle.get_index();
-                let index_schema = index.schema();
-                let writer_lock = index_handle.get_writer();
-                let mut index_writer = writer_lock.lock().map_err(|_| ())?;
-
-                for (field, value) in doc.terms {
-                    let mut f = index_schema.get_field(&field).unwrap();
-                    let mut term = Term::from_field_text(f, &value);
-                    index_writer.delete_term(term);
-                }
-                if let Some(opts) = doc.options {
-                    if opts.commit {
-                        index_writer.commit().unwrap();
-                        index_handle.set_opstamp(0);
-                    }
-                }
-                docs_affected = index
-                    .load_metas()
-                    .map(|meta| meta.segments.iter().map(|seg| seg.num_deleted_docs()).sum())
-                    .unwrap_or(0);
-            }
-            Ok(DocsAffected { docs_affected })
-        } else {
-            Err(())
-        }
-    }
-
-    #[put("/:index")]
-    #[content_type("application/json")]
-    fn put_index(&self, body: Vec<u8>, index: String) -> Result<CreatedResponse, ()> {
-        let add_doc: AddDocument = serde_json::from_slice(&body).map_err(|_| ())?;
-        if let Ok(ref mut index_lock) = self.catalog.write() {
-            if let Ok(ref mut index_handle) = &mut index_lock.get_mut_index(&index) {
+    impl IndexHandler {
+        #[delete("/:index")]
+        #[content_type("application/json")]
+        fn delete(&self, body: DeleteDoc, index: String) -> Result<DocsAffected, ()> {
+            if self.catalog.read().unwrap().exists(&index) {
+                let docs_affected: u32;
                 {
+                    let index_lock = self.catalog.read().unwrap();
+                    let index_handle = index_lock.get_index(&index).map_err(|_| ())?;
                     let index = index_handle.get_index();
                     let index_schema = index.schema();
                     let writer_lock = index_handle.get_writer();
                     let mut index_writer = writer_lock.lock().map_err(|_| ())?;
-                    let doc: Document = IndexHandler::parse_doc(&index_schema, &add_doc.document.to_string()).map_err(|_| ())?;
-                    index_writer.add_document(doc);
-                    if let Some(opts) = add_doc.options {
+
+                    for (field, value) in body.terms {
+                        let mut f = index_schema.get_field(&field).unwrap();
+                        let mut term = Term::from_field_text(f, &value);
+                        index_writer.delete_term(term);
+                    }
+                    if let Some(opts) = body.options {
                         if opts.commit {
                             index_writer.commit().unwrap();
                             index_handle.set_opstamp(0);
                         }
-                    } else {
-                        index_handle.set_opstamp(index_handle.get_opstamp() + 1);
+                    }
+                    docs_affected = index
+                        .load_metas()
+                        .map(|meta| meta.segments.iter().map(|seg| seg.num_deleted_docs()).sum())
+                        .unwrap_or(0);
+                }
+                Ok(DocsAffected { docs_affected })
+            } else {
+                Err(())
+            }
+        }
+
+        #[put("/:index")]
+        #[content_type("application/json")]
+        fn add(&self, body: AddDocument, index: String) -> Result<CreatedResponse, ()> {
+            if let Ok(ref mut index_lock) = self.catalog.write() {
+                if let Ok(ref mut index_handle) = &mut index_lock.get_mut_index(&index) {
+                    {
+                        let index = index_handle.get_index();
+                        let index_schema = index.schema();
+                        let writer_lock = index_handle.get_writer();
+                        let mut index_writer = writer_lock.lock().map_err(|_| ())?;
+                        let doc: Document = IndexHandler::parse_doc(&index_schema, &body.document.to_string()).map_err(|_| ())?;
+                        index_writer.add_document(doc);
+                        if let Some(opts) = body.options {
+                            if opts.commit {
+                                index_writer.commit().unwrap();
+                                index_handle.set_opstamp(0);
+                            }
+                        } else {
+                            index_handle.set_opstamp(index_handle.get_opstamp() + 1);
+                        }
                     }
                 }
             }
+            Ok(CreatedResponse)
         }
-        Ok(CreatedResponse)
-    }
 
-    #[put("/:index/create")]
-    #[content_type("application/json")]
-    fn create(&self, body: Vec<u8>, index: String) -> Result<CreatedResponse, ()> {
-        let schema: Schema = serde_json::from_slice(&body).map_err(|_| ())?;
-        let ip = self.catalog.read().map_err(|_| ())?.base_path().clone();
-
-        let new_index = IndexHandler::create_from_managed(ip, &index, schema).map_err(|_| ())?;
-        IndexHandler::add_index(Arc::clone(&self.catalog), index.clone(), new_index).map(|_| CreatedResponse).map_err(|_| ())
+        #[put("/:index/_create")]
+        #[content_type("application/json")]
+        fn create(&self, body: SchemaBody, index: String) -> Result<CreatedResponse, ()> {
+            let ip = self.catalog.read().map_err(|_| ())?.base_path().clone();
+            let new_index = IndexHandler::create_from_managed(ip, &index, body.0).map_err(|_| ())?;
+            IndexHandler::add_index(Arc::clone(&self.catalog), index.clone(), new_index).map(|_| CreatedResponse).map_err(|_| ())
+        }
     }
-}
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use handlers::SearchHandler;
     use index::tests::*;
-    use std::fs::remove_file;
-    use std::path::PathBuf;
-
-    use hyper::{Method, StatusCode};
-    use serde_json;
 
     #[test]
     fn test_create_index() {
-        let idx = create_test_index();
-        let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
-        let shared_cat = Arc::new(RwLock::new(catalog));
-
+        let shared_cat = create_test_catalog("test_index".into());
         let schema = r#"[
             { "name": "test_text", "type": "text", "options": { "indexing": { "record": "position", "tokenizer": "default" }, "stored": true } },
             { "name": "test_unindex", "type": "text", "options": { "indexing": { "record": "position", "tokenizer": "default" }, "stored": true } },
             { "name": "test_i64", "type": "i64", "options": { "indexed": true, "stored": true } },
             { "name": "test_u64", "type": "u64", "options": { "indexed": true, "stored": true } }
          ]"#;
-
-        {
-
-
-//            assert_eq!(StatusCode::OK, get_response.status());
-//            assert_eq!("{\"hits\":0,\"docs\":[]}", get_response.read_utf8_body().unwrap());
-
-        }
+        let handler = IndexHandler::new(Arc::clone(&shared_cat));
+        let body: SchemaBody = serde_json::from_str(schema).unwrap();
+        let req = handler.create(body, "new_index".into());
+        assert_eq!(req.is_ok(), true);
+        let search = SearchHandler::new(Arc::clone(&shared_cat));
+        let docs = search.get_all_docs("new_index".into()).unwrap();
+        assert_eq!(docs.hits, 0);
     }
 
     #[test]
     fn test_doc_create() {
-        let idx = create_test_index();
-        let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
-        let test_server = Arc::new(RwLock::new(catalog));
+        let shared_cat = create_test_catalog("test_index".into());
+        let body: AddDocument = serde_json::from_str(
+            r#" {"options": {"commit": true}, "document": {"test_text": "Babbaboo!", "test_u64": 10, "test_i64": -10} }"#,
+        )
+        .unwrap();
 
-        let body = r#"
-        {
-          "document": {
-            "test_text":    "Babbaboo!",
-            "test_u64":     10 ,
-            "test_i64":     -10
-          }
-        }"#;
+        let handler = IndexHandler::new(Arc::clone(&shared_cat));
+        let req = handler.add(body, "test_index".into());
 
-//        assert_eq!(response.status(), StatusCode::CREATED);
+        assert_eq!(req.is_ok(), true);
     }
 
     #[test]
     fn test_doc_delete() {
-        let idx = create_test_index();
-        let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
-        let test_server = Arc::new(RwLock::new(catalog));
-
-        let body = r#"{
-          "options": {"commit": true},
-          "terms": {"test_text": "document"}
-          }"#;
-
-//        assert_eq!(docs.docs_affected, 3);
+        let shared_cat = create_test_catalog("test_index".into());
+        let handler = IndexHandler::new(Arc::clone(&shared_cat));
+        let mut terms = HashMap::new();
+        terms.insert("test_text".to_string(), "document".to_string());
+        let delete = DeleteDoc {
+            options: Some(IndexOptions { commit: true }),
+            terms,
+        };
+        let req = handler.delete(delete, "test_index".into());
+        assert_eq!(req.is_ok(), true);
+        assert_eq!(req.unwrap().docs_affected, 3);
     }
 
     #[test]
     fn test_bad_json() {
-        let idx = create_test_index();
-        let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
-        let test_server = Arc::new(RwLock::new(catalog));
-
-        let body = r#"{ "test_text": "document" }"#;
-
-
-//        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        let shared_cat = create_test_catalog("test_index".into());
+        let handler = IndexHandler::new(Arc::clone(&shared_cat));
+        let bad_json: serde_json::Value = serde_json::Value::String("".into());
+        let add_doc = AddDocument {
+            document: bad_json,
+            options: None,
+        };
+        let req = handler.add(add_doc, "test_index".into());
+        assert_eq!(req.is_err(), true);
     }
 }
