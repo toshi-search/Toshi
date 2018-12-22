@@ -105,7 +105,8 @@ mod tests {
         let service = Place::get_service(socket_addr, ConsulInterface::default());
         let mut c = Connect::new(tcp_stream, Default::default(), DefaultExecutor::current());
 
-        let place = c.make_service(())
+        let place = c
+            .make_service(())
             .map(move |conn| Place::create_client(uri, conn))
             .and_then(|mut client| {
                 let req = Request::new(PlacementRequest {
