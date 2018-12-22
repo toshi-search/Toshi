@@ -1,12 +1,13 @@
 use std::sync::{Arc, RwLock};
 
 use log::info;
+use serde_derive::{Deserialize, Serialize};
+use tower_web::*;
 
-use query::Request;
-use results::SearchResults;
-
-use crate::Error;
 use crate::index::IndexCatalog;
+use crate::query::Request;
+use crate::results::SearchResults;
+use crate::Error;
 
 #[derive(Clone)]
 pub struct SearchHandler {
@@ -41,9 +42,10 @@ impl_web! {
 
 #[cfg(test)]
 pub mod tests {
+
     use super::*;
-    use crate::query::*;
     use crate::index::tests::*;
+    use crate::query::*;
     use std::collections::HashMap;
 
     pub fn make_map<V>(field: &'static str, term: V) -> HashMap<String, V> {
@@ -87,7 +89,6 @@ pub mod tests {
         let cat = create_test_catalog("test_index");
         let handler = SearchHandler::new(Arc::clone(&cat));
         let body = r#"{ "query" : { "raw": "asd*(@sq__" } }"#;
-
     }
 
     #[test]
@@ -140,7 +141,7 @@ pub mod tests {
         let result = docs.unwrap();
 
         assert_eq!(result.hits as usize, result.docs.len());
-        assert_eq!(result.docs[0].doc.0.get("test_text").unwrap()[0].text().unwrap(), "Test Document 4")
+        assert_eq!(result.docs[0].doc.0.get("test_text").unwrap()[0].text().unwrap(), "Test Document 1")
     }
 
     #[test]

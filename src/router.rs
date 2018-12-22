@@ -5,9 +5,9 @@ use tokio::net::TcpListener;
 use tokio::prelude::*;
 use tower_web::ServiceBuilder;
 
-use handlers::*;
-use index::IndexCatalog;
-use settings::VERSION;
+use crate::handlers::*;
+use crate::index::IndexCatalog;
+use crate::settings::VERSION;
 
 pub fn router_with_catalog(addr: &SocketAddr, catalog: &Arc<RwLock<IndexCatalog>>) -> impl Future<Item = (), Error = ()> {
     let search_handler = SearchHandler::new(Arc::clone(catalog));

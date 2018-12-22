@@ -1,7 +1,7 @@
-use super::super::{Error, Result};
+use crate::query::AggregateQuery;
+use crate::{Error, Result};
 
-use super::AggregateQuery;
-
+use serde_derive::Serialize;
 use tantivy::collector::{Collector, TopCollector};
 use tantivy::schema::{Field, Value};
 use tantivy::{Searcher, SegmentReader};
@@ -12,6 +12,7 @@ pub struct SummaryDoc {
     value: u64,
 }
 
+#[allow(dead_code)]
 pub struct SumCollector<'a> {
     field: String,
     collector: TopCollector,
@@ -19,6 +20,7 @@ pub struct SumCollector<'a> {
 }
 
 impl<'a> SumCollector<'a> {
+    #[allow(dead_code)]
     pub fn new(field: String, searcher: &'a Searcher, collector: TopCollector) -> Self {
         Self {
             field,

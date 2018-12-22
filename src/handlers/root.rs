@@ -1,3 +1,6 @@
+use serde_derive::{Deserialize, Serialize};
+use tower_web::*;
+
 #[derive(Clone, Debug)]
 pub struct RootHandler(ToshiInfo);
 
@@ -28,8 +31,9 @@ impl_web!(
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
-    use settings::VERSION;
+    use crate::settings::VERSION;
 
     #[test]
     fn test_root() {

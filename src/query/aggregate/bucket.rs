@@ -1,3 +1,5 @@
+use serde_derive::{Deserialize, Serialize};
+
 #[derive(Deserialize, Debug)]
 pub struct Range {
     from: Option<u64>,

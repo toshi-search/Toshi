@@ -1,5 +1,7 @@
 use crate::index::IndexCatalog;
+use serde_derive::{Deserialize, Serialize};
 use std::sync::{Arc, RwLock};
+use tower_web::*;
 
 #[derive(Clone)]
 pub struct SummaryHandler {
@@ -34,7 +36,7 @@ impl_web! {
 mod tests {
 
     use super::*;
-    use index::tests::*;
+    use crate::index::tests::*;
 
     #[test]
     fn get_summary_data() {

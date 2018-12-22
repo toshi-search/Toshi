@@ -1,5 +1,6 @@
-use crate::handlers::{CreatedResponse, Error};
+use crate::handlers::CreatedResponse;
 use crate::index::IndexCatalog;
+use crate::Error;
 
 use std::iter::Iterator;
 use std::str::from_utf8;
@@ -7,8 +8,10 @@ use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 
 use crossbeam::channel::{unbounded, Receiver};
+use serde_derive::{Deserialize, Serialize};
 use tantivy::Document;
 use tantivy::IndexWriter;
+use tower_web::*;
 
 #[derive(Clone)]
 pub struct BulkHandler {
@@ -95,8 +98,8 @@ impl_web! {
 mod tests {
 
     use super::*;
-    use handlers::SearchHandler;
-    use index::tests::*;
+    use crate::handlers::SearchHandler;
+    use crate::index::tests::*;
     use std::thread::sleep;
     use std::time::Duration;
 

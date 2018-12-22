@@ -1,19 +1,19 @@
-use super::*;
+use crate::handle::IndexHandle;
+use crate::query::{CreateQuery, Query, Request};
+use crate::results::*;
+use crate::settings::Settings;
+use crate::{Error, Result};
 
-use std::collections::HashMap;
-use std::fs::read_dir;
-use std::iter::Iterator;
-use std::path::PathBuf;
-
+use log::{debug, info};
 use tantivy::collector::TopCollector;
 use tantivy::query::{AllQuery, QueryParser};
 use tantivy::schema::*;
 use tantivy::Index;
 
-use handle::IndexHandle;
-use query::{CreateQuery, Query, Request};
-use results::*;
-use settings::Settings;
+use std::collections::HashMap;
+use std::fs::read_dir;
+use std::iter::Iterator;
+use std::path::PathBuf;
 
 pub struct IndexCatalog {
     pub settings: Settings,

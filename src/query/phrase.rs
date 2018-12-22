@@ -1,9 +1,12 @@
-use query::{make_field_value, CreateQuery};
-use std::collections::HashMap;
+use crate::query::{make_field_value, CreateQuery};
+use crate::{Error, Result};
+
+use serde_derive::{Deserialize, Serialize};
 use tantivy::query::{PhraseQuery as TantivyPhraseQuery, Query};
 use tantivy::schema::Schema;
 use tantivy::Term;
-use {Error, Result};
+
+use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct PhraseQuery {

@@ -1,7 +1,9 @@
-use super::{make_field_value, CreateQuery, Error, Result};
+use crate::query::{make_field_value, CreateQuery};
+use crate::{Error, Result};
 
 use std::collections::HashMap;
 
+use serde_derive::Deserialize;
 use tantivy::query::{FuzzyTermQuery, Query};
 use tantivy::schema::Schema;
 
@@ -17,7 +19,9 @@ pub struct FuzzyTerm {
 impl FuzzyTerm {
     pub fn new(value: String, distance: u8, transposition: bool) -> Self {
         Self {
-            value, distance, transposition
+            value,
+            distance,
+            transposition,
         }
     }
 }

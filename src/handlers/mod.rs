@@ -6,7 +6,12 @@ pub mod summary;
 
 pub use self::{bulk::BulkHandler, index::IndexHandler, root::RootHandler, search::SearchHandler, summary::SummaryHandler};
 
-use super::Error;
+use crate::settings::Settings;
+use failure::Fail;
+use futures::{future, future::FutureResult};
+use hyper::{Body, Response, StatusCode};
+use serde_derive::{Deserialize, Serialize};
+use tower_web::{Extract, Response};
 
 #[derive(Extract)]
 pub struct QueryOptions {

@@ -1,6 +1,8 @@
-use cluster::ClusterError;
-use handle::IndexHandle;
-use settings::Settings;
+use crate::cluster::ClusterError;
+use crate::handle::IndexHandle;
+use crate::settings::Settings;
+
+use serde_derive::{Deserialize, Serialize};
 use tantivy::Index;
 use uuid::Uuid;
 

@@ -1,22 +1,3 @@
-#![warn(unused_extern_crates)]
-extern crate clap;
-extern crate config;
-extern crate crossbeam;
-#[macro_use]
-extern crate failure;
-extern crate futures;
-extern crate hyper;
-extern crate log;
-extern crate num_cpus;
-extern crate serde;
-extern crate serde_json;
-extern crate systemstat;
-extern crate tantivy;
-extern crate tokio;
-extern crate uuid;
-#[macro_use]
-extern crate tower_web;
-
 use failure::Fail;
 use log::*;
 use tantivy::query::QueryParserError;

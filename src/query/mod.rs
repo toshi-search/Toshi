@@ -1,9 +1,11 @@
-use super::settings::Settings;
-use super::{Error, Result};
+use crate::settings::Settings;
+use crate::{Error, Result};
 
+use serde_derive::{Deserialize, Serialize};
 use tantivy::query::Query as TantivyQuery;
 use tantivy::schema::Schema;
 use tantivy::Term;
+use tower_web::{impl_web, Extract, Response};
 
 pub use {
     self::aggregate::{SumCollector, SummaryDoc},
@@ -60,11 +62,7 @@ pub struct Request {
 
 impl Request {
     pub fn new(query: Option<Query>, aggs: Option<Metrics>, limit: usize) -> Self {
-        Request {
-            query,
-            aggs,
-            limit,
-        }
+        Request { query, aggs, limit }
     }
 
     pub fn all_docs() -> Self {

@@ -5,10 +5,12 @@ use std::collections::HashMap;
 use std::fs;
 use std::sync::{Arc, RwLock};
 
+use serde_derive::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tantivy::directory::MmapDirectory;
 use tantivy::schema::*;
 use tantivy::Index;
+use tower_web::*;
 
 #[derive(Extract, Deserialize)]
 pub struct SchemaBody(Schema);
@@ -142,9 +144,10 @@ impl_web! {
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
-    use handlers::SearchHandler;
-    use index::tests::*;
+    use crate::handlers::SearchHandler;
+    use crate::index::tests::*;
 
     #[test]
     fn test_create_index() {
