@@ -24,7 +24,7 @@ pub fn main() -> Result<(), ()> {
     std::env::set_var("RUST_LOG", &settings.log_level);
     pretty_env_logger::init();
 
-    //let mut rt = Runtime::new().expect("failed to start new Runtime");
+    let mut rt = Runtime::new().expect("failed to start new Runtime");
 
     let (tx, shutdown_signal) = oneshot::channel();
 
@@ -77,9 +77,10 @@ pub fn main() -> Result<(), ()> {
                 .write()
                 .expect("Unable to acquire write lock on index catalog")
                 .clear();
-
             Ok(())
-        }).wait()
+        })
+        .and_then(move |_| rt.shutdown_now())
+        .wait()
 }
 
 // Extract the settings from the cli or config file
@@ -169,6 +170,19 @@ fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: Settings) -> impl Future<It
         create_dir(settings.path.clone()).expect("Unable to create data directory");
     }
 
+    // Create the auto commit watcher future that spawns commit actions
+    // every interval.
+    let commit_watcher = if settings.auto_commit_duration > 0 {
+        let commit_watcher = IndexWatcher::new(catalog.clone(), settings.auto_commit_duration);
+        future::Either::A(future::lazy(move || {
+            commit_watcher.start();
+
+            future::ok::<(), ()>(())
+        }))
+    } else {
+        future::Either::B(future::ok::<(), ()>(()))
+    };
+
     let addr = format!("{}:{}", &settings.host, settings.port);
 
     println!("{}", HEADER);
@@ -178,11 +192,12 @@ fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: Settings) -> impl Future<It
         // the connect_consul future. It will block until the future is completed
         // by either completing successfully or erroring out.
         let run = connect_to_consul(&settings)
+            .and_then(move |_| commit_watcher)
             .and_then(move |_| gotham::init_server(addr, router_with_catalog(&catalog)));
 
         future::Either::A(run)
     } else {
-        let run = gotham::init_server(addr, router_with_catalog(&catalog));
+        let run = commit_watcher.and_then(move |_| gotham::init_server(addr, router_with_catalog(&catalog)));
         future::Either::B(run)
     }
 }
