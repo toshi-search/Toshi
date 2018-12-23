@@ -5,18 +5,18 @@ use crate::{Error, Result};
 
 use crate::cluster::shard::PrimaryShard;
 use crate::cluster::shard::ReplicaShard;
-use futures::stream::Stream;
+use futures::{future, stream::Stream, Async, Future, Poll};
 use hyper::body::Body;
 use hyper::client::HttpConnector;
 use hyper::http::uri::Scheme;
-use hyper::rt::Future;
-use hyper::Method;
-use hyper::{Client, Request, Uri};
+use hyper::{Client, Method, Request, Response, Uri};
 use hyper_tls::HttpsConnector;
+use serde::Serialize;
 use serde_derive::{Deserialize, Serialize};
 use std::vec::IntoIter;
-
-static CONSUL_PREFIX: &'static str = "/v1/kv/services/toshi/";
+use tower_buffer::Buffer;
+use tower_consul::{Consul, KVValue};
+use tower_service::Service;
 
 #[derive(Serialize, Deserialize)]
 pub struct NodeData {
@@ -24,33 +24,15 @@ pub struct NodeData {
     pub shards: Vec<ReplicaShard>,
 }
 
-#[allow(non_snake_case)]
-#[derive(Serialize, Deserialize)]
-pub struct ConsulKey {
-    pub LockIndex: i32,
-    pub Key: String,
-    pub Flags: i32,
-    pub Value: Option<NodeData>,
-    pub CreateIndex: i32,
-    pub ModifyIndex: i32,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct ConsulResponse(Vec<ConsulKey>);
-
-impl ConsulResponse {
-    pub fn get(self) -> IntoIter<ConsulKey> {
-        self.0.into_iter()
-    }
-}
+pub type ConsulClient = Consul<Buffer<HttpsService, Request<Vec<u8>>>>;
 
 /// Stub struct for a connection to Consul
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct ConsulInterface {
     address: String,
     scheme: Scheme,
     cluster_name: Option<String>,
-    client: Client<HttpsConnector<HttpConnector>>,
+    client: ConsulClient,
     pub node_id: Option<String>,
 }
 
@@ -83,66 +65,45 @@ impl ConsulInterface {
         Uri::builder()
             .scheme(self.scheme.clone())
             .authority(self.address.as_bytes())
-            .path_and_query(CONSUL_PREFIX)
             .build()
             .map_err(|err| Error::IOError(err.to_string()))
     }
 
     /// Registers this node with Consul via HTTP API
     pub fn register_node(&mut self) -> impl Future<Item = (), Error = ClusterError> {
-        let uri = self.base_consul_url() + &self.cluster_name() + "/" + &self.node_id() + "/";
-        self.put_request(&uri, Body::empty())
-            .map_err(|err| ClusterError::FailedRegisteringNode(err.to_string()))
+        let key = "toshi/".to_owned() + &self.cluster_name() + "/" + &self.node_id();
+        self.client
+            .set(&key, Vec::new())
+            .map(|_| ())
+            .map_err(|err| ClusterError::FailedRegisteringNode(format!("{:?}", err)))
     }
 
     /// Registers a cluster with Consul via the HTTP API
-    pub fn register_cluster(&self) -> impl Future<Item = (), Error = ClusterError> {
-        let uri = self.base_consul_url() + &self.cluster_name() + "/";
-        self.put_request(&uri, Body::empty())
-            .map_err(|err| ClusterError::FailedRegisteringCluster(err.to_string()))
+    pub fn register_cluster(&mut self) -> impl Future<Item = (), Error = ClusterError> {
+        let key = "toshi/".to_owned() + &self.cluster_name();
+        self.client
+            .set(&key, Vec::new())
+            .map(|_| ())
+            .map_err(|err| ClusterError::FailedRegisteringNode(format!("{:?}", err)))
     }
 
     /// Registers a shard with the Consul cluster
-    pub fn register_shard<T: Shard + serde::Serialize>(&mut self, shard: &T) -> impl Future<Item = (), Error = ClusterError> {
-        let uri = self.base_consul_url() + &self.cluster_name() + "/" + &shard.shard_id().to_hyphenated_ref().to_string() + "/";
-        let json_body = serde_json::to_string(&shard).unwrap();
-        self.put_request(&uri, json_body)
-            .map_err(|err| ClusterError::FailedCreatingPrimaryShard(err.to_string()))
-    }
+    pub fn register_shard<T: Shard + Serialize>(&mut self, shard: &T) -> impl Future<Item = (), Error = ClusterError> {
+        let key = format!("toshi/{}/{}", self.cluster_name(), shard.shard_id().to_hyphenated_ref());
+        let shard = serde_json::to_vec(&shard).unwrap();
 
-    pub fn get_index(&mut self, index: String, recurse: bool) -> impl Future<Item = ConsulResponse, Error = ClusterError> {
-        let uri = format!("{}{}/{}?recurse={}", self.base_consul_url(), &self.cluster_name(), &index, recurse)
-            .parse::<Uri>()
-            .unwrap();
-        self.get_request(uri)
-    }
-
-    fn base_consul_url(&self) -> String {
-        Uri::builder()
-            .scheme(self.scheme.clone())
-            .authority(self.address.as_bytes())
-            .path_and_query(CONSUL_PREFIX)
-            .build()
-            .expect("Problem building base Consul URL")
-            .to_string()
-    }
-
-    fn put_request<T>(&self, uri: &str, payload: T) -> impl Future<Item = (), Error = hyper::Error>
-    where
-        hyper::Body: std::convert::From<T>,
-    {
-        let req = Request::builder().method(Method::PUT).uri(uri).body(Body::from(payload)).unwrap();
-        self.client.request(req).map(|_| ())
-    }
-
-    fn get_request(&self, uri: Uri) -> impl Future<Item = ConsulResponse, Error = ClusterError> {
         self.client
-            .get(uri)
-            .and_then(|r| r.into_body().concat2())
-            .map_err(|err| ClusterError::ErrorInConsulResponse(err.to_string()))
-            .and_then(|b| {
-                serde_json::from_slice::<ConsulResponse>(&b.to_vec()).map_err(|err| ClusterError::ErrorParsingConsulJSON(err.to_string()))
-            })
+            .set(&key, shard)
+            .map(|_| ())
+            .map_err(|err| ClusterError::FailedCreatingPrimaryShard(format!("{:?}", err)))
+    }
+
+    /// Gets the specified index
+    pub fn get_index(&mut self, index: String, recurse: bool) -> impl Future<Item = Vec<KVValue>, Error = ClusterError> {
+        let key = format!("toshi/{}/{}?recurse={}", &self.cluster_name(), &index, recurse);
+        self.client
+            .get(&key)
+            .map_err(|err| ClusterError::FailedGettingIndex(format!("{:?}", err)))
     }
 
     fn cluster_name(&self) -> String {
@@ -156,75 +117,61 @@ impl ConsulInterface {
 
 impl Default for ConsulInterface {
     fn default() -> ConsulInterface {
+        let client = match Buffer::new(HttpsService::new(), 100) {
+            Ok(c) => c,
+            Err(_) => panic!("Unable to spawn"),
+        };
+
         ConsulInterface {
             address: "127.0.0.1:8500".into(),
             scheme: Scheme::HTTP,
             cluster_name: Some(String::from("kitsune")),
             node_id: Some(String::from("alpha")),
-            client: {
-                let https = HttpsConnector::new(4).expect("Could not create TLS for Hyper");
-                Client::builder().build::<_, hyper::Body>(https)
-            },
+            client: Consul::new(client, "127.0.0.1:8500".into()),
         }
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+pub struct HttpsService {
+    client: Client<HttpsConnector<HttpConnector>>,
+}
 
-    #[test]
-    fn test_consul_deserialize() {
-        let payload = r#"
-        [
-            {
-                "LockIndex": 0,
-                "Key": "services/toshi/kitsune/",
-                "Flags": 0,
-                "Value": null,
-                "CreateIndex": 22,
-                "ModifyIndex": 22
-            },
-            {
-                "LockIndex": 0,
-                "Key": "services/toshi/kitsune/f793f695-c75d-4073-9dcc-0f47b311ee5f/",
-                "Flags": 0,
-                "Value": null,
-                "CreateIndex": 23,
-                "ModifyIndex": 23
-            }
-        ]"#;
+impl HttpsService {
+    pub fn new() -> Self {
+        let https = HttpsConnector::new(4).expect("Could not create TLS for Hyper");
+        let client = Client::builder().build::<_, hyper::Body>(https);
 
-        let keys: ConsulResponse = serde_json::from_str(payload).unwrap();
+        HttpsService { client }
+    }
+}
 
-        //        println!("{:?}", keys)
+impl Service<Request<Vec<u8>>> for HttpsService {
+    type Response = Response<Vec<u8>>;
+    type Error = hyper::Error;
+    type Future = Box<Future<Item = Self::Response, Error = Self::Error> + Send>;
+
+    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+        Ok(Async::Ready(()))
     }
 
-    #[test]
-    fn test_create_consul_interface() {
-        let consul = ConsulInterface::default();
-        assert_eq!(consul.base_consul_url(), "http://127.0.0.1:8500/v1/kv/services/toshi/");
-    }
+    fn call(&mut self, req: Request<Vec<u8>>) -> Self::Future {
+        let f = self
+            .client
+            .request(req.map(Body::from))
+            .and_then(|res| {
+                let status = res.status().clone();
+                let headers = res.headers().clone();
 
-    #[test]
-    fn test_consul_cluster_name() {
-        let consul = ConsulInterface::default()
-            .with_cluster_name("kitsune".into())
-            .with_address("127.0.0.1:8500".into())
-            .with_node_id("alpha".into())
-            .with_scheme(Scheme::HTTP);
-        assert_eq!(consul.cluster_name(), "kitsune");
-    }
+                res.into_body().concat2().join(Ok((status, headers)))
+            })
+            .and_then(|(body, (status, _headers))| {
+                Ok(Response::builder()
+                    .status(status)
+                    // .headers(headers)
+                    .body(body.to_vec())
+                    .unwrap())
+            });
 
-    #[test]
-    fn test_register_node() {
-        let mut consul = ConsulInterface::default();
-        let _ = consul.register_node();
-    }
-
-    #[test]
-    fn test_register_cluster() {
-        let consul = ConsulInterface::default();
-        let _ = consul.register_cluster();
+        Box::new(f)
     }
 }

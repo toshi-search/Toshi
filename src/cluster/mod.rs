@@ -50,6 +50,8 @@ pub enum ClusterError {
     UnableToReadUTF8,
     #[fail(display = "Unable to create PrimaryShard: {}", _0)]
     FailedCreatingPrimaryShard(String),
+    #[fail(display = "Unable to get index: {}", _0)]
+    FailedGettingIndex(String),
     #[fail(display = "Unable to create ReplicaShard: {}", _0)]
     FailedCreatingReplicaShard(String),
     #[fail(display = "Unable to get index name: {}", _0)]

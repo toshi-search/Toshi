@@ -24,7 +24,7 @@ pub fn main() -> Result<(), ()> {
     std::env::set_var("RUST_LOG", &settings.log_level);
     pretty_env_logger::init();
 
-    let mut rt = Runtime::new().expect("failed to start new Runtime");
+    let rt = Runtime::new().expect("failed to start new Runtime");
 
     let (tx, shutdown_signal) = oneshot::channel();
 
