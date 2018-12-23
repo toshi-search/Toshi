@@ -16,7 +16,7 @@ pub mod node;
 pub mod placement_server;
 pub mod shard;
 
-pub use self::consul_interface::ConsulInterface;
+pub use self::consul_interface::Consul;
 pub use self::node::*;
 pub use self::placement_server::Place;
 

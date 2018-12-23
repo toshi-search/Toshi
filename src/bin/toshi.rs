@@ -1,5 +1,5 @@
 use toshi::{
-    cluster::{self, ConsulInterface},
+    cluster::{self, Consul},
     commit::IndexWatcher,
     index::IndexCatalog,
     router::router_with_catalog,
@@ -206,7 +206,7 @@ fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: Settings) -> impl Future<It
 // and cluster name.
 fn connect_to_consul(settings: &Settings) -> impl Future<Item = (), Error = ()> {
     let consul_address = format!("{}:{}", &settings.consul_host, settings.consul_port);
-    let mut consul_client = ConsulInterface::default()
+    let mut consul_client = Consul::default()
         .with_cluster_name(settings.cluster_name.clone())
         .with_address(consul_address);
 

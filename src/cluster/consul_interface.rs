@@ -28,7 +28,7 @@ pub type ConsulClient = Consul<Buffer<HttpsService, Request<Vec<u8>>>>;
 
 /// Stub struct for a connection to Consul
 #[derive(Clone)]
-pub struct ConsulInterface {
+pub struct Consul {
     address: String,
     scheme: Scheme,
     cluster_name: Option<String>,
@@ -36,7 +36,7 @@ pub struct ConsulInterface {
     pub node_id: Option<String>,
 }
 
-impl ConsulInterface {
+impl Consul {
     /// Sets the address of the consul service
     pub fn with_address(mut self, address: String) -> Self {
         self.address = address;
@@ -115,14 +115,14 @@ impl ConsulInterface {
     }
 }
 
-impl Default for ConsulInterface {
-    fn default() -> ConsulInterface {
+impl Default for Consul {
+    fn default() -> Consul {
         let client = match Buffer::new(HttpsService::new(), 100) {
             Ok(c) => c,
             Err(_) => panic!("Unable to spawn"),
         };
 
-        ConsulInterface {
+        Consul {
             address: "127.0.0.1:8500".into(),
             scheme: Scheme::HTTP,
             cluster_name: Some(String::from("kitsune")),

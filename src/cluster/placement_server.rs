@@ -13,11 +13,11 @@ use crate::cluster::consul_interface::NodeData;
 use crate::cluster::placement::client::Placement;
 use crate::cluster::placement::{server, PlacementReply, PlacementRequest};
 use crate::cluster::shard::Shard;
-use crate::cluster::ConsulInterface;
+use crate::cluster::Consul;
 
 #[derive(Clone)]
 pub struct Place {
-    consul: ConsulInterface,
+    consul: Consul,
 }
 
 type PlacementFuture = Box<dyn Future<Item = Response<PlacementReply>, Error = Error> + Send + 'static>;
@@ -49,7 +49,7 @@ impl Place {
         Box::new(futures::future::ok(Response::new(PlacementReply { node: "".into(), kind: 1 })))
     }
 
-    pub fn get_service(addr: SocketAddr, consul: ConsulInterface) -> impl Future<Item = (), Error = ()> {
+    pub fn get_service(addr: SocketAddr, consul: Consul) -> impl Future<Item = (), Error = ()> {
         let service = server::PlacementServer::new(Place { consul });
         let executor = DefaultExecutor::current();
         let mut h2 = Server::new(service, Default::default(), executor);
@@ -103,7 +103,7 @@ mod tests {
         let socket_addr: SocketAddr = "127.0.0.1:8081".parse().unwrap();
         let tcp_stream = Conn(socket_addr);
 
-        let service = Place::get_service(socket_addr, ConsulInterface::default());
+        let service = Place::get_service(socket_addr, Consul::default());
         let mut c = Connect::new(tcp_stream, Default::default(), DefaultExecutor::current());
 
         let place = c

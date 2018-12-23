@@ -2,7 +2,7 @@ use clap::{crate_authors, crate_description, crate_version, App, Arg, ArgMatches
 use hyper::http::uri::Scheme;
 use log::info;
 
-use toshi::cluster::ConsulInterface;
+use toshi::cluster::Consul;
 use toshi::cluster::Place;
 use toshi::settings::HEADER;
 
@@ -20,7 +20,7 @@ fn main() {
     info!("Starting Toshi Placement Service...");
     let addr = format!("{}:{}", host, port).parse().unwrap();
     let consul_addr = format!("{}:{}", consul_host, consul_port).parse().unwrap();
-    let consul = ConsulInterface::default().with_address(consul_addr).with_scheme(Scheme::HTTP);
+    let consul = Consul::default().with_address(consul_addr).with_scheme(Scheme::HTTP);
     let service = Place::get_service(addr, consul);
 
     tokio::run(service);
