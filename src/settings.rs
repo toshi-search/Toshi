@@ -115,6 +115,8 @@ impl Settings {
                 .unwrap()
                 .parse()
                 .expect("Invalid port given for Consul."),
+            enable_clustering: args.is_present("enable-clustering"),
+            cluster_name: args.value_of("cluster-name").unwrap().to_string(),
             ..Default::default()
         }
     }

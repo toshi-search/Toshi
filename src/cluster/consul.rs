@@ -15,7 +15,7 @@ use serde::Serialize;
 use serde_derive::{Deserialize, Serialize};
 use std::vec::IntoIter;
 use tower_buffer::Buffer;
-use tower_consul::{Consul, KVValue};
+use tower_consul::{Consul as TowerConsul, KVValue};
 use tower_service::Service;
 
 #[derive(Serialize, Deserialize)]
@@ -24,7 +24,7 @@ pub struct NodeData {
     pub shards: Vec<ReplicaShard>,
 }
 
-pub type ConsulClient = Consul<Buffer<HttpsService, Request<Vec<u8>>>>;
+pub type ConsulClient = TowerConsul<Buffer<HttpsService, Request<Vec<u8>>>>;
 
 /// Stub struct for a connection to Consul
 #[derive(Clone)]
@@ -127,7 +127,7 @@ impl Default for Consul {
             scheme: Scheme::HTTP,
             cluster_name: Some(String::from("kitsune")),
             node_id: Some(String::from("alpha")),
-            client: Consul::new(client, "127.0.0.1:8500".into()),
+            client: TowerConsul::new(client, "http://127.0.0.1:8500".into()),
         }
     }
 }

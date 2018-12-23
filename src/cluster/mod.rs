@@ -11,12 +11,12 @@ pub mod placement {
     include!(concat!(env!("OUT_DIR"), "\\placement.rs"));
 }
 
-pub mod consul_interface;
+pub mod consul;
 pub mod node;
 pub mod placement_server;
 pub mod shard;
 
-pub use self::consul_interface::Consul;
+pub use self::consul::Consul;
 pub use self::node::*;
 pub use self::placement_server::Place;
 

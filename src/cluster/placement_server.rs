@@ -9,7 +9,7 @@ use tower_h2::client::Connection;
 use tower_h2::{Body, Server};
 use tower_http::AddOrigin;
 
-use crate::cluster::consul_interface::NodeData;
+use crate::cluster::consul::NodeData;
 use crate::cluster::placement::client::Placement;
 use crate::cluster::placement::{server, PlacementReply, PlacementRequest};
 use crate::cluster::shard::Shard;

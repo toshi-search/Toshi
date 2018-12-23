@@ -24,7 +24,7 @@ pub fn main() -> Result<(), ()> {
     std::env::set_var("RUST_LOG", &settings.log_level);
     pretty_env_logger::init();
 
-    let rt = Runtime::new().expect("failed to start new Runtime");
+    let mut rt = Runtime::new().expect("failed to start new Runtime");
 
     let (tx, shutdown_signal) = oneshot::channel();
 
@@ -44,10 +44,11 @@ pub fn main() -> Result<(), ()> {
     // Create the toshi application future, this future runs the entire
     // Toshi application. It will produce a oneshot channel message when
     // it has received the shutdown signal from the OS.
-    let toshi = {
+    let index_cat = index_catalog.clone();
+    let toshi = future::lazy(|| {
         // Create the future that runs forever and spawns the webserver
         // and clustering abilities of Toshi.
-        let server = run(index_catalog.clone(), settings);
+        let server = run(index_cat, settings);
 
         // Create the future that waits for a shutdown signal and
         // triggers the oneshot shutdown_signal to tell the tokio
@@ -60,12 +61,17 @@ pub fn main() -> Result<(), ()> {
         // received and it will "throwaway" the server future. This gives Toshi
         // an opportunity to clean up its resources.
         server.select(shutdown)
-    };
+    });
 
-    tokio::spawn(toshi.map(|_| ()).map_err(|_| ()));
+    rt.spawn(toshi.map(|_| ()).map_err(|_| ()));
     if auto_commit_duration > 0 {
         let commit_watcher = IndexWatcher::new(index_catalog.clone(), auto_commit_duration);
-        commit_watcher.start();
+        let commit_watcher = future::lazy(|| {
+            commit_watcher.start();
+            Ok(())
+        });
+
+        rt.spawn(commit_watcher);
     }
 
     // Gracefully shutdown the tokio runtime when a shutdown message has been
@@ -89,13 +95,7 @@ fn settings() -> Settings {
         .version(crate_version!())
         .about(crate_description!())
         .author(crate_authors!())
-        .arg(
-            Arg::with_name("config")
-                .short("c")
-                .long("config")
-                .takes_value(true)
-                .default_value("config/config.toml"),
-        )
+        .arg(Arg::with_name("config").short("c").long("config").takes_value(true))
         .arg(
             Arg::with_name("level")
                 .short("l")
@@ -147,7 +147,7 @@ fn settings() -> Settings {
         )
         .arg(
             Arg::with_name("enable-clustering")
-                .short("E")
+                .short("e")
                 .long("enable-clustering")
                 .takes_value(false),
         )
@@ -155,7 +155,6 @@ fn settings() -> Settings {
 
     if options.is_present("config") {
         let cfg = options.value_of("config").unwrap();
-        info!("Reading config from: {}", cfg);
         Settings::new(cfg).expect("Invalid Config file")
     } else {
         Settings::from_args(&options)
@@ -185,13 +184,14 @@ fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: Settings) -> impl Future<It
 
     let addr = format!("{}:{}", &settings.host, settings.port);
 
-    println!("{}", HEADER);
+    println!("{}\n", HEADER);
 
     if settings.enable_clustering {
         // Run the tokio runtime, this will start an event loop that will process
         // the connect_consul future. It will block until the future is completed
         // by either completing successfully or erroring out.
-        let run = connect_to_consul(&settings)
+        let settings = settings.clone();
+        let run = future::lazy(move || connect_to_consul(&settings))
             .and_then(move |_| commit_watcher)
             .and_then(move |_| gotham::init_server(addr, router_with_catalog(&catalog)));
 
@@ -206,33 +206,34 @@ fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: Settings) -> impl Future<It
 // and cluster name.
 fn connect_to_consul(settings: &Settings) -> impl Future<Item = (), Error = ()> {
     let consul_address = format!("{}:{}", &settings.consul_host, settings.consul_port);
-    let mut consul_client = Consul::default()
-        .with_cluster_name(settings.cluster_name.clone())
-        .with_address(consul_address);
-
+    let cluster_name = settings.cluster_name.clone();
     let settings_path_read = settings.path.clone();
     let settings_path_write = settings.path.clone();
 
-    // Build future that will connect to consul and register the node_id
-    consul_client
-        .register_cluster()
-        .and_then(move |_| cluster::read_node_id(settings_path_read.as_str()))
-        .then(|result| match result {
-            Ok(id) => {
-                let parsed_id = Uuid::parse_str(&id).expect("Parsed node ID is not a UUID");
-                cluster::write_node_id(settings_path_write, parsed_id.to_hyphenated().to_string())
-            }
+    future::lazy(move || {
+        let mut consul_client = Consul::default().with_cluster_name(cluster_name).with_address(consul_address);
 
-            Err(_) => {
-                let new_id = Uuid::new_v4();
-                cluster::write_node_id(settings_path_write, new_id.to_hyphenated().to_string())
-            }
-        })
-        .and_then(move |id| {
-            consul_client.node_id = Some(id);
-            consul_client.register_node()
-        })
-        .map_err(|e| error!("Error: {}", e))
+        // Build future that will connect to consul and register the node_id
+        consul_client
+            .register_cluster()
+            .and_then(move |_| cluster::read_node_id(settings_path_read.as_str()))
+            .then(|result| match result {
+                Ok(id) => {
+                    let parsed_id = Uuid::parse_str(&id).expect("Parsed node ID is not a UUID");
+                    cluster::write_node_id(settings_path_write, parsed_id.to_hyphenated().to_string())
+                }
+
+                Err(_) => {
+                    let new_id = Uuid::new_v4();
+                    cluster::write_node_id(settings_path_write, new_id.to_hyphenated().to_string())
+                }
+            })
+            .and_then(move |id| {
+                consul_client.node_id = Some(id);
+                consul_client.register_node()
+            })
+            .map_err(|e| error!("Error: {}", e))
+    })
 }
 
 // A future that takes a shutdown signal sender and will produce a message
