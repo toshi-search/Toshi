@@ -48,10 +48,10 @@ impl IndexHandler {
         IndexHandler { catalog }
     }
 
-    fn add_index(catalog: Arc<RwLock<IndexCatalog>>, name: String, index: Index) -> Result<(), ()> {
+    fn add_index(catalog: Arc<RwLock<IndexCatalog>>, name: String, index: Index) -> Result<(), Error> {
         match catalog.write() {
-            Ok(ref mut cat) => cat.add_index(name, index).map_err(|_| ()),
-            Err(_) => Err(()),
+            Ok(ref mut cat) => cat.add_index(name, index),
+            Err(e) => Err(Error::IOError(e.to_string())),
         }
     }
 
@@ -73,20 +73,20 @@ impl_web! {
     impl IndexHandler {
         #[delete("/:index")]
         #[content_type("application/json")]
-        fn delete(&self, body: DeleteDoc, index: String) -> Result<DocsAffected, ()> {
+        pub fn delete(&self, body: DeleteDoc, index: String) -> Result<DocsAffected, Error> {
             if self.catalog.read().unwrap().exists(&index) {
                 let docs_affected: u32;
                 {
                     let index_lock = self.catalog.read().unwrap();
-                    let index_handle = index_lock.get_index(&index).map_err(|_| ())?;
+                    let index_handle = index_lock.get_index(&index)?;
                     let index = index_handle.get_index();
                     let index_schema = index.schema();
                     let writer_lock = index_handle.get_writer();
-                    let mut index_writer = writer_lock.lock().map_err(|_| ())?;
+                    let mut index_writer = writer_lock.lock()?;
 
                     for (field, value) in body.terms {
-                        let mut f = index_schema.get_field(&field).unwrap();
-                        let mut term = Term::from_field_text(f, &value);
+                        let f = index_schema.get_field(&field).unwrap();
+                        let term = Term::from_field_text(f, &value);
                         index_writer.delete_term(term);
                     }
                     if let Some(opts) = body.options {
@@ -102,21 +102,21 @@ impl_web! {
                 }
                 Ok(DocsAffected { docs_affected })
             } else {
-                Err(())
+                Err(Error::IOError("Failed to obtain index lock".into()))
             }
         }
 
         #[put("/:index")]
         #[content_type("application/json")]
-        fn add(&self, body: AddDocument, index: String) -> Result<CreatedResponse, ()> {
+        pub fn add(&self, body: AddDocument, index: String) -> Result<CreatedResponse, Error> {
             if let Ok(ref mut index_lock) = self.catalog.write() {
                 if let Ok(ref mut index_handle) = &mut index_lock.get_mut_index(&index) {
                     {
                         let index = index_handle.get_index();
                         let index_schema = index.schema();
                         let writer_lock = index_handle.get_writer();
-                        let mut index_writer = writer_lock.lock().map_err(|_| ())?;
-                        let doc: Document = IndexHandler::parse_doc(&index_schema, &body.document.to_string()).map_err(|_| ())?;
+                        let mut index_writer = writer_lock.lock()?;
+                        let doc: Document = IndexHandler::parse_doc(&index_schema, &body.document.to_string())?;
                         index_writer.add_document(doc);
                         if let Some(opts) = body.options {
                             if opts.commit {
@@ -134,10 +134,10 @@ impl_web! {
 
         #[put("/:index/_create")]
         #[content_type("application/json")]
-        fn create(&self, body: SchemaBody, index: String) -> Result<CreatedResponse, ()> {
-            let ip = self.catalog.read().map_err(|_| ())?.base_path().clone();
-            let new_index = IndexHandler::create_from_managed(ip, &index, body.0).map_err(|_| ())?;
-            IndexHandler::add_index(Arc::clone(&self.catalog), index.clone(), new_index).map(|_| CreatedResponse).map_err(|_| ())
+        pub fn create(&self, body: SchemaBody, index: String) -> Result<CreatedResponse, Error> {
+            let ip = self.catalog.read()?.base_path().clone();
+            let new_index = IndexHandler::create_from_managed(ip, &index, body.0)?;
+            IndexHandler::add_index(Arc::clone(&self.catalog), index.clone(), new_index).map(|_| CreatedResponse)
         }
     }
 }

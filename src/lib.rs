@@ -1,10 +1,9 @@
 use failure::Fail;
-use log::*;
 use tantivy::query::QueryParserError;
 use tantivy::schema::DocParsingError;
 use tantivy::Error as TError;
 
-#[derive(Debug, Fail)]
+#[derive(Debug, Fail, Clone)]
 pub enum Error {
     #[fail(display = "IO Error: {}", _0)]
     IOError(String),

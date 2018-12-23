@@ -1,5 +1,6 @@
 use crate::index::IndexCatalog;
-use serde_derive::{Deserialize, Serialize};
+use crate::Error;
+
 use std::sync::{Arc, RwLock};
 use tower_web::*;
 
@@ -18,15 +19,15 @@ impl_web! {
     impl SummaryHandler {
         #[get("/:index/_summary")]
         #[content_type("application/json")]
-        fn handle(&self, index: String) -> Result<String, ()> {
+        fn handle(&self, index: String) -> Result<String, Error> {
             let index_lock = self.catalog.read().unwrap();
             if index_lock.exists(&index) {
-                let index = index_lock.get_index(&index).map_err(|_| ())?;
-                let metas = index.get_index().load_metas().map_err(|_| ())?;
-                let payload = serde_json::to_string(&metas).map_err(|_| ())?;
+                let index = index_lock.get_index(&index)?;
+                let metas = index.get_index().load_metas()?;
+                let payload = serde_json::to_string(&metas)?;
                 Ok(payload)
             } else {
-                Err(())
+                Err(Error::IOError("Failed to obtain index lock".into()))
             }
         }
     }
@@ -40,11 +41,11 @@ mod tests {
 
     #[test]
     fn get_summary_data() {
-        let idx = create_test_index();
-        let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
-        let client = Arc::new(RwLock::new(catalog));
+        let cat = create_test_catalog("test_index");
+        let handler = SummaryHandler::new(Arc::clone(&cat));
 
-        //        assert_eq!(hyper::StatusCode::OK, req.status());
+        let resp = handler.handle("test_index".into());
+        assert_eq!(resp.is_ok(), true)
     }
 
 }

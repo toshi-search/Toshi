@@ -8,7 +8,6 @@ use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 
 use crossbeam::channel::{unbounded, Receiver};
-use serde_derive::{Deserialize, Serialize};
 use tantivy::Document;
 use tantivy::IndexWriter;
 use tower_web::*;
@@ -43,10 +42,10 @@ impl_web! {
     impl BulkHandler {
         #[post("/:index/_bulk")]
         #[content_type("application/json")]
-        pub fn handle(&self, body: Vec<u8>, index: String) -> Result<CreatedResponse, ()> {
+        pub fn handle(&self, body: Vec<u8>, index: String) -> Result<CreatedResponse, Error> {
 
-            let index_lock = self.catalog.read().map_err(|_| ())?;
-            let index_handle = index_lock.get_index(&index).map_err(|_| ())?;
+            let index_lock = self.catalog.read()?;
+            let index_handle = index_lock.get_index(&index)?;
             let index = index_handle.get_index();
             let schema = index.schema();
             let (line_sender, line_recv) = index_lock.settings.get_channel::<Vec<u8>>();

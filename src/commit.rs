@@ -46,36 +46,38 @@ impl IndexWatcher {
 #[cfg(test)]
 pub mod tests {
     use super::*;
-    use crate::handlers::search::tests::*;
-    use crate::index::tests::*;
-    use hyper::StatusCode;
-    use std::thread::sleep;
-    use std::time::Duration;
-
     use futures::future;
-    use serde_json;
+
+    use crate::handlers::index::AddDocument;
+    use crate::handlers::{IndexHandler, SearchHandler};
+    use crate::index::tests::*;
+    use tokio::runtime::Runtime;
 
     #[test]
     pub fn test_auto_commit() {
         let idx = create_test_index();
+        let mut rt = Runtime::new().unwrap();
         let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
         let arc = Arc::new(RwLock::new(catalog));
         let watcher = IndexWatcher::new(Arc::clone(&arc), 1);
+        let handler = IndexHandler::new(Arc::clone(&arc));
+        let search = SearchHandler::new(Arc::clone(&arc));
 
         let fut = future::lazy(|| {
             watcher.start();
             future::ok::<(), ()>(())
         });
+        rt.spawn(fut);
 
-        let body = r#"
-            {
-              "document": {
-                "test_text":    "Babbaboo!",
-                "test_u64":     10 ,
-                "test_i64":     -10,
-                "test_unindex": "asdf1234"
-              }
-            }"#;
-        //        assert_eq!(6, results.hits);
+        let body = r#"{ "document": { "test_text": "Babbaboo!", "test_u64": 10 , "test_i64": -10, "test_unindex": "asdf1234" } }"#;
+        let add: AddDocument = serde_json::from_str(body).unwrap();
+        handler.add(add, "test_index".into()).unwrap();
+
+        std::thread::sleep(std::time::Duration::from_secs(2));
+
+        let docs = search.get_all_docs("test_index".into()).unwrap();
+        println!("{}", docs.hits);
+        assert_eq!(6, docs.hits);
+        rt.shutdown_now();
     }
 }

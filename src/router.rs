@@ -1,8 +1,15 @@
 use std::net::SocketAddr;
 use std::sync::{Arc, RwLock};
 
+use flate2::Compression;
+use http::response::Builder;
+use http::Request;
+use log::info;
 use tokio::net::TcpListener;
 use tokio::prelude::*;
+use tower_web::middleware::deflate::DeflateMiddleware;
+use tower_web::middleware::log::LogMiddleware;
+use tower_web::Error as TowerError;
 use tower_web::ServiceBuilder;
 
 use crate::handlers::*;
@@ -23,5 +30,26 @@ pub fn router_with_catalog(addr: &SocketAddr, catalog: &Arc<RwLock<IndexCatalog>
         .resource(bulk_handler)
         .resource(summary_handler)
         .resource(root_handler)
+        .middleware(LogMiddleware::new("toshi"))
+        .middleware(DeflateMiddleware::new(Compression::fast()))
+        .catch(|request: &Request<()>, error: TowerError| {
+            info!("{:?}", error);
+            let err_msg = ErrorResponse::new(error.to_string(), request.uri().path().into());
+            let json = serde_json::to_string(&err_msg).unwrap();
+
+            let (status, body) = match error.kind() {
+                e if e.is_not_found() => (404, json),
+                e if e.is_bad_request() => (400, json),
+                e if e.is_internal() => (500, json),
+                _ => (404, json),
+            };
+            let response = Builder::new()
+                .header("content-type", "application/json")
+                .status(status)
+                .body(body)
+                .unwrap();
+
+            Ok(response)
+        })
         .serve(listener)
 }

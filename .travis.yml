@@ -2,9 +2,6 @@ language: rust
 sudo: required
 os: linux
 
-#compiler:
-#  - clang
-
 cache: cargo
 
 addons:
@@ -49,5 +46,5 @@ script:
   - cargo build && cargo test
 
 after_success:
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then cargo coverage --exclude-pattern '/toshi/src/bin,/src/bin,/bin,/target' && bash <(curl -s https://codecov.io/bash) -s target/kcov; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then cargo coveralls --exclude-pattern '/toshi/src/bin,/src/bin,/bin,/target'; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then cargo coverage --exclude-pattern '/toshi/src/bin,/src/bin,/bin,/target,/toshi/src/query/aggregate' && bash <(curl -s https://codecov.io/bash) -s target/kcov; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then cargo coveralls --exclude-pattern '/toshi/src/bin,/src/bin,/bin,/target,/toshi/src/query/aggregate'; fi

@@ -1,11 +1,11 @@
 use crate::settings::Settings;
 use crate::{Error, Result};
 
-use serde_derive::{Deserialize, Serialize};
+use serde_derive::Deserialize;
 use tantivy::query::Query as TantivyQuery;
 use tantivy::schema::Schema;
 use tantivy::Term;
-use tower_web::{impl_web, Extract, Response};
+use tower_web::Extract;
 
 pub use {
     self::aggregate::{SumCollector, SummaryDoc},

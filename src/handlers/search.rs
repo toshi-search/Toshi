@@ -1,7 +1,6 @@
 use std::sync::{Arc, RwLock};
 
 use log::info;
-use serde_derive::{Deserialize, Serialize};
 use tower_web::*;
 
 use crate::index::IndexCatalog;
@@ -79,8 +78,8 @@ pub mod tests {
         let req: Request = serde_json::from_str(body).unwrap();
         let docs = handler.doc_search(req, "asdf".into());
         match docs {
-            Err(e) => println!("{:?}", e),
-            Ok(_) => println!("Not an error?"),
+            Err(Error::UnknownIndex(e)) => assert_eq!(e.to_string(), "asdf"),
+            _ => assert_eq!(true, false),
         }
     }
 
@@ -89,6 +88,12 @@ pub mod tests {
         let cat = create_test_catalog("test_index");
         let handler = SearchHandler::new(Arc::clone(&cat));
         let body = r#"{ "query" : { "raw": "asd*(@sq__" } }"#;
+        let req: Request = serde_json::from_str(body).unwrap();
+        let docs = handler.doc_search(req, "test_index".into());
+        match docs {
+            Err(Error::QueryError(e)) => assert_eq!(e.to_string(), "invalid digit found in string"),
+            _ => assert_eq!(true, false),
+        }
     }
 
     #[test]
@@ -97,7 +102,12 @@ pub mod tests {
         let handler = SearchHandler::new(Arc::clone(&cat));
         let body = r#"{ "query" : { "raw": "test_unindex:asdf" } }"#;
 
-        //        assert_eq!(req.status(), StatusCode::BAD_REQUEST);
+        let req: Request = serde_json::from_str(body).unwrap();
+        let docs = handler.doc_search(req, "test_index".into());
+        match docs {
+            Err(Error::QueryError(e)) => assert_eq!(e.to_string(), "Query to unindexed field \'test_unindex\'"),
+            _ => assert_eq!(true, false),
+        }
     }
 
     #[test]
@@ -105,43 +115,27 @@ pub mod tests {
         let cat = create_test_catalog("test_index");
         let handler = SearchHandler::new(Arc::clone(&cat));
         let body = r#"{ "query" : { "term": { "asdf": "Document" } } }"#;
-
-        //        assert_eq!(
-        //            r#"{"reason":"Query Parse Error: Field: asdf does not exist"}"#,
-        //            req.read_utf8_body().unwrap()
-        //        )
-    }
-
-    #[test]
-    fn test_bad_number_field_syntax() {
-        let cat = create_test_catalog("test_index");
-        let handler = SearchHandler::new(Arc::clone(&cat));
-        let body = r#"{ "query" : { "term": { "123asdf": "Document" } } }"#;
-
-        //        assert_eq!(
-        //            r#"{"reason":"Query Parse Error: Field: 123asdf does not exist"}"#,
-        //            req.read_utf8_body().unwrap()
-        //        )
-    }
-
-    #[test]
-    fn test_bad_method() {
-        let cat = create_test_catalog("test_index");
-        let handler = SearchHandler::new(Arc::clone(&cat));
-
-        //        assert_eq!(req.status(), StatusCode::METHOD_NOT_ALLOWED);
+        let req: Request = serde_json::from_str(body).unwrap();
+        let docs = handler.doc_search(req, "test_index".into());
+        match docs {
+            Err(Error::QueryError(e)) => assert_eq!(e.to_string(), "Field: asdf does not exist"),
+            _ => assert_eq!(true, false),
+        }
     }
 
     #[test]
     fn test_raw_query() {
-        let body = r#"test_text:"document""#;
+        let body = r#"test_text:"Duckiment""#;
         let req = Request::new(Some(Query::Raw { raw: body.into() }), None, 10);
         let docs = run_query(req, "test_index");
         assert_eq!(docs.is_ok(), true);
         let result = docs.unwrap();
 
         assert_eq!(result.hits as usize, result.docs.len());
-        assert_eq!(result.docs[0].doc.0.get("test_text").unwrap()[0].text().unwrap(), "Test Document 1")
+        assert_eq!(
+            result.docs[0].doc.0.get("test_text").unwrap()[0].text().unwrap(),
+            "Test Duckiment 3"
+        )
     }
 
     #[test]
@@ -180,9 +174,11 @@ pub mod tests {
         assert_eq!(results.docs[0].score.unwrap(), 1.0);
     }
 
-    #[test]
-    #[ignore]
-    fn test_aggregate_sum() {
-        let _body = r#"{ "query": { "field": "test_u64" } }"#;
-    }
+    // This is ignored right now while we wait for https://github.com/tantivy-search/tantivy/pull/437
+    // to be released.
+    //#[test]
+    //#[ignore]
+    //fn test_aggregate_sum() {
+    //    let _body = r#"{ "query": { "field": "test_u64" } }"#;
+    //}
 }

@@ -1,22 +1,22 @@
-use clap::{crate_authors, crate_description, crate_version, App, Arg, ArgMatches};
-use futures::{future, sync::oneshot, Future, Stream};
-use log::{error, info};
-use tokio::runtime::Runtime;
-use uuid::Uuid;
-
-use std::{
-    fs::create_dir,
-    net::SocketAddr,
-    path::{Path, PathBuf},
-    sync::{Arc, RwLock},
-};
-
 use toshi::{
     cluster::{self, ConsulInterface},
     commit::IndexWatcher,
     index::IndexCatalog,
     router::router_with_catalog,
     settings::{Settings, HEADER},
+};
+
+use clap::{crate_authors, crate_description, crate_version, App, Arg, ArgMatches};
+use futures::{future, sync::oneshot, Future, Stream};
+use log::{error, info};
+use tokio::runtime::Runtime;
+use uuid::Uuid;
+
+use std::net::SocketAddr;
+use std::{
+    fs::create_dir,
+    path::{Path, PathBuf},
+    sync::{Arc, RwLock},
 };
 
 pub fn main() -> Result<(), ()> {
@@ -41,36 +41,13 @@ pub fn main() -> Result<(), ()> {
 
         Arc::new(RwLock::new(index_catalog))
     };
-    let auto_commit_duration = settings.auto_commit_duration;
-    // Create the toshi application future, this future runs the entire
-    // Toshi application. It will produce a oneshot channel message when
-    // it has received the shutdown signal from the OS.
     let toshi = {
-        // Create the future that runs forever and spawns the webserver
-        // and clustering abilities of Toshi.
         let server = run(index_catalog.clone(), settings);
-
-        // Create the future that waits for a shutdown signal and
-        // triggers the oneshot shutdown_signal to tell the tokio
-        // runtime it's time to gracefully.
         let shutdown = shutdown(tx);
-
-        // Select between either future, this will resolve to the
-        // first future to resolve. Since, the server future runs forever
-        // the only time this will resolve is when the shutdown signal has been
-        // received and it will "throwaway" the server future. This gives Toshi
-        // an opportunity to clean up its resources.
         server.select(shutdown)
     };
 
-    tokio::spawn(toshi.map(|_| ()).map_err(|_| ()));
-    if auto_commit_duration > 0 {
-        let commit_watcher = IndexWatcher::new(index_catalog.clone(), auto_commit_duration);
-        commit_watcher.start();
-    }
-
-    // Gracefully shutdown the tokio runtime when a shutdown message has been
-    // received on the shutdown_signal channel.
+    rt.spawn(toshi.map(|_| ()).map_err(|_| ()));
     shutdown_signal
         .map_err(|_| unreachable!("Shutdown signal channel should not error, This is a bug."))
         .and_then(move |_| {
@@ -84,7 +61,6 @@ pub fn main() -> Result<(), ()> {
         .wait()
 }
 
-// Extract the settings from the cli or config file
 fn settings() -> Settings {
     let options: ArgMatches = App::new("Toshi Search")
         .version(crate_version!())
@@ -163,16 +139,12 @@ fn settings() -> Settings {
     }
 }
 
-// Create the future that runs forever and spawns the webserver
-// and clustering abilities of Toshi.
 fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: Settings) -> impl Future<Item = (), Error = ()> {
     if !Path::new(&settings.path).exists() {
         info!("Base data path {} does not exist, creating it...", settings.path);
         create_dir(settings.path.clone()).expect("Unable to create data directory");
     }
 
-    // Create the auto commit watcher future that spawns commit actions
-    // every interval.
     let commit_watcher = if settings.auto_commit_duration > 0 {
         let commit_watcher = IndexWatcher::new(catalog.clone(), settings.auto_commit_duration);
         future::Either::A(future::lazy(move || {
@@ -184,28 +156,22 @@ fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: Settings) -> impl Future<It
         future::Either::B(future::ok::<(), ()>(()))
     };
 
-    let addr: SocketAddr = format!("{}:{}", &settings.host, settings.port).parse().unwrap();
-
+    let addr = format!("{}:{}", &settings.host, settings.port);
+    let bind: SocketAddr = addr.parse().unwrap();
     println!("{}", HEADER);
 
     if settings.enable_clustering {
-        // Run the tokio runtime, this will start an event loop that will process
-        // the connect_consul future. It will block until the future is completed
-        // by either completing successfully or erroring out.
-
         let run = connect_to_consul(&settings)
             .and_then(move |_| commit_watcher)
-            .and_then(move |_| router_with_catalog(&addr, &catalog));
+            .and_then(move |_| router_with_catalog(&bind, &catalog));
 
         future::Either::A(run)
     } else {
-        let run = commit_watcher.and_then(move |_| router_with_catalog(&addr, &catalog));
+        let run = commit_watcher.and_then(move |_| router_with_catalog(&bind, &catalog));
         future::Either::B(run)
     }
 }
 
-// Spawn a future that will connect to the consul cluster from the provided path
-// and cluster name.
 fn connect_to_consul(settings: &Settings) -> impl Future<Item = (), Error = ()> {
     let consul_address = format!("{}:{}", &settings.consul_host, settings.consul_port);
     let mut consul_client = ConsulInterface::default()
@@ -215,7 +181,6 @@ fn connect_to_consul(settings: &Settings) -> impl Future<Item = (), Error = ()> 
     let settings_path_read = settings.path.clone();
     let settings_path_write = settings.path.clone();
 
-    // Build future that will connect to consul and register the node_id
     consul_client
         .register_cluster()
         .and_then(move |_| cluster::read_node_id(settings_path_read.as_str()))
@@ -237,11 +202,7 @@ fn connect_to_consul(settings: &Settings) -> impl Future<Item = (), Error = ()> 
         .map_err(|e| error!("Error: {}", e))
 }
 
-// A future that takes a shutdown signal sender and will produce a message
-// on the channel once it has received the shutdown signal.
 fn shutdown(signal: oneshot::Sender<()>) -> impl Future<Item = (), Error = ()> {
-    // Create a future that will take the first shutdown signal received and
-    // will produce a shutdown message on the signal channel passed in.
     tokio_signal::ctrl_c()
         .flatten_stream()
         .take(1)
