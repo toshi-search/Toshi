@@ -1,7 +1,7 @@
 use crate::query::{CreateQuery, TermQueries};
 use crate::Result;
 
-use serde_derive::Deserialize;
+use serde::Deserialize;
 use tantivy::query::{BooleanQuery, Occur, Query};
 use tantivy::schema::Schema;
 

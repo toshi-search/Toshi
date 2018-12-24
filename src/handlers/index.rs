@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::sync::{Arc, RwLock};
 
-use serde_derive::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tantivy::directory::MmapDirectory;
 use tantivy::schema::*;

@@ -1,4 +1,4 @@
-use serde_derive::Serialize;
+use serde::Serialize;
 use tower_web::*;
 
 #[derive(Clone, Debug)]

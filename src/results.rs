@@ -1,5 +1,5 @@
 use crate::query::SummaryDoc;
-use serde_derive::Serialize;
+use serde::Serialize;
 use tantivy::schema::NamedFieldDocument;
 use tower_web::*;
 

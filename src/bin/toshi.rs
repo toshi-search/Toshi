@@ -1,5 +1,5 @@
 use toshi::{
-    cluster::{self, ConsulInterface},
+    cluster::{self, Consul},
     commit::IndexWatcher,
     index::IndexCatalog,
     router::router_with_catalog,
@@ -41,6 +41,7 @@ pub fn main() -> Result<(), ()> {
 
         Arc::new(RwLock::new(index_catalog))
     };
+
     let toshi = {
         let server = run(index_catalog.clone(), settings);
         let shutdown = shutdown(tx);
@@ -48,6 +49,7 @@ pub fn main() -> Result<(), ()> {
     };
 
     rt.spawn(toshi.map(|_| ()).map_err(|_| ()));
+
     shutdown_signal
         .map_err(|_| unreachable!("Shutdown signal channel should not error, This is a bug."))
         .and_then(move |_| {
@@ -66,13 +68,7 @@ fn settings() -> Settings {
         .version(crate_version!())
         .about(crate_description!())
         .author(crate_authors!())
-        .arg(
-            Arg::with_name("config")
-                .short("c")
-                .long("config")
-                .takes_value(true)
-                .default_value("config/config.toml"),
-        )
+        .arg(Arg::with_name("config").short("c").long("config").takes_value(true))
         .arg(
             Arg::with_name("level")
                 .short("l")
@@ -124,15 +120,14 @@ fn settings() -> Settings {
         )
         .arg(
             Arg::with_name("enable-clustering")
-                .short("E")
+                .short("e")
                 .long("enable-clustering")
-                .takes_value(false),
+                .takes_value(true),
         )
         .get_matches();
 
     if options.is_present("config") {
         let cfg = options.value_of("config").unwrap();
-        info!("Reading config from: {}", cfg);
         Settings::new(cfg).expect("Invalid Config file")
     } else {
         Settings::from_args(&options)
@@ -157,11 +152,13 @@ fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: Settings) -> impl Future<It
     };
 
     let addr = format!("{}:{}", &settings.host, settings.port);
+
     let bind: SocketAddr = addr.parse().unwrap();
     println!("{}", HEADER);
 
     if settings.enable_clustering {
-        let run = connect_to_consul(&settings)
+        let settings = settings.clone();
+        let run = future::lazy(move || connect_to_consul(&settings))
             .and_then(move |_| commit_watcher)
             .and_then(move |_| router_with_catalog(&bind, &catalog));
 
@@ -174,32 +171,34 @@ fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: Settings) -> impl Future<It
 
 fn connect_to_consul(settings: &Settings) -> impl Future<Item = (), Error = ()> {
     let consul_address = format!("{}:{}", &settings.consul_host, settings.consul_port);
-    let mut consul_client = ConsulInterface::default()
-        .with_cluster_name(settings.cluster_name.clone())
-        .with_address(consul_address);
-
+    let cluster_name = settings.cluster_name.clone();
     let settings_path_read = settings.path.clone();
     let settings_path_write = settings.path.clone();
 
-    consul_client
-        .register_cluster()
-        .and_then(move |_| cluster::read_node_id(settings_path_read.as_str()))
-        .then(|result| match result {
-            Ok(id) => {
-                let parsed_id = Uuid::parse_str(&id).expect("Parsed node ID is not a UUID");
-                cluster::write_node_id(settings_path_write, parsed_id.to_hyphenated().to_string())
-            }
+    future::lazy(move || {
+        let mut consul_client = Consul::default().with_cluster_name(cluster_name).with_address(consul_address);
 
-            Err(_) => {
-                let new_id = Uuid::new_v4();
-                cluster::write_node_id(settings_path_write, new_id.to_hyphenated().to_string())
-            }
-        })
-        .and_then(move |id| {
-            consul_client.node_id = Some(id);
-            consul_client.register_node()
-        })
-        .map_err(|e| error!("Error: {}", e))
+        // Build future that will connect to consul and register the node_id
+        consul_client
+            .register_cluster()
+            .and_then(move |_| cluster::read_node_id(settings_path_read.as_str()))
+            .then(|result| match result {
+                Ok(id) => {
+                    let parsed_id = Uuid::parse_str(&id).expect("Parsed node ID is not a UUID");
+                    cluster::write_node_id(settings_path_write, parsed_id.to_hyphenated().to_string())
+                }
+
+                Err(_) => {
+                    let new_id = Uuid::new_v4();
+                    cluster::write_node_id(settings_path_write, new_id.to_hyphenated().to_string())
+                }
+            })
+            .and_then(move |id| {
+                consul_client.node_id = Some(id);
+                consul_client.register_node()
+            })
+            .map_err(|e| error!("Error: {}", e))
+    })
 }
 
 fn shutdown(signal: oneshot::Sender<()>) -> impl Future<Item = (), Error = ()> {

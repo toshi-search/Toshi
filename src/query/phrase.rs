@@ -1,7 +1,7 @@
 use crate::query::{make_field_value, CreateQuery};
 use crate::{Error, Result};
 
-use serde_derive::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use tantivy::query::{PhraseQuery as TantivyPhraseQuery, Query};
 use tantivy::schema::Schema;
 use tantivy::Term;

@@ -1,6 +1,6 @@
 //! Contains code related to clustering
 use failure::Fail;
-use serde_derive::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
 pub mod placement {
     use prost_derive::{Enumeration, Message};
@@ -11,12 +11,12 @@ pub mod placement {
     include!(concat!(env!("OUT_DIR"), "\\placement.rs"));
 }
 
-pub mod consul_interface;
+pub mod consul;
 pub mod node;
 pub mod placement_server;
 pub mod shard;
 
-pub use self::consul_interface::ConsulInterface;
+pub use self::consul::Consul;
 pub use self::node::*;
 pub use self::placement_server::Place;
 
@@ -50,6 +50,8 @@ pub enum ClusterError {
     UnableToReadUTF8,
     #[fail(display = "Unable to create PrimaryShard: {}", _0)]
     FailedCreatingPrimaryShard(String),
+    #[fail(display = "Unable to get index: {}", _0)]
+    FailedGettingIndex(String),
     #[fail(display = "Unable to create ReplicaShard: {}", _0)]
     FailedCreatingReplicaShard(String),
     #[fail(display = "Unable to get index name: {}", _0)]
