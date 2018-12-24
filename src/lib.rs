@@ -1,10 +1,9 @@
 use failure::Fail;
-use gotham::handler::{HandlerError, IntoHandlerError};
 use tantivy::query::QueryParserError;
 use tantivy::schema::DocParsingError;
 use tantivy::Error as TError;
 
-#[derive(Debug, Fail)]
+#[derive(Debug, Fail, Clone)]
 pub enum Error {
     #[fail(display = "IO Error: {}", _0)]
     IOError(String),
@@ -14,12 +13,6 @@ pub enum Error {
     UnknownIndex(String),
     #[fail(display = "Query Parse Error: {}", _0)]
     QueryError(String),
-}
-
-impl IntoHandlerError for Error {
-    fn into_handler_error(self) -> HandlerError {
-        self.compat().into_handler_error()
-    }
 }
 
 impl From<TError> for Error {

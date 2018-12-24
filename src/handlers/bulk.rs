@@ -1,36 +1,28 @@
-use crate::handlers::{handle_error, IndexPath};
+use crate::handlers::CreatedResponse;
 use crate::index::IndexCatalog;
-use crate::{Error, Result};
+use crate::Error;
 
-use futures::{future, Future, Stream};
-use gotham::handler::{Handler, HandlerFuture, IntoHandlerError, NewHandler};
-use gotham::helpers::http::response::create_empty_response;
-use gotham::state::{FromState, State};
-use hyper::{Body, StatusCode};
-use log::error;
-
-use std::panic::RefUnwindSafe;
+use std::iter::Iterator;
 use std::str::from_utf8;
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 
-use tantivy::{Document, IndexWriter};
-
 use crossbeam::channel::{unbounded, Receiver};
+use tantivy::Document;
+use tantivy::IndexWriter;
+use tower_web::*;
 
 #[derive(Clone)]
 pub struct BulkHandler {
     catalog: Arc<RwLock<IndexCatalog>>,
 }
 
-impl RefUnwindSafe for BulkHandler {}
-
 impl BulkHandler {
     pub fn new(catalog: Arc<RwLock<IndexCatalog>>) -> Self {
         BulkHandler { catalog }
     }
 
-    fn index_documents(index_writer: &Mutex<IndexWriter>, doc_receiver: Receiver<Document>) -> Result<u64> {
+    fn index_documents(index_writer: &Mutex<IndexWriter>, doc_receiver: Receiver<Document>) -> Result<u64, Error> {
         match index_writer.lock() {
             Ok(ref mut w) => {
                 for doc in doc_receiver {
@@ -46,117 +38,85 @@ impl BulkHandler {
     }
 }
 
-impl Handler for BulkHandler {
-    fn handle(self, mut state: State) -> Box<HandlerFuture> {
-        let path = IndexPath::take_from(&mut state);
-        let index_lock = self.catalog.read().unwrap();
-        let index_handle = index_lock.get_index(&path.index).unwrap();
-        let index = index_handle.get_index();
-        let schema = index.schema();
-        let (line_sender, line_recv) = index_lock.settings.get_channel::<Vec<u8>>();
-        let (doc_sender, doc_recv) = unbounded::<Document>();
+impl_web! {
+    impl BulkHandler {
+        #[post("/:index/_bulk")]
+        #[content_type("application/json")]
+        pub fn handle(&self, body: Vec<u8>, index: String) -> Result<CreatedResponse, Error> {
 
-        for _ in 0..index_lock.settings.json_parsing_threads {
-            let schema_clone = schema.clone();
-            let doc_sender = doc_sender.clone();
-            let line_recv_clone = line_recv.clone();
-            thread::spawn(move || {
-                for line in line_recv_clone {
-                    if !line.is_empty() {
-                        if let Ok(text) = from_utf8(&line) {
-                            match schema_clone.parse_document(text) {
-                                Ok(doc) => match doc_sender.send(doc) {
-                                    Ok(_) => (),
-                                    Err(err) => error!("Error occurred in parsing thread: {:?}", err),
-                                },
-                                Err(err) => error!("Error occurred in parsing thread: {:?}", err),
+            let index_lock = self.catalog.read()?;
+            let index_handle = index_lock.get_index(&index)?;
+            let index = index_handle.get_index();
+            let schema = index.schema();
+            let (line_sender, line_recv) = index_lock.settings.get_channel::<Vec<u8>>();
+            let (doc_sender, doc_recv) = unbounded::<Document>();
+
+            for _ in 0..index_lock.settings.json_parsing_threads {
+                let schema_clone = schema.clone();
+                let doc_sender = doc_sender.clone();
+                let line_recv_clone = line_recv.clone();
+                thread::spawn(move || {
+                    for line in line_recv_clone {
+                        if !line.is_empty() {
+                            if let Ok(text) = from_utf8(&line) {
+                                if let Ok(doc) = schema_clone.parse_document(text) {
+                                    doc_sender.send(doc).unwrap()
+                                }
                             }
                         }
                     }
-                }
-            });
+                });
+            }
+
+            let writer = index_handle.get_writer();
+            thread::spawn(move || BulkHandler::index_documents(&writer, doc_recv));
+
+            let line_sender_clone = line_sender.clone();
+            let response = body
+                .into_iter()
+                .fold(Vec::new(), move |mut buf, line| {
+                    buf.push(line);
+                    let mut split = buf.split(|b| *b == b'\n').peekable();
+                    while let Some(l) = split.next() {
+                        if split.peek().is_none() {
+                            return l.to_vec();
+                        }
+                        line_sender_clone.send(l.to_vec()).unwrap()
+                    }
+                    buf.clone()
+                });
+            if !response.is_empty() {
+                line_sender.send(response.to_vec()).unwrap();
+            }
+            Ok(CreatedResponse)
         }
-
-        let writer = index_handle.get_writer();
-        thread::spawn(move || BulkHandler::index_documents(&writer, doc_recv));
-
-        let body = Body::take_from(&mut state);
-        let line_sender_clone = line_sender.clone();
-
-        let response = body
-            .map_err(|e| e.into_handler_error())
-            .fold(Vec::new(), move |mut buf, line| {
-                buf.extend(line);
-                let mut split = buf.split(|b| *b == b'\n').peekable();
-                while let Some(l) = split.next() {
-                    if split.peek().is_none() {
-                        return future::ok(l.to_vec());
-                    }
-                    match line_sender_clone.send(l.to_vec()) {
-                        Ok(_) => (),
-                        Err(e) => return future::err(e.into_handler_error()),
-                    };
-                }
-                future::ok(buf.clone())
-            })
-            .then(move |response| match response {
-                Ok(buf) => {
-                    if !buf.is_empty() {
-                        match line_sender.send(buf.to_vec()) {
-                            Ok(_) => (),
-                            Err(e) => return handle_error(state, Error::IOError(e.to_string())),
-                        };
-                    }
-                    let resp = create_empty_response(&state, StatusCode::CREATED);
-                    future::ok((state, resp))
-                }
-                Err(e) => handle_error(state, Error::IOError(e.to_string())),
-            });
-        Box::new(response)
     }
 }
-
-new_handler!(BulkHandler);
 
 #[cfg(test)]
 mod tests {
 
     use super::*;
-    use crate::handlers::search::tests::*;
+    use crate::handlers::SearchHandler;
     use crate::index::tests::*;
-    use crate::index::IndexCatalog;
-
-    use mime;
-    use serde_json;
-
-    // TODO: Need Error coverage testing here.
+    use std::thread::sleep;
+    use std::time::Duration;
 
     #[test]
     fn test_bulk_index() {
-        let idx = create_test_index();
-        let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
-        let server = create_test_server(&Arc::new(RwLock::new(catalog)));
-
+        let server = create_test_catalog("test_index");
+        let handler = BulkHandler::new(Arc::clone(&server));
         let body = r#"
         {"test_text": "asdf1234", "test_i64": 123, "test_u64": 321, "test_unindex": "asdf"}
         {"test_text": "asdf5678", "test_i64": 456, "test_u64": 678, "test_unindex": "asdf"}
         {"test_text": "asdf9012", "test_i64": -12, "test_u64": 901, "test_unindex": "asdf"}"#;
 
-        let req = server
-            .client()
-            .post("http://localhost/test_index/_bulk", body, mime::APPLICATION_JSON)
-            .perform()
-            .unwrap();
+        let index_docs = handler.handle(body.as_bytes().to_vec(), "test_index".into());
+        assert_eq!(index_docs.is_ok(), true);
+        sleep(Duration::from_secs(1));
 
-        assert_eq!(req.status(), StatusCode::CREATED);
-
-        // Give it a second...
-        std::thread::sleep(std::time::Duration::from_secs(1));
-
-        let check_docs = server.client().get("http://localhost/test_index").perform().unwrap();
-        let docs: TestResults = serde_json::from_slice(&check_docs.read_body().unwrap()).unwrap();
-
-        assert_eq!(docs.hits, 8);
-        // TODO: Do more testing here.
+        let search = SearchHandler::new(Arc::clone(&server));
+        let check_docs = search.get_all_docs("test_index".into()).unwrap();
+        assert_eq!(check_docs.hits, 8);
     }
 }

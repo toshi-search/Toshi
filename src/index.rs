@@ -66,10 +66,10 @@ impl IndexCatalog {
         }
     }
 
-    pub fn add_index(&mut self, name: String, index: Index) {
-        let handle = IndexHandle::new(index, self.settings.clone(), &name)
-            .unwrap_or_else(|_| panic!("Unable to open index: {} because it's locked", name));
+    pub fn add_index(&mut self, name: String, index: Index) -> Result<()> {
+        let handle = IndexHandle::new(index, self.settings.clone(), &name)?;
         self.collection.entry(name).or_insert(handle);
+        Ok(())
     }
 
     #[allow(dead_code)]
@@ -102,7 +102,7 @@ impl IndexCatalog {
                 if !entry_str.ends_with(".node_id") {
                     let pth: String = entry_str.rsplit('/').take(1).collect();
                     let idx = IndexCatalog::load_index(entry_str)?;
-                    self.add_index(pth.clone(), idx);
+                    self.add_index(pth.clone(), idx)?;
                 }
             } else {
                 return Err(Error::IOError(format!("Path {} is not a valid unicode path", entry.display())));
@@ -182,9 +182,14 @@ impl IndexCatalog {
 pub mod tests {
 
     use super::*;
-    use gotham::test::{TestClient, TestServer};
     use std::sync::{Arc, RwLock};
     use tantivy::doc;
+
+    pub fn create_test_catalog(name: &str) -> Arc<RwLock<IndexCatalog>> {
+        let idx = create_test_index();
+        let catalog = IndexCatalog::with_index(name.into(), idx).unwrap();
+        Arc::new(RwLock::new(catalog))
+    }
 
     pub fn create_test_index() -> Index {
         let mut builder = SchemaBuilder::new();
@@ -204,14 +209,5 @@ pub mod tests {
         writer.commit().unwrap();
 
         idx
-    }
-
-    pub fn create_test_client(catalog: &Arc<RwLock<IndexCatalog>>) -> TestClient {
-        let server = create_test_server(catalog);
-        server.client()
-    }
-
-    pub fn create_test_server(catalog: &Arc<RwLock<IndexCatalog>>) -> TestServer {
-        TestServer::new(crate::router::router_with_catalog(catalog)).unwrap()
     }
 }

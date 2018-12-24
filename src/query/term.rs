@@ -9,7 +9,7 @@ use tantivy::schema::{IndexRecordOption, Schema};
 
 #[derive(Deserialize, Debug, PartialEq, Clone)]
 pub struct ExactTerm {
-    term: HashMap<String, String>,
+    pub term: HashMap<String, String>,
 }
 
 impl CreateQuery for ExactTerm {
