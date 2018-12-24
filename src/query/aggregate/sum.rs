@@ -1,7 +1,7 @@
 use crate::query::AggregateQuery;
 use crate::{Error, Result};
 
-use serde_derive::Serialize;
+use serde::Serialize;
 use tantivy::collector::{Collector, TopCollector};
 use tantivy::schema::{Field, Value};
 use tantivy::{Searcher, SegmentReader};

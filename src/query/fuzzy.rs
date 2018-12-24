@@ -3,7 +3,7 @@ use crate::{Error, Result};
 
 use std::collections::HashMap;
 
-use serde_derive::Deserialize;
+use serde::Deserialize;
 use tantivy::query::{FuzzyTermQuery, Query};
 use tantivy::schema::Schema;
 

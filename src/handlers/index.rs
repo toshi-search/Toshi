@@ -7,7 +7,7 @@ use gotham::handler::{Handler, HandlerFuture, NewHandler};
 use gotham::helpers::http::response::{create_empty_response, create_response};
 use gotham::state::{FromState, State};
 use hyper::{Body, Method, StatusCode};
-use serde_derive::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use tantivy::directory::MmapDirectory;
 use tantivy::schema::*;
 use tantivy::{Document, Index};

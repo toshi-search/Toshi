@@ -1,7 +1,7 @@
 use crate::settings::Settings;
 use crate::{Error, Result};
 
-use serde_derive::Deserialize;
+use serde::Deserialize;
 use tantivy::query::Query as TantivyQuery;
 use tantivy::schema::Schema;
 use tantivy::Term;

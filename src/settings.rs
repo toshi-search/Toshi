@@ -1,7 +1,7 @@
 use clap::ArgMatches;
 use config::{Config, ConfigError, File, FileFormat, Source};
 use crossbeam::channel::{bounded, unbounded, Receiver, Sender};
-use serde_derive::Deserialize;
+use serde::Deserialize;
 use tantivy::merge_policy::*;
 
 use std::str::FromStr;
@@ -104,6 +104,7 @@ impl Settings {
     }
 
     pub fn from_args(args: &ArgMatches) -> Self {
+        println!("{:?}", args.value_of("port").unwrap());
         Self {
             host: args.value_of("host").unwrap().to_string(),
             port: args.value_of("port").unwrap().parse().expect("Invalid port given."),

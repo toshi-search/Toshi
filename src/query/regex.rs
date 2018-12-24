@@ -1,7 +1,7 @@
 use crate::query::CreateQuery;
 use crate::{Error, Result};
 
-use serde_derive::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tantivy::query::{Query, RegexQuery as TantivyRegexQuery};
 use tantivy::schema::Schema;

@@ -11,8 +11,7 @@ use hyper::client::HttpConnector;
 use hyper::http::uri::Scheme;
 use hyper::{Client, Method, Request, Response, Uri};
 use hyper_tls::HttpsConnector;
-use serde::Serialize;
-use serde_derive::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use std::vec::IntoIter;
 use tower_buffer::Buffer;
 use tower_consul::{Consul as TowerConsul, KVValue};
@@ -127,7 +126,7 @@ impl Default for Consul {
             scheme: Scheme::HTTP,
             cluster_name: Some(String::from("kitsune")),
             node_id: Some(String::from("alpha")),
-            client: TowerConsul::new(client, "http://127.0.0.1:8500".into()),
+            client: TowerConsul::new(client, "http".into(), "127.0.0.1:8500".into()),
         }
     }
 }

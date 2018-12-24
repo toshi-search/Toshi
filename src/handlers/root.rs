@@ -3,7 +3,7 @@ use gotham::handler::{Handler, HandlerFuture, NewHandler};
 use gotham::helpers::http::response::create_response;
 use gotham::state::State;
 use hyper::StatusCode;
-use serde_derive::Serialize;
+use serde::Serialize;
 
 #[derive(Clone, Debug)]
 pub struct RootHandler(ToshiInfo);

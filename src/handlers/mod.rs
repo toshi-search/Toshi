@@ -28,8 +28,7 @@ use gotham_derive::{StateData, StaticResponseExtender};
 use failure::Fail;
 use futures::{future, future::FutureResult};
 use hyper::{Body, Response, StatusCode};
-use serde::Serialize;
-use serde_derive::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
 type FutureError = FutureResult<(State, Response<Body>), (State, HandlerError)>;
 

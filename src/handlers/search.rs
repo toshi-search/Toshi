@@ -84,7 +84,7 @@ pub mod tests {
 
     use super::*;
     use crate::index::tests::*;
-    use serde_derive::Deserialize;
+    use serde::Deserialize;
     use serde_json;
 
     #[derive(Deserialize, Debug)]

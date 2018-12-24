@@ -2,7 +2,7 @@ use crate::cluster::{ClusterError, DiskType};
 
 use futures::Future;
 use num_cpus;
-use serde_derive::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use systemstat;
 use systemstat::{Platform, System};
 use tokio::{

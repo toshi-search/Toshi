@@ -1,7 +1,7 @@
 use tantivy::schema::NamedFieldDocument;
 
 use crate::query::SummaryDoc;
-use serde_derive::Serialize;
+use serde::Serialize;
 
 #[derive(Serialize)]
 pub struct SearchResults {
