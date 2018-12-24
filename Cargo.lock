@@ -1673,7 +1673,7 @@ dependencies = [
 [[package]]
 name = "systemstat"
 version = "0.1.3"
-source = "git+https://github.com/toshi-search/systemstat#7822d596ecb804dc64ab60922e57a6bf411ed2bf"
+source = "git+https://github.com/toshi-search/systemstat#b9032f333b1d2bbb5d8342f373238b3bb2659d76"
 dependencies = [
  "bytesize 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "chrono 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
