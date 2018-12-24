@@ -46,19 +46,9 @@ pub fn main() -> Result<(), ()> {
         let server = run(index_catalog.clone(), settings);
         let shutdown = shutdown(tx);
         server.select(shutdown)
-    });
+    };
 
     rt.spawn(toshi.map(|_| ()).map_err(|_| ()));
-
-    if auto_commit_duration > 0 {
-        let commit_watcher = IndexWatcher::new(index_catalog.clone(), auto_commit_duration);
-        let commit_watcher = future::lazy(|| {
-            commit_watcher.start();
-            Ok(())
-        });
-
-        rt.spawn(commit_watcher);
-    }
 
     shutdown_signal
         .map_err(|_| unreachable!("Shutdown signal channel should not error, This is a bug."))
@@ -132,7 +122,7 @@ fn settings() -> Settings {
             Arg::with_name("enable-clustering")
                 .short("e")
                 .long("enable-clustering")
-                .takes_value(false),
+                .takes_value(true),
         )
         .get_matches();
 
@@ -162,12 +152,13 @@ fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: Settings) -> impl Future<It
     };
 
     let addr = format!("{}:{}", &settings.host, settings.port);
-    
+
     let bind: SocketAddr = addr.parse().unwrap();
     println!("{}", HEADER);
 
     if settings.enable_clustering {
-        let run = future::lazy(|| connect_to_consul(&settings))
+        let settings = settings.clone();
+        let run = future::lazy(move || connect_to_consul(&settings))
             .and_then(move |_| commit_watcher)
             .and_then(move |_| router_with_catalog(&bind, &catalog));
 
@@ -183,7 +174,6 @@ fn connect_to_consul(settings: &Settings) -> impl Future<Item = (), Error = ()> 
     let cluster_name = settings.cluster_name.clone();
     let settings_path_read = settings.path.clone();
     let settings_path_write = settings.path.clone();
-
 
     future::lazy(move || {
         let mut consul_client = Consul::default().with_cluster_name(cluster_name).with_address(consul_address);

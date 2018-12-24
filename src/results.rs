@@ -1,11 +1,7 @@
 use crate::query::SummaryDoc;
-<<<<<<< HEAD
 use serde::Serialize;
-=======
-use serde_derive::Serialize;
 use tantivy::schema::NamedFieldDocument;
 use tower_web::*;
->>>>>>> 5f23c9001bad9415d3aa1e1f3d561c427699556b
 
 #[derive(Response, Serialize)]
 pub struct SearchResults {

@@ -104,7 +104,6 @@ impl Settings {
     }
 
     pub fn from_args(args: &ArgMatches) -> Self {
-        println!("{:?}", args.value_of("port").unwrap());
         Self {
             host: args.value_of("host").unwrap().to_string(),
             port: args.value_of("port").unwrap().parse().expect("Invalid port given."),
