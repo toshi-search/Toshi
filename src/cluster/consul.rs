@@ -1,21 +1,19 @@
-//! Provides an interface to a Consul cluster
-use crate::cluster::shard::Shard;
-use crate::cluster::ClusterError;
-use crate::{Error, Result};
-
-use crate::cluster::shard::PrimaryShard;
-use crate::cluster::shard::ReplicaShard;
-use futures::{future, stream::Stream, Async, Future, Poll};
+use futures::{stream::Stream, Async, Future, Poll};
 use hyper::body::Body;
 use hyper::client::HttpConnector;
 use hyper::http::uri::Scheme;
-use hyper::{Client, Method, Request, Response, Uri};
+use hyper::{Client, Request, Response, Uri};
 use hyper_tls::HttpsConnector;
 use serde::{Deserialize, Serialize};
-use std::vec::IntoIter;
 use tower_buffer::Buffer;
 use tower_consul::{Consul as TowerConsul, KVValue};
 use tower_service::Service;
+
+use crate::cluster::shard::PrimaryShard;
+use crate::cluster::shard::ReplicaShard;
+use crate::cluster::shard::Shard;
+use crate::cluster::ClusterError;
+use crate::{Error, Result};
 
 #[derive(Serialize, Deserialize)]
 pub struct NodeData {

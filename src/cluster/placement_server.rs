@@ -8,10 +8,8 @@ use tower_grpc::{Error, Request, Response};
 use tower_h2::Server;
 use tower_http::AddOrigin;
 
-use crate::cluster::consul::NodeData;
 use crate::cluster::placement::client::Placement;
 use crate::cluster::placement::{server, PlacementReply, PlacementRequest};
-use crate::cluster::shard::Shard;
 use crate::cluster::Consul;
 
 #[derive(Clone)]

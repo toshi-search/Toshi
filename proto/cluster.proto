@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+package cluster;
+
+service HealthService {
+    rpc ping (PingRequest) returns (PingReply);
+}
+
+service IndexService {
+    rpc placeIndex (PlaceRequest) returns (Result);
+    rpc placeDocument (DocumentRequest) returns (Result);
+    rpc placeReplica (ReplicaRequest) returns (Result);
+}
+
+service SearchService {
+    rpc searchIndex (SearchRequest) returns (SearchReply);
+}
+
+enum ResultCode {
+    SUCCESS = 0;
+    FAILURE = 1;
+    UNKNOWNNNNN = 2;
+    MAGIC_UNICORN = 3;
+}
+
+message Result {
+    ResultCode code = 1;
+    string message = 2;
+}
+
+
+message PingReply {
+}
+
+message PingRequest {
+}
+
+message SearchRequest {
+    string index = 1;
+    bytes query = 2;
+}
+
+message SearchReply {
+    Result result = 1;
+    repeated bytes doc = 2;
+}
+
+message PlaceRequest {
+    string index = 1;
+    bytes schema = 2;
+}
+
+message DocumentRequest {
+    string index = 1;
+    bytes document = 2;
+}
+
+message ReplicaRequest {
+    string index = 1;
+    string from = 2;
+    string to = 3;
+}
