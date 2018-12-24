@@ -20,17 +20,17 @@ path = "src/lib.rs"
 tower-grpc-build = { git = "https://github.com/tower-rs/tower-grpc" }
 
 [dependencies]
-gotham            = { git = "https://github.com/gotham-rs/gotham", rev = "9e60d8752fd5bb569f4156e60ee1919198702273" }
-gotham_derive     = { git = "https://github.com/gotham-rs/gotham", rev = "9e60d8752fd5bb569f4156e60ee1919198702273" }
-tower-service     = "0.2"
+tower-buffer      = "0.1"
+tower-consul      = "0.1"
 tower-grpc        = "0.1"
 tower-h2          = "0.1" 
-tower-util        = "0.1"
 tower-http        = "0.1"
-tower-consul      = "0.1"
-tower-buffer      = "0.1"
+tower-service     = "0.2"
+tower-util        = "0.1"
+tower-web         = "0.3.3"
 http              = "0.1.14"
 tokio-connect     = { git = "https://github.com/carllerche/tokio-connect" }
+flate2            = "^1.0"
 bytes             = "^0.4"
 prost             = "^0.4"
 prost-derive      = "^0.4"

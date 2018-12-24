@@ -4,9 +4,8 @@ use futures::{Future, Stream};
 use log::{error, info};
 use tokio::executor::DefaultExecutor;
 use tokio::net::TcpListener;
-use tower_grpc::{Code, Error, Request, Response, Status};
-use tower_h2::client::Connection;
-use tower_h2::{Body, Server};
+use tower_grpc::{Error, Request, Response};
+use tower_h2::Server;
 use tower_http::AddOrigin;
 
 use crate::cluster::consul::NodeData;
@@ -32,7 +31,7 @@ impl server::Placement for Place {
 }
 
 impl Place {
-    pub fn determine_placement(&mut self, req: Request<PlacementRequest>) -> PlacementFuture {
+    pub fn determine_placement(&mut self, _req: Request<PlacementRequest>) -> PlacementFuture {
         //        let index = req.get_ref().index.clone();
         //        let task = self
         //            .consul

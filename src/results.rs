@@ -1,14 +1,17 @@
-use tantivy::schema::NamedFieldDocument;
-
 use crate::query::SummaryDoc;
+<<<<<<< HEAD
 use serde::Serialize;
+=======
+use serde_derive::Serialize;
+use tantivy::schema::NamedFieldDocument;
+use tower_web::*;
+>>>>>>> 5f23c9001bad9415d3aa1e1f3d561c427699556b
 
-#[derive(Serialize)]
+#[derive(Response, Serialize)]
 pub struct SearchResults {
-    hits: usize,
-    docs: Vec<ScoredDoc>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    aggregate: Option<Vec<SummaryDoc>>,
+    pub hits: usize,
+    pub docs: Vec<ScoredDoc>,
+    pub aggregate: Option<Vec<SummaryDoc>>,
 }
 
 impl SearchResults {
@@ -32,9 +35,9 @@ impl SearchResults {
 #[derive(Serialize)]
 pub struct ScoredDoc {
     #[serde(skip_serializing_if = "Option::is_none")]
-    score: Option<f32>,
+    pub score: Option<f32>,
     #[serde(flatten)]
-    doc: NamedFieldDocument,
+    pub doc: NamedFieldDocument,
 }
 
 impl ScoredDoc {

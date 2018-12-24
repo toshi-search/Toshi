@@ -1,23 +1,21 @@
-use crate::handlers::{handle_error, to_json, IndexPath};
+use crate::handlers::CreatedResponse;
 use crate::index::IndexCatalog;
-use crate::{Error, Result};
-
-use futures::{future, Future, Stream};
-use gotham::handler::{Handler, HandlerFuture, NewHandler};
-use gotham::helpers::http::response::{create_empty_response, create_response};
-use gotham::state::{FromState, State};
-use hyper::{Body, Method, StatusCode};
-use serde::{Deserialize, Serialize};
-use tantivy::directory::MmapDirectory;
-use tantivy::schema::*;
-use tantivy::{Document, Index};
-
+use crate::Error;
 use std::collections::HashMap;
 use std::fs;
-use std::panic::RefUnwindSafe;
 use std::sync::{Arc, RwLock};
 
-#[derive(Deserialize)]
+use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
+use tantivy::directory::MmapDirectory;
+use tantivy::schema::*;
+use tantivy::Index;
+use tower_web::*;
+
+#[derive(Extract, Deserialize)]
+pub struct SchemaBody(Schema);
+
+#[derive(Extract, Deserialize)]
 pub struct DeleteDoc {
     options: Option<IndexOptions>,
     terms: HashMap<String, String>,
@@ -28,278 +26,186 @@ pub struct IndexHandler {
     catalog: Arc<RwLock<IndexCatalog>>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Response, Deserialize)]
 pub struct DocsAffected {
     docs_affected: u32,
 }
 
-#[derive(Deserialize)]
+#[derive(Extract, Deserialize)]
 pub struct IndexOptions {
     #[serde(default)]
     commit: bool,
 }
 
-#[derive(Deserialize)]
+#[derive(Extract, Deserialize)]
 pub struct AddDocument {
     options: Option<IndexOptions>,
     document: serde_json::Value,
 }
-
-impl RefUnwindSafe for IndexHandler {}
 
 impl IndexHandler {
     pub fn new(catalog: Arc<RwLock<IndexCatalog>>) -> Self {
         IndexHandler { catalog }
     }
 
-    fn add_index(&mut self, name: String, index: Index) {
-        match self.catalog.write() {
+    fn add_index(catalog: Arc<RwLock<IndexCatalog>>, name: String, index: Index) -> Result<(), Error> {
+        match catalog.write() {
             Ok(ref mut cat) => cat.add_index(name, index),
-            Err(e) => panic!("{}", e),
+            Err(e) => Err(Error::IOError(e.to_string())),
         }
     }
 
-    fn delete_document(self, mut state: State, index_path: IndexPath) -> Box<HandlerFuture> {
-        if self.catalog.read().unwrap().exists(&index_path.index) {
-            let f = Body::take_from(&mut state).concat2().then(move |body| match body {
-                Ok(b) => {
-                    let delete_doc: DeleteDoc = match serde_json::from_slice(&b) {
-                        Ok(v) => v,
-                        Err(e) => return handle_error(state, Error::IOError(e.to_string())),
-                    };
-                    let docs_affected: u32;
+    fn create_from_managed(mut base_path: PathBuf, index_path: &str, schema: Schema) -> Result<Index, Error> {
+        base_path.push(index_path);
+        if !base_path.exists() {
+            fs::create_dir(&base_path).map_err(|e| Error::IOError(e.to_string()))?;
+        }
+        let dir = MmapDirectory::open(base_path).map_err(|e| Error::IOError(e.to_string()))?;
+        Index::open_or_create(dir, schema).map_err(|e| Error::IOError(e.to_string()))
+    }
+
+    fn parse_doc(schema: &Schema, bytes: &str) -> Result<Document, Error> {
+        schema.parse_document(bytes).map_err(|e| e.into())
+    }
+}
+
+impl_web! {
+    impl IndexHandler {
+        #[delete("/:index")]
+        #[content_type("application/json")]
+        pub fn delete(&self, body: DeleteDoc, index: String) -> Result<DocsAffected, Error> {
+            if self.catalog.read().unwrap().exists(&index) {
+                let docs_affected: u32;
+                {
+                    let index_lock = self.catalog.read().unwrap();
+                    let index_handle = index_lock.get_index(&index)?;
+                    let index = index_handle.get_index();
+                    let index_schema = index.schema();
+                    let writer_lock = index_handle.get_writer();
+                    let mut index_writer = writer_lock.lock()?;
+
+                    for (field, value) in body.terms {
+                        let f = index_schema.get_field(&field).unwrap();
+                        let term = Term::from_field_text(f, &value);
+                        index_writer.delete_term(term);
+                    }
+                    if let Some(opts) = body.options {
+                        if opts.commit {
+                            index_writer.commit().unwrap();
+                            index_handle.set_opstamp(0);
+                        }
+                    }
+                    docs_affected = index
+                        .load_metas()
+                        .map(|meta| meta.segments.iter().map(|seg| seg.num_deleted_docs()).sum())
+                        .unwrap_or(0);
+                }
+                Ok(DocsAffected { docs_affected })
+            } else {
+                Err(Error::IOError("Failed to obtain index lock".into()))
+            }
+        }
+
+        #[put("/:index")]
+        #[content_type("application/json")]
+        pub fn add(&self, body: AddDocument, index: String) -> Result<CreatedResponse, Error> {
+            if let Ok(ref mut index_lock) = self.catalog.write() {
+                if let Ok(ref mut index_handle) = &mut index_lock.get_mut_index(&index) {
                     {
-                        let index_lock = self.catalog.read().unwrap();
-                        let index_handle = index_lock.get_index(&index_path.index).unwrap();
                         let index = index_handle.get_index();
                         let index_schema = index.schema();
                         let writer_lock = index_handle.get_writer();
-                        let mut index_writer = match writer_lock.lock() {
-                            Ok(w) => w,
-                            Err(ref e) => return handle_error(state, Error::IOError(e.to_string())),
-                        };
-
-                        for (field, value) in delete_doc.terms {
-                            let f = match index_schema.get_field(&field) {
-                                Some(v) => v,
-                                None => return handle_error(state, Error::UnknownIndexField(field)),
-                            };
-                            let term = Term::from_field_text(f, &value);
-                            index_writer.delete_term(term);
-                        }
-                        if let Some(opts) = delete_doc.options {
+                        let mut index_writer = writer_lock.lock()?;
+                        let doc: Document = IndexHandler::parse_doc(&index_schema, &body.document.to_string())?;
+                        index_writer.add_document(doc);
+                        if let Some(opts) = body.options {
                             if opts.commit {
                                 index_writer.commit().unwrap();
                                 index_handle.set_opstamp(0);
                             }
-                        }
-                        docs_affected = index
-                            .load_metas()
-                            .map(|meta| meta.segments.iter().map(|seg| seg.num_deleted_docs()).sum())
-                            .unwrap_or(0);
-                    }
-                    let body = to_json(DocsAffected { docs_affected }, true);
-                    let resp = create_response(&state, StatusCode::OK, mime::APPLICATION_JSON, body);
-                    future::ok((state, resp))
-                }
-                Err(e) => handle_error(state, e),
-            });
-            Box::new(f)
-        } else {
-            Box::new(handle_error(state, Error::UnknownIndex(index_path.index)))
-        }
-    }
-
-    fn parse_doc(&self, schema: &Schema, bytes: &str) -> Result<Document> {
-        schema.parse_document(bytes).map_err(|e| e.into())
-    }
-
-    fn add_document(self, mut state: State, index_path: IndexPath) -> Box<HandlerFuture> {
-        Box::new(Body::take_from(&mut state).concat2().then(move |body| match body {
-            Ok(ref b) => {
-                if let Ok(mut index_lock) = self.catalog.write() {
-                    if let Ok(index_handle) = index_lock.get_mut_index(&index_path.index) {
-                        {
-                            let add_document: AddDocument = serde_json::from_slice(b).unwrap();
-                            let index = index_handle.get_index();
-                            let index_schema = index.schema();
-                            let writer_lock = index_handle.get_writer();
-                            let mut index_writer = match writer_lock.lock() {
-                                Ok(w) => w,
-                                Err(ref e) => return handle_error(state, Error::IOError(e.to_string())),
-                            };
-                            let doc = match self.parse_doc(&index_schema, &add_document.document.to_string()) {
-                                Ok(d) => d,
-                                Err(e) => return handle_error(state, e),
-                            };
-                            index_writer.add_document(doc);
-                            if let Some(opts) = add_document.options {
-                                if opts.commit {
-                                    index_writer.commit().unwrap();
-                                    index_handle.set_opstamp(0);
-                                }
-                            } else {
-                                index_handle.set_opstamp(index_handle.get_opstamp() + 1);
-                            }
+                        } else {
+                            index_handle.set_opstamp(index_handle.get_opstamp() + 1);
                         }
                     }
                 }
-                let resp = create_empty_response(&state, StatusCode::CREATED);
-                future::ok((state, resp))
             }
-            Err(e) => handle_error(state, e),
-        }))
-    }
-
-    fn create_from_managed(&self, index_path: &IndexPath, schema: Schema) -> Result<Index> {
-        let mut ip = self.catalog.read()?.base_path().clone();
-        ip.push(&index_path.index);
-        if !ip.exists() {
-            fs::create_dir(&ip).map_err(|e| Error::IOError(e.to_string()))?;
+            Ok(CreatedResponse)
         }
-        let dir = MmapDirectory::open(ip).map_err(|e| Error::IOError(format!("{:?}", e)))?;
-        Index::open_or_create(dir, schema).map_err(|e| Error::IOError(format!("{:?}", e)))
-    }
 
-    fn create_index(mut self, mut state: State, index_path: IndexPath) -> Box<HandlerFuture> {
-        Box::new(Body::take_from(&mut state).concat2().then(move |body| match body {
-            Ok(b) => {
-                let schema: Schema = match serde_json::from_slice(&b) {
-                    Ok(v) => v,
-                    Err(e) => return handle_error(state, e),
-                };
-                let new_index = match self.create_from_managed(&index_path, schema) {
-                    Ok(i) => i,
-                    Err(e) => return handle_error(state, e),
-                };
-                self.add_index(index_path.index, new_index);
-                let resp = create_empty_response(&state, StatusCode::CREATED);
-                future::ok((state, resp))
-            }
-            Err(e) => handle_error(state, e),
-        }))
-    }
-}
-
-impl Handler for IndexHandler {
-    fn handle(self, mut state: State) -> Box<HandlerFuture> {
-        let url_index = IndexPath::try_take_from(&mut state);
-        match url_index {
-            Some(ui) => match *Method::borrow_from(&state) {
-                Method::DELETE => self.delete_document(state, ui),
-                Method::PUT => {
-                    if self.catalog.read().unwrap().exists(&ui.index) {
-                        self.add_document(state, ui)
-                    } else {
-                        self.create_index(state, ui)
-                    }
-                }
-                _ => unreachable!(),
-            },
-            None => Box::new(handle_error(state, Error::UnknownIndex("No valid index in path".into()))),
+        #[put("/:index/_create")]
+        #[content_type("application/json")]
+        pub fn create(&self, body: SchemaBody, index: String) -> Result<CreatedResponse, Error> {
+            let ip = self.catalog.read()?.base_path().clone();
+            let new_index = IndexHandler::create_from_managed(ip, &index, body.0)?;
+            IndexHandler::add_index(Arc::clone(&self.catalog), index.clone(), new_index).map(|_| CreatedResponse)
         }
     }
 }
-
-new_handler!(IndexHandler);
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
+    use crate::handlers::SearchHandler;
     use crate::index::tests::*;
-    use std::fs::remove_file;
-    use std::path::PathBuf;
 
     #[test]
     fn test_create_index() {
-        let idx = create_test_index();
-        let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
-        let shared_cat = Arc::new(RwLock::new(catalog));
-        let test_server = create_test_server(&shared_cat);
-
+        let shared_cat = create_test_catalog("test_index".into());
         let schema = r#"[
             { "name": "test_text", "type": "text", "options": { "indexing": { "record": "position", "tokenizer": "default" }, "stored": true } },
             { "name": "test_unindex", "type": "text", "options": { "indexing": { "record": "position", "tokenizer": "default" }, "stored": true } },
             { "name": "test_i64", "type": "i64", "options": { "indexed": true, "stored": true } },
             { "name": "test_u64", "type": "u64", "options": { "indexed": true, "stored": true } }
          ]"#;
-
-        {
-            let client = test_server.client();
-            let request = client.put("http://localhost/new_index", schema, mime::APPLICATION_JSON);
-            let response = request.perform().unwrap();
-
-            assert_eq!(response.status(), StatusCode::CREATED);
-
-            let get_request = client.get("http://localhost/new_index");
-            let get_response = get_request.perform().unwrap();
-
-            assert_eq!(StatusCode::OK, get_response.status());
-            assert_eq!("{\"hits\":0,\"docs\":[]}", get_response.read_utf8_body().unwrap());
-            let mut p = PathBuf::from("new_index");
-            p.push(".tantivy-indexer.lock");
-            remove_file(p).unwrap();
-        }
+        let handler = IndexHandler::new(Arc::clone(&shared_cat));
+        let body: SchemaBody = serde_json::from_str(schema).unwrap();
+        let req = handler.create(body, "new_index".into());
+        assert_eq!(req.is_ok(), true);
+        let search = SearchHandler::new(Arc::clone(&shared_cat));
+        let docs = search.get_all_docs("new_index".into()).unwrap();
+        assert_eq!(docs.hits, 0);
     }
 
     #[test]
     fn test_doc_create() {
-        let idx = create_test_index();
-        let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
-        let test_server = create_test_client(&Arc::new(RwLock::new(catalog)));
+        let shared_cat = create_test_catalog("test_index".into());
+        let body: AddDocument = serde_json::from_str(
+            r#" {"options": {"commit": true}, "document": {"test_text": "Babbaboo!", "test_u64": 10, "test_i64": -10} }"#,
+        )
+        .unwrap();
 
-        let body = r#"
-        {
-          "document": {
-            "test_text":    "Babbaboo!",
-            "test_u64":     10 ,
-            "test_i64":     -10
-          }
-        }"#;
+        let handler = IndexHandler::new(Arc::clone(&shared_cat));
+        let req = handler.add(body, "test_index".into());
 
-        let response = test_server
-            .put("http://localhost/test_index", body, mime::APPLICATION_JSON)
-            .perform()
-            .unwrap();
-
-        assert_eq!(response.status(), StatusCode::CREATED);
+        assert_eq!(req.is_ok(), true);
     }
 
     #[test]
     fn test_doc_delete() {
-        let idx = create_test_index();
-        let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
-        let test_server = create_test_client(&Arc::new(RwLock::new(catalog)));
-
-        let body = r#"{
-          "options": {"commit": true},
-          "terms": {"test_text": "document"}
-          }"#;
-
-        let response = test_server
-            .build_request_with_body(Method::DELETE, "http://localhost/test_index", body, mime::APPLICATION_JSON)
-            .perform()
-            .unwrap();
-
-        assert_eq!(response.status(), StatusCode::OK);
-
-        let docs: DocsAffected = serde_json::from_slice(&response.read_body().unwrap()).unwrap();
-        assert_eq!(docs.docs_affected, 3);
+        let shared_cat = create_test_catalog("test_index".into());
+        let handler = IndexHandler::new(Arc::clone(&shared_cat));
+        let mut terms = HashMap::new();
+        terms.insert("test_text".to_string(), "document".to_string());
+        let delete = DeleteDoc {
+            options: Some(IndexOptions { commit: true }),
+            terms,
+        };
+        let req = handler.delete(delete, "test_index".into());
+        assert_eq!(req.is_ok(), true);
+        assert_eq!(req.unwrap().docs_affected, 3);
     }
 
     #[test]
     fn test_bad_json() {
-        let idx = create_test_index();
-        let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
-        let test_server = create_test_client(&Arc::new(RwLock::new(catalog)));
-
-        let body = r#"{ "test_text": "document" }"#;
-
-        let response = test_server
-            .build_request_with_body(Method::DELETE, "http://localhost/test_index", body, mime::APPLICATION_JSON)
-            .perform()
-            .unwrap();
-
-        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        let shared_cat = create_test_catalog("test_index".into());
+        let handler = IndexHandler::new(Arc::clone(&shared_cat));
+        let bad_json: serde_json::Value = serde_json::Value::String("".into());
+        let add_doc = AddDocument {
+            document: bad_json,
+            options: None,
+        };
+        let req = handler.add(add_doc, "test_index".into());
+        assert_eq!(req.is_err(), true);
     }
 }

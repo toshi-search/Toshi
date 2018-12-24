@@ -16,9 +16,19 @@ pub struct FuzzyTerm {
     transposition: bool,
 }
 
+impl FuzzyTerm {
+    pub fn new(value: String, distance: u8, transposition: bool) -> Self {
+        Self {
+            value,
+            distance,
+            transposition,
+        }
+    }
+}
+
 #[derive(Deserialize, Debug, PartialEq, Clone)]
 pub struct FuzzyQuery {
-    fuzzy: HashMap<String, FuzzyTerm>,
+    pub fuzzy: HashMap<String, FuzzyTerm>,
 }
 
 impl CreateQuery for FuzzyQuery {

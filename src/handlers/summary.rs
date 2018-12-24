@@ -1,14 +1,8 @@
-use crate::handlers::{handle_error, to_json, IndexPath, QueryOptions};
 use crate::index::IndexCatalog;
 use crate::Error;
 
-use futures::future;
-use gotham::handler::{Handler, HandlerFuture, NewHandler};
-use gotham::helpers::http::response::create_response;
-use gotham::state::{FromState, State};
-use hyper::StatusCode;
-
 use std::sync::{Arc, RwLock};
+use tower_web::*;
 
 #[derive(Clone)]
 pub struct SummaryHandler {
@@ -21,31 +15,23 @@ impl SummaryHandler {
     }
 }
 
-impl Handler for SummaryHandler {
-    fn handle(self, mut state: State) -> Box<HandlerFuture> {
-        let index_path = IndexPath::take_from(&mut state);
-        let query_options = QueryOptions::take_from(&mut state);
-        let index_lock = self.catalog.read().unwrap();
-
-        if index_lock.exists(&index_path.index) {
-            let index = match index_lock.get_index(&index_path.index) {
-                Ok(v) => v.get_index(),
-                Err(e) => return Box::new(handle_error(state, e)),
-            };
-            let metas = match index.load_metas() {
-                Ok(v) => v,
-                Err(e) => return Box::new(handle_error(state, e)),
-            };
-            let payload = to_json(metas, query_options.pretty);
-            let resp = create_response(&state, StatusCode::OK, mime::APPLICATION_JSON, payload);
-            Box::new(future::ok((state, resp)))
-        } else {
-            Box::new(handle_error(state, Error::UnknownIndex(index_path.index)))
+impl_web! {
+    impl SummaryHandler {
+        #[get("/:index/_summary")]
+        #[content_type("application/json")]
+        fn handle(&self, index: String) -> Result<String, Error> {
+            let index_lock = self.catalog.read().unwrap();
+            if index_lock.exists(&index) {
+                let index = index_lock.get_index(&index)?;
+                let metas = index.get_index().load_metas()?;
+                let payload = serde_json::to_string(&metas)?;
+                Ok(payload)
+            } else {
+                Err(Error::IOError("Failed to obtain index lock".into()))
+            }
         }
     }
 }
-
-new_handler!(SummaryHandler);
 
 #[cfg(test)]
 mod tests {
@@ -55,13 +41,11 @@ mod tests {
 
     #[test]
     fn get_summary_data() {
-        let idx = create_test_index();
-        let catalog = IndexCatalog::with_index("test_index".to_string(), idx).unwrap();
-        let client = create_test_client(&Arc::new(RwLock::new(catalog)));
+        let cat = create_test_catalog("test_index");
+        let handler = SummaryHandler::new(Arc::clone(&cat));
 
-        let req = client.get("http://localhost/test_index/_summary").perform().unwrap();
-
-        assert_eq!(StatusCode::OK, req.status());
+        let resp = handler.handle("test_index".into());
+        assert_eq!(resp.is_ok(), true)
     }
 
 }
