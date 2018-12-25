@@ -5,7 +5,6 @@ use hyper::http::uri::Scheme;
 use hyper::{Client, Request, Response, Uri};
 use hyper_tls::HttpsConnector;
 use serde::{Deserialize, Serialize};
-use tower_buffer::Buffer;
 use tower_consul::{Consul as TowerConsul, KVValue};
 use tower_service::Service;
 
@@ -21,9 +20,10 @@ pub struct NodeData {
     pub shards: Vec<ReplicaShard>,
 }
 
-pub type ConsulClient = TowerConsul<Buffer<HttpsService, Request<Vec<u8>>>>;
+pub type ConsulClient = TowerConsul<HttpsService>;
 
-/// Stub struct for a connection to Consul
+/// Consul connection client, clones here are cheap
+/// since the entire backing of this is a tower Buffer.
 #[derive(Clone)]
 pub struct Consul {
     address: String,
@@ -114,7 +114,7 @@ impl Consul {
 
 impl Default for Consul {
     fn default() -> Consul {
-        let client = match Buffer::new(HttpsService::new(), 100) {
+        let client = match TowerConsul::new(HttpsService::new(), 100, "https".into(), "127.0.0.1:8500".into()) {
             Ok(c) => c,
             Err(_) => panic!("Unable to spawn"),
         };
@@ -124,11 +124,12 @@ impl Default for Consul {
             scheme: Scheme::HTTP,
             cluster_name: Some(String::from("kitsune")),
             node_id: Some(String::from("alpha")),
-            client: TowerConsul::new(client, "http".into(), "127.0.0.1:8500".into()),
+            client,
         }
     }
 }
 
+#[derive(Clone)]
 pub struct HttpsService {
     client: Client<HttpsConnector<HttpConnector>>,
 }
