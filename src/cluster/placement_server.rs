@@ -100,7 +100,7 @@ mod tests {
         let socket_addr: SocketAddr = "127.0.0.1:8081".parse().unwrap();
         let tcp_stream = Conn(socket_addr);
 
-        let service = Place::get_service(socket_addr, Consul::default());
+        let service = Place::get_service(socket_addr, Consul::builder().build().unwrap());
         let mut c = Connect::new(tcp_stream, Default::default(), DefaultExecutor::current());
 
         let place = c

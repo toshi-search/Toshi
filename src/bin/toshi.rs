@@ -176,7 +176,7 @@ fn connect_to_consul(settings: &Settings) -> impl Future<Item = (), Error = ()> 
     let settings_path_write = settings.path.clone();
 
     future::lazy(move || {
-        let mut consul_client = Consul::build()
+        let mut consul_client = Consul::builder()
             .with_cluster_name(cluster_name)
             .with_address(consul_address)
             .build()

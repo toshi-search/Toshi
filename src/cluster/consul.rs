@@ -35,7 +35,7 @@ pub struct Consul {
 
 impl Consul {
     /// Create a builder instance
-    pub fn build() -> Builder {
+    pub fn builder() -> Builder {
         Builder::default()
     }
 
