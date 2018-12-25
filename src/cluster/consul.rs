@@ -28,36 +28,18 @@ pub type ConsulClient = TowerConsul<HttpsService>;
 pub struct Consul {
     address: String,
     scheme: Scheme,
-    cluster_name: Option<String>,
+    cluster_name: String,
     client: ConsulClient,
-    pub node_id: Option<String>,
+    node_id: String,
 }
 
 impl Consul {
-    /// Sets the address of the consul service
-    pub fn with_address(mut self, address: String) -> Self {
-        self.address = address;
-        self
+    /// Create a builder instance
+    pub fn build() -> Builder {
+        Builder::default()
     }
 
-    /// Sets the scheme (http or https) for the Consul server
-    pub fn with_scheme(mut self, scheme: Scheme) -> Self {
-        self.scheme = scheme;
-        self
-    }
-
-    /// Sets the *Toshi* cluster name
-    pub fn with_cluster_name(mut self, cluster_name: String) -> Self {
-        self.cluster_name = Some(cluster_name);
-        self
-    }
-
-    /// Sets the ID of this specific node in the Toshi cluster
-    pub fn with_node_id(mut self, node_id: String) -> Self {
-        self.node_id = Some(node_id);
-        self
-    }
-
+    /// Build the consul uri
     pub fn build_uri(self) -> Result<Uri> {
         Uri::builder()
             .scheme(self.scheme.clone())
@@ -103,29 +85,69 @@ impl Consul {
             .map_err(|err| ClusterError::FailedGettingIndex(format!("{:?}", err)))
     }
 
-    fn cluster_name(&self) -> String {
-        self.cluster_name.clone().unwrap()
+    /// Get a reference to the cluster name
+    pub fn cluster_name(&self) -> &String {
+        &self.cluster_name
     }
 
-    fn node_id(&self) -> String {
-        self.node_id.clone().unwrap()
+    /// Get a reference to the current node id
+    pub fn node_id(&self) -> &String {
+        &self.node_id
+    }
+
+    /// Set the node id for the current node
+    pub fn set_node_id(&mut self, new_id: String) {
+        self.node_id = new_id;
     }
 }
 
-impl Default for Consul {
-    fn default() -> Consul {
-        let client = match TowerConsul::new(HttpsService::new(), 100, "https".into(), "127.0.0.1:8500".into()) {
-            Ok(c) => c,
-            Err(_) => panic!("Unable to spawn"),
-        };
+#[derive(Default, Clone)]
+/// Builder struct for Consul
+pub struct Builder {
+    address: Option<String>,
+    scheme: Option<Scheme>,
+    cluster_name: Option<String>,
+    node_id: Option<String>,
+}
 
-        Consul {
-            address: "127.0.0.1:8500".into(),
-            scheme: Scheme::HTTP,
-            cluster_name: Some(String::from("kitsune")),
-            node_id: Some(String::from("alpha")),
+impl Builder {
+    /// Sets the address of the consul service
+    pub fn with_address(mut self, address: String) -> Self {
+        self.address = Some(address);
+        self
+    }
+
+    /// Sets the scheme (http or https) for the Consul server
+    pub fn with_scheme(mut self, scheme: Scheme) -> Self {
+        self.scheme = Some(scheme);
+        self
+    }
+
+    /// Sets the *Toshi* cluster name
+    pub fn with_cluster_name(mut self, cluster_name: String) -> Self {
+        self.cluster_name = Some(cluster_name);
+        self
+    }
+
+    /// Sets the ID of this specific node in the Toshi cluster
+    pub fn with_node_id(mut self, node_id: String) -> Self {
+        self.node_id = Some(node_id);
+        self
+    }
+
+    pub fn build(self) -> Result<Consul> {
+        let address = self.address.unwrap_or("127.0.0.1:8500".parse().unwrap());
+        let scheme = self.scheme.unwrap_or(Scheme::HTTP);
+
+        let client = TowerConsul::new(HttpsService::new(), 100, scheme.to_string(), address.to_string()).map_err(|_| Error::SpawnError)?;
+
+        Ok(Consul {
+            address,
+            scheme,
             client,
-        }
+            cluster_name: self.cluster_name.unwrap_or("kitsune".into()),
+            node_id: self.node_id.unwrap_or("alpha".into()),
+        })
     }
 }
 
