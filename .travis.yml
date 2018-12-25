@@ -46,5 +46,6 @@ script:
   - cargo build && cargo test
 
 after_success:
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then cargo coverage --exclude-pattern '/toshi/src/bin,/src/bin,/bin,/target,/toshi/src/query/aggregate' && bash <(curl -s https://codecov.io/bash) -s target/kcov; fi
+# This is broken right now
+# - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then cargo coverage --exclude-pattern '/toshi/src/bin,/src/bin,/bin,/target,/toshi/src/query/aggregate' && bash <(curl -s https://codecov.io/bash) -s target/kcov; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then cargo coveralls --exclude-pattern '/toshi/src/bin,/src/bin,/bin,/target,/toshi/src/query/aggregate'; fi
