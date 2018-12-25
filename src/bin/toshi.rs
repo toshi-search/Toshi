@@ -176,7 +176,11 @@ fn connect_to_consul(settings: &Settings) -> impl Future<Item = (), Error = ()> 
     let settings_path_write = settings.path.clone();
 
     future::lazy(move || {
-        let mut consul_client = Consul::default().with_cluster_name(cluster_name).with_address(consul_address);
+        let mut consul_client = Consul::builder()
+            .with_cluster_name(cluster_name)
+            .with_address(consul_address)
+            .build()
+            .unwrap();
 
         // Build future that will connect to consul and register the node_id
         consul_client
@@ -194,7 +198,7 @@ fn connect_to_consul(settings: &Settings) -> impl Future<Item = (), Error = ()> 
                 }
             })
             .and_then(move |id| {
-                consul_client.node_id = Some(id);
+                consul_client.set_node_id(id);
                 consul_client.register_node()
             })
             .map_err(|e| error!("Error: {}", e))

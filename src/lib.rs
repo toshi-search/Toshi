@@ -13,6 +13,8 @@ pub enum Error {
     UnknownIndex(String),
     #[fail(display = "Query Parse Error: {}", _0)]
     QueryError(String),
+    #[fail(display = "Failed to find known executor")]
+    SpawnError,
 }
 
 impl From<TError> for Error {

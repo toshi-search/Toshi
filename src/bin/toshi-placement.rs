@@ -20,7 +20,11 @@ fn main() {
     info!("Starting Toshi Placement Service...");
     let addr = format!("{}:{}", host, port).parse().unwrap();
     let consul_addr = format!("{}:{}", consul_host, consul_port).parse().unwrap();
-    let consul = Consul::default().with_address(consul_addr).with_scheme(Scheme::HTTP);
+    let consul = Consul::builder()
+        .with_address(consul_addr)
+        .with_scheme(Scheme::HTTP)
+        .build()
+        .unwrap();
     let service = Place::get_service(addr, consul);
 
     tokio::run(service);
