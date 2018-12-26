@@ -1,21 +1,21 @@
-use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
 
 use log::debug;
-use tantivy::{Document, Index, IndexWriter, Term};
 use tantivy::collector::TopCollector;
 use tantivy::query::{AllQuery, QueryParser};
 use tantivy::schema::*;
+use tantivy::{Document, Index, IndexWriter, Term};
 
 use crate::handlers::index::{AddDocument, DeleteDoc, DocsAffected};
 use crate::query::{CreateQuery, Query, Request};
-use crate::Result;
 use crate::results::{ScoredDoc, SearchResults};
 use crate::settings::Settings;
+use crate::Result;
 
 pub enum IndexLocation {
     LOCAL,
-    REMOTE
+    REMOTE,
 }
 
 pub trait IndexHandle {

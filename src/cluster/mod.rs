@@ -26,8 +26,8 @@ pub mod cluster_rpc {
 pub mod consul;
 pub mod node;
 pub mod placement_server;
-pub mod shard;
 pub mod remote_handle;
+pub mod shard;
 
 #[derive(Debug, Fail, Serialize, Deserialize)]
 pub enum ClusterError {

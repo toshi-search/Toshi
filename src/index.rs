@@ -5,14 +5,14 @@ use std::path::PathBuf;
 
 use log::info;
 use tantivy::directory::MmapDirectory;
-use tantivy::Index;
 use tantivy::schema::Schema;
+use tantivy::Index;
 
-use crate::{Error, Result};
 use crate::handle::{IndexHandle, LocalIndexHandle};
 use crate::query::Request;
 use crate::results::*;
 use crate::settings::Settings;
+use crate::{Error, Result};
 
 pub struct IndexCatalog {
     pub settings: Settings,

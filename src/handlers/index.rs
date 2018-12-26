@@ -2,14 +2,14 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
 use serde::{Deserialize, Serialize};
-use tantivy::Index;
 use tantivy::schema::*;
+use tantivy::Index;
 use tower_web::*;
 
-use crate::Error;
 use crate::handle::IndexHandle;
 use crate::handlers::CreatedResponse;
 use crate::index::IndexCatalog;
+use crate::Error;
 
 #[derive(Extract, Deserialize)]
 pub struct SchemaBody(Schema);
