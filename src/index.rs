@@ -1,24 +1,23 @@
-use crate::handle::IndexHandle;
-use crate::query::{CreateQuery, Query, Request};
-use crate::results::*;
-use crate::settings::Settings;
-use crate::{Error, Result};
-
-use log::{debug, info};
-use tantivy::collector::TopCollector;
-use tantivy::query::{AllQuery, QueryParser};
-use tantivy::schema::*;
-use tantivy::Index;
-
 use std::collections::HashMap;
-use std::fs::read_dir;
+use std::fs;
 use std::iter::Iterator;
 use std::path::PathBuf;
+
+use log::info;
+use tantivy::directory::MmapDirectory;
+use tantivy::Index;
+use tantivy::schema::Schema;
+
+use crate::{Error, Result};
+use crate::handle::{IndexHandle, LocalIndexHandle};
+use crate::query::Request;
+use crate::results::*;
+use crate::settings::Settings;
 
 pub struct IndexCatalog {
     pub settings: Settings,
     base_path: PathBuf,
-    collection: HashMap<String, IndexHandle>,
+    collection: HashMap<String, LocalIndexHandle>,
 }
 
 impl IndexCatalog {
@@ -45,7 +44,7 @@ impl IndexCatalog {
     #[allow(dead_code)]
     pub fn with_index(name: String, index: Index) -> Result<Self> {
         let mut map = HashMap::new();
-        let new_index = IndexHandle::new(index, Settings::default(), &name)
+        let new_index = LocalIndexHandle::new(index, Settings::default(), &name)
             .unwrap_or_else(|_| panic!("Unable to open index: {} because it's locked", name));
         map.insert(name, new_index);
         Ok(IndexCatalog {
@@ -53,6 +52,15 @@ impl IndexCatalog {
             base_path: PathBuf::new(),
             collection: map,
         })
+    }
+
+    pub fn create_from_managed(mut base_path: PathBuf, index_path: &str, schema: Schema) -> Result<Index> {
+        base_path.push(index_path);
+        if !base_path.exists() {
+            fs::create_dir(&base_path).map_err(|e| Error::IOError(e.to_string()))?;
+        }
+        let dir = MmapDirectory::open(base_path).map_err(|e| Error::IOError(e.to_string()))?;
+        Index::open_or_create(dir, schema).map_err(|e| Error::IOError(e.to_string()))
     }
 
     pub fn load_index(path: &str) -> Result<Index> {
@@ -67,17 +75,17 @@ impl IndexCatalog {
     }
 
     pub fn add_index(&mut self, name: String, index: Index) -> Result<()> {
-        let handle = IndexHandle::new(index, self.settings.clone(), &name)?;
+        let handle = LocalIndexHandle::new(index, self.settings.clone(), &name)?;
         self.collection.entry(name).or_insert(handle);
         Ok(())
     }
 
     #[allow(dead_code)]
-    pub fn get_collection(&self) -> &HashMap<String, IndexHandle> {
+    pub fn get_collection(&self) -> &HashMap<String, LocalIndexHandle> {
         &self.collection
     }
 
-    pub fn get_mut_collection(&mut self) -> &mut HashMap<String, IndexHandle> {
+    pub fn get_mut_collection(&mut self) -> &mut HashMap<String, LocalIndexHandle> {
         &mut self.collection
     }
 
@@ -85,18 +93,18 @@ impl IndexCatalog {
         self.get_collection().contains_key(index)
     }
 
-    pub fn get_mut_index(&mut self, name: &str) -> Result<&mut IndexHandle> {
+    pub fn get_mut_index(&mut self, name: &str) -> Result<&mut LocalIndexHandle> {
         self.collection.get_mut(name).ok_or_else(|| Error::UnknownIndex(name.to_string()))
     }
 
-    pub fn get_index(&self, name: &str) -> Result<&IndexHandle> {
+    pub fn get_index(&self, name: &str) -> Result<&LocalIndexHandle> {
         self.collection.get(name).ok_or_else(|| Error::UnknownIndex(name.to_string()))
     }
 
     pub fn refresh_catalog(&mut self) -> Result<()> {
         self.collection.clear();
 
-        for dir in read_dir(self.base_path.clone())? {
+        for dir in fs::read_dir(self.base_path.clone())? {
             let entry = dir?.path();
             if let Some(entry_str) = entry.to_str() {
                 if !entry_str.ends_with(".node_id") {
@@ -113,62 +121,7 @@ impl IndexCatalog {
 
     pub fn search_index(&self, index: &str, search: Request) -> Result<SearchResults> {
         match self.get_index(index) {
-            Ok(hand) => {
-                let idx = hand.get_index();
-                idx.load_searchers()?;
-                let searcher = idx.searcher();
-                let schema = idx.schema();
-                let mut collector = TopCollector::with_limit(search.limit);
-                if let Some(query) = search.query {
-                    match query {
-                        Query::Regex(regex) => {
-                            let regex_query = regex.create_query(&schema)?;
-                            searcher.search(&*regex_query, &mut collector)?
-                        }
-                        Query::Phrase(phrase) => {
-                            let phrase_query = phrase.create_query(&schema)?;
-                            searcher.search(&*phrase_query, &mut collector)?
-                        }
-                        Query::Fuzzy(fuzzy) => {
-                            let fuzzy_query = fuzzy.create_query(&schema)?;
-                            searcher.search(&*fuzzy_query, &mut collector)?
-                        }
-                        Query::Exact(term) => {
-                            let exact_query = term.create_query(&schema)?;
-                            searcher.search(&*exact_query, &mut collector)?
-                        }
-                        Query::Boolean { bool } => {
-                            let bool_query = bool.create_query(&schema)?;
-                            searcher.search(&*bool_query, &mut collector)?
-                        }
-                        Query::Range(range) => {
-                            debug!("{:#?}", range);
-                            let range_query = range.create_query(&schema)?;
-                            debug!("{:?}", range_query);
-                            searcher.search(&*range_query, &mut collector)?
-                        }
-                        Query::Raw { raw } => {
-                            let fields: Vec<Field> = schema.fields().iter().filter_map(|e| schema.get_field(e.name())).collect();
-                            let query_parser = QueryParser::for_index(idx, fields);
-                            let query = query_parser.parse_query(&raw)?;
-                            debug!("{:#?}", query);
-                            searcher.search(&*query, &mut collector)?
-                        }
-                        Query::All => searcher.search(&AllQuery, &mut collector)?,
-                    }
-                }
-
-                let scored_docs: Vec<ScoredDoc> = collector
-                    .top_docs()
-                    .into_iter()
-                    .map(|(score, doc)| {
-                        let d = searcher.doc(doc).expect("Doc not found in segment");
-                        ScoredDoc::new(Some(score), schema.to_named_doc(&d))
-                    })
-                    .collect();
-
-                Ok(SearchResults::new(scored_docs))
-            }
+            Ok(hand) => hand.search_index(search),
             Err(e) => Err(e),
         }
     }
@@ -180,10 +133,12 @@ impl IndexCatalog {
 
 #[cfg(test)]
 pub mod tests {
+    use std::sync::{Arc, RwLock};
+
+    use tantivy::doc;
+    use tantivy::schema::*;
 
     use super::*;
-    use std::sync::{Arc, RwLock};
-    use tantivy::doc;
 
     pub fn create_test_catalog(name: &str) -> Arc<RwLock<IndexCatalog>> {
         let idx = create_test_index();

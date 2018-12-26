@@ -2068,7 +2068,7 @@ dependencies = [
 [[package]]
 name = "tower-consul"
 version = "0.1.0"
-source = "git+https://github.com/LucioFranco/tower-consul#e641279ac3fb90a497abe67084a5a5ee706b943b"
+source = "git+https://github.com/LucioFranco/tower-consul#1937822c5b9b48034bba2dc9daa1dfd18f8b3400"
 dependencies = [
  "futures 0.1.25 (registry+https://github.com/rust-lang/crates.io-index)",
  "http 0.1.14 (registry+https://github.com/rust-lang/crates.io-index)",

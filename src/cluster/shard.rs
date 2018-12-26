@@ -1,10 +1,11 @@
-use crate::cluster::ClusterError;
-use crate::handle::IndexHandle;
-use crate::settings::Settings;
-
 use serde::{Deserialize, Serialize};
 use tantivy::Index;
 use uuid::Uuid;
+
+use crate::cluster::ClusterError;
+use crate::handle::IndexHandle;
+use crate::handle::LocalIndexHandle;
+use crate::settings::Settings;
 
 /// Trait implemented by both Primary and Replica Shards
 pub trait Shard {
@@ -19,7 +20,7 @@ pub trait Shard {
 pub struct PrimaryShard {
     shard_id: Uuid,
     #[serde(skip_serializing, skip_deserializing)]
-    index_handle: Option<IndexHandle>,
+    index_handle: Option<LocalIndexHandle>,
 }
 
 /// A ReplicaShard is a copy of a specific PrimaryShard that is read-only
@@ -28,7 +29,7 @@ pub struct ReplicaShard {
     shard_id: Uuid,
     primary_shard_id: Uuid,
     #[serde(skip_serializing, skip_deserializing)]
-    index_handle: Option<IndexHandle>,
+    index_handle: Option<LocalIndexHandle>,
 }
 
 impl PrimaryShard {
@@ -40,7 +41,7 @@ impl PrimaryShard {
     /// Adds an IndexHandle to a PrimaryShard
     pub fn with_index(mut self, index: Index, name: String) -> Result<PrimaryShard, ClusterError> {
         let settings = Settings::default();
-        match IndexHandle::new(index, settings, &name) {
+        match LocalIndexHandle::new(index, settings, &name) {
             Ok(lh) => {
                 self.index_handle = Some(lh);
                 Ok(self)
@@ -78,7 +79,7 @@ impl Shard for PrimaryShard {
     /// Returns the name from the underlying IndexHandle
     fn index_name(&self) -> Result<String, ClusterError> {
         match self.index_handle {
-            Some(ref handle) => Ok(handle.name()),
+            Some(ref handle) => Ok(handle.get_name()),
             None => Err(ClusterError::UnableToGetIndexHandle),
         }
     }
@@ -96,7 +97,7 @@ impl ReplicaShard {
     /// Adds an IndexHandle to a ReplicaShard
     pub fn with_index(mut self, index: Index, name: String) -> Result<ReplicaShard, ClusterError> {
         let settings = Settings::default();
-        match IndexHandle::new(index, settings, &name) {
+        match LocalIndexHandle::new(index, settings, &name) {
             Ok(lh) => {
                 self.index_handle = Some(lh);
                 Ok(self)
@@ -126,7 +127,7 @@ impl Shard for ReplicaShard {
     /// Returns the name of the underlying Index
     fn index_name(&self) -> Result<String, ClusterError> {
         match self.index_handle {
-            Some(ref handle) => Ok(handle.name()),
+            Some(ref handle) => Ok(handle.get_name()),
             None => Err(ClusterError::UnableToGetIndexHandle),
         }
     }

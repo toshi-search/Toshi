@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package cluster;
+package cluster_rpc;
 
 service HealthService {
     rpc ping (PingRequest) returns (PingReply);
@@ -10,9 +10,6 @@ service IndexService {
     rpc placeIndex (PlaceRequest) returns (Result);
     rpc placeDocument (DocumentRequest) returns (Result);
     rpc placeReplica (ReplicaRequest) returns (Result);
-}
-
-service SearchService {
     rpc searchIndex (SearchRequest) returns (SearchReply);
 }
 
