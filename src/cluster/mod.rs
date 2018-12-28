@@ -27,6 +27,7 @@ pub mod consul;
 pub mod node;
 pub mod placement_server;
 pub mod remote_handle;
+pub mod rpc_server;
 pub mod shard;
 
 #[derive(Debug, Fail, Serialize, Deserialize)]

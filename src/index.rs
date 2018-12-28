@@ -8,7 +8,7 @@ use tantivy::directory::MmapDirectory;
 use tantivy::schema::Schema;
 use tantivy::Index;
 
-use crate::handle::{IndexHandle, LocalIndexHandle};
+use crate::handle::{IndexHandle, LocalIndex};
 use crate::query::Request;
 use crate::results::*;
 use crate::settings::Settings;
@@ -17,7 +17,7 @@ use crate::{Error, Result};
 pub struct IndexCatalog {
     pub settings: Settings,
     base_path: PathBuf,
-    collection: HashMap<String, LocalIndexHandle>,
+    collection: HashMap<String, LocalIndex>,
 }
 
 impl IndexCatalog {
@@ -44,7 +44,7 @@ impl IndexCatalog {
     #[allow(dead_code)]
     pub fn with_index(name: String, index: Index) -> Result<Self> {
         let mut map = HashMap::new();
-        let new_index = LocalIndexHandle::new(index, Settings::default(), &name)
+        let new_index = LocalIndex::new(index, Settings::default(), &name)
             .unwrap_or_else(|_| panic!("Unable to open index: {} because it's locked", name));
         map.insert(name, new_index);
         Ok(IndexCatalog {
@@ -75,17 +75,17 @@ impl IndexCatalog {
     }
 
     pub fn add_index(&mut self, name: String, index: Index) -> Result<()> {
-        let handle = LocalIndexHandle::new(index, self.settings.clone(), &name)?;
+        let handle = LocalIndex::new(index, self.settings.clone(), &name)?;
         self.collection.entry(name).or_insert(handle);
         Ok(())
     }
 
     #[allow(dead_code)]
-    pub fn get_collection(&self) -> &HashMap<String, LocalIndexHandle> {
+    pub fn get_collection(&self) -> &HashMap<String, LocalIndex> {
         &self.collection
     }
 
-    pub fn get_mut_collection(&mut self) -> &mut HashMap<String, LocalIndexHandle> {
+    pub fn get_mut_collection(&mut self) -> &mut HashMap<String, LocalIndex> {
         &mut self.collection
     }
 
@@ -93,11 +93,11 @@ impl IndexCatalog {
         self.get_collection().contains_key(index)
     }
 
-    pub fn get_mut_index(&mut self, name: &str) -> Result<&mut LocalIndexHandle> {
+    pub fn get_mut_index(&mut self, name: &str) -> Result<&mut LocalIndex> {
         self.collection.get_mut(name).ok_or_else(|| Error::UnknownIndex(name.to_string()))
     }
 
-    pub fn get_index(&self, name: &str) -> Result<&LocalIndexHandle> {
+    pub fn get_index(&self, name: &str) -> Result<&LocalIndex> {
         self.collection.get(name).ok_or_else(|| Error::UnknownIndex(name.to_string()))
     }
 

@@ -3,11 +3,11 @@ use crate::{Error, Result};
 
 use std::collections::HashMap;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tantivy::query::{Query, TermQuery};
 use tantivy::schema::{IndexRecordOption, Schema};
 
-#[derive(Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct ExactTerm {
     pub term: HashMap<String, String>,
 }

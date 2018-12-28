@@ -7,10 +7,10 @@ service HealthService {
 }
 
 service IndexService {
-    rpc placeIndex (PlaceRequest) returns (Result);
-    rpc placeDocument (DocumentRequest) returns (Result);
-    rpc placeReplica (ReplicaRequest) returns (Result);
-    rpc searchIndex (SearchRequest) returns (SearchReply);
+    rpc place_index (PlaceRequest) returns (Result);
+    rpc place_document (DocumentRequest) returns (Result);
+    rpc place_replica (ReplicaRequest) returns (Result);
+    rpc search_index (SearchRequest) returns (SearchReply);
 }
 
 enum ResultCode {

@@ -7,13 +7,13 @@ use std::collections::HashMap;
 use std::ops::Bound;
 
 use serde::de::DeserializeOwned;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use tantivy::query::{Query, RangeQuery as TantivyRangeQuery};
 use tantivy::schema::{FieldType, Schema};
 
-#[derive(Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(untagged)]
 pub enum Ranges {
     ValueRange {
@@ -25,7 +25,7 @@ pub enum Ranges {
     },
 }
 
-#[derive(Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct RangeQuery {
     range: HashMap<String, Ranges>,
 }

@@ -19,17 +19,21 @@ pub enum IndexLocation {
 }
 
 pub trait IndexHandle {
+    type SearchResponse;
+    type DeleteResponse;
+    type AddResponse;
+
     fn get_name(&self) -> String;
     fn index_location(&self) -> IndexLocation;
-    fn search_index(&self, search: Request) -> Result<SearchResults>;
-    fn add_document(&self, doc: AddDocument) -> Result<()>;
-    fn delete_term(&self, term: DeleteDoc) -> Result<DocsAffected>;
+    fn search_index(&self, search: Request) -> Self::SearchResponse;
+    fn add_document(&self, doc: AddDocument) -> Self::AddResponse;
+    fn delete_term(&self, term: DeleteDoc) -> Self::DeleteResponse;
 }
 
 /// Index handle that operates on an Index local to the node, a remote index handle
 /// will eventually call to wherever the local index is stored, so at some level the relevant
 /// local handle will always get called through rpc
-pub struct LocalIndexHandle {
+pub struct LocalIndex {
     index: Index,
     writer: Arc<Mutex<IndexWriter>>,
     current_opstamp: AtomicUsize,
@@ -37,7 +41,11 @@ pub struct LocalIndexHandle {
     name: String,
 }
 
-impl IndexHandle for LocalIndexHandle {
+impl IndexHandle for LocalIndex {
+    type SearchResponse = Result<SearchResults>;
+    type DeleteResponse = Result<DocsAffected>;
+    type AddResponse = Result<()>;
+
     fn get_name(&self) -> String {
         self.name.clone()
     }
@@ -46,7 +54,7 @@ impl IndexHandle for LocalIndexHandle {
         IndexLocation::LOCAL
     }
 
-    fn search_index(&self, search: Request) -> Result<SearchResults> {
+    fn search_index(&self, search: Request) -> Self::SearchResponse {
         self.index.load_searchers()?;
         let searcher = self.index.searcher();
         let schema = self.index.schema();
@@ -102,11 +110,11 @@ impl IndexHandle for LocalIndexHandle {
         Ok(SearchResults::new(scored_docs))
     }
 
-    fn add_document(&self, add_doc: AddDocument) -> Result<()> {
+    fn add_document(&self, add_doc: AddDocument) -> Self::AddResponse {
         let index_schema = self.index.schema();
         let writer_lock = self.get_writer();
         let mut index_writer = writer_lock.lock()?;
-        let doc: Document = LocalIndexHandle::parse_doc(&index_schema, &add_doc.document.to_string())?;
+        let doc: Document = LocalIndex::parse_doc(&index_schema, &add_doc.document.to_string())?;
         index_writer.add_document(doc);
         if let Some(opts) = add_doc.options {
             if opts.commit {
@@ -119,7 +127,7 @@ impl IndexHandle for LocalIndexHandle {
         Ok(())
     }
 
-    fn delete_term(&self, term: DeleteDoc) -> Result<DocsAffected> {
+    fn delete_term(&self, term: DeleteDoc) -> Self::DeleteResponse {
         let index_schema = self.index.schema();
         let writer_lock = self.get_writer();
         let mut index_writer = writer_lock.lock()?;
@@ -145,7 +153,7 @@ impl IndexHandle for LocalIndexHandle {
     }
 }
 
-impl LocalIndexHandle {
+impl LocalIndex {
     pub fn new(index: Index, settings: Settings, name: &str) -> Result<Self> {
         let i = index.writer(settings.writer_memory)?;
         i.set_merge_policy(settings.get_merge_policy());
@@ -169,7 +177,7 @@ impl LocalIndexHandle {
     }
 
     pub fn recreate_writer(self) -> Result<Self> {
-        LocalIndexHandle::new(self.index, self.settings.clone(), &self.name)
+        LocalIndex::new(self.index, self.settings.clone(), &self.name)
     }
 
     pub fn get_writer(&self) -> Arc<Mutex<IndexWriter>> {

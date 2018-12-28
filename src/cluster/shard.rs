@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use crate::cluster::ClusterError;
 use crate::handle::IndexHandle;
-use crate::handle::LocalIndexHandle;
+use crate::handle::LocalIndex;
 use crate::settings::Settings;
 
 /// Trait implemented by both Primary and Replica Shards
@@ -20,7 +20,7 @@ pub trait Shard {
 pub struct PrimaryShard {
     shard_id: Uuid,
     #[serde(skip_serializing, skip_deserializing)]
-    index_handle: Option<LocalIndexHandle>,
+    index_handle: Option<LocalIndex>,
 }
 
 /// A ReplicaShard is a copy of a specific PrimaryShard that is read-only
@@ -29,7 +29,7 @@ pub struct ReplicaShard {
     shard_id: Uuid,
     primary_shard_id: Uuid,
     #[serde(skip_serializing, skip_deserializing)]
-    index_handle: Option<LocalIndexHandle>,
+    index_handle: Option<LocalIndex>,
 }
 
 impl PrimaryShard {
@@ -41,7 +41,7 @@ impl PrimaryShard {
     /// Adds an IndexHandle to a PrimaryShard
     pub fn with_index(mut self, index: Index, name: String) -> Result<PrimaryShard, ClusterError> {
         let settings = Settings::default();
-        match LocalIndexHandle::new(index, settings, &name) {
+        match LocalIndex::new(index, settings, &name) {
             Ok(lh) => {
                 self.index_handle = Some(lh);
                 Ok(self)
@@ -97,7 +97,7 @@ impl ReplicaShard {
     /// Adds an IndexHandle to a ReplicaShard
     pub fn with_index(mut self, index: Index, name: String) -> Result<ReplicaShard, ClusterError> {
         let settings = Settings::default();
-        match LocalIndexHandle::new(index, settings, &name) {
+        match LocalIndex::new(index, settings, &name) {
             Ok(lh) => {
                 self.index_handle = Some(lh);
                 Ok(self)

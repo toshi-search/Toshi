@@ -3,11 +3,11 @@ use crate::{Error, Result};
 
 use std::collections::HashMap;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tantivy::query::{FuzzyTermQuery, Query};
 use tantivy::schema::Schema;
 
-#[derive(Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct FuzzyTerm {
     value: String,
     #[serde(default)]
@@ -26,7 +26,7 @@ impl FuzzyTerm {
     }
 }
 
-#[derive(Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct FuzzyQuery {
     pub fuzzy: HashMap<String, FuzzyTerm>,
 }
