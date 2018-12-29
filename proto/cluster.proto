@@ -7,9 +7,9 @@ service HealthService {
 }
 
 service IndexService {
-    rpc place_index (PlaceRequest) returns (Result);
-    rpc place_document (DocumentRequest) returns (Result);
-    rpc place_replica (ReplicaRequest) returns (Result);
+    rpc place_index (PlaceRequest) returns (ResultReply);
+    rpc place_document (DocumentRequest) returns (ResultReply);
+    rpc place_replica (ReplicaRequest) returns (ResultReply);
     rpc search_index (SearchRequest) returns (SearchReply);
 }
 
@@ -20,7 +20,7 @@ enum ResultCode {
     MAGIC_UNICORN = 3;
 }
 
-message Result {
+message ResultReply {
     ResultCode code = 1;
     string message = 2;
 }
@@ -38,7 +38,7 @@ message SearchRequest {
 }
 
 message SearchReply {
-    Result result = 1;
+    ResultReply result = 1;
     repeated bytes doc = 2;
 }
 
