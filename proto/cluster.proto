@@ -39,7 +39,7 @@ message SearchRequest {
 
 message SearchReply {
     ResultReply result = 1;
-    repeated bytes doc = 2;
+    bytes doc = 2;
 }
 
 message PlaceRequest {
