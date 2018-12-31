@@ -132,10 +132,7 @@ pub mod tests {
         let result = docs.unwrap();
 
         assert_eq!(result.hits as usize, result.docs.len());
-        assert_eq!(
-            result.docs[0].doc.0.get("test_text").unwrap()[0].text().unwrap(),
-            "Test Duckiment 3"
-        )
+        assert_eq!(result.docs[0].doc.get("test_text").unwrap()[0].text().unwrap(), "Test Duckiment 3")
     }
 
     #[test]

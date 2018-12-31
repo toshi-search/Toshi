@@ -1,4 +1,4 @@
-//#![allow(dead_code, unused_variables)]
+#![allow(dead_code, unused_variables)]
 
 use std::io;
 use std::net::SocketAddr;
@@ -16,21 +16,26 @@ use crate::cluster::cluster_rpc::{client, ResultReply, SearchReply, SearchReques
 use crate::handle::{IndexHandle, IndexLocation};
 use crate::handlers::index::{AddDocument, DeleteDoc};
 use crate::query::Request;
-use crate::settings::Settings;
 
 /// A reference to an index stored somewhere else on the cluster, this operates via calling
-/// the remote host and full filling the request via rpc
+/// the remote host and full filling the request via rpc, we need to figure out a better way
+/// (tower-buffer) on how to keep these clients.
 #[derive(Clone)]
 pub struct RemoteIndex {
     uri: http::Uri,
     rpc_conn: GrpcConn,
-    settings: Settings,
     name: String,
 }
 
+impl RemoteIndex {
+    pub fn new(uri: http::Uri, rpc_conn: GrpcConn, name: String) -> Self {
+        Self { uri, rpc_conn, name }
+    }
+}
+
 impl IndexHandle for RemoteIndex {
-    type SearchResponse = Box<Future<Item = SearchReply, Error = Error>>;
-    type DeleteResponse = Box<Future<Item = ResultReply, Error = Error>>;
+    type SearchResponse = Box<Future<Item = SearchReply, Error = Error> + Send>;
+    type DeleteResponse = Box<Future<Item = ResultReply, Error = Error> + Send>;
     type AddResponse = Box<Future<Item = ResultReply, Error = Error>>;
 
     fn get_name(&self) -> String {
@@ -57,7 +62,13 @@ impl IndexHandle for RemoteIndex {
             .and_then(move |mut client| {
                 let bytes = serde_json::to_vec(&search).unwrap();
                 let req = TowerRequest::new(SearchRequest { index: name, query: bytes });
-                client.search_index(req).map(|res| res.into_inner()).map_err(|_| Error::Inner(()))
+                client
+                    .search_index(req)
+                    .map(|res| {
+                        println!("{:#?}", res);
+                        res.into_inner()
+                    })
+                    .map_err(|_| Error::Inner(()))
             });
 
         Box::new(conn_task)
@@ -73,7 +84,7 @@ impl IndexHandle for RemoteIndex {
 }
 
 #[derive(Debug, Clone)]
-pub struct GrpcConn(SocketAddr);
+pub struct GrpcConn(pub SocketAddr);
 
 impl tokio_connect::Connect for GrpcConn {
     type Connected = TcpStream;

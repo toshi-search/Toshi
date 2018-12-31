@@ -1,12 +1,12 @@
 use crate::query::AggregateQuery;
 use crate::{Error, Result};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tantivy::collector::{Collector, TopCollector};
 use tantivy::schema::{Field, Value};
 use tantivy::{Searcher, SegmentReader};
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Debug, Deserialize)]
 pub struct SummaryDoc {
     field: Field,
     value: u64,
