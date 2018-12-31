@@ -3,6 +3,7 @@
 use std::io;
 use std::net::SocketAddr;
 
+use log::{debug, info};
 use tokio::executor::DefaultExecutor;
 use tokio::net::tcp::ConnectFuture;
 use tokio::net::TcpStream;
@@ -50,6 +51,7 @@ impl IndexHandle for RemoteIndex {
         let gconn = self.rpc_conn.clone();
         let uri = self.uri.clone();
         let name = self.name.clone();
+        info!("URI = {:?}, GRPC_CONN = {:?}", uri, &gconn);
         let mut h2_client = Connect::new(gconn, Default::default(), DefaultExecutor::current());
 
         let rpc_task = h2_client.make_service(());
@@ -65,7 +67,7 @@ impl IndexHandle for RemoteIndex {
                 client
                     .search_index(req)
                     .map(|res| {
-                        println!("{:#?}", res);
+                        debug!("RESPONSE = {:?}", res);
                         res.into_inner()
                     })
                     .map_err(|_| Error::Inner(()))

@@ -122,7 +122,7 @@ mod tests {
             .search_index(req)
             .map(|r| {
                 let results: SearchResults = serde_json::from_slice(&r.doc).unwrap();
-                println!("{:#?}", results)
+                assert_eq!(results.hits, 1);
             })
             .map_err(|e| println!("{:?}", e));
         let s = service.select(si).map(|_| ()).map_err(|_| ());
