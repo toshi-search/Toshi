@@ -74,31 +74,18 @@ impl Place {
 
 #[cfg(test)]
 mod tests {
-    use tokio::net::tcp::ConnectFuture;
-    use tokio::net::TcpStream;
     use tower_h2::client::Connect;
     use tower_util::MakeService;
 
     use super::*;
-
-    pub struct Conn(SocketAddr);
-
-    impl tokio_connect::Connect for Conn {
-        type Connected = TcpStream;
-        type Error = std::io::Error;
-        type Future = ConnectFuture;
-
-        fn connect(&self) -> Self::Future {
-            TcpStream::connect(&self.0)
-        }
-    }
+    use crate::cluster::remote_handle::GrpcConn;
 
     #[test]
     #[ignore]
     fn client_test() {
         let uri: http::Uri = format!("http://localhost:8081").parse().unwrap();
         let socket_addr: SocketAddr = "127.0.0.1:8081".parse().unwrap();
-        let tcp_stream = Conn(socket_addr);
+        let tcp_stream = GrpcConn(socket_addr);
 
         let service = Place::get_service(socket_addr, Consul::builder().build().unwrap());
         let mut c = Connect::new(tcp_stream, Default::default(), DefaultExecutor::current());

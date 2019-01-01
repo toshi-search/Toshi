@@ -29,10 +29,6 @@ pub trait CreateQuery {
     fn create_query(self, schema: &Schema) -> Result<Box<TantivyQuery>>;
 }
 
-pub trait AggregateQuery<T> {
-    fn result(&self) -> Result<T>;
-}
-
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 #[serde(untagged)]
 pub enum Query {

@@ -22,7 +22,7 @@ pub enum MergePolicyType {
     NoMerge,
 }
 
-#[derive(Deserialize, Clone)]
+#[derive(Deserialize, Clone, Debug)]
 pub struct ConfigMergePolicy {
     kind: String,
     min_merge_size: Option<usize>,
@@ -40,7 +40,7 @@ impl ConfigMergePolicy {
     }
 }
 
-#[derive(Deserialize, Clone)]
+#[derive(Deserialize, Clone, Debug)]
 pub struct Settings {
     #[serde(default = "Settings::default_host")]
     pub host: String,

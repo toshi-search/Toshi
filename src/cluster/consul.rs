@@ -136,17 +136,17 @@ impl Builder {
     }
 
     pub fn build(self) -> Result<Consul> {
-        let address = self.address.unwrap_or("127.0.0.1:8500".parse().unwrap());
+        let address = self.address.unwrap_or_else(|| "127.0.0.1:8500".into());
         let scheme = self.scheme.unwrap_or(Scheme::HTTP);
 
-        let client = TowerConsul::new(HttpsService::new(), 100, scheme.to_string(), address.to_string()).map_err(|_| Error::SpawnError)?;
+        let client = TowerConsul::new(HttpsService::default(), 100, scheme.to_string(), address.clone()).map_err(|_| Error::SpawnError)?;
 
         Ok(Consul {
             address,
             scheme,
             client,
-            cluster_name: self.cluster_name.unwrap_or("kitsune".into()),
-            node_id: self.node_id.unwrap_or("alpha".into()),
+            cluster_name: self.cluster_name.unwrap_or_else(|| "kitsune".into()),
+            node_id: self.node_id.unwrap_or_else(|| "alpha".into()),
         })
     }
 }
@@ -156,8 +156,8 @@ pub struct HttpsService {
     client: Client<HttpsConnector<HttpConnector>>,
 }
 
-impl HttpsService {
-    pub fn new() -> Self {
+impl Default for HttpsService {
+    fn default() -> Self {
         let https = HttpsConnector::new(4).expect("Could not create TLS for Hyper");
         let client = Client::builder().build::<_, hyper::Body>(https);
 
@@ -179,7 +179,7 @@ impl Service<Request<Vec<u8>>> for HttpsService {
             .client
             .request(req.map(Body::from))
             .and_then(|res| {
-                let status = res.status().clone();
+                let status = res.status();
                 let headers = res.headers().clone();
 
                 res.into_body().concat2().join(Ok((status, headers)))

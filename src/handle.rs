@@ -2,10 +2,10 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use log::debug;
-use tantivy::collector::TopCollector;
+use tantivy::collector::TopDocs;
 use tantivy::query::{AllQuery, QueryParser};
 use tantivy::schema::*;
-use tantivy::{Document, Index, IndexWriter, Term};
+use tantivy::{DocAddress, Document, Index, IndexWriter, Term};
 
 use crate::handlers::index::{AddDocument, DeleteDoc, DocsAffected};
 use crate::query::{CreateQuery, Query, Request};
@@ -58,48 +58,50 @@ impl IndexHandle for LocalIndex {
         self.index.load_searchers()?;
         let searcher = self.index.searcher();
         let schema = self.index.schema();
-        let mut collector = TopCollector::with_limit(search.limit);
+        let collector = TopDocs::with_limit(search.limit);
+        let mut found_docs: Vec<(f32, DocAddress)> = Vec::new();
         if let Some(query) = search.query {
             match query {
                 Query::Regex(regex) => {
                     let regex_query = regex.create_query(&schema)?;
-                    searcher.search(&*regex_query, &mut collector)?
+                    found_docs = searcher.search(&*regex_query, &collector)?;
                 }
                 Query::Phrase(phrase) => {
                     let phrase_query = phrase.create_query(&schema)?;
-                    searcher.search(&*phrase_query, &mut collector)?
+                    found_docs = searcher.search(&*phrase_query, &collector)?;
                 }
                 Query::Fuzzy(fuzzy) => {
                     let fuzzy_query = fuzzy.create_query(&schema)?;
-                    searcher.search(&*fuzzy_query, &mut collector)?
+                    found_docs = searcher.search(&*fuzzy_query, &collector)?;
                 }
                 Query::Exact(term) => {
                     let exact_query = term.create_query(&schema)?;
-                    searcher.search(&*exact_query, &mut collector)?
+                    found_docs = searcher.search(&*exact_query, &collector)?;
                 }
                 Query::Boolean { bool } => {
                     let bool_query = bool.create_query(&schema)?;
-                    searcher.search(&*bool_query, &mut collector)?
+                    found_docs = searcher.search(&*bool_query, &collector)?;
                 }
                 Query::Range(range) => {
                     debug!("{:#?}", range);
                     let range_query = range.create_query(&schema)?;
                     debug!("{:?}", range_query);
-                    searcher.search(&*range_query, &mut collector)?
+                    found_docs = searcher.search(&*range_query, &collector)?;
                 }
                 Query::Raw { raw } => {
                     let fields: Vec<Field> = schema.fields().iter().filter_map(|e| schema.get_field(e.name())).collect();
                     let query_parser = QueryParser::for_index(&self.index, fields);
                     let query = query_parser.parse_query(&raw)?;
                     debug!("{:#?}", query);
-                    searcher.search(&*query, &mut collector)?
+                    found_docs = searcher.search(&*query, &collector)?;
                 }
-                Query::All => searcher.search(&AllQuery, &mut collector)?,
+                Query::All => {
+                    found_docs = searcher.search(&AllQuery, &collector)?;
+                }
             }
         }
 
-        let scored_docs: Vec<ScoredDoc> = collector
-            .top_docs()
+        let scored_docs: Vec<ScoredDoc> = found_docs
             .into_iter()
             .map(|(score, doc)| {
                 let d = searcher.doc(doc).expect("Doc not found in segment");

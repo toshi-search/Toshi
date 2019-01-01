@@ -30,7 +30,6 @@ tower-service     = "^0.2"
 tower-util        = "^0.1"
 tower-web         = "^0.3"
 http              = "^0.1"
-h2 = "*"
 tokio-connect     = "^0.1"
 flate2            = "^1.0"
 bytes             = "^0.4"
@@ -41,7 +40,7 @@ hyper-tls         = "^0.3"
 mime              = "^0.3"
 serde_json        = "^1.0"
 futures           = "^0.1"
-tantivy           = "^0.7"
+tantivy           = "^0.8"
 tokio             = "^0.1"
 tokio-signal      = "^0.2"
 tokio-tls         = "^0.2"
@@ -53,8 +52,8 @@ crossbeam         = "^0.6"
 num_cpus          = "^1.0"
 serde             = { version = "^1.0", features = ["derive"] }
 clap              = { version = "^2.32", features = ["color"] }
-uuid              = { version = "0.7", features = ["v4"] }
-systemstat        = { git = "https://github.com/toshi-search/systemstat", branch = "master" }
+uuid              = { version = "^0.7", features = ["v4"] }
+systemstat        = { git = "https://github.com/toshi-search/systemstat" }
 
 [profile.release]
 opt-level = 3
