@@ -1,19 +1,16 @@
 syntax = "proto3";
 
-package cluster;
+package cluster_rpc;
 
 service HealthService {
     rpc ping (PingRequest) returns (PingReply);
 }
 
 service IndexService {
-    rpc placeIndex (PlaceRequest) returns (Result);
-    rpc placeDocument (DocumentRequest) returns (Result);
-    rpc placeReplica (ReplicaRequest) returns (Result);
-}
-
-service SearchService {
-    rpc searchIndex (SearchRequest) returns (SearchReply);
+    rpc place_index (PlaceRequest) returns (ResultReply);
+    rpc place_document (DocumentRequest) returns (ResultReply);
+    rpc place_replica (ReplicaRequest) returns (ResultReply);
+    rpc search_index (SearchRequest) returns (SearchReply);
 }
 
 enum ResultCode {
@@ -23,7 +20,7 @@ enum ResultCode {
     MAGIC_UNICORN = 3;
 }
 
-message Result {
+message ResultReply {
     ResultCode code = 1;
     string message = 2;
 }
@@ -41,8 +38,8 @@ message SearchRequest {
 }
 
 message SearchReply {
-    Result result = 1;
-    repeated bytes doc = 2;
+    ResultReply result = 1;
+    bytes doc = 2;
 }
 
 message PlaceRequest {

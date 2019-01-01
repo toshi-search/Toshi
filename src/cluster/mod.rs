@@ -1,8 +1,13 @@
 use failure::Fail;
 use serde::{Deserialize, Serialize};
 
+pub use self::consul::Consul;
+pub use self::node::*;
+pub use self::placement_server::Place;
+
 pub mod placement {
     use prost_derive::{Enumeration, Message};
+
     #[cfg(target_family = "unix")]
     include!(concat!(env!("OUT_DIR"), "/placement.rs"));
     #[cfg(target_family = "windows")]
@@ -11,20 +16,19 @@ pub mod placement {
 
 pub mod cluster_rpc {
     use prost_derive::{Enumeration, Message};
+
     #[cfg(target_family = "unix")]
-    include!(concat!(env!("OUT_DIR"), "/cluster.rs"));
+    include!(concat!(env!("OUT_DIR"), "/cluster_rpc.rs"));
     #[cfg(target_family = "windows")]
-    include!(concat!(env!("OUT_DIR"), "\\cluster.rs"));
+    include!(concat!(env!("OUT_DIR"), "\\cluster_rpc.rs"));
 }
 
 pub mod consul;
 pub mod node;
 pub mod placement_server;
+pub mod remote_handle;
+pub mod rpc_server;
 pub mod shard;
-
-pub use self::consul::Consul;
-pub use self::node::*;
-pub use self::placement_server::Place;
 
 #[derive(Debug, Fail, Serialize, Deserialize)]
 pub enum ClusterError {

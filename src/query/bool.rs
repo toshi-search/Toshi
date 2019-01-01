@@ -1,11 +1,11 @@
 use crate::query::{CreateQuery, TermQueries};
 use crate::Result;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tantivy::query::{BooleanQuery, Occur, Query};
 use tantivy::schema::Schema;
 
-#[derive(Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct BoolQuery {
     #[serde(default = "Vec::new")]
     must: Vec<TermQueries>,
