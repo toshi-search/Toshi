@@ -1,7 +1,7 @@
 use failure::Fail;
 use tantivy::query::QueryParserError;
 use tantivy::schema::DocParsingError;
-use tantivy::Error as TError;
+use tantivy::TantivyError;
 
 #[derive(Debug, Fail, Clone)]
 pub enum Error {
@@ -17,17 +17,19 @@ pub enum Error {
     SpawnError,
 }
 
-impl From<TError> for Error {
+impl From<TantivyError> for Error {
     fn from(err: tantivy::Error) -> Self {
         match err {
-            TError::CorruptedFile(p) | TError::PathDoesNotExist(p) | TError::FileAlreadyExists(p) => Error::IOError(format!("{:?}", p)),
-            TError::IOError(e) => Error::IOError(e.to_string()),
-            TError::SchemaError(e) => Error::UnknownIndex(e.to_string()),
-            TError::InvalidArgument(e) | TError::ErrorInThread(e) => Error::IOError(e),
-            TError::Poisoned => Error::IOError("Poisoned".to_string()),
-            TError::LockFailure(e) => Error::IOError(format!("Failed to acquire lock: {:?}", e)),
-            TError::FastFieldError(_) => Error::IOError("Fast Field Error".to_string()),
-            TError::IndexAlreadyExists => Error::IOError("Index Already Exists".into()),
+            TantivyError::PathDoesNotExist(e) | TantivyError::FileAlreadyExists(e) => Error::IOError(e.display().to_string()),
+            TantivyError::IOError(e) => Error::IOError(e.to_string()),
+            TantivyError::SystemError(e) => Error::IOError(e),
+            TantivyError::DataCorruption(e) => Error::IOError(format!("Data Corruption: '{:?}'", e)),
+            TantivyError::SchemaError(e) => Error::UnknownIndex(e.to_string()),
+            TantivyError::InvalidArgument(e) | TantivyError::ErrorInThread(e) => Error::IOError(e),
+            TantivyError::Poisoned => Error::IOError("Poisoned".into()),
+            TantivyError::LockFailure(e) => Error::IOError(format!("Failed to acquire lock: {:?}", e)),
+            TantivyError::FastFieldError(e) => Error::IOError(format!("Fast Field Error: {:?}", e)),
+            TantivyError::IndexAlreadyExists => Error::IOError("Index Already Exists".into()),
         }
     }
 }
@@ -35,16 +37,16 @@ impl From<TError> for Error {
 impl From<QueryParserError> for Error {
     fn from(qpe: QueryParserError) -> Self {
         match qpe {
-            QueryParserError::SyntaxError => Error::QueryError("Syntax error in query".to_string()),
+            QueryParserError::SyntaxError => Error::QueryError("Syntax error in query".into()),
             QueryParserError::FieldDoesNotExist(e) => Error::UnknownIndexField(e),
             QueryParserError::FieldNotIndexed(e) | QueryParserError::FieldDoesNotHavePositionsIndexed(e) => {
                 Error::QueryError(format!("Query to unindexed field '{}'", e))
             }
             QueryParserError::ExpectedInt(e) => Error::QueryError(e.to_string()),
             QueryParserError::NoDefaultFieldDeclared | QueryParserError::RangeMustNotHavePhrase => {
-                Error::QueryError("No default field declared for query".to_string())
+                Error::QueryError("No default field declared for query".into())
             }
-            QueryParserError::AllButQueryForbidden => Error::QueryError("Cannot have queries only exclude documents".to_string()),
+            QueryParserError::AllButQueryForbidden => Error::QueryError("Cannot have queries only exclude documents".into()),
             QueryParserError::UnknownTokenizer(e1, _) => Error::QueryError(e1),
         }
     }

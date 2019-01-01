@@ -47,7 +47,7 @@ impl IndexHandler {
         IndexHandler { catalog }
     }
 
-    fn add_index(catalog: Arc<RwLock<IndexCatalog>>, name: String, index: Index) -> Result<(), Error> {
+    fn add_index(catalog: &Arc<RwLock<IndexCatalog>>, name: String, index: Index) -> Result<(), Error> {
         match catalog.write() {
             Ok(ref mut cat) => cat.add_index(name, index),
             Err(e) => Err(Error::IOError(e.to_string())),
@@ -85,7 +85,7 @@ impl_web! {
         pub fn create(&self, body: SchemaBody, index: String) -> Result<CreatedResponse, Error> {
             let ip = self.catalog.read()?.base_path().clone();
             let new_index = IndexCatalog::create_from_managed(ip, &index, body.0)?;
-            IndexHandler::add_index(Arc::clone(&self.catalog), index.clone(), new_index).map(|_| CreatedResponse)
+            IndexHandler::add_index(&self.catalog, index.clone(), new_index).map(|_| CreatedResponse)
         }
     }
 }

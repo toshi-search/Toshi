@@ -1,10 +1,8 @@
-use crate::query::AggregateQuery;
-use crate::{Error, Result};
-
 use serde::{Deserialize, Serialize};
-use tantivy::collector::{Collector, TopCollector};
-use tantivy::schema::{Field, Value};
-use tantivy::{Searcher, SegmentReader};
+use tantivy::collector::{Collector, SegmentCollector};
+use tantivy::fastfield::FastFieldReader;
+use tantivy::schema::Field;
+use tantivy::{Result as TantivyResult, SegmentReader};
 
 #[derive(Serialize, Debug, Deserialize)]
 pub struct SummaryDoc {
@@ -12,70 +10,83 @@ pub struct SummaryDoc {
     value: u64,
 }
 
-#[allow(dead_code)]
-pub struct SumCollector<'a> {
-    field: String,
-    collector: TopCollector,
-    searcher: &'a Searcher,
+#[derive(Default)]
+pub struct Stats {
+    count: usize,
+    sum: f64,
 }
 
-impl<'a> SumCollector<'a> {
-    #[allow(dead_code)]
-    pub fn new(field: String, searcher: &'a Searcher, collector: TopCollector) -> Self {
-        Self {
-            field,
-            searcher,
-            collector,
+impl Stats {
+    pub fn count(&self) -> usize {
+        self.count
+    }
+
+    pub fn mean(&self) -> f64 {
+        self.sum / (self.count as f64)
+    }
+
+    fn non_zero_count(self) -> Option<Stats> {
+        if self.count == 0 {
+            None
+        } else {
+            Some(self)
         }
     }
 }
 
-impl<'a> AggregateQuery<SummaryDoc> for SumCollector<'a> {
-    fn result(&self) -> Result<SummaryDoc> {
-        let field = self
-            .searcher
-            .schema()
-            .get_field(&self.field)
-            .ok_or_else(|| Error::QueryError(format!("Field {} does not exist", self.field)))?;
-        let result: u64 = self
-            .collector
-            .docs()
-            .into_iter()
-            .map(move |d| {
-                // At this point docs have already passed through the collector, if we are in map it means we have
-                // something
-                let doc = self.searcher.doc(d).unwrap();
-                doc.get_first(field)
-                    .into_iter()
-                    .map(|v| match v {
-                        Value::I64(i) => (*i) as u64,
-                        Value::U64(u) => *u,
-                        // Should we even have these or only numerics?
-                        Value::Str(s) => (*s).len() as u64,
-                        Value::Bytes(b) => (*b).len() as u64,
-                        _ => panic!("Value is not numeric"),
-                    })
-                    .sum::<u64>()
-            })
-            .sum();
+pub struct SumCollector {
+    field: Field,
+}
 
-        Ok(SummaryDoc {
-            field: Field(0),
-            value: result,
-        })
+impl SumCollector {
+    fn with_field(field: Field) -> SumCollector {
+        SumCollector { field }
     }
 }
 
-impl<'a> Collector for SumCollector<'a> {
-    fn set_segment(&mut self, segment_local_id: u32, segment: &SegmentReader) -> tantivy::Result<()> {
-        self.collector.set_segment(segment_local_id, segment)
-    }
+impl Collector for SumCollector {
+    type Fruit = Option<Stats>;
+    type Child = SumSegmentCollector;
 
-    fn collect(&mut self, doc: u32, score: f32) {
-        self.collector.collect(doc, score);
+    fn for_segment(&self, _segment_local_id: u32, segment: &SegmentReader) -> TantivyResult<SumSegmentCollector> {
+        let fast_field_reader = segment.fast_field_reader(self.field)?;
+        Ok(SumSegmentCollector {
+            fast_field_reader,
+            stats: Stats::default(),
+        })
     }
 
     fn requires_scoring(&self) -> bool {
-        self.collector.requires_scoring()
+        false
+    }
+
+    fn merge_fruits(&self, segment_stats: Vec<Option<Stats>>) -> TantivyResult<Option<Stats>> {
+        let mut stats = Stats::default();
+        for segment_stats_opt in segment_stats {
+            if let Some(segment_stats) = segment_stats_opt {
+                stats.count += segment_stats.count;
+                stats.sum += segment_stats.sum;
+            }
+        }
+        Ok(stats.non_zero_count())
+    }
+}
+
+pub struct SumSegmentCollector {
+    fast_field_reader: FastFieldReader<u64>,
+    stats: Stats,
+}
+
+impl SegmentCollector for SumSegmentCollector {
+    type Fruit = Option<Stats>;
+
+    fn collect(&mut self, doc: u32, _score: f32) {
+        let value = self.fast_field_reader.get(doc) as f64;
+        self.stats.count += 1;
+        self.stats.sum += value;
+    }
+
+    fn harvest(self) -> Self::Fruit {
+        self.stats.non_zero_count()
     }
 }
