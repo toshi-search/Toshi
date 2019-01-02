@@ -1,9 +1,8 @@
-use toshi::{
-    cluster::{self, Consul},
-    commit::IndexWatcher,
-    index::IndexCatalog,
-    router::router_with_catalog,
-    settings::{Settings, HEADER},
+use std::net::SocketAddr;
+use std::{
+    fs::create_dir,
+    path::{Path, PathBuf},
+    sync::{Arc, RwLock},
 };
 
 use clap::{crate_authors, crate_description, crate_version, App, Arg, ArgMatches};
@@ -12,11 +11,12 @@ use log::{error, info};
 use tokio::runtime::Runtime;
 use uuid::Uuid;
 
-use std::net::SocketAddr;
-use std::{
-    fs::create_dir,
-    path::{Path, PathBuf},
-    sync::{Arc, RwLock},
+use toshi::{
+    cluster::{self, rpc_server::RpcServer, Consul},
+    commit::IndexWatcher,
+    index::IndexCatalog,
+    router::router_with_catalog,
+    settings::{Settings, HEADER},
 };
 
 pub fn main() -> Result<(), ()> {
@@ -48,7 +48,13 @@ pub fn main() -> Result<(), ()> {
     };
 
     let toshi = {
-        let server = run(index_catalog.clone(), &settings);
+        let server = if settings.master {
+            future::Either::A(run(index_catalog.clone(), &settings))
+        } else {
+            let addr = format!("{}:{}", &settings.host, settings.port);
+            let bind: SocketAddr = addr.parse().unwrap();
+            future::Either::B(RpcServer::get_service(bind, Arc::clone(&index_catalog)))
+        };
         let shutdown = shutdown(tx);
         server.select(shutdown)
     };
@@ -161,7 +167,6 @@ fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Future<I
         let run = future::lazy(move || connect_to_consul(&settings))
             .and_then(move |_| commit_watcher)
             .and_then(move |_| router_with_catalog(&bind, &catalog));
-
         future::Either::A(run)
     } else {
         let run = commit_watcher.and_then(move |_| router_with_catalog(&bind, &catalog));
