@@ -254,12 +254,12 @@ dependencies = [
 
 [[package]]
 name = "config"
-version = "0.9.1"
+version = "0.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "lazy_static 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "nom 4.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "rust-ini 0.12.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rust-ini 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.84 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde-hjson 0.8.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.34 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1421,7 +1421,7 @@ dependencies = [
 
 [[package]]
 name = "rust-ini"
-version = "0.12.2"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
@@ -2011,7 +2011,7 @@ version = "0.1.1"
 dependencies = [
  "bytes 0.4.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap 2.32.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "config 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "config 0.9.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "crossbeam 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "failure 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "flate2 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2451,7 +2451,7 @@ dependencies = [
 "checksum cloudabi 0.0.3 (registry+https://github.com/rust-lang/crates.io-index)" = "ddfc5b9aa5d4507acaf872de71051dfd0e309860e88966e1051e462a077aac4f"
 "checksum codegen 0.1.0 (git+https://github.com/carllerche/codegen)" = "<none>"
 "checksum combine 3.6.3 (registry+https://github.com/rust-lang/crates.io-index)" = "db733c5d0f4f52e78d4417959cadf0eecc7476e7f9ece05677912571a4af34e2"
-"checksum config 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)" = "13490293b8a84cc82cd531da41adeae82cd9eaa40e926ac18865aa361f9c9f60"
+"checksum config 0.9.2 (registry+https://github.com/rust-lang/crates.io-index)" = "3e82d07fac0a5eeaa9d959b5194d01bb66e414665f547416958d2b430f8f4852"
 "checksum core-foundation 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)" = "286e0b41c3a20da26536c6000a280585d519fd07b3956b43aed8a79e9edce980"
 "checksum core-foundation-sys 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)" = "716c271e8613ace48344f723b60b900a93150271e5be206212d052bbc0883efa"
 "checksum crc 1.8.1 (registry+https://github.com/rust-lang/crates.io-index)" = "d663548de7f5cca343f1e0a48d14dcfb0e9eb4e079ec58883b7251539fa10aeb"
@@ -2583,7 +2583,7 @@ dependencies = [
 "checksum remove_dir_all 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)" = "3488ba1b9a2084d38645c4c08276a1752dcbf2c7130d74f1569681ad5d2799c5"
 "checksum rental 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)" = "ca24bf9b98e3df0bb359f1bbb8ef993a0093d8432500c5eaf3ae724f30b5f754"
 "checksum rental-impl 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)" = "a269533a9b93bbaa4848260e51b64564cc445d46185979f31974ec703374803a"
-"checksum rust-ini 0.12.2 (registry+https://github.com/rust-lang/crates.io-index)" = "ac66e816614e124a692b6ac1b8437237a518c9155a3aacab83a373982630c715"
+"checksum rust-ini 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)" = "3e52c148ef37f8c375d49d5a73aa70713125b7f19095948a923f80afdeb22ec2"
 "checksum rust-stemmers 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)" = "fbf06149ec391025664a5634200ced1afb489f0f3f8a140d515ebc0eb04b4bc0"
 "checksum rustc-demangle 0.1.11 (registry+https://github.com/rust-lang/crates.io-index)" = "01b90379b8664dd83460d59bdc5dd1fd3172b8913788db483ed1325171eab2f7"
 "checksum rustc_version 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)" = "138e3e0acb6c9fb258b19b67cb8abd63c00679d2851805ea151465464fe9030a"
