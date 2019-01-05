@@ -16,6 +16,14 @@ pub const HEADER: &str = r#"
  Such Relevance, Much Index, Many Search, Wow
  "#;
 
+pub const RPC_HEADER: &str = r#"
+ ______         __   _   ___  ___  _____
+/_  __/__  ___ / /  (_) / _ \/ _ \/ ___/
+ / / / _ \(_-</ _ \/ / / , _/ ___/ /__
+/_/  \___/___/_//_/_/ /_/|_/_/   \___/
+Such coordination, Much consensus, Many RPC, Wow
+"#;
+
 #[derive(PartialEq)]
 pub enum MergePolicyType {
     Log,

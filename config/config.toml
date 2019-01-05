@@ -7,7 +7,7 @@ json_parsing_threads = 4
 bulk_buffer_size = 10000
 auto_commit_duration = 10
 enable_clustering = false
-master = true
+master = false
 nodes = [
     "127.0.0.1:8081",
     "127.0.0.1:8082"
