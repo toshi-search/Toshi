@@ -1,3 +1,5 @@
+//! Provides an interface to a Consul cluster
+
 use futures::{stream::Stream, Async, Future, Poll};
 use hyper::body::Body;
 use hyper::client::HttpConnector;
@@ -5,7 +7,8 @@ use hyper::http::uri::Scheme;
 use hyper::{Client, Request, Response, Uri};
 use hyper_tls::HttpsConnector;
 use serde::{Deserialize, Serialize};
-use tower_consul::{Consul as TowerConsul, KVValue};
+use tower_buffer::Buffer;
+use tower_consul::{Consul as TowerConsul, ConsulService, KVValue};
 use tower_service::Service;
 
 use crate::cluster::shard::PrimaryShard;
@@ -75,6 +78,12 @@ impl Consul {
             .set(&key, shard)
             .map(|_| ())
             .map_err(|err| ClusterError::FailedCreatingPrimaryShard(format!("{:?}", err)))
+    }
+
+    pub fn nodes(&mut self) -> impl Future<Item = Vec<ConsulService>, Error = ClusterError> {
+        self.client
+            .service_nodes("toshi")
+            .map_err(|err| ClusterError::FailedFetchingNodes(format!("{:?}", err)))
     }
 
     /// Gets the specified index

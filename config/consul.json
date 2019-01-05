@@ -1,0 +1,7 @@
+{
+    "service": {
+	"name": "toshi",
+	"tags": [],
+	"port": 8081
+    }
+}

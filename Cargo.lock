@@ -588,6 +588,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "futures-watch"
+version = "0.1.0"
+source = "git+https://github.com/carllerche/better-future#85c3071ce7989ff691ddd03738188f06cdba605f"
+dependencies = [
+ "fnv 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures 0.1.25 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "generic-array"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2015,6 +2024,7 @@ dependencies = [
  "failure 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "flate2 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures 0.1.25 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures-watch 0.1.0 (git+https://github.com/carllerche/better-future)",
  "http 0.1.14 (registry+https://github.com/rust-lang/crates.io-index)",
  "hyper 0.12.19 (registry+https://github.com/rust-lang/crates.io-index)",
  "hyper-tls 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2034,12 +2044,13 @@ dependencies = [
  "tokio-tls 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "tower-buffer 0.1.0 (git+https://github.com/tower-rs/tower)",
  "tower-consul 0.1.0 (git+https://github.com/LucioFranco/tower-consul)",
+ "tower-discover 0.1.0",
  "tower-grpc 0.1.0 (git+https://github.com/tower-rs/tower-grpc)",
  "tower-grpc-build 0.1.0 (git+https://github.com/tower-rs/tower-grpc)",
  "tower-h2 0.1.0 (git+https://github.com/tower-rs/tower-h2)",
  "tower-http 0.1.0 (git+https://github.com/tower-rs/tower-http)",
  "tower-service 0.2.0 (git+https://github.com/tower-rs/tower)",
- "tower-util 0.1.0 (git+https://github.com/tower-rs/tower)",
+ "tower-util 0.1.0",
  "tower-web 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "uuid 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -2085,6 +2096,21 @@ version = "0.1.0"
 source = "git+https://github.com/tower-rs/tower#7b61c1fc1992c1df684fd3f179644ef0ca9bfa4c"
 dependencies = [
  "futures 0.1.25 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "tower-direct-service"
+version = "0.1.0"
+dependencies = [
+ "futures 0.1.25 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "tower-discover"
+version = "0.1.0"
+dependencies = [
+ "futures 0.1.25 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tower-service 0.2.0",
 ]
 
 [[package]]
@@ -2159,6 +2185,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "tower-service"
+version = "0.2.0"
+dependencies = [
+ "futures 0.1.25 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "tower-util"
 version = "0.1.0"
 source = "git+https://github.com/tower-rs/tower#7b61c1fc1992c1df684fd3f179644ef0ca9bfa4c"
@@ -2166,6 +2199,15 @@ dependencies = [
  "futures 0.1.25 (registry+https://github.com/rust-lang/crates.io-index)",
  "tower-direct-service 0.1.0 (git+https://github.com/tower-rs/tower)",
  "tower-service 0.2.0 (git+https://github.com/tower-rs/tower)",
+]
+
+[[package]]
+name = "tower-util"
+version = "0.1.0"
+dependencies = [
+ "futures 0.1.25 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tower-direct-service 0.1.0",
+ "tower-service 0.2.0",
 ]
 
 [[package]]
@@ -2483,6 +2525,7 @@ dependencies = [
 "checksum fuchsia-zircon-sys 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)" = "3dcaa9ae7725d12cdb85b3ad99a434db70b468c09ded17e012d86b5c1010f7a7"
 "checksum futures 0.1.25 (registry+https://github.com/rust-lang/crates.io-index)" = "49e7653e374fe0d0c12de4250f0bdb60680b8c80eed558c5c7538eec9c89e21b"
 "checksum futures-cpupool 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)" = "ab90cde24b3319636588d0c35fe03b1333857621051837ed769faefb4c2162e4"
+"checksum futures-watch 0.1.0 (git+https://github.com/carllerche/better-future)" = "<none>"
 "checksum generic-array 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)" = "ef25c5683767570c2bbd7deba372926a55eaae9982d7726ee2a1050239d45b9d"
 "checksum h2 0.1.14 (registry+https://github.com/rust-lang/crates.io-index)" = "1ac030ae20dee464c5d0f36544d8b914a6bc606da44a57e052d2b0f5dae129e0"
 "checksum handlebars 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "d82e5750d8027a97b9640e3fefa66bbaf852a35228e1c90790efd13c4b09c166"

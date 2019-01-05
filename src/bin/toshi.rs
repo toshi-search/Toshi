@@ -88,7 +88,7 @@ fn settings() -> Settings {
                 .short("h")
                 .long("host")
                 .takes_value(true)
-                .default_value("localhost"),
+                .default_value("127.0.0.1"),
         )
         .arg(
             Arg::with_name("port")
@@ -102,7 +102,7 @@ fn settings() -> Settings {
                 .short("C")
                 .long("consul-host")
                 .takes_value(true)
-                .default_value("localhost"),
+                .default_value("127.0.0.1"),
         )
         .arg(
             Arg::with_name("consul-port")
