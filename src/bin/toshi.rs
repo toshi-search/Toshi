@@ -16,7 +16,7 @@ use toshi::{
     commit::IndexWatcher,
     index::IndexCatalog,
     router::router_with_catalog,
-    settings::{Settings, HEADER},
+    settings::{Settings, HEADER, RPC_HEADER},
 };
 
 pub fn main() -> Result<(), ()> {
@@ -47,6 +47,8 @@ pub fn main() -> Result<(), ()> {
             future::Either::A(run(index_catalog.clone(), &settings))
         } else {
             let addr = format!("{}:{}", &settings.host, settings.port);
+            println!("{}", RPC_HEADER);
+            info!("I am a data node...Binding to: {}", addr);
             let bind: SocketAddr = addr.parse().unwrap();
             future::Either::B(RpcServer::get_service(bind, Arc::clone(&index_catalog)))
         };
@@ -94,7 +96,7 @@ fn settings() -> Settings {
                 .short("h")
                 .long("host")
                 .takes_value(true)
-                .default_value("localhost"),
+                .default_value("127.0.0.1"),
         )
         .arg(
             Arg::with_name("port")

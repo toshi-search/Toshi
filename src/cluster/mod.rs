@@ -1,5 +1,10 @@
+use std::io;
+use std::net::SocketAddr;
+
 use failure::Fail;
 use serde::{Deserialize, Serialize};
+use tokio::net::tcp::ConnectFuture;
+use tokio::net::TcpStream;
 
 pub use self::consul::Consul;
 pub use self::node::*;
@@ -78,4 +83,17 @@ pub enum ClusterError {
 pub enum DiskType {
     SSD,
     HDD,
+}
+
+#[derive(Debug, Clone)]
+pub struct GrpcConn(pub SocketAddr);
+
+impl tokio_connect::Connect for GrpcConn {
+    type Connected = TcpStream;
+    type Error = io::Error;
+    type Future = ConnectFuture;
+
+    fn connect(&self) -> Self::Future {
+        TcpStream::connect(&self.0)
+    }
 }

@@ -17,7 +17,7 @@ pub struct Place {
     consul: Consul,
 }
 
-type PlacementFuture = Box<dyn Future<Item = Response<PlacementReply>, Error = Error> + Send + 'static>;
+type PlacementFuture = Box<Future<Item = Response<PlacementReply>, Error = Error> + Send + Sync>;
 
 impl server::Placement for Place {
     type GetPlacementFuture = PlacementFuture;
@@ -46,7 +46,7 @@ impl Place {
         Box::new(futures::future::ok(Response::new(PlacementReply { node: "".into(), kind: 1 })))
     }
 
-    pub fn get_service(addr: SocketAddr, consul: Consul) -> impl Future<Item = (), Error = ()> {
+    pub fn get_service(addr: SocketAddr, consul: Consul) -> impl Future<Item = (), Error = ()> + Send + Sync {
         let service = server::PlacementServer::new(Place { consul });
         let executor = DefaultExecutor::current();
         let mut h2 = Server::new(service, Default::default(), executor);
@@ -78,7 +78,7 @@ mod tests {
     use tower_util::MakeService;
 
     use super::*;
-    use crate::cluster::remote_handle::GrpcConn;
+    use crate::cluster::GrpcConn;
 
     #[test]
     #[ignore]
