@@ -4,13 +4,13 @@ use std::iter::Iterator;
 use std::net::SocketAddr;
 use std::path::PathBuf;
 
+use futures::{future, stream::Stream, Future};
 use http::Uri;
 use log::info;
 use tantivy::directory::MmapDirectory;
 use tantivy::schema::Schema;
 use tantivy::Index;
 use tokio::prelude::*;
-use futures::{future, Future, stream::Stream};
 
 use crate::cluster::cluster_rpc::*;
 use crate::cluster::remote_handle::RemoteIndex;
@@ -26,7 +26,7 @@ pub struct IndexCatalog {
     pub settings: Settings,
     base_path: PathBuf,
     local_indexes: HashMap<String, LocalIndex>,
-    remote_indexes: HashMap<String, RemoteIndex>,
+    // remote_indexes: HashMap<String, RemoteIndex>,
 }
 
 impl IndexCatalog {
@@ -39,7 +39,7 @@ impl IndexCatalog {
             settings,
             base_path,
             local_indexes: HashMap::new(),
-            remote_indexes: HashMap::new(),
+            // remote_indexes: HashMap::new(),
         };
         index_cat.refresh_catalog()?;
         info!("Indexes: {:?}", index_cat.local_indexes.keys());
@@ -61,7 +61,7 @@ impl IndexCatalog {
             settings: Settings::default(),
             base_path: PathBuf::new(),
             local_indexes: map,
-            remote_indexes: HashMap::new(),
+            // remote_indexes: HashMap::new(),
         })
     }
 
@@ -147,18 +147,27 @@ impl IndexCatalog {
             let socket: SocketAddr = node.parse().unwrap();
             let host_uri = IndexCatalog::create_host_uri(socket)?;
             let grpc_conn = GrpcConn(socket);
-            let rpc_client = RpcServer::create_client(grpc_conn, host_uri).and_then(|mut client| {
-                client
-                    .list_indexes(tower_grpc::Request::new(ListRequest {}))
-                    .map(|resp| resp.into_inner())
-                    .and_then(|l| {
-                        l.indexes.into_iter().for_each(|i| {
-                            let ri = RemoteIndex::new(grpc_conn.clone(), i, client.clone());
-                            self.remote_indexes.insert(i, ri);
+            let conn2 = grpc_conn.clone();
+            let rpc_client = RpcServer::create_client(grpc_conn, host_uri)
+                .map_err(|_| ())
+                .and_then(move |mut client| {
+                    let conn2 = conn2.clone();
+                    client
+                        .list_indexes(tower_grpc::Request::new(ListRequest {}))
+                        .map(|resp| resp.into_inner())
+                        .map_err(|_| ())
+                        .and_then(move |l| {
+                            let conn2 = conn2.clone();
+                            l.indexes.into_iter().for_each(move |i| {
+                                // let ri = RemoteIndex::new(conn2, i, client.clone());
+                                // self.remote_indexes.insert(i, ri);
+                            });
+
+                            Ok(())
                         })
-                    })
-            }).map_err(|_| ());
-            tokio::spawn(rpc_client);
+                })
+                .map_err(|_| ());
+            // tokio::spawn(rpc_client);
         }
         Ok(())
     }
