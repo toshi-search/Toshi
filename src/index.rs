@@ -3,17 +3,19 @@ use std::fs;
 use std::iter::Iterator;
 use std::net::SocketAddr;
 use std::path::PathBuf;
+use std::sync::RwLock;
 
+use futures::future;
+use futures::Future;
 use http::Uri;
 use log::info;
 use tantivy::directory::MmapDirectory;
 use tantivy::schema::Schema;
 use tantivy::Index;
-use tokio::prelude::*;
-use futures::{future, Future, stream::Stream};
 
-use crate::cluster::cluster_rpc::*;
+use crate::cluster::cluster_rpc::ListRequest;
 use crate::cluster::remote_handle::RemoteIndex;
+use crate::cluster::rpc_server::RpcClient;
 use crate::cluster::rpc_server::RpcServer;
 use crate::cluster::GrpcConn;
 use crate::handle::{IndexHandle, LocalIndex};
@@ -26,7 +28,7 @@ pub struct IndexCatalog {
     pub settings: Settings,
     base_path: PathBuf,
     local_indexes: HashMap<String, LocalIndex>,
-    remote_indexes: HashMap<String, RemoteIndex>,
+    remote_indexes: HashMap<String, RwLock<RemoteIndex>>,
 }
 
 impl IndexCatalog {
@@ -42,7 +44,6 @@ impl IndexCatalog {
             remote_indexes: HashMap::new(),
         };
         index_cat.refresh_catalog()?;
-        info!("Indexes: {:?}", index_cat.local_indexes.keys());
         Ok(index_cat)
     }
 
@@ -87,7 +88,13 @@ impl IndexCatalog {
 
     pub fn add_index(&mut self, name: String, index: Index) -> Result<()> {
         let handle = LocalIndex::new(index, self.settings.clone(), &name)?;
-        self.local_indexes.entry(name).or_insert(handle);
+        self.local_indexes.insert(name.clone(), handle);
+        Ok(())
+    }
+
+    pub fn add_remote_index(&mut self, grpc_conn: &GrpcConn, name: String, client: &RpcClient) -> Result<()> {
+        let ri = RemoteIndex::new(grpc_conn, name.clone(), client);
+        self.remote_indexes.insert(name.clone(), RwLock::new(ri));
         Ok(())
     }
 
@@ -101,17 +108,15 @@ impl IndexCatalog {
     }
 
     pub fn exists(&self, index: &str) -> bool {
-        self.get_collection().contains_key(index)
+        self.get_collection().contains_key(&index.to_string())
     }
 
     pub fn get_mut_index(&mut self, name: &str) -> Result<&mut LocalIndex> {
-        self.local_indexes
-            .get_mut(name)
-            .ok_or_else(|| Error::UnknownIndex(name.to_string()))
+        self.local_indexes.get_mut(name).ok_or_else(|| Error::UnknownIndex(name.into()))
     }
 
     pub fn get_index(&self, name: &str) -> Result<&LocalIndex> {
-        self.local_indexes.get(name).ok_or_else(|| Error::UnknownIndex(name.to_string()))
+        self.local_indexes.get(name).ok_or_else(|| Error::UnknownIndex(name.into()))
     }
 
     pub fn refresh_catalog(&mut self) -> Result<()> {
@@ -141,31 +146,37 @@ impl IndexCatalog {
             .map_err(|e| Error::IOError(e.to_string()))
     }
 
-    pub fn refresh_remote_catalog(&mut self) -> Result<()> {
+    pub fn refresh_remote_catalog(&mut self) {
         let nodes = self.settings.nodes.clone();
-        for node in nodes {
+        nodes.iter().for_each(move |node| {
             let socket: SocketAddr = node.parse().unwrap();
-            let host_uri = IndexCatalog::create_host_uri(socket)?;
+            let host_uri = IndexCatalog::create_host_uri(socket).unwrap();
             let grpc_conn = GrpcConn(socket);
-            let rpc_client = RpcServer::create_client(grpc_conn, host_uri).and_then(|mut client| {
-                client
-                    .list_indexes(tower_grpc::Request::new(ListRequest {}))
-                    .map(|resp| resp.into_inner())
-                    .and_then(|l| {
-                        l.indexes.into_iter().for_each(|i| {
-                            let ri = RemoteIndex::new(grpc_conn.clone(), i, client.clone());
-                            self.remote_indexes.insert(i, ri);
+            let rpc_client = RpcServer::create_client(grpc_conn.clone(), host_uri);
+
+            let task = future::lazy(move || {
+                let rpc_task = Box::new(
+                    rpc_client
+                        .and_then(|mut client| {
+                            future::ok(client.list_indexes(tower_grpc::Request::new(ListRequest {})).map(|resp| {
+                                resp.into_inner().indexes.iter().for_each(|i| {
+                                    &mut self.add_remote_index(&grpc_conn, i.clone(), &client);
+                                });
+                            }))
                         })
-                    })
-            }).map_err(|_| ());
-            tokio::spawn(rpc_client);
-        }
-        Ok(())
+                        .map(|_| ())
+                        .map_err(|_| ()),
+                );
+
+                tokio::spawn(rpc_task);
+                future::ok::<(), ()>(())
+            });
+        });
     }
 
     pub fn search_index(&self, index: &str, search: Request) -> Result<SearchResults> {
         match self.get_index(index) {
-            Ok(hand) => hand.search_index(search),
+            Ok(mut hand) => hand.search_index(search),
             Err(e) => Err(e),
         }
     }

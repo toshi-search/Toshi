@@ -1,4 +1,3 @@
-use log::{debug, info};
 use tokio::prelude::*;
 use tower_grpc::{Error, Request as TowerRequest};
 
@@ -8,12 +7,11 @@ use crate::cluster::GrpcConn;
 use crate::handle::{IndexHandle, IndexLocation};
 use crate::handlers::index::{AddDocument, DeleteDoc};
 use crate::query::Request;
-use tower_grpc::BoxBody;
 
 /// A reference to an index stored somewhere else on the cluster, this operates via calling
 /// the remote host and full filling the request via rpc, we need to figure out a better way
 /// (tower-buffer) on how to keep these clients.
-#[derive(Clone)]
+
 pub struct RemoteIndex {
     rpc_conn: GrpcConn,
     remote: RpcClient,
@@ -21,13 +19,17 @@ pub struct RemoteIndex {
 }
 
 impl RemoteIndex {
-    pub fn new(rpc_conn: GrpcConn, name: String, remote: RpcClient) -> Self {
-        Self { rpc_conn, name, remote }
+    pub fn new(rpc_conn: &GrpcConn, name: String, remote: &RpcClient) -> Self {
+        Self {
+            rpc_conn: rpc_conn.clone(),
+            name,
+            remote: remote.clone(),
+        }
     }
 }
 
 impl IndexHandle for RemoteIndex {
-    type SearchResponse = Box<Future<Item = SearchReply, Error = Error> + Send>;
+    type SearchResponse = Box<Future<Item = SearchReply, Error = Error>>;
     type DeleteResponse = Box<Future<Item = ResultReply, Error = Error> + Send>;
     type AddResponse = Box<Future<Item = ResultReply, Error = Error> + Send>;
 
@@ -42,14 +44,14 @@ impl IndexHandle for RemoteIndex {
     fn search_index(&self, search: Request) -> Self::SearchResponse {
         let gconn = self.rpc_conn.clone();
         let name = self.name.clone();
+        let client = self.remote.clone();
         println!("GRPC_CONN = {:?}", &gconn);
 
-        let conn_task = future::ok(self.remote.clone());
-
-        let req_task = conn_task.and_then(move |mut client| {
+        let req_task = future::lazy(move || {
             let bytes = serde_json::to_vec(&search).unwrap();
             let req = TowerRequest::new(SearchRequest { index: name, query: bytes });
             client
+                .clone()
                 .search_index(req)
                 .map(|res| {
                     println!("RESPONSE = {:?}", res);
@@ -61,7 +63,7 @@ impl IndexHandle for RemoteIndex {
                 })
         });
 
-        Box::new(req_task)
+        return Box::new(req_task);
     }
 
     fn add_document(&self, doc: AddDocument) -> Self::AddResponse {
