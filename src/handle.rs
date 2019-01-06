@@ -19,7 +19,7 @@ pub enum IndexLocation {
     REMOTE,
 }
 
-pub trait IndexHandle {
+pub trait IndexHandle: Send + 'static {
     type SearchResponse: IntoFuture;
     type DeleteResponse: IntoFuture;
     type AddResponse: IntoFuture;
