@@ -13,23 +13,17 @@ use crate::query::Request;
 /// (tower-buffer) on how to keep these clients.
 
 pub struct RemoteIndex {
-    rpc_conn: GrpcConn,
-    remote: RpcClient,
     name: String,
 }
 
 impl RemoteIndex {
-    pub fn new(rpc_conn: &GrpcConn, name: String, remote: &RpcClient) -> Self {
-        Self {
-            rpc_conn: rpc_conn.clone(),
-            name,
-            remote: remote.clone(),
-        }
+    pub fn new(name: String) -> Self {
+        Self { name }
     }
 }
 
 impl IndexHandle for RemoteIndex {
-    type SearchResponse = Box<Future<Item = SearchReply, Error = Error>>;
+    type SearchResponse = Box<Future<Item = SearchReply, Error = Error> + Send>;
     type DeleteResponse = Box<Future<Item = ResultReply, Error = Error> + Send>;
     type AddResponse = Box<Future<Item = ResultReply, Error = Error> + Send>;
 
@@ -42,16 +36,16 @@ impl IndexHandle for RemoteIndex {
     }
 
     fn search_index(&self, search: Request) -> Self::SearchResponse {
-        let gconn = self.rpc_conn.clone();
-        let name = self.name.clone();
-        let client = self.remote.clone();
-        println!("GRPC_CONN = {:?}", &gconn);
+        unimplemented!("Don't call this method")
+    }
 
+    fn search_index_with_client(&self, search: Request, client: Option<RpcClient>) -> Self::SearchResponse {
+        let name = self.name.clone();
         let req_task = future::lazy(move || {
             let bytes = serde_json::to_vec(&search).unwrap();
             let req = TowerRequest::new(SearchRequest { index: name, query: bytes });
             client
-                .clone()
+                .unwrap()
                 .search_index(req)
                 .map(|res| {
                     println!("RESPONSE = {:?}", res);
