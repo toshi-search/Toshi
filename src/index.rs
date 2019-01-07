@@ -92,8 +92,8 @@ impl IndexCatalog {
         Ok(())
     }
 
-    pub fn add_remote_index(&mut self, grpc_conn: &GrpcConn, name: String, client: &RpcClient) -> Result<()> {
-        let ri = RemoteIndex::new(grpc_conn, name.clone(), client);
+    pub fn add_remote_index(&mut self, name: String) -> Result<()> {
+        let ri = RemoteIndex::new(name.clone());
         self.remote_indexes.insert(name.clone(), RwLock::new(ri));
         Ok(())
     }
@@ -146,32 +146,31 @@ impl IndexCatalog {
             .map_err(|e| Error::IOError(e.to_string()))
     }
 
-    pub fn refresh_remote_catalog(&mut self) {
+    pub fn refresh_remote_catalog(&mut self) -> Vec<impl Future<Item = (), Error = ()> + Send + Sync + 'static> {
         let nodes = self.settings.nodes.clone();
-        nodes.iter().for_each(move |node| {
-            let socket: SocketAddr = node.parse().unwrap();
-            let host_uri = IndexCatalog::create_host_uri(socket).unwrap();
-            let grpc_conn = GrpcConn(socket);
-            let rpc_client = RpcServer::create_client(grpc_conn.clone(), host_uri);
-
-            let task = future::lazy(move || {
-                let rpc_task = Box::new(
-                    rpc_client
-                        .and_then(|mut client| {
-                            future::ok(client.list_indexes(tower_grpc::Request::new(ListRequest {})).map(|resp| {
-                                resp.into_inner().indexes.iter().for_each(|i| {
-                                    &mut self.add_remote_index(&grpc_conn, i.clone(), &client);
-                                });
-                            }))
-                        })
-                        .map(|_| ())
-                        .map_err(|_| ()),
-                );
-
-                tokio::spawn(rpc_task);
-                future::ok::<(), ()>(())
-            });
-        });
+        nodes
+            .iter()
+            .map(move |node| {
+                future::lazy(|| {
+                    let socket: SocketAddr = node.parse().unwrap();
+                    let host_uri = IndexCatalog::create_host_uri(socket).unwrap();
+                    let grpc_conn = GrpcConn(socket);
+                    let rpc_client = RpcServer::create_client(grpc_conn.clone(), host_uri);
+                    Box::new(
+                        rpc_client
+                            .and_then(|mut client| future::ok(client.list_indexes(tower_grpc::Request::new(ListRequest {}))))
+                            .map(|r| {
+                                r.map(|rr| {
+                                    rr.get_ref().indexes.iter().for_each(|i| {
+                                        self.add_remote_index(i.clone()).unwrap();
+                                    });
+                                })
+                            })
+                            .map_err(|_| ()),
+                    )
+                });
+            })
+            .collect()
     }
 
     pub fn search_index(&self, index: &str, search: Request) -> Result<SearchResults> {

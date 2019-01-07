@@ -8,20 +8,23 @@ use log::{error, info};
 use tokio::executor::DefaultExecutor;
 use tokio::net::{TcpListener, TcpStream};
 use tower_grpc::{Code, Error, Request, Response, Status};
-use tower_h2::client::{Connect, Connection};
-use tower_h2::Server;
 use tower_http::add_origin::Builder;
 use tower_http::AddOrigin;
 use tower_util::MakeService;
 
 use crate::cluster::cluster_rpc::server;
 use crate::cluster::cluster_rpc::*;
+
 use crate::cluster::GrpcConn;
 use crate::handle::IndexHandle;
 use crate::index::IndexCatalog;
 use crate::query;
+use tower_grpc::BoxBody;
+use tower_h2::client::Connect;
+use tower_h2::client::Connection;
+use tower_h2::Server;
 
-pub type RpcClient = client::IndexService<AddOrigin<Connection<TcpStream, DefaultExecutor, tower_grpc::BoxBody>>>;
+pub type RpcClient = client::IndexService<AddOrigin<Connection<TcpStream, DefaultExecutor, BoxBody>>>;
 
 /// RPC Services should "ideally" work on only local indexes, they shouldn't be responsible for
 /// going to other nodes to get index data. It should be the master's duty to know where the local
@@ -47,8 +50,8 @@ impl RpcServer {
         let bind = TcpListener::bind(&addr).unwrap_or_else(|_| panic!("Failed to bind to host: {:?}", addr));
 
         info!("Bound to: {:?}", &bind.local_addr().unwrap());
-
-        let mut h2 = Server::new(service, Default::default(), executor);
+        let h2_settings = Default::default();
+        let mut h2 = Server::new(service, h2_settings, executor);
 
         bind.incoming()
             .for_each(move |sock| {
@@ -59,8 +62,8 @@ impl RpcServer {
             .map_err(|err| error!("Server Error: {:?}", err))
     }
 
-    pub fn create_client(conn: GrpcConn, uri: http::Uri) -> impl Future<Item = RpcClient, Error = Error> {
-        Connect::new(conn, Default::default(), DefaultExecutor::current())
+    pub fn create_client(conn: GrpcConn, uri: http::Uri) -> Box<Future<Item = RpcClient, Error = Error> + Send + Sync + 'static> {
+        let client = Connect::new(conn, Default::default(), DefaultExecutor::current())
             .make_service(())
             .map(move |c| {
                 let connection = Builder::new().uri(uri).build(c).unwrap();
@@ -69,7 +72,8 @@ impl RpcServer {
             .map_err(|e| {
                 println!("{:?}", e);
                 Error::Inner(())
-            })
+            });
+        Box::new(client)
     }
 
     pub fn create_result(code: i32, message: String) -> ResultReply {
@@ -82,11 +86,11 @@ impl RpcServer {
 }
 
 impl server::IndexService for RpcServer {
-    type ListIndexesFuture = Box<Future<Item = Response<ListReply>, Error = Error> + Send>;
-    type PlaceIndexFuture = Box<Future<Item = Response<ResultReply>, Error = Error> + Send>;
+    type ListIndexesFuture = future::FutureResult<Response<ListReply>, Error>;
+    type PlaceIndexFuture = future::FutureResult<Response<ResultReply>, Error>;
     type PlaceDocumentFuture = Box<Future<Item = Response<ResultReply>, Error = Error> + Send>;
     type PlaceReplicaFuture = Box<Future<Item = Response<ResultReply>, Error = Error> + Send>;
-    type SearchIndexFuture = Box<Future<Item = Response<SearchReply>, Error = Error> + Send>;
+    type SearchIndexFuture = future::FutureResult<Response<SearchReply>, Error>;
 
     fn place_index(&mut self, _request: Request<PlaceRequest>) -> Self::PlaceIndexFuture {
         unimplemented!()
@@ -97,11 +101,11 @@ impl server::IndexService for RpcServer {
             let indexes = cat.get_collection();
             let lists: Vec<String> = indexes.into_iter().map(|t| t.0.to_string()).collect();
             let resp = Response::new(ListReply { indexes: lists });
-            Box::new(future::finished(resp))
+            future::finished(resp)
         } else {
             let status = Status::with_code_and_message(Code::NotFound, "Could not get lock on index catalog".into());
             let err = Error::Grpc(status);
-            Box::new(future::failed(err))
+            future::failed(err)
         }
     }
 
@@ -123,18 +127,18 @@ impl server::IndexService for RpcServer {
                     let query_bytes: Vec<u8> = serde_json::to_vec(&query_results).unwrap();
                     let result = Some(RpcServer::create_result(0, "".into()));
                     let resp = Response::new(RpcServer::create_search_reply(result, query_bytes));
-                    Box::new(future::finished(resp))
+                    future::finished(resp)
                 }
                 Err(e) => {
                     let result = Some(RpcServer::create_result(1, e.to_string()));
                     let resp = Response::new(RpcServer::create_search_reply(result, vec![]));
-                    Box::new(future::finished(resp))
+                    future::finished(resp)
                 }
             }
         } else {
             let status = Status::with_code_and_message(Code::NotFound, format!("Index: {} not found", inner.index));
             let err = Error::Grpc(status);
-            Box::new(future::failed(err))
+            future::failed(err)
         }
     }
 }
