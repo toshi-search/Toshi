@@ -108,6 +108,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[ignore]
     fn client_test() {
         let uri: http::Uri = format!("http://localhost:8081").parse().unwrap();
         let socket_addr: SocketAddr = "127.0.0.1:8081".parse().unwrap();
