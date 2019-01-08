@@ -7,6 +7,7 @@ use futures::stream::Stream;
 use log::{error, info};
 use tokio::executor::DefaultExecutor;
 use tokio::net::{TcpListener, TcpStream};
+use tower_buffer::Buffer;
 use tower_grpc::{BoxBody, Code, Error, Request, Response, Status};
 use tower_h2::client::{Connect, Connection};
 use tower_h2::Server;
@@ -21,7 +22,9 @@ use crate::handle::IndexHandle;
 use crate::index::IndexCatalog;
 use crate::query;
 
-pub type RpcClient = client::IndexService<AddOrigin<Connection<TcpStream, DefaultExecutor, tower_grpc::BoxBody>>>;
+pub type RpcClient = client::IndexService<
+    Buffer<AddOrigin<Connection<TcpStream, DefaultExecutor, tower_grpc::BoxBody>>, http::Request<tower_grpc::BoxBody>>,
+>;
 
 /// RPC Services should "ideally" work on only local indexes, they shouldn't be responsible for
 /// going to other nodes to get index data. It should be the master's duty to know where the local
@@ -62,7 +65,13 @@ impl RpcServer {
                 .make_service(())
                 .map(move |c| {
                     let connection = Builder::new().uri(uri).build(c).unwrap();
-                    client::IndexService::new(connection)
+
+                    let buf = match Buffer::new(connection, 100) {
+                        Ok(b) => b,
+                        Err(_) => panic!(),
+                    };
+
+                    client::IndexService::new(buf)
                 })
                 .map_err(|e| {
                     println!("{:?}", e);

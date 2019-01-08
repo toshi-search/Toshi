@@ -16,13 +16,13 @@ use tower_grpc::BoxBody;
 #[derive(Clone)]
 pub struct RemoteIndex {
     rpc_conn: GrpcConn,
-    remote: RpcClient,
+    // remote: RpcClient,
     name: String,
 }
 
 impl RemoteIndex {
-    pub fn new(rpc_conn: GrpcConn, name: String, remote: RpcClient) -> Self {
-        Self { rpc_conn, name, remote }
+    pub fn new(rpc_conn: GrpcConn, name: String) -> Self {
+        Self { rpc_conn, name }
     }
 }
 
@@ -40,28 +40,29 @@ impl IndexHandle for RemoteIndex {
     }
 
     fn search_index(&self, search: Request) -> Self::SearchResponse {
-        let gconn = self.rpc_conn.clone();
-        let name = self.name.clone();
-        println!("GRPC_CONN = {:?}", &gconn);
+        // let gconn = self.rpc_conn.clone();
+        // let name = self.name.clone();
+        // println!("GRPC_CONN = {:?}", &gconn);
 
-        let conn_task = future::ok(self.remote.clone());
+        // let conn_task = future::ok(self.remote.clone());
 
-        let req_task = conn_task.and_then(move |mut client| {
-            let bytes = serde_json::to_vec(&search).unwrap();
-            let req = TowerRequest::new(SearchRequest { index: name, query: bytes });
-            client
-                .search_index(req)
-                .map(|res| {
-                    println!("RESPONSE = {:?}", res);
-                    res.into_inner()
-                })
-                .map_err(|e| {
-                    println!("{:?}", e);
-                    Error::Inner(())
-                })
-        });
+        // let req_task = conn_task.and_then(move |mut client| {
+        //     let bytes = serde_json::to_vec(&search).unwrap();
+        //     let req = TowerRequest::new(SearchRequest { index: name, query: bytes });
+        //     client
+        //         .search_index(req)
+        //         .map(|res| {
+        //             println!("RESPONSE = {:?}", res);
+        //             res.into_inner()
+        //         })
+        //         .map_err(|e| {
+        //             println!("{:?}", e);
+        //             Error::Inner(())
+        //         })
+        // });
 
-        Box::new(req_task)
+        // Box::new(req_task)
+        unimplemented!()
     }
 
     fn add_document(&self, doc: AddDocument) -> Self::AddResponse {

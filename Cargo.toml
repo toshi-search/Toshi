@@ -23,7 +23,7 @@ tower-grpc-build = { git = "https://github.com/tower-rs/tower-grpc" }
 [dependencies]
 tower-buffer      = "^0.1"
 tower-consul      = "^0.1"
-tower-grpc        = "^0.1"
+tower-grpc        = { version = "^0.1", features = ["tower-h2"] }
 tower-h2          = "^0.1"
 tower-http        = "^0.1"
 tower-service     = "^0.2"
