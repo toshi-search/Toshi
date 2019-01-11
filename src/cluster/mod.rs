@@ -9,13 +9,7 @@ use tokio::net::TcpStream;
 pub use self::consul::Consul;
 pub use self::node::*;
 pub use self::placement_server::Place;
-use bytes::Bytes;
-use bytes::IntoBuf;
-use futures::Poll;
-use futures::Stream;
-use prost::Message;
-use tower_grpc::client::Encodable;
-use tower_grpc::Body;
+use tower_h2::client::ConnectError;
 
 pub mod placement {
     use prost_derive::{Enumeration, Message};
@@ -86,6 +80,38 @@ pub enum ClusterError {
     UnableToGetIndexHandle,
 }
 
+pub type ConnectionError = ConnectError<io::Error>;
+pub type BufError = tower_buffer::Error<tower_h2::client::Error>;
+pub type GrpcError = tower_grpc::Error<tower_buffer::Error<ConnectionError>>;
+
+#[derive(Debug, Fail)]
+pub enum RPCError {
+    #[fail(display = "Error in RPC: {}", _0)]
+    RPCError(tower_grpc::Error<GrpcError>),
+    #[fail(display = "Error in RPC Connect: {}", _0)]
+    ConnectError(ConnectionError),
+    #[fail(display = "Error in RPC Buffer: {}", _0)]
+    BufError(tower_grpc::Error<BufError>),
+}
+
+impl From<GrpcError> for RPCError {
+    fn from(err: GrpcError) -> Self {
+        RPCError::RPCError(tower_grpc::Error::Inner(err))
+    }
+}
+
+impl From<ConnectionError> for RPCError {
+    fn from(err: ConnectError<io::Error>) -> Self {
+        RPCError::ConnectError(err)
+    }
+}
+
+impl From<tower_grpc::Error<BufError>> for RPCError {
+    fn from(err: tower_grpc::Error<BufError>) -> Self {
+        RPCError::BufError(err)
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub enum DiskType {
     SSD,
@@ -102,57 +128,5 @@ impl tokio_connect::Connect for GrpcConn {
 
     fn connect(&self) -> Self::Future {
         TcpStream::connect(&self.0)
-    }
-}
-
-/// Dynamic `Send` body object.
-pub struct BoxBody<T = Bytes> {
-    inner: Box<Body<Data = T> + Send + Sync>,
-}
-
-// ===== impl BoxBody =====
-
-impl<T> BoxBody<T> {
-    /// Create a new `BoxBody` backed by `inner`.
-    pub fn new(inner: Box<Body<Data = T> + Send + Sync>) -> Self {
-        BoxBody { inner }
-    }
-}
-
-impl<T> Body for BoxBody<T>
-where
-    T: IntoBuf,
-{
-    type Data = T;
-
-    fn is_end_stream(&self) -> bool {
-        self.inner.is_end_stream()
-    }
-
-    fn poll_data(&mut self) -> Poll<Option<Self::Data>, tower_grpc::Error> {
-        self.inner.poll_data()
-    }
-
-    fn poll_metadata(&mut self) -> Poll<Option<http::HeaderMap>, tower_grpc::Error> {
-        self.inner.poll_metadata()
-    }
-}
-
-impl<T> ::tower_h2::Body for BoxBody<T>
-where
-    T: IntoBuf + Send + 'static,
-{
-    type Data = T;
-
-    fn is_end_stream(&self) -> bool {
-        Body::is_end_stream(self)
-    }
-
-    fn poll_data(&mut self) -> Poll<Option<Self::Data>, h2::Error> {
-        Body::poll_data(self).map_err(::h2::Error::from)
-    }
-
-    fn poll_trailers(&mut self) -> Poll<Option<http::HeaderMap>, h2::Error> {
-        Body::poll_metadata(self).map_err(::h2::Error::from)
     }
 }

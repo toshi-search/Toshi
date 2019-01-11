@@ -7,7 +7,6 @@ use tantivy::query::{AllQuery, QueryParser};
 use tantivy::schema::*;
 use tantivy::{Document, Index, IndexWriter, Term};
 
-use crate::cluster::rpc_server::RpcClient;
 use crate::handlers::index::{AddDocument, DeleteDoc, DocsAffected};
 use crate::query::{CreateQuery, Query, Request};
 use crate::results::{ScoredDoc, SearchResults};
@@ -28,7 +27,6 @@ pub trait IndexHandle {
     fn get_name(&self) -> String;
     fn index_location(&self) -> IndexLocation;
     fn search_index(&self, search: Request) -> Self::SearchResponse;
-    fn search_index_with_client(&self, search: Request, remote: Option<RpcClient>) -> Self::SearchResponse;
     fn add_document(&self, doc: AddDocument) -> Self::AddResponse;
     fn delete_term(&self, term: DeleteDoc) -> Self::DeleteResponse;
 }
@@ -109,10 +107,6 @@ impl IndexHandle for LocalIndex {
         } else {
             Err(Error::QueryError("Empty Query Provided".into()))
         }
-    }
-
-    fn search_index_with_client(&self, search: Request, _: Option<RpcClient>) -> Self::SearchResponse {
-        self.search_index(search)
     }
 
     fn add_document(&self, add_doc: AddDocument) -> Self::AddResponse {

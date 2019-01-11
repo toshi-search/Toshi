@@ -3,7 +3,6 @@ use tower_grpc::{Error, Request as TowerRequest};
 
 use crate::cluster::cluster_rpc::{ResultReply, SearchReply, SearchRequest};
 use crate::cluster::rpc_server::RpcClient;
-use crate::cluster::GrpcConn;
 use crate::handle::{IndexHandle, IndexLocation};
 use crate::handlers::index::{AddDocument, DeleteDoc};
 use crate::query::Request;
@@ -14,11 +13,12 @@ use crate::query::Request;
 
 pub struct RemoteIndex {
     name: String,
+    remote: RpcClient,
 }
 
 impl RemoteIndex {
-    pub fn new(name: String) -> Self {
-        Self { name }
+    pub fn new(name: String, remote: RpcClient) -> Self {
+        Self { name, remote }
     }
 }
 
@@ -36,35 +36,29 @@ impl IndexHandle for RemoteIndex {
     }
 
     fn search_index(&self, search: Request) -> Self::SearchResponse {
-        unimplemented!("Don't call this method")
-    }
-
-    fn search_index_with_client(&self, search: Request, client: Option<RpcClient>) -> Self::SearchResponse {
         let name = self.name.clone();
-        let req_task = future::lazy(move || {
-            let bytes = serde_json::to_vec(&search).unwrap();
-            let req = TowerRequest::new(SearchRequest { index: name, query: bytes });
-            client
-                .unwrap()
-                .search_index(req)
-                .map(|res| {
-                    println!("RESPONSE = {:?}", res);
-                    res.into_inner()
-                })
-                .map_err(|e| {
-                    println!("{:?}", e);
-                    Error::Inner(())
-                })
-        });
+        let mut client = self.remote.clone();
+        let bytes = serde_json::to_vec(&search).unwrap();
+        let req = TowerRequest::new(SearchRequest { index: name, query: bytes });
+        let fut = client
+            .search_index(req)
+            .map(|res| {
+                println!("RESPONSE = {:?}", res);
+                res.into_inner()
+            })
+            .map_err(|e| {
+                println!("{:?}", e);
+                Error::Inner(())
+            });
 
-        return Box::new(req_task);
+        Box::new(fut)
     }
 
-    fn add_document(&self, doc: AddDocument) -> Self::AddResponse {
+    fn add_document(&self, _: AddDocument) -> Self::AddResponse {
         unimplemented!()
     }
 
-    fn delete_term(&self, term: DeleteDoc) -> Self::DeleteResponse {
+    fn delete_term(&self, _: DeleteDoc) -> Self::DeleteResponse {
         unimplemented!()
     }
 }

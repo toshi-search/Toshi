@@ -1,30 +1,28 @@
 use std::net::SocketAddr;
 use std::sync::{Arc, RwLock};
 
-use futures::future;
-use futures::future::Future;
-use futures::stream::Stream;
+use futures::{future, future::Future, stream::Stream};
 use log::{error, info};
-use tokio::executor::DefaultExecutor;
 use tokio::net::{TcpListener, TcpStream};
-use tower_grpc::{Code, Error, Request, Response, Status};
+use tokio_executor::DefaultExecutor;
+use tower_buffer::Buffer;
+use tower_grpc::{BoxBody, Code, Error, Request, Response, Status};
+use tower_h2::client::{Connect, Connection};
+use tower_h2::Server;
 use tower_http::add_origin::Builder;
 use tower_http::AddOrigin;
 use tower_util::MakeService;
 
 use crate::cluster::cluster_rpc::server;
 use crate::cluster::cluster_rpc::*;
-
 use crate::cluster::GrpcConn;
+use crate::cluster::RPCError;
 use crate::handle::IndexHandle;
 use crate::index::IndexCatalog;
 use crate::query;
-use tower_grpc::BoxBody;
-use tower_h2::client::Connect;
-use tower_h2::client::Connection;
-use tower_h2::Server;
 
-pub type RpcClient = client::IndexService<AddOrigin<Connection<TcpStream, DefaultExecutor, BoxBody>>>;
+pub type Buf = Buffer<AddOrigin<Connection<TcpStream, DefaultExecutor, BoxBody>>, http::Request<BoxBody>>;
+pub type RpcClient = client::IndexService<Buf>;
 
 /// RPC Services should "ideally" work on only local indexes, they shouldn't be responsible for
 /// going to other nodes to get index data. It should be the master's duty to know where the local
@@ -62,18 +60,21 @@ impl RpcServer {
             .map_err(|err| error!("Server Error: {:?}", err))
     }
 
-    pub fn create_client(conn: GrpcConn, uri: http::Uri) -> Box<Future<Item = RpcClient, Error = Error> + Send + Sync + 'static> {
-        let client = Connect::new(conn, Default::default(), DefaultExecutor::current())
-            .make_service(())
-            .map(move |c| {
+    pub fn create_client(conn: GrpcConn, uri: http::Uri) -> impl Future<Item = RpcClient, Error = RPCError> + Send + 'static {
+        let mut connect = Connect::new(conn, Default::default(), DefaultExecutor::current());
+        let service = connect.make_service(());
+
+        service
+            .map(|c| {
+                let uri = uri;
                 let connection = Builder::new().uri(uri).build(c).unwrap();
-                client::IndexService::new(connection)
+                let buffer = match Buffer::new(connection, 0) {
+                    Ok(b) => b,
+                    _ => panic!("asdf"),
+                };
+                client::IndexService::new(buffer)
             })
-            .map_err(|e| {
-                println!("{:?}", e);
-                Error::Inner(())
-            });
-        Box::new(client)
+            .map_err(|e| e.into())
     }
 
     pub fn create_result(code: i32, message: String) -> ResultReply {
@@ -145,14 +146,10 @@ impl server::IndexService for RpcServer {
 
 #[cfg(test)]
 mod tests {
-    use futures::future::Future;
-    use http::Uri;
-    use tower_grpc::client::unary::ResponseFuture;
-
-    use crate::cluster::remote_handle::RemoteIndex;
     use crate::index::tests::create_test_catalog;
     use crate::query::Query;
-    use crate::results::SearchResults;
+    use futures::future::Future;
+    use http::Uri;
 
     use super::*;
 
@@ -170,34 +167,26 @@ mod tests {
             .path_and_query("")
             .build()
             .unwrap();
+
         let tcp_stream = GrpcConn(socket_addr);
         let cat = create_test_catalog("test_index");
         let service = RpcServer::get_service(socket_addr, cat);
 
         let client_fut = RpcServer::create_client(tcp_stream.clone(), host_uri)
-            //            .and_then(|client| future::ok(RemoteIndex::new(tcp_stream, "test_index".into(), client)))
-            .and_then(move |mut client| {
-                client
-                    .list_indexes(Request::new(list))
-                    .map(|resp| resp.into_inner())
-                    .map_err(|r| Error::Inner(()))
-            });
-        //            .map_err(|e| println!("ERROR = {:?}", e));
+            .and_then(|mut client| {
+                future::ok(
+                    client
+                        .list_indexes(Request::new(list))
+                        .map(|resp| resp.into_inner())
+                        .map_err(|_| ()),
+                )
+            })
+            .map_err(|_| ())
+            .and_then(|x| x)
+            .map(|x| println!("{:#?}", x))
+            .map_err(|_| ());
 
-        let si = client_fut
-            //            .and_then(|remote| {
-            //                remote
-            //                    .search_index(req)
-            //                    .map(|r| {
-            //                        let results: SearchResults = serde_json::from_slice(&r.doc).unwrap();
-            //                        assert_eq!(results.hits, 1);
-            //                    })
-            //                    .map_err(|e| println!("{:?}", e))
-            //            })
-            .map(|e| println!("RES = {:?}", e))
-            .map_err(|e| println!("ERROR = {:?}", e));
-
-        let s = service.select(si).map(|_| ()).map_err(|_| ());
+        let s = service.select(client_fut).map(|_| ()).map_err(|_| ());
 
         tokio::run(s);
     }
