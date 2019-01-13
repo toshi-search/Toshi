@@ -1,8 +1,10 @@
+use log::info;
 use tokio::prelude::*;
-use tower_grpc::{Error, Request as TowerRequest};
+use tower_grpc::Request as TowerRequest;
 
 use crate::cluster::cluster_rpc::{ResultReply, SearchReply, SearchRequest};
 use crate::cluster::rpc_server::RpcClient;
+use crate::cluster::RPCError;
 use crate::handle::{IndexHandle, IndexLocation};
 use crate::handlers::index::{AddDocument, DeleteDoc};
 use crate::query::Request;
@@ -23,9 +25,9 @@ impl RemoteIndex {
 }
 
 impl IndexHandle for RemoteIndex {
-    type SearchResponse = Box<Future<Item = SearchReply, Error = Error> + Send>;
-    type DeleteResponse = Box<Future<Item = ResultReply, Error = Error> + Send>;
-    type AddResponse = Box<Future<Item = ResultReply, Error = Error> + Send>;
+    type SearchResponse = Box<Future<Item = SearchReply, Error = RPCError> + Send>;
+    type DeleteResponse = Box<Future<Item = ResultReply, Error = RPCError> + Send>;
+    type AddResponse = Box<Future<Item = ResultReply, Error = RPCError> + Send>;
 
     fn get_name(&self) -> String {
         self.name.clone()
@@ -43,12 +45,12 @@ impl IndexHandle for RemoteIndex {
         let fut = client
             .search_index(req)
             .map(|res| {
-                println!("RESPONSE = {:?}", res);
+                info!("RESPONSE = {:?}", res);
                 res.into_inner()
             })
             .map_err(|e| {
-                println!("{:?}", e);
-                Error::Inner(())
+                info!("{:?}", e);
+                e.into()
             });
 
         Box::new(fut)
