@@ -88,7 +88,7 @@ fn settings() -> Settings {
                 .short("h")
                 .long("host")
                 .takes_value(true)
-                .default_value("localhost"),
+                .default_value("0.0.0.0"),
         )
         .arg(
             Arg::with_name("port")

@@ -139,7 +139,7 @@ impl Settings {
     }
 
     pub fn default_host() -> String {
-        "localhost".to_string()
+        "0.0.0.0".to_string()
     }
 
     pub fn default_path() -> String {
