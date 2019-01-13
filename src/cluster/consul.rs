@@ -1,5 +1,6 @@
 //! Provides an interface to a Consul cluster
 
+use bytes::Bytes;
 use futures::{stream::Stream, Async, Future, Poll};
 use hyper::body::Body;
 use hyper::client::HttpConnector;
@@ -173,8 +174,8 @@ impl HttpsService {
     }
 }
 
-impl Service<Request<Vec<u8>>> for HttpsService {
-    type Response = Response<Vec<u8>>;
+impl Service<Request<Bytes>> for HttpsService {
+    type Response = Response<Bytes>;
     type Error = hyper::Error;
     type Future = Box<Future<Item = Self::Response, Error = Self::Error> + Send>;
 
@@ -182,7 +183,7 @@ impl Service<Request<Vec<u8>>> for HttpsService {
         Ok(Async::Ready(()))
     }
 
-    fn call(&mut self, req: Request<Vec<u8>>) -> Self::Future {
+    fn call(&mut self, req: Request<Bytes>) -> Self::Future {
         let f = self
             .client
             .request(req.map(Body::from))
@@ -196,7 +197,7 @@ impl Service<Request<Vec<u8>>> for HttpsService {
                 Ok(Response::builder()
                     .status(status)
                     // .headers(headers)
-                    .body(body.to_vec())
+                    .body(body.into())
                     .unwrap())
             });
 
