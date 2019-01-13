@@ -3,6 +3,8 @@
 
 [![dependency status](https://deps.rs/repo/github/toshi-search/Toshi/status.svg)](https://deps.rs/repo/github/toshi-search/toshi) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Build Status](https://travis-ci.org/toshi-search/Toshi.svg?branch=master)](https://travis-ci.org/toshi-search/Toshi) [![codecov](https://codecov.io/gh/toshi-search/Toshi/branch/master/graph/badge.svg)](https://codecov.io/gh/toshi-search/Toshi) [![Coverage Status](https://coveralls.io/repos/github/toshi-search/Toshi/badge.svg?branch=master)](https://coveralls.io/github/toshi-search/Toshi?branch=master) [![Join the chat at https://gitter.im/toshi-search/Toshi](https://badges.gitter.im/toshi-search/Toshi.svg)](https://gitter.im/toshi-search/Toshi?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
+*Note: This is far from production ready*
+
 #### Description
 Toshi is meant to be a full text search engine similar to Elasticsearch. Toshi strives
 to be for Elasticsearch what [Tantivy](https://github.com/tantivy-search/tantivy) is to Lucene. 
