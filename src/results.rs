@@ -1,9 +1,11 @@
 use crate::query::SummaryDoc;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use tantivy::schema::NamedFieldDocument;
+use tantivy::schema::Value;
 use tower_web::*;
 
-#[derive(Response, Serialize)]
+#[derive(Response, Serialize, Deserialize, Debug)]
 pub struct SearchResults {
     pub hits: usize,
     pub docs: Vec<ScoredDoc>,
@@ -28,16 +30,15 @@ impl SearchResults {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct ScoredDoc {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub score: Option<f32>,
-    #[serde(flatten)]
-    pub doc: NamedFieldDocument,
+    pub doc: BTreeMap<String, Vec<Value>>,
 }
 
 impl ScoredDoc {
     pub fn new(score: Option<f32>, doc: NamedFieldDocument) -> Self {
-        ScoredDoc { score, doc }
+        ScoredDoc { score, doc: doc.0 }
     }
 }

@@ -1,7 +1,7 @@
 use crate::settings::Settings;
 use crate::{Error, Result};
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tantivy::query::Query as TantivyQuery;
 use tantivy::schema::Schema;
 use tantivy::Term;
@@ -29,11 +29,7 @@ pub trait CreateQuery {
     fn create_query(self, schema: &Schema) -> Result<Box<TantivyQuery>>;
 }
 
-pub trait AggregateQuery<T> {
-    fn result(&self) -> Result<T>;
-}
-
-#[derive(Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 #[serde(untagged)]
 pub enum Query {
     Boolean { bool: BoolQuery },
@@ -46,13 +42,13 @@ pub enum Query {
     All,
 }
 
-#[derive(Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 #[serde(untagged)]
 pub enum Metrics {
     SumAgg { field: String },
 }
 
-#[derive(Extract, Deserialize, Debug)]
+#[derive(Serialize, Extract, Deserialize, Debug)]
 pub struct Request {
     pub aggs: Option<Metrics>,
     pub query: Option<Query>,
@@ -74,7 +70,7 @@ impl Request {
     }
 }
 
-#[derive(Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 #[serde(untagged)]
 pub enum TermQueries {
     Fuzzy(FuzzyQuery),

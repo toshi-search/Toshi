@@ -6,6 +6,7 @@ use std::net::SocketAddr;
 
 pub mod placement_proto {
     use prost_derive::{Enumeration, Message};
+
     #[cfg(target_family = "unix")]
     include!(concat!(env!("OUT_DIR"), "/placement.rs"));
     #[cfg(target_family = "windows")]
@@ -14,16 +15,20 @@ pub mod placement_proto {
 
 pub mod cluster_rpc {
     use prost_derive::{Enumeration, Message};
+
     #[cfg(target_family = "unix")]
-    include!(concat!(env!("OUT_DIR"), "/cluster.rs"));
+    include!(concat!(env!("OUT_DIR"), "/cluster_rpc.rs"));
     #[cfg(target_family = "windows")]
-    include!(concat!(env!("OUT_DIR"), "\\cluster.rs"));
+    include!(concat!(env!("OUT_DIR"), "\\cluster_rpc.rs"));
 }
 
 pub mod consul;
 pub mod node;
-pub mod placement;
+
 pub mod shard;
+pub mod remote_handle;
+pub mod rpc_server;
+mod placement;
 
 pub use self::consul::Consul;
 pub use self::node::*;
@@ -42,6 +47,7 @@ pub fn run(place_addr: SocketAddr, consul: Consul) -> impl Future<Item = (), Err
         Place::serve(consul, nodes, place_addr)
     })
 }
+
 
 #[derive(Debug, Fail, Serialize, Deserialize)]
 pub enum ClusterError {

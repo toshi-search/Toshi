@@ -7,7 +7,6 @@ use hyper::http::uri::Scheme;
 use hyper::{Client, Request, Response, Uri};
 use hyper_tls::HttpsConnector;
 use serde::{Deserialize, Serialize};
-use tower_buffer::Buffer;
 use tower_consul::{Consul as TowerConsul, ConsulService, KVValue};
 use tower_service::Service;
 
@@ -166,7 +165,7 @@ pub struct HttpsService {
 }
 
 impl HttpsService {
-    pub fn new() -> Self {
+    fn new() -> Self {
         let https = HttpsConnector::new(4).expect("Could not create TLS for Hyper");
         let client = Client::builder().build::<_, hyper::Body>(https);
 
@@ -188,7 +187,7 @@ impl Service<Request<Vec<u8>>> for HttpsService {
             .client
             .request(req.map(Body::from))
             .and_then(|res| {
-                let status = res.status().clone();
+                let status = res.status();
                 let headers = res.headers().clone();
 
                 res.into_body().concat2().join(Ok((status, headers)))

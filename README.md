@@ -4,23 +4,23 @@
 [![dependency status](https://deps.rs/repo/github/toshi-search/Toshi/status.svg)](https://deps.rs/repo/github/toshi-search/toshi) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Build Status](https://travis-ci.org/toshi-search/Toshi.svg?branch=master)](https://travis-ci.org/toshi-search/Toshi) [![codecov](https://codecov.io/gh/toshi-search/Toshi/branch/master/graph/badge.svg)](https://codecov.io/gh/toshi-search/Toshi) [![Coverage Status](https://coveralls.io/repos/github/toshi-search/Toshi/badge.svg?branch=master)](https://coveralls.io/github/toshi-search/Toshi?branch=master) [![Join the chat at https://gitter.im/toshi-search/Toshi](https://badges.gitter.im/toshi-search/Toshi.svg)](https://gitter.im/toshi-search/Toshi?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 #### Description
-Toshi is meant to be a full text search engine similar to ElasticSearch. Ideally, if what Tantivy is to Lucene, Toshi strives
-to be that for ElasticSearch. 
+Toshi is meant to be a full text search engine similar to Elasticsearch. Toshi strives
+to be for Elasticsearch what [Tantivy](https://github.com/tantivy-search/tantivy) is to Lucene. 
 
 #### Motivations
-Toshi will always target stable rust and will try our best to never make any use of unsafe. While underlying libraries may make some 
+Toshi will always target stable Rust and will try our best to never make any use of unsafe Rust. While underlying libraries may make some 
 use of unsafe, Toshi will make a concerted effort to vet these libraries in an effort to be completely free of unsafe Rust usage. The
 reason I chose this was because I felt that for this to actually become an attractive option for people to consider it would have to have
-be safe, stable and consistent. This was why stable rust was chosen because of the guarantees and safety it provides. I did not want to go down the rabbit hole of using nightly features to then have issues with their stability later on. Since Toshi is not 
-meant to be a library I'm perfectly fine with having this requirement because people who would want to use this more than likely will 
-take it off the shelf and not modify it. So my motivation was to cater to that use case when building Toshi.
+be safe, stable and consistent. This was why stable Rust was chosen because of the guarantees and safety it provides. I did not want to go down the rabbit hole of using nightly features to then have issues with their stability later on. Since Toshi is not 
+meant to be a library, I'm perfectly fine with having this requirement because people who would want to use this more than likely will 
+take it off the shelf and not modify it. My motivation was to cater to that use case when building Toshi.
 
 #### Build Requirements
-At this current time Toshi should build and work fine on Windows, OSX and Linux. From dependency requirements you are going to be Rust >= 1.27 and cargo installed to build.
+At this current time Toshi should build and work fine on Windows, Mac OS X, and Linux. From dependency requirements you are going to need Rust >= 1.27 and Cargo installed in order to build.
 
 #### Configuration
 
-There is a default config in config/config.toml
+There is a default configuration file in config/config.toml:
 
 ```toml
 host = "localhost"
@@ -42,7 +42,7 @@ level_log_size = 0.75
 ##### Host
 `host = "localhost"`
 
-The local hostname Toshi will bind on upon start.
+The hostname Toshi will bind on upon start.
 
 ##### Port
 `port = 8080`
@@ -52,36 +52,34 @@ The port Toshi will bind to upon start.
 ##### Path
 `path = "data/"`
 
-This is the data path where Toshi will store it's data and indexes.
+The data path where Toshi will store its data and indices.
 
 ##### Writer Memory
 `writer_memory = 200000000`
 
-This is the amount of memory Toshi should allocate to commits for new documents in bytes.
+The amount of memory (in bytes) Toshi should allocate to commits for new documents.
 
 ##### Log Level
 `log_level = "info"`
 
-The informational level to use for Toshi's logging.
+The detail level to use for Toshi's logging.
 
 ##### Json Parsing
 `json_parsing_threads = 4`
 
-When Toshi does a bulk ingest of documents it will spin up a number of threads to parse the document JSON as it's
+When Toshi does a bulk ingest of documents it will spin up a number of threads to parse the document's JSON as it's
 received. This controls the number of threads spawned to handle this job.
 
 ##### Bulk Buffer
 `bulk_buffer_size = 10000`
 
 This will control the buffer size for parsing documents into an index. It will control the amount of memory a bulk ingest will
-take up by blocking when the message buffer is filled. If you want to go totally off the rails you can set this to 0 in order to make
-the buffer unbounded.
+take up by blocking when the message buffer is filled. If you want to go totally off the rails you can set this to 0 in order to make the buffer unbounded.
 
 ##### Auto Commit Duration
 `auto_commit_duration = 10`
 
-This controls how often an index will automatically commit documents if there are docs to be committed. Set this to 0 to disable this feature,
-but you will have to do commits yourself when you submit documents. 
+This controls how often an index will automatically commit documents if there are docs to be committed. Set this to 0 to disable this feature, but you will have to do commits yourself when you submit documents. 
 
 ##### Merge Policy
 ```toml
@@ -118,20 +116,19 @@ You should get a startup message like this.
  INFO  gotham::start >  Gotham listening on http://[::1]:8080 with 12 threads
 ```
 
-You can verify Toshi is running with
+You can verify Toshi is running with:
 
 ```bash
 curl -X GET http://localhost:8080/
 ```
 
-Which should return
+which should return:
 
 ```html
 Toshi Search, Version: 0.1.0
 ```
 
-Once Toshi is up and running we can create an Index. Toshi uses Tantivy so creating an index requires a Tantivy Schema. Let's create a 
-simple one seen below.
+Once Toshi is up and running we can create an index. Toshi uses Tantivy so creating an index requires a Tantivy Schema. Let's create a simple one seen below.
 
 ```bash
 curl -X PUT \
@@ -169,10 +166,9 @@ curl -X PUT \
   ```
   
 If everything succeeded we should receive a `201 CREATED` from this request and if you look in the data directory you configured you
-should now see a directory for the test_index you just created.
+should now see a directory for the `test_index` you just created.
 
-Now we can add some documents to our Index. The options field can be omitted if a user does not want to commit on every document addition, but
-for completeness it is included here.
+Now we can add some documents to our index. The options field can be omitted if a user does not want to commit on every document addition, but for completeness it is included here:
 
 ```bash
 curl -X PUT \
@@ -188,7 +184,7 @@ curl -X PUT \
     }'
 ```
 
-And finally we can retrieve all the documents in an index with a simple get call
+And finally we can retrieve all the documents in an index with a simple GET call:
 
 ```bash
 curl -X GET http://localhost:8080/test_index -H 'Content-Type: application/json'

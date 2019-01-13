@@ -43,7 +43,7 @@ pub fn main() -> Result<(), ()> {
     };
 
     let toshi = {
-        let server = run(index_catalog.clone(), settings);
+        let server = run(index_catalog.clone(), &settings);
         let shutdown = shutdown(tx);
         server.select(shutdown)
     };
@@ -134,7 +134,7 @@ fn settings() -> Settings {
     }
 }
 
-fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: Settings) -> impl Future<Item = (), Error = ()> {
+fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Future<Item = (), Error = ()> {
     if !Path::new(&settings.path).exists() {
         info!("Base data path {} does not exist, creating it...", settings.path);
         create_dir(settings.path.clone()).expect("Unable to create data directory");
