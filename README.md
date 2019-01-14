@@ -133,7 +133,7 @@ Once Toshi is up and running we can create an index. Toshi uses Tantivy so creat
 
 ```bash
 curl -X PUT \
-  http://localhost:8080/test_index \
+  http://localhost:8080/test_index/_create \
   -H 'Content-Type: application/json' \
   -d '[
     {
