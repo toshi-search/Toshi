@@ -102,7 +102,7 @@ level_log_size = 0.75
 In addition there is the "nomerge" option, in which Tantivy will do no merging of segments.
 
 #### Building and Running
-Toshi can be build using `cargo build --release` once Toshi is built from the top level directory you can run `target/release/toshi` to start Toshi according to the configuration in config/config.toml
+Toshi can be built using `cargo build --release`. Once Toshi is built you can run `./target/release/toshi` from the top level directory to start Toshi according to the configuration in config/config.toml
 
 You should get a startup message like this.
 
