@@ -68,73 +68,60 @@ fn settings() -> Settings {
         .version(crate_version!())
         .about(crate_description!())
         .author(crate_authors!())
-        .arg(Arg::with_name("config").short("c").long("config").takes_value(true))
-        .arg(
-            Arg::with_name("level")
-                .short("l")
-                .long("level")
-                .takes_value(true)
-                .default_value("info"),
-        )
-        .arg(
-            Arg::with_name("path")
-                .short("d")
-                .long("data-path")
-                .takes_value(true)
-                .default_value("data/"),
-        )
-        .arg(
-            Arg::with_name("host")
-                .short("h")
-                .long("host")
-                .takes_value(true)
-                .default_value("0.0.0.0"),
-        )
-        .arg(
-            Arg::with_name("port")
-                .short("p")
-                .long("port")
-                .takes_value(true)
-                .default_value("8080"),
-        )
-        .arg(
-            Arg::with_name("consul-host")
-                .short("C")
-                .long("consul-host")
-                .takes_value(true)
-                .default_value("localhost"),
-        )
-        .arg(
-            Arg::with_name("consul-port")
-                .short("P")
-                .long("consul-port")
-                .takes_value(true)
-                .default_value("8500"),
-        )
-        .arg(
-            Arg::with_name("cluster-name")
-                .short("N")
-                .long("cluster-name")
-                .takes_value(true)
-                .default_value("kitsune"),
-        )
-        .arg(
-            Arg::with_name("enable-clustering")
-                .short("e")
-                .long("enable-clustering")
-                .takes_value(true),
-        )
+        .arg(Arg::with_name("config")
+             .short("c")
+             .long("config")
+             .takes_value(true))
+        .arg(Arg::with_name("level")
+             .short("l")
+             .long("level")
+             .takes_value(true)
+             .default_value("info"))
+        .arg(Arg::with_name("path")
+             .short("d")
+             .long("data-path")
+             .takes_value(true)
+             .default_value("data/"))
+        .arg(Arg::with_name("host")
+             .short("h")
+             .long("host")
+             .takes_value(true)
+             .default_value("0.0.0.0"))
+        .arg(Arg::with_name("port")
+             .short("p")
+             .long("port")
+             .takes_value(true)
+             .default_value("8080"))
+        .arg(Arg::with_name("consul-host")
+             .short("C")
+             .long("consul-host")
+             .takes_value(true)
+             .default_value("localhost"))
+        .arg(Arg::with_name("consul-port")
+             .short("P")
+             .long("consul-port")
+             .takes_value(true)
+             .default_value("8500"))
+        .arg(Arg::with_name("cluster-name")
+             .short("N")
+             .long("cluster-name")
+             .takes_value(true)
+             .default_value("kitsune"))
+        .arg(Arg::with_name("enable-clustering")
+             .short("e")
+             .long("enable-clustering")
+             .takes_value(true))
         .get_matches();
 
-    if options.is_present("config") {
-        let cfg = options.value_of("config").unwrap();
-        Settings::new(cfg).expect("Invalid Config file")
-    } else {
-        Settings::from_args(&options)
+    match options.value_of("config") {
+        Some(v) => Settings::new(v).expect("Invalid configuration file"),
+        None => Settings::from_args(&options)
     }
+    
 }
 
 fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Future<Item = (), Error = ()> {
+
     if !Path::new(&settings.path).exists() {
         info!("Base data path {} does not exist, creating it...", settings.path);
         create_dir(settings.path.clone()).expect("Unable to create data directory");
@@ -144,7 +131,6 @@ fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Future<I
         let commit_watcher = IndexWatcher::new(catalog.clone(), settings.auto_commit_duration);
         future::Either::A(future::lazy(move || {
             commit_watcher.start();
-
             future::ok::<(), ()>(())
         }))
     } else {
@@ -152,8 +138,8 @@ fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Future<I
     };
 
     let addr = format!("{}:{}", &settings.host, settings.port);
-
-    let bind: SocketAddr = addr.parse().unwrap();
+    let bind: SocketAddr = addr.parse().expect("Failed to parse socket address");
+    
     println!("{}", HEADER);
 
     if settings.enable_clustering {
@@ -180,15 +166,15 @@ fn connect_to_consul(settings: &Settings) -> impl Future<Item = (), Error = ()> 
             .with_cluster_name(cluster_name)
             .with_address(consul_address)
             .build()
-            .unwrap();
+            .expect("Could not build Consul client.");
 
-        // Build future that will connect to consul and register the node_id
+        // Build future that will connect to Consul and register the node_id
         consul_client
             .register_cluster()
             .and_then(move |_| cluster::read_node_id(settings_path_read.as_str()))
             .then(|result| match result {
                 Ok(id) => {
-                    let parsed_id = Uuid::parse_str(&id).expect("Parsed node ID is not a UUID");
+                    let parsed_id = Uuid::parse_str(&id).expect("Parsed node ID is not a UUID.");
                     cluster::write_node_id(settings_path_write, parsed_id.to_hyphenated().to_string())
                 }
 
