@@ -126,11 +126,9 @@ fn settings() -> Settings {
         )
         .get_matches();
 
-    if options.is_present("config") {
-        let cfg = options.value_of("config").unwrap();
-        Settings::new(cfg).expect("Invalid Config file")
-    } else {
-        Settings::from_args(&options)
+    match options.value_of("config") {
+        Some(v) => Settings::new(v).expect("Invalid configuration file"),
+        None => Settings::from_args(&options),
     }
 }
 
@@ -144,7 +142,6 @@ fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Future<I
         let commit_watcher = IndexWatcher::new(catalog.clone(), settings.auto_commit_duration);
         future::Either::A(future::lazy(move || {
             commit_watcher.start();
-
             future::ok::<(), ()>(())
         }))
     } else {
@@ -152,8 +149,8 @@ fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Future<I
     };
 
     let addr = format!("{}:{}", &settings.host, settings.port);
+    let bind: SocketAddr = addr.parse().expect("Failed to parse socket address");
 
-    let bind: SocketAddr = addr.parse().unwrap();
     println!("{}", HEADER);
 
     if settings.enable_clustering {
@@ -180,15 +177,15 @@ fn connect_to_consul(settings: &Settings) -> impl Future<Item = (), Error = ()> 
             .with_cluster_name(cluster_name)
             .with_address(consul_address)
             .build()
-            .unwrap();
+            .expect("Could not build Consul client.");
 
-        // Build future that will connect to consul and register the node_id
+        // Build future that will connect to Consul and register the node_id
         consul_client
             .register_cluster()
             .and_then(move |_| cluster::read_node_id(settings_path_read.as_str()))
             .then(|result| match result {
                 Ok(id) => {
-                    let parsed_id = Uuid::parse_str(&id).expect("Parsed node ID is not a UUID");
+                    let parsed_id = Uuid::parse_str(&id).expect("Parsed node ID is not a UUID.");
                     cluster::write_node_id(settings_path_write, parsed_id.to_hyphenated().to_string())
                 }
 
