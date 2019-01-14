@@ -5,4 +5,3 @@ new_index/
 ./.node_id.txt
 ./.gitignore
 data/
-config/config.toml
