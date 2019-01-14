@@ -20,6 +20,10 @@ take it off the shelf and not modify it. My motivation was to cater to that use 
 #### Build Requirements
 At this current time Toshi should build and work fine on Windows, Mac OS X, and Linux. From dependency requirements you are going to need Rust >= 1.27 and Cargo installed in order to build.
 
+There is also a free pre-configured online build environment for Toshi:
+
+[![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://github.com/toshi-search/Toshi)
+
 #### Configuration
 
 There is a default configuration file in config/config.toml:

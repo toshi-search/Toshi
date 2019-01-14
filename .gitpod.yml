@@ -1,0 +1,5 @@
+ports:
+- port: 8080
+tasks:
+- init: cargo build --release && mkdir -p data
+  command: target/release/toshi
