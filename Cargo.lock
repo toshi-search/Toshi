@@ -2048,7 +2048,7 @@ dependencies = [
 [[package]]
 name = "tower-add-origin"
 version = "0.1.0"
-source = "git+https://github.com/tower-rs/tower-http#3599ce02f063cf7db5aae3edcdaeb9073a7ebc33"
+source = "git+https://github.com/tower-rs/tower-http#786816a0ca797ab75794d36f2b915fa67967f96b"
 dependencies = [
  "futures 0.1.25 (registry+https://github.com/rust-lang/crates.io-index)",
  "http 0.1.14 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2091,7 +2091,7 @@ dependencies = [
 [[package]]
 name = "tower-grpc"
 version = "0.1.0"
-source = "git+https://github.com/tower-rs/tower-grpc#6f355226654ac5ad90209db3e308223c662248cb"
+source = "git+https://github.com/tower-rs/tower-grpc#d0df76a934319ad1c18b851d4a341a4223a4a74a"
 dependencies = [
  "bytes 0.4.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures 0.1.25 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2109,7 +2109,7 @@ dependencies = [
 [[package]]
 name = "tower-grpc-build"
 version = "0.1.0"
-source = "git+https://github.com/tower-rs/tower-grpc#6f355226654ac5ad90209db3e308223c662248cb"
+source = "git+https://github.com/tower-rs/tower-grpc#d0df76a934319ad1c18b851d4a341a4223a4a74a"
 dependencies = [
  "codegen 0.1.0 (git+https://github.com/carllerche/codegen)",
  "heck 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2154,7 +2154,7 @@ dependencies = [
 [[package]]
 name = "tower-service"
 version = "0.2.0"
-source = "git+https://github.com/tower-rs/tower#7b61c1fc1992c1df684fd3f179644ef0ca9bfa4c"
+source = "git+https://github.com/tower-rs/tower#68ad8a00f2fc765f031207d3eacc56916bd7efb2"
 dependencies = [
  "futures 0.1.25 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -2162,7 +2162,7 @@ dependencies = [
 [[package]]
 name = "tower-util"
 version = "0.1.0"
-source = "git+https://github.com/tower-rs/tower#7b61c1fc1992c1df684fd3f179644ef0ca9bfa4c"
+source = "git+https://github.com/tower-rs/tower#68ad8a00f2fc765f031207d3eacc56916bd7efb2"
 dependencies = [
  "futures 0.1.25 (registry+https://github.com/rust-lang/crates.io-index)",
  "tower-direct-service 0.1.0 (git+https://github.com/tower-rs/tower)",
