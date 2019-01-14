@@ -1,13 +1,13 @@
 # Toshi
-##### A Full Text Search Engine in Rust Based on [Tantivy](https://github.com/tantivy-search/tantivy)
+##### A Full-Text Search Engine in Rust
 
 [![dependency status](https://deps.rs/repo/github/toshi-search/Toshi/status.svg)](https://deps.rs/repo/github/toshi-search/toshi) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Build Status](https://travis-ci.org/toshi-search/Toshi.svg?branch=master)](https://travis-ci.org/toshi-search/Toshi) [![codecov](https://codecov.io/gh/toshi-search/Toshi/branch/master/graph/badge.svg)](https://codecov.io/gh/toshi-search/Toshi) [![Coverage Status](https://coveralls.io/repos/github/toshi-search/Toshi/badge.svg?branch=master)](https://coveralls.io/github/toshi-search/Toshi?branch=master) [![Join the chat at https://gitter.im/toshi-search/Toshi](https://badges.gitter.im/toshi-search/Toshi.svg)](https://gitter.im/toshi-search/Toshi?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-*Note: This is far from production ready*
+> *Please note that this is far from production ready*
 
 #### Description
-Toshi is meant to be a full text search engine similar to Elasticsearch. Toshi strives
-to be for Elasticsearch what [Tantivy](https://github.com/tantivy-search/tantivy) is to Lucene. 
+Toshi is meant to be a full-text search engine similar to Elasticsearch. Toshi strives
+to be to Elasticsearch what [Tantivy](https://github.com/tantivy-search/tantivy) is to Lucene. 
 
 #### Motivations
 Toshi will always target stable Rust and will try our best to never make any use of unsafe Rust. While underlying libraries may make some 
@@ -44,7 +44,7 @@ level_log_size = 0.75
 ##### Host
 `host = "localhost"`
 
-The hostname Toshi will bind on upon start.
+The hostname Toshi will bind to upon start.
 
 ##### Port
 `port = 8080`
@@ -102,8 +102,7 @@ level_log_size = 0.75
 In addition there is the "nomerge" option, in which Tantivy will do no merging of segments.
 
 #### Building and Running
-Toshi can be build using `cargo build --release` once Toshi is built from the top level directory you can run `target/release/toshi` to
-start toshi according to the configuration in config/config.toml
+Toshi can be build using `cargo build --release` once Toshi is built from the top level directory you can run `target/release/toshi` to start Toshi according to the configuration in config/config.toml
 
 You should get a startup message like this.
 
@@ -130,7 +129,7 @@ which should return:
 Toshi Search, Version: 0.1.0
 ```
 
-Once Toshi is up and running we can create an index. Toshi uses Tantivy so creating an index requires a Tantivy Schema. Let's create a simple one seen below.
+Once Toshi is up and running we can create an index. Toshi uses Tantivy so creating an index requires a Tantivy Schema. Let's create a simple one as seen below.
 
 ```bash
 curl -X PUT \
@@ -167,10 +166,9 @@ curl -X PUT \
   ]'
   ```
   
-If everything succeeded we should receive a `201 CREATED` from this request and if you look in the data directory you configured you
-should now see a directory for the `test_index` you just created.
+If successful you should receive a `201 CREATED` response and the `data` directory should now contain a directory for the `test_index` you just created.
 
-Now we can add some documents to our index. The options field can be omitted if a user does not want to commit on every document addition, but for completeness it is included here:
+Now you can add documents to our index. The `options` field can be omitted if a user does not want to commit on every document addition, but for completeness it is included here:
 
 ```bash
 curl -X PUT \
@@ -186,7 +184,7 @@ curl -X PUT \
     }'
 ```
 
-And finally we can retrieve all the documents in an index with a simple GET call:
+Now we can retrieve all the documents in an index with a simple GET call:
 
 ```bash
 curl -X GET http://localhost:8080/test_index -H 'Content-Type: application/json'
@@ -198,4 +196,4 @@ curl -X GET http://localhost:8080/test_index -H 'Content-Type: application/json'
 
 #### What is a Toshi?
 
-Toshi is a three year old Shiba Inu. He is a very good boy and is the official mascot of this project. Toshi personally reviews all code before it is commited to this repository and is dedicated to only accepting the highest quality contributions from his human. He will though accept treats for easier code reviews. 
+Toshi is a three year old Shiba Inu. He is a very good boy and is the official mascot of this project. Toshi personally reviews all code before it is commited to this repository and is dedicated to only accepting the highest quality contributions from his human. He will, though, accept treats for easier code reviews. 
