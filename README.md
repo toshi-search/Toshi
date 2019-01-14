@@ -127,7 +127,7 @@ curl -X GET http://localhost:8080/
 which should return:
 
 ```html
-Toshi Search, Version: 0.1.0
+Toshi Search, Version: 0.1.1
 ```
 
 Once Toshi is up and running we can create an index. Toshi uses Tantivy so creating an index requires a Tantivy Schema. Let's create a simple one seen below.
@@ -198,4 +198,4 @@ curl -X GET http://localhost:8080/test_index -H 'Content-Type: application/json'
 
 #### What is a Toshi?
 
-Toshi is a three year old Shiba Inu. He is a very good boy and is the official mascot of this project. Toshi personally reviews all code before it is commited to this repository and is dedicated to only accepting the highest quality contributions from his human. He will though accept treats for easier code reviews. 
+Toshi is a three year old Shiba Inu. He is a very good boy and is the official mascot of this project. Toshi personally reviews all code before it is committed to this repository and is dedicated to only accepting the highest quality contributions from his human. He will though accept treats for easier code reviews. 
