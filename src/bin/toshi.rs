@@ -34,7 +34,7 @@ pub fn main() -> Result<(), ()> {
         let index_catalog = match IndexCatalog::new(path, settings.clone()) {
             Ok(v) => v,
             Err(e) => {
-                eprintln!("Error Encountered - {}", e.to_string());
+                eprintln!("Error creating IndexCatalog from path {} - {}", settings.path, e);
                 std::process::exit(1);
             }
         };
