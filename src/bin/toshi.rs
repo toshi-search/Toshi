@@ -24,6 +24,7 @@ pub fn main() -> Result<(), ()> {
 
     std::env::set_var("RUST_LOG", &settings.log_level);
     pretty_env_logger::init();
+    info!("{:?}", &settings);
 
     let mut rt = Runtime::new().expect("failed to start new Runtime");
 
@@ -81,7 +82,13 @@ fn settings() -> Settings {
         .version(crate_version!())
         .about(crate_description!())
         .author(crate_authors!())
-        .arg(Arg::with_name("config").short("c").long("config").takes_value(true))
+        .arg(
+            Arg::with_name("config")
+                .short("c")
+                .long("config")
+                .takes_value(true)
+                .default_value("config/config.toml"),
+        )
         .arg(
             Arg::with_name("level")
                 .short("l")

@@ -185,12 +185,7 @@ impl Service<Request<Bytes>> for HttpsService {
 
                 res.into_body().concat2().join(Ok((status, headers)))
             })
-            .and_then(|(body, (status, _headers))| {
-                Ok(Response::builder()
-                    .status(status)
-                    .body(body.into())
-                    .unwrap())
-            });
+            .and_then(|(body, (status, _headers))| Ok(Response::builder().status(status).body(body.into()).unwrap()));
 
         Box::new(f)
     }

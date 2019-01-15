@@ -76,9 +76,9 @@ pub struct Settings {
     pub cluster_name: String,
     #[serde(default = "Settings::default_enable_clustering")]
     pub enable_clustering: bool,
-    #[serde(default)]
+    #[serde(default = "Settings::default_master")]
     pub master: bool,
-    #[serde(default)]
+    #[serde(default = "Settings::default_nodes")]
     pub nodes: Vec<String>,
 }
 
@@ -98,8 +98,8 @@ impl Default for Settings {
             consul_port: Settings::default_consul_port(),
             cluster_name: Settings::default_cluster_name(),
             enable_clustering: Settings::default_enable_clustering(),
-            master: false,
-            nodes: vec![],
+            master: Settings::default_master(),
+            nodes: Settings::default_nodes(),
         }
     }
 }
@@ -207,6 +207,14 @@ impl Settings {
 
     pub fn default_enable_clustering() -> bool {
         false
+    }
+
+    pub fn default_master() -> bool {
+        true
+    }
+
+    pub fn default_nodes() -> Vec<String> {
+        Vec::new()
     }
 
     pub fn get_channel<T>(&self) -> (Sender<T>, Receiver<T>) {
