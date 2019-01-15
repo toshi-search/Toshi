@@ -29,6 +29,11 @@ pub fn main() -> Result<(), ()> {
 
     let (tx, shutdown_signal) = oneshot::channel();
 
+    if !Path::new(&settings.path).exists() {
+        info!("Base data path {} does not exist, creating it...", settings.path);
+        create_dir(settings.path.clone()).expect("Unable to create data directory");
+    }
+
     let index_catalog = {
         let path = PathBuf::from(settings.path.clone());
         let index_catalog = match IndexCatalog::new(path, settings.clone()) {
@@ -135,11 +140,6 @@ fn settings() -> Settings {
 }
 
 fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Future<Item = (), Error = ()> {
-    if !Path::new(&settings.path).exists() {
-        info!("Base data path {} does not exist, creating it...", settings.path);
-        create_dir(settings.path.clone()).expect("Unable to create data directory");
-    }
-
     let commit_watcher = if settings.auto_commit_duration > 0 {
         let commit_watcher = IndexWatcher::new(catalog.clone(), settings.auto_commit_duration);
         future::Either::A(future::lazy(move || {
