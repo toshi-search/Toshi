@@ -230,7 +230,7 @@ mod tests {
     #[test]
     fn valid_default_config() {
         let default = Settings::from_str("").unwrap();
-        assert_eq!(default.host, "localhost");
+        assert_eq!(default.host, "0.0.0.0");
         assert_eq!(default.port, 8080);
         assert_eq!(default.path, "data/");
         assert_eq!(default.writer_memory, 200_000_000);
