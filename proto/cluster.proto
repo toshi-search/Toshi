@@ -8,6 +8,7 @@ service HealthService {
 
 service IndexService {
     rpc place_index (PlaceRequest) returns (ResultReply);
+    rpc list_indexes (ListRequest) returns (ListReply);
     rpc place_document (DocumentRequest) returns (ResultReply);
     rpc place_replica (ReplicaRequest) returns (ResultReply);
     rpc search_index (SearchRequest) returns (SearchReply);
@@ -25,6 +26,11 @@ message ResultReply {
     string message = 2;
 }
 
+message ListRequest {}
+
+message ListReply {
+    repeated string indexes = 1;
+}
 
 message PingReply {
 }

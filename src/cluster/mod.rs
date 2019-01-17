@@ -1,9 +1,15 @@
+use std::io;
+use std::net::SocketAddr;
+
 use failure::Fail;
 use serde::{Deserialize, Serialize};
+use tokio::net::tcp::ConnectFuture;
+use tokio::net::TcpStream;
 
 pub use self::consul::Consul;
 pub use self::node::*;
 pub use self::placement_server::Place;
+use tower_h2::client::ConnectError;
 
 pub mod placement {
     use prost_derive::{Enumeration, Message};
@@ -74,8 +80,53 @@ pub enum ClusterError {
     UnableToGetIndexHandle,
 }
 
+pub type ConnectionError = ConnectError<io::Error>;
+pub type BufError = tower_buffer::Error<tower_h2::client::Error>;
+pub type GrpcError = tower_grpc::Error<tower_buffer::Error<ConnectionError>>;
+
+#[derive(Debug, Fail)]
+pub enum RPCError {
+    #[fail(display = "Error in RPC: {}", _0)]
+    RPCError(tower_grpc::Error<GrpcError>),
+    #[fail(display = "Error in RPC Connect: {}", _0)]
+    ConnectError(ConnectionError),
+    #[fail(display = "Error in RPC Buffer: {}", _0)]
+    BufError(tower_grpc::Error<BufError>),
+}
+
+impl From<GrpcError> for RPCError {
+    fn from(err: GrpcError) -> Self {
+        RPCError::RPCError(tower_grpc::Error::Inner(err))
+    }
+}
+
+impl From<ConnectionError> for RPCError {
+    fn from(err: ConnectError<io::Error>) -> Self {
+        RPCError::ConnectError(err)
+    }
+}
+
+impl From<tower_grpc::Error<BufError>> for RPCError {
+    fn from(err: tower_grpc::Error<BufError>) -> Self {
+        RPCError::BufError(err)
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub enum DiskType {
     SSD,
     HDD,
+}
+
+#[derive(Debug, Clone)]
+pub struct GrpcConn(pub SocketAddr);
+
+impl tokio_connect::Connect for GrpcConn {
+    type Connected = TcpStream;
+    type Error = io::Error;
+    type Future = ConnectFuture;
+
+    fn connect(&self) -> Self::Future {
+        TcpStream::connect(&self.0)
+    }
 }

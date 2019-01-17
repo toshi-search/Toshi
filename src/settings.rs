@@ -16,6 +16,14 @@ pub const HEADER: &str = r#"
  Such Relevance, Much Index, Many Search, Wow
  "#;
 
+pub const RPC_HEADER: &str = r#"
+ ______         __   _   ___  ___  _____
+/_  __/__  ___ / /  (_) / _ \/ _ \/ ___/
+ / / / _ \(_-</ _ \/ / / , _/ ___/ /__
+/_/  \___/___/_//_/_/ /_/|_/_/   \___/
+Such coordination, Much consensus, Many RPC, Wow
+"#;
+
 #[derive(PartialEq)]
 pub enum MergePolicyType {
     Log,
@@ -68,6 +76,10 @@ pub struct Settings {
     pub cluster_name: String,
     #[serde(default = "Settings::default_enable_clustering")]
     pub enable_clustering: bool,
+    #[serde(default = "Settings::default_master")]
+    pub master: bool,
+    #[serde(default = "Settings::default_nodes")]
+    pub nodes: Vec<String>,
 }
 
 impl Default for Settings {
@@ -86,6 +98,8 @@ impl Default for Settings {
             consul_port: Settings::default_consul_port(),
             cluster_name: Settings::default_cluster_name(),
             enable_clustering: Settings::default_enable_clustering(),
+            master: Settings::default_master(),
+            nodes: Settings::default_nodes(),
         }
     }
 }
@@ -193,6 +207,14 @@ impl Settings {
 
     pub fn default_enable_clustering() -> bool {
         false
+    }
+
+    pub fn default_master() -> bool {
+        true
+    }
+
+    pub fn default_nodes() -> Vec<String> {
+        Vec::new()
     }
 
     pub fn get_channel<T>(&self) -> (Sender<T>, Receiver<T>) {

@@ -24,7 +24,7 @@ impl IndexWatcher {
         let task = Interval::new_interval(Duration::from_secs(self.commit_duration))
             .for_each(move |_| {
                 if let Ok(mut cat) = catalog.write() {
-                    cat.get_mut_collection().iter_mut().for_each(|(key, index)| {
+                    cat.get_mut_collection().into_iter().for_each(|(key, index)| {
                         let writer = index.get_writer();
                         let current_ops = index.get_opstamp();
                         if current_ops == 0 {

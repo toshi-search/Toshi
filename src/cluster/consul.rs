@@ -13,6 +13,7 @@ use crate::cluster::shard::ReplicaShard;
 use crate::cluster::shard::Shard;
 use crate::cluster::ClusterError;
 use crate::{Error, Result};
+use bytes::Bytes;
 
 #[derive(Serialize, Deserialize)]
 pub struct NodeData {
@@ -165,8 +166,8 @@ impl Default for HttpsService {
     }
 }
 
-impl Service<Request<Vec<u8>>> for HttpsService {
-    type Response = Response<Vec<u8>>;
+impl Service<Request<Bytes>> for HttpsService {
+    type Response = Response<Bytes>;
     type Error = hyper::Error;
     type Future = Box<Future<Item = Self::Response, Error = Self::Error> + Send>;
 
@@ -174,7 +175,7 @@ impl Service<Request<Vec<u8>>> for HttpsService {
         Ok(Async::Ready(()))
     }
 
-    fn call(&mut self, req: Request<Vec<u8>>) -> Self::Future {
+    fn call(&mut self, req: Request<Bytes>) -> Self::Future {
         let f = self
             .client
             .request(req.map(Body::from))
@@ -184,13 +185,7 @@ impl Service<Request<Vec<u8>>> for HttpsService {
 
                 res.into_body().concat2().join(Ok((status, headers)))
             })
-            .and_then(|(body, (status, _headers))| {
-                Ok(Response::builder()
-                    .status(status)
-                    // .headers(headers)
-                    .body(body.to_vec())
-                    .unwrap())
-            });
+            .and_then(|(body, (status, _headers))| Ok(Response::builder().status(status).body(body.into()).unwrap()));
 
         Box::new(f)
     }
