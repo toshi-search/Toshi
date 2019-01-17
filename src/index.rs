@@ -212,6 +212,7 @@ pub mod tests {
     }
 
     #[test]
+    #[ignore]
     pub fn test_remote_index_refresh() {
         let socket_addr: SocketAddr = "127.0.0.1:8081".parse().unwrap();
         let cat = create_test_catalog("test_index");
