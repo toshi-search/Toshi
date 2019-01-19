@@ -1,13 +1,21 @@
 use std::collections::HashMap;
 use std::fs;
 use std::iter::Iterator;
+use std::net::SocketAddr;
 use std::path::PathBuf;
 
-use log::info;
+use futures::Future;
+use http::Uri;
 use tantivy::directory::MmapDirectory;
 use tantivy::schema::Schema;
 use tantivy::Index;
 
+use crate::cluster::cluster_rpc::ListRequest;
+use crate::cluster::remote_handle::RemoteIndex;
+use crate::cluster::rpc_server::RpcClient;
+use crate::cluster::rpc_server::RpcServer;
+use crate::cluster::GrpcConn;
+use crate::cluster::RPCError;
 use crate::handle::{IndexHandle, LocalIndex};
 use crate::query::Request;
 use crate::results::*;
@@ -17,7 +25,8 @@ use crate::{Error, Result};
 pub struct IndexCatalog {
     pub settings: Settings,
     base_path: PathBuf,
-    collection: HashMap<String, LocalIndex>,
+    local_indexes: HashMap<String, LocalIndex>,
+    remote_indexes: HashMap<String, RemoteIndex>,
 }
 
 impl IndexCatalog {
@@ -29,10 +38,10 @@ impl IndexCatalog {
         let mut index_cat = IndexCatalog {
             settings,
             base_path,
-            collection: HashMap::new(),
+            local_indexes: HashMap::new(),
+            remote_indexes: HashMap::new(),
         };
         index_cat.refresh_catalog()?;
-        info!("Indexes: {:?}", index_cat.collection.keys());
         Ok(index_cat)
     }
 
@@ -50,7 +59,8 @@ impl IndexCatalog {
         Ok(IndexCatalog {
             settings: Settings::default(),
             base_path: PathBuf::new(),
-            collection: map,
+            local_indexes: map,
+            remote_indexes: HashMap::new(),
         })
     }
 
@@ -76,33 +86,39 @@ impl IndexCatalog {
 
     pub fn add_index(&mut self, name: String, index: Index) -> Result<()> {
         let handle = LocalIndex::new(index, self.settings.clone(), &name)?;
-        self.collection.entry(name).or_insert(handle);
+        self.local_indexes.insert(name.clone(), handle);
+        Ok(())
+    }
+
+    pub fn add_remote_index(&mut self, name: String, remote: RpcClient) -> Result<()> {
+        let ri = RemoteIndex::new(name.clone(), remote);
+        self.remote_indexes.entry(name).or_insert(ri);
         Ok(())
     }
 
     #[allow(dead_code)]
     pub fn get_collection(&self) -> &HashMap<String, LocalIndex> {
-        &self.collection
+        &self.local_indexes
     }
 
     pub fn get_mut_collection(&mut self) -> &mut HashMap<String, LocalIndex> {
-        &mut self.collection
+        &mut self.local_indexes
     }
 
     pub fn exists(&self, index: &str) -> bool {
-        self.get_collection().contains_key(index)
+        self.get_collection().contains_key(&index.to_string())
     }
 
     pub fn get_mut_index(&mut self, name: &str) -> Result<&mut LocalIndex> {
-        self.collection.get_mut(name).ok_or_else(|| Error::UnknownIndex(name.to_string()))
+        self.local_indexes.get_mut(name).ok_or_else(|| Error::UnknownIndex(name.into()))
     }
 
     pub fn get_index(&self, name: &str) -> Result<&LocalIndex> {
-        self.collection.get(name).ok_or_else(|| Error::UnknownIndex(name.to_string()))
+        self.local_indexes.get(name).ok_or_else(|| Error::UnknownIndex(name.into()))
     }
 
     pub fn refresh_catalog(&mut self) -> Result<()> {
-        self.collection.clear();
+        self.local_indexes.clear();
 
         for dir in fs::read_dir(self.base_path.clone())? {
             let entry = dir?.path();
@@ -119,6 +135,35 @@ impl IndexCatalog {
         Ok(())
     }
 
+    fn create_host_uri(socket: SocketAddr) -> Result<Uri> {
+        Uri::builder()
+            .scheme("http")
+            .authority(socket.to_string().as_str())
+            .path_and_query("")
+            .build()
+            .map_err(|e| Error::IOError(e.to_string()))
+    }
+
+    pub fn refresh_remote_catalog(node: String) -> impl Future<Item = (), Error = RPCError> + Send + 'static {
+        let socket: SocketAddr = node.parse().unwrap();
+        let host_uri = IndexCatalog::create_host_uri(socket).unwrap();
+        let grpc_conn = GrpcConn(socket);
+        let client_fut = RpcServer::create_client(grpc_conn.clone(), host_uri)
+            .and_then(|mut client| {
+                client
+                    .list_indexes(tower_grpc::Request::new(ListRequest {}))
+                    .map(|resp| resp.into_inner())
+                    .inspect(|x| println!("{:#?}", x))
+                    .map_err(|e| e.into())
+            })
+            .map(|x| {
+                // Uhh... do stuff here that actually matters...
+                println!("{:#?}", x)
+            });
+
+        client_fut
+    }
+
     pub fn search_index(&self, index: &str, search: Request) -> Result<SearchResults> {
         match self.get_index(index) {
             Ok(hand) => hand.search_index(search),
@@ -127,7 +172,7 @@ impl IndexCatalog {
     }
 
     pub fn clear(&mut self) {
-        self.collection.clear();
+        self.local_indexes.clear();
     }
 }
 
@@ -164,5 +209,19 @@ pub mod tests {
         writer.commit().unwrap();
 
         idx
+    }
+
+    #[test]
+    #[ignore]
+    pub fn test_remote_index_refresh() {
+        let socket_addr: SocketAddr = "127.0.0.1:8081".parse().unwrap();
+        let cat = create_test_catalog("test_index");
+        let service = RpcServer::get_service(socket_addr, cat);
+        let nodes = "127.0.0.1:8081".into();
+        let refresh = IndexCatalog::refresh_remote_catalog(nodes).map_err(|_| ());
+
+        let s = service.select(refresh).map(|_| ()).map_err(|_| ());
+
+        tokio::run(s);
     }
 }

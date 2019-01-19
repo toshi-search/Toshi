@@ -16,7 +16,7 @@ use crate::handlers::*;
 use crate::index::IndexCatalog;
 use crate::settings::VERSION;
 
-pub fn router_with_catalog(addr: &SocketAddr, catalog: &Arc<RwLock<IndexCatalog>>) -> impl Future<Item = (), Error = ()> {
+pub fn router_with_catalog(addr: &SocketAddr, catalog: &Arc<RwLock<IndexCatalog>>) -> Box<Future<Item = (), Error = ()> + Send> {
     let search_handler = SearchHandler::new(Arc::clone(catalog));
     let index_handler = IndexHandler::new(Arc::clone(catalog));
     let bulk_handler = BulkHandler::new(Arc::clone(catalog));
@@ -24,7 +24,7 @@ pub fn router_with_catalog(addr: &SocketAddr, catalog: &Arc<RwLock<IndexCatalog>
     let root_handler = RootHandler::new(VERSION);
     let listener = TcpListener::bind(addr).unwrap().incoming();
 
-    ServiceBuilder::new()
+    let router = ServiceBuilder::new()
         .resource(search_handler)
         .resource(index_handler)
         .resource(bulk_handler)
@@ -51,5 +51,7 @@ pub fn router_with_catalog(addr: &SocketAddr, catalog: &Arc<RwLock<IndexCatalog>
 
             Ok(response)
         })
-        .serve(listener)
+        .serve(listener);
+
+    Box::new(router)
 }

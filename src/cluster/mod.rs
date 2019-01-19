@@ -1,8 +1,16 @@
+use std::io;
+use std::net::SocketAddr;
+
 use failure::Fail;
 use futures::{future, Future};
 use log::error;
 use serde::{Deserialize, Serialize};
-use std::net::SocketAddr;
+use tokio::net::tcp::ConnectFuture;
+use tokio::net::TcpStream;
+
+pub use self::consul::Consul;
+pub use self::node::*;
+use tower_h2::client::ConnectError;
 
 pub mod placement_proto {
     use prost_derive::{Enumeration, Message};
@@ -29,9 +37,6 @@ pub mod shard;
 pub mod remote_handle;
 pub mod rpc_server;
 mod placement;
-
-pub use self::consul::Consul;
-pub use self::node::*;
 
 use self::placement::{Background, Place};
 
@@ -95,8 +100,53 @@ pub enum ClusterError {
     UnableToGetIndexHandle,
 }
 
+pub type ConnectionError = ConnectError<io::Error>;
+pub type BufError = tower_buffer::Error<tower_h2::client::Error>;
+pub type GrpcError = tower_grpc::Error<tower_buffer::Error<ConnectionError>>;
+
+#[derive(Debug, Fail)]
+pub enum RPCError {
+    #[fail(display = "Error in RPC: {}", _0)]
+    RPCError(tower_grpc::Error<GrpcError>),
+    #[fail(display = "Error in RPC Connect: {}", _0)]
+    ConnectError(ConnectionError),
+    #[fail(display = "Error in RPC Buffer: {}", _0)]
+    BufError(tower_grpc::Error<BufError>),
+}
+
+impl From<GrpcError> for RPCError {
+    fn from(err: GrpcError) -> Self {
+        RPCError::RPCError(tower_grpc::Error::Inner(err))
+    }
+}
+
+impl From<ConnectionError> for RPCError {
+    fn from(err: ConnectError<io::Error>) -> Self {
+        RPCError::ConnectError(err)
+    }
+}
+
+impl From<tower_grpc::Error<BufError>> for RPCError {
+    fn from(err: tower_grpc::Error<BufError>) -> Self {
+        RPCError::BufError(err)
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub enum DiskType {
     SSD,
     HDD,
+}
+
+#[derive(Debug, Clone)]
+pub struct GrpcConn(pub SocketAddr);
+
+impl tokio_connect::Connect for GrpcConn {
+    type Connected = TcpStream;
+    type Error = io::Error;
+    type Future = ConnectFuture;
+
+    fn connect(&self) -> Self::Future {
+        TcpStream::connect(&self.0)
+    }
 }

@@ -5,13 +5,14 @@ use log::debug;
 use tantivy::collector::TopDocs;
 use tantivy::query::{AllQuery, QueryParser};
 use tantivy::schema::*;
-use tantivy::{DocAddress, Document, Index, IndexWriter, Term};
+use tantivy::{Document, Index, IndexWriter, Term};
 
 use crate::handlers::index::{AddDocument, DeleteDoc, DocsAffected};
 use crate::query::{CreateQuery, Query, Request};
 use crate::results::{ScoredDoc, SearchResults};
 use crate::settings::Settings;
-use crate::Result;
+use crate::{Error, Result};
+use futures::IntoFuture;
 
 pub enum IndexLocation {
     LOCAL,
@@ -19,9 +20,9 @@ pub enum IndexLocation {
 }
 
 pub trait IndexHandle {
-    type SearchResponse;
-    type DeleteResponse;
-    type AddResponse;
+    type SearchResponse: IntoFuture;
+    type DeleteResponse: IntoFuture;
+    type AddResponse: IntoFuture;
 
     fn get_name(&self) -> String;
     fn index_location(&self) -> IndexLocation;
@@ -59,57 +60,53 @@ impl IndexHandle for LocalIndex {
         let searcher = self.index.searcher();
         let schema = self.index.schema();
         let collector = TopDocs::with_limit(search.limit);
-        let mut found_docs: Vec<(f32, DocAddress)> = Vec::new();
         if let Some(query) = search.query {
-            match query {
+            let scored_docs = match query {
                 Query::Regex(regex) => {
                     let regex_query = regex.create_query(&schema)?;
-                    found_docs = searcher.search(&*regex_query, &collector)?;
+                    searcher.search(&*regex_query, &collector)?
                 }
                 Query::Phrase(phrase) => {
                     let phrase_query = phrase.create_query(&schema)?;
-                    found_docs = searcher.search(&*phrase_query, &collector)?;
+                    searcher.search(&*phrase_query, &collector)?
                 }
                 Query::Fuzzy(fuzzy) => {
                     let fuzzy_query = fuzzy.create_query(&schema)?;
-                    found_docs = searcher.search(&*fuzzy_query, &collector)?;
+                    searcher.search(&*fuzzy_query, &collector)?
                 }
                 Query::Exact(term) => {
                     let exact_query = term.create_query(&schema)?;
-                    found_docs = searcher.search(&*exact_query, &collector)?;
+                    searcher.search(&*exact_query, &collector)?
                 }
                 Query::Boolean { bool } => {
                     let bool_query = bool.create_query(&schema)?;
-                    found_docs = searcher.search(&*bool_query, &collector)?;
+                    searcher.search(&*bool_query, &collector)?
                 }
                 Query::Range(range) => {
                     debug!("{:#?}", range);
                     let range_query = range.create_query(&schema)?;
                     debug!("{:?}", range_query);
-                    found_docs = searcher.search(&*range_query, &collector)?;
+                    searcher.search(&*range_query, &collector)?
                 }
                 Query::Raw { raw } => {
                     let fields: Vec<Field> = schema.fields().iter().filter_map(|e| schema.get_field(e.name())).collect();
                     let query_parser = QueryParser::for_index(&self.index, fields);
                     let query = query_parser.parse_query(&raw)?;
                     debug!("{:#?}", query);
-                    found_docs = searcher.search(&*query, &collector)?;
+                    searcher.search(&*query, &collector)?
                 }
-                Query::All => {
-                    found_docs = searcher.search(&AllQuery, &collector)?;
-                }
+                Query::All => searcher.search(&AllQuery, &collector)?,
             }
-        }
-
-        let scored_docs: Vec<ScoredDoc> = found_docs
             .into_iter()
             .map(|(score, doc)| {
                 let d = searcher.doc(doc).expect("Doc not found in segment");
                 ScoredDoc::new(Some(score), schema.to_named_doc(&d))
             })
             .collect();
-
-        Ok(SearchResults::new(scored_docs))
+            Ok(SearchResults::new(scored_docs))
+        } else {
+            Err(Error::QueryError("Empty Query Provided".into()))
+        }
     }
 
     fn add_document(&self, add_doc: AddDocument) -> Self::AddResponse {

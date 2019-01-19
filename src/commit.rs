@@ -1,7 +1,7 @@
 use crate::index::IndexCatalog;
 
 use futures::{Future, Stream};
-use log::info;
+use log::debug;
 use tokio::timer::Interval;
 
 use std::{
@@ -24,11 +24,11 @@ impl IndexWatcher {
         let task = Interval::new_interval(Duration::from_secs(self.commit_duration))
             .for_each(move |_| {
                 if let Ok(mut cat) = catalog.write() {
-                    cat.get_mut_collection().iter_mut().for_each(|(key, index)| {
+                    cat.get_mut_collection().into_iter().for_each(|(key, index)| {
                         let writer = index.get_writer();
                         let current_ops = index.get_opstamp();
                         if current_ops == 0 {
-                            info!("No update to index={}, opstamp={}", key, current_ops);
+                            debug!("No update to index={}, opstamp={}", key, current_ops);
                         } else if let Ok(mut w) = writer.lock() {
                             w.commit().unwrap();
                             index.set_opstamp(0);

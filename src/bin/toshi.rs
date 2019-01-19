@@ -1,9 +1,8 @@
-use toshi::{
-    cluster::{self, Consul},
-    commit::IndexWatcher,
-    index::IndexCatalog,
-    router::router_with_catalog,
-    settings::{Settings, HEADER},
+use std::net::SocketAddr;
+use std::{
+    fs::create_dir,
+    path::{Path, PathBuf},
+    sync::{Arc, RwLock},
 };
 
 use clap::{crate_authors, crate_description, crate_version, App, Arg, ArgMatches};
@@ -12,11 +11,12 @@ use log::{error, info};
 use tokio::runtime::Runtime;
 use uuid::Uuid;
 
-use std::net::SocketAddr;
-use std::{
-    fs::create_dir,
-    path::{Path, PathBuf},
-    sync::{Arc, RwLock},
+use toshi::{
+    cluster::{self, rpc_server::RpcServer, Consul},
+    commit::IndexWatcher,
+    index::IndexCatalog,
+    router::router_with_catalog,
+    settings::{Settings, HEADER, RPC_HEADER},
 };
 
 pub fn main() -> Result<(), ()> {
@@ -24,17 +24,23 @@ pub fn main() -> Result<(), ()> {
 
     std::env::set_var("RUST_LOG", &settings.log_level);
     pretty_env_logger::init();
+    info!("{:?}", &settings);
 
     let mut rt = Runtime::new().expect("failed to start new Runtime");
 
     let (tx, shutdown_signal) = oneshot::channel();
+
+    if !Path::new(&settings.path).exists() {
+        info!("Base data path {} does not exist, creating it...", settings.path);
+        create_dir(settings.path.clone()).expect("Unable to create data directory");
+    }
 
     let index_catalog = {
         let path = PathBuf::from(settings.path.clone());
         let index_catalog = match IndexCatalog::new(path, settings.clone()) {
             Ok(v) => v,
             Err(e) => {
-                eprintln!("Error Encountered - {}", e.to_string());
+                eprintln!("Error creating IndexCatalog from path {} - {}", settings.path, e);
                 std::process::exit(1);
             }
         };
@@ -43,7 +49,15 @@ pub fn main() -> Result<(), ()> {
     };
 
     let toshi = {
-        let server = run(index_catalog.clone(), &settings);
+        let server = if settings.master {
+            future::Either::A(run(index_catalog.clone(), &settings))
+        } else {
+            let addr = format!("{}:{}", &settings.host, settings.port);
+            println!("{}", RPC_HEADER);
+            info!("I am a data node...Binding to: {}", addr);
+            let bind: SocketAddr = addr.parse().unwrap();
+            future::Either::B(RpcServer::get_service(bind, Arc::clone(&index_catalog)))
+        };
         let shutdown = shutdown(tx);
         server.select(shutdown)
     };
@@ -68,7 +82,13 @@ fn settings() -> Settings {
         .version(crate_version!())
         .about(crate_description!())
         .author(crate_authors!())
-        .arg(Arg::with_name("config").short("c").long("config").takes_value(true))
+        .arg(
+            Arg::with_name("config")
+                .short("c")
+                .long("config")
+                .takes_value(true)
+                .default_value("config/config.toml"),
+        )
         .arg(
             Arg::with_name("level")
                 .short("l")
@@ -88,7 +108,7 @@ fn settings() -> Settings {
                 .short("h")
                 .long("host")
                 .takes_value(true)
-                .default_value("127.0.0.1"),
+                .default_value("0.0.0.0"),
         )
         .arg(
             Arg::with_name("port")
@@ -126,25 +146,17 @@ fn settings() -> Settings {
         )
         .get_matches();
 
-    if options.is_present("config") {
-        let cfg = options.value_of("config").unwrap();
-        Settings::new(cfg).expect("Invalid Config file")
-    } else {
-        Settings::from_args(&options)
+    match options.value_of("config") {
+        Some(v) => Settings::new(v).expect("Invalid configuration file"),
+        None => Settings::from_args(&options),
     }
 }
 
 fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Future<Item = (), Error = ()> {
-    if !Path::new(&settings.path).exists() {
-        info!("Base data path {} does not exist, creating it...", settings.path);
-        create_dir(settings.path.clone()).expect("Unable to create data directory");
-    }
-
     let commit_watcher = if settings.auto_commit_duration > 0 {
         let commit_watcher = IndexWatcher::new(catalog.clone(), settings.auto_commit_duration);
         future::Either::A(future::lazy(move || {
             commit_watcher.start();
-
             future::ok::<(), ()>(())
         }))
     } else {
@@ -152,8 +164,8 @@ fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Future<I
     };
 
     let addr = format!("{}:{}", &settings.host, settings.port);
+    let bind: SocketAddr = addr.parse().expect("Failed to parse socket address");
 
-    let bind: SocketAddr = addr.parse().unwrap();
     println!("{}", HEADER);
 
     if settings.enable_clustering {
@@ -161,7 +173,6 @@ fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Future<I
         let run = future::lazy(move || connect_to_consul(&settings))
             .and_then(move |_| commit_watcher)
             .and_then(move |_| router_with_catalog(&bind, &catalog));
-
         future::Either::A(run)
     } else {
         let run = commit_watcher.and_then(move |_| router_with_catalog(&bind, &catalog));
@@ -180,15 +191,15 @@ fn connect_to_consul(settings: &Settings) -> impl Future<Item = (), Error = ()> 
             .with_cluster_name(cluster_name)
             .with_address(consul_address)
             .build()
-            .unwrap();
+            .expect("Could not build Consul client.");
 
-        // Build future that will connect to consul and register the node_id
+        // Build future that will connect to Consul and register the node_id
         consul_client
             .register_cluster()
             .and_then(move |_| cluster::read_node_id(settings_path_read.as_str()))
             .then(|result| match result {
                 Ok(id) => {
-                    let parsed_id = Uuid::parse_str(&id).expect("Parsed node ID is not a UUID");
+                    let parsed_id = Uuid::parse_str(&id).expect("Parsed node ID is not a UUID.");
                     cluster::write_node_id(settings_path_write, parsed_id.to_hyphenated().to_string())
                 }
 
