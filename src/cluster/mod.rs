@@ -1,10 +1,10 @@
-use std::io;
-use std::net::SocketAddr;
-
 use failure::Fail;
 use futures::{future, Future};
 use log::error;
 use serde::{Deserialize, Serialize};
+use std::io;
+use std::net::SocketAddr;
+use std::time::Duration;
 use tokio::net::tcp::ConnectFuture;
 use tokio::net::TcpStream;
 
@@ -33,17 +33,17 @@ pub mod cluster_rpc {
 pub mod consul;
 pub mod node;
 
-pub mod shard;
+mod placement;
 pub mod remote_handle;
 pub mod rpc_server;
-mod placement;
+pub mod shard;
 
 use self::placement::{Background, Place};
 
 /// Run the services associated with the cluster
 pub fn run(place_addr: SocketAddr, consul: Consul) -> impl Future<Item = (), Error = std::io::Error> {
     future::lazy(move || {
-        let (nodes, bg) = Background::new(consul.clone());
+        let (nodes, bg) = Background::new(consul.clone(), Duration::from_secs(2));
 
         tokio::spawn(bg.map_err(|e| error!("Error in background placement sync: {:?}", e)));
 
@@ -52,7 +52,6 @@ pub fn run(place_addr: SocketAddr, consul: Consul) -> impl Future<Item = (), Err
         Place::serve(consul, nodes, place_addr)
     })
 }
-
 
 #[derive(Debug, Fail, Serialize, Deserialize)]
 pub enum ClusterError {

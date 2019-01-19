@@ -4,43 +4,38 @@ use futures_watch::{Store, Watch};
 use std::collections::{HashSet, VecDeque};
 use std::hash::Hash;
 use std::net::SocketAddr;
+use std::time::{Duration, Instant};
+use tokio::timer::Delay;
 use tower_consul::ConsulService;
 use tower_discover::Change;
 use tower_service::Service;
 
 pub struct Background {
     consul: Consul,
+    // TODO: better D/S for this?
     store: Store<HashSet<SocketAddr>>,
     nodes: HashSet<SocketAddr>,
     state: State,
+    interval: Duration,
 }
 
 impl Background {
-    pub fn new(consul: Consul) -> (Watch<HashSet<SocketAddr>>, Self) {
-        let (watch, store) = Watch::new(HashSet::new());
+    pub fn new(mut consul: Consul, interval: Duration) -> (Watch<HashSet<SocketAddr>>, Self) {
+        let (watch, mut store) = Watch::new(HashSet::new());
+
+        store.store(HashSet::new());
+
+        let state = State::Fetching(Box::new(consul.nodes()));
 
         let bg = Background {
             consul,
             store,
             nodes: HashSet::new(),
-            state: State::Start,
+            state,
+            interval,
         };
 
         (watch, bg)
-    }
-
-    fn diff(&mut self, other: Vec<SocketAddr>) {
-        for endpoint in other {
-            if !self.nodes.contains(&endpoint) {
-                // TODO: need to check if this change invalidates any other change
-                // think if we marked a node as removed but we just got a message
-                // that the node is back. We need to invalidate that previous message
-                // though don't know how much this matters as it'll eventually
-                // be consitient.
-                // self.pending_changes.push_back(Change::Insert(endpoint, self.service.clone()));
-                unimplemented!()
-            }
-        }
     }
 }
 
@@ -51,17 +46,17 @@ impl Future for Background {
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         loop {
             match self.state {
-                State::Start => {
-                    let fut = self.consul.nodes();
-                    self.state = State::Fetching(Box::new(fut));
-                    continue;
-                }
                 State::Fetching(ref mut fut) => {
                     let services = try_ready!(fut.poll());
 
-                    let services = services.into_iter().map(|e| e.address.parse().unwrap()).collect::<Vec<_>>();
-                    self.diff(services);
-                    self.state = State::Waiting(());
+                    let services = services.into_iter().map(|e| e.address.parse().unwrap()).collect::<HashSet<_>>();
+
+                    self.store.store(services);
+
+                    let deadline = Instant::now() + self.interval;
+                    let delay = Delay::new(deadline);
+
+                    self.state = State::Waiting(delay);
                     continue;
                 }
                 _ => unimplemented!(),
@@ -71,10 +66,8 @@ impl Future for Background {
 }
 
 enum State {
-    Start,
     Fetching(Box<Future<Item = Vec<tower_consul::ConsulService>, Error = ClusterError> + Send>),
-    Sending,
-    Waiting(()),
+    Waiting(Delay),
 }
 
 #[derive(Debug)]

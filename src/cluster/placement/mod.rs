@@ -17,6 +17,7 @@ pub mod background;
 
 pub use self::background::Background;
 
+// TODO: replace this with an actual future
 type GrpcFuture<T> = Box<Future<Item = Response<T>, Error = Error> + Send + 'static>;
 
 /// The placement service for toshi. Its role is to

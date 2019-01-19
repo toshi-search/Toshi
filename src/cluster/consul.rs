@@ -70,7 +70,10 @@ impl Consul {
     }
 
     /// Registers a shard with the Consul cluster
-    pub fn register_shard<T: Shard + Serialize>(&mut self, shard: &T) -> impl Future<Item = (), Error = ClusterError> {
+    pub fn register_shard<T>(&mut self, shard: &T) -> impl Future<Item = (), Error = ClusterError>
+    where
+        T: Shard + Serialize,
+    {
         let key = format!("toshi/{}/{}", self.cluster_name(), shard.shard_id().to_hyphenated_ref());
         let shard = serde_json::to_vec(&shard).unwrap();
 
