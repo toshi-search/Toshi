@@ -222,14 +222,14 @@ fn shutdown(signal: oneshot::Sender<()>) -> impl Future<Item = (), Error = ()> {
 
 fn handle_shutdown<S>(signal: oneshot::Sender<()>, stream: S) -> impl Future<Item = (), Error = ()>
 where
-    S: Stream<Item = String, Error = std::io::Error>
+    S: Stream<Item = String, Error = std::io::Error>,
 {
     stream
         .take(1)
         .into_future()
         .and_then(move |(sig, _)| {
             if let Some(s) = sig {
-                info!("Received signal: {}", s)
+                info!("Received signal: {}", s);
             }
             info!("Gracefully shutting down...");
             Ok(signal.send(()))
