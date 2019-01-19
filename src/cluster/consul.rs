@@ -148,7 +148,7 @@ impl Builder {
     }
 
     pub fn build(self) -> Result<Consul> {
-        let address = self.address.unwrap_or("127.0.0.1:8500".parse().unwrap());
+        let address = self.address.unwrap_or_else(|| "127.0.0.1:8500".parse().unwrap());
         let scheme = self.scheme.unwrap_or(Scheme::HTTP);
 
         let client = TowerConsul::new(HttpsService::new(), 100, scheme.to_string(), address.to_string()).map_err(|_| Error::SpawnError)?;
