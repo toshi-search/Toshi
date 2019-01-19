@@ -118,18 +118,11 @@ fn settings() -> Settings {
                 .default_value("8080"),
         )
         .arg(
-            Arg::with_name("consul-host")
+            Arg::with_name("consul-addr")
                 .short("C")
-                .long("consul-host")
+                .long("consul-addr")
                 .takes_value(true)
-                .default_value("127.0.0.1"),
-        )
-        .arg(
-            Arg::with_name("consul-port")
-                .short("P")
-                .long("consul-port")
-                .takes_value(true)
-                .default_value("8500"),
+                .default_value("127.0.0.1:8500"),
         )
         .arg(
             Arg::with_name("cluster-name")
@@ -170,9 +163,25 @@ fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Future<I
 
     if settings.enable_clustering {
         let settings = settings.clone();
-        let run = future::lazy(move || connect_to_consul(&settings))
-            .and_then(move |_| commit_watcher)
-            .and_then(move |_| router_with_catalog(&bind, &catalog));
+        let place_addr = settings.place_addr.clone();
+        let consul_addr = settings.consul_addr.clone();
+        let cluster_name = settings.cluster_name.clone();
+
+        let run = future::lazy(move || connect_to_consul(&settings)).and_then(move |_| {
+            tokio::spawn(commit_watcher);
+
+            let mut consul = Consul::builder()
+                .with_cluster_name(cluster_name)
+                .with_address(consul_addr)
+                .build()
+                .expect("Could not build Consul client.");
+
+            let place_addr = place_addr.parse().expect("Placement address must be a valid SocketAddr");
+            tokio::spawn(cluster::run(place_addr, consul).map_err(|e| error!("Error with running cluster: {}", e)));
+
+            router_with_catalog(&bind, &catalog)
+        });
+
         future::Either::A(run)
     } else {
         let run = commit_watcher.and_then(move |_| router_with_catalog(&bind, &catalog));
@@ -181,7 +190,7 @@ fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Future<I
 }
 
 fn connect_to_consul(settings: &Settings) -> impl Future<Item = (), Error = ()> {
-    let consul_address = format!("{}:{}", &settings.consul_host, settings.consul_port);
+    let consul_address = settings.consul_addr.clone();
     let cluster_name = settings.cluster_name.clone();
     let settings_path_read = settings.path.clone();
     let settings_path_write = settings.path.clone();

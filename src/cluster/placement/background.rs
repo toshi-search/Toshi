@@ -1,6 +1,7 @@
 use crate::cluster::{consul::Consul, ClusterError};
 use futures::{sync::mpsc, try_ready, Future, Poll};
 use futures_watch::{Store, Watch};
+use log::debug;
 use std::collections::{HashSet, VecDeque};
 use std::hash::Hash;
 use std::net::SocketAddr;
@@ -23,7 +24,7 @@ impl Background {
     pub fn new(mut consul: Consul, interval: Duration) -> (Watch<HashSet<SocketAddr>>, Self) {
         let (watch, mut store) = Watch::new(HashSet::new());
 
-        store.store(HashSet::new());
+        store.store(HashSet::new()).expect("Unable to store inital placement bg watch");
 
         let state = State::Fetching(Box::new(consul.nodes()));
 
@@ -49,17 +50,26 @@ impl Future for Background {
                 State::Fetching(ref mut fut) => {
                     let services = try_ready!(fut.poll());
 
+                    debug!("Got {} services from consul", services.len());
+
                     let services = services.into_iter().map(|e| e.address.parse().unwrap()).collect::<HashSet<_>>();
 
-                    self.store.store(services);
+                    self.store.store(services).map_err(|_| ClusterError::UnableToStoreServices)?;
 
                     let deadline = Instant::now() + self.interval;
+
+                    debug!("Waiting {:?} duration till next consul refresh", deadline);
+
                     let delay = Delay::new(deadline);
 
                     self.state = State::Waiting(delay);
                     continue;
                 }
-                _ => unimplemented!(),
+                State::Waiting(ref mut fut) => {
+                    try_ready!(fut.poll());
+
+                    self.state = State::Fetching(Box::new(self.consul.nodes()));
+                }
             }
         }
     }
@@ -73,6 +83,7 @@ enum State {
 #[derive(Debug)]
 pub enum Error {
     Cluster(ClusterError),
+    Timer(tokio::timer::Error),
     Send,
 }
 
@@ -85,5 +96,11 @@ impl From<ClusterError> for Error {
 impl From<mpsc::SendError<()>> for Error {
     fn from(_: mpsc::SendError<()>) -> Self {
         Error::Send
+    }
+}
+
+impl From<tokio::timer::Error> for Error {
+    fn from(err: tokio::timer::Error) -> Self {
+        Error::Timer(err)
     }
 }

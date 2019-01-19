@@ -97,6 +97,8 @@ pub enum ClusterError {
     ErrorInConsulResponse(String),
     #[fail(display = "Unable to get index handle")]
     UnableToGetIndexHandle,
+    #[fail(display = "Unable to store services")]
+    UnableToStoreServices,
 }
 
 pub type ConnectionError = ConnectError<io::Error>;
