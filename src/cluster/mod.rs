@@ -1,17 +1,18 @@
+use failure::Fail;
+use futures::{future, Future};
+use log::error;
+use serde::{Deserialize, Serialize};
 use std::io;
 use std::net::SocketAddr;
-
-use failure::Fail;
-use serde::{Deserialize, Serialize};
+use std::time::Duration;
 use tokio::net::tcp::ConnectFuture;
 use tokio::net::TcpStream;
 
 pub use self::consul::Consul;
 pub use self::node::*;
-pub use self::placement_server::Place;
 use tower_h2::client::ConnectError;
 
-pub mod placement {
+pub mod placement_proto {
     use prost_derive::{Enumeration, Message};
 
     #[cfg(target_family = "unix")]
@@ -31,10 +32,26 @@ pub mod cluster_rpc {
 
 pub mod consul;
 pub mod node;
-pub mod placement_server;
+
+mod placement;
 pub mod remote_handle;
 pub mod rpc_server;
 pub mod shard;
+
+use self::placement::{Background, Place};
+
+/// Run the services associated with the cluster
+pub fn run(place_addr: SocketAddr, consul: Consul) -> impl Future<Item = (), Error = std::io::Error> {
+    future::lazy(move || {
+        let (nodes, bg) = Background::new(consul.clone(), Duration::from_secs(2));
+
+        tokio::spawn(bg.map_err(|e| error!("Error in background placement sync: {:?}", e)));
+
+        // TODO: add cluster service et al
+
+        Place::serve(consul, nodes, place_addr)
+    })
+}
 
 #[derive(Debug, Fail, Serialize, Deserialize)]
 pub enum ClusterError {
@@ -70,6 +87,8 @@ pub enum ClusterError {
     FailedGettingIndex(String),
     #[fail(display = "Unable to create ReplicaShard: {}", _0)]
     FailedCreatingReplicaShard(String),
+    #[fail(display = "Failed to fetch nodes: {}", _0)]
+    FailedFetchingNodes(String),
     #[fail(display = "Unable to get index name: {}", _0)]
     UnableToGetIndexName(String),
     #[fail(display = "Error parsing response from Consul: {}", _0)]
@@ -78,6 +97,8 @@ pub enum ClusterError {
     ErrorInConsulResponse(String),
     #[fail(display = "Unable to get index handle")]
     UnableToGetIndexHandle,
+    #[fail(display = "Unable to store services")]
+    UnableToStoreServices,
 }
 
 pub type ConnectionError = ConnectError<io::Error>;

@@ -1,3 +1,6 @@
+//! Provides an interface to a Consul cluster
+
+use bytes::Bytes;
 use futures::{stream::Stream, Async, Future, Poll};
 use hyper::body::Body;
 use hyper::client::HttpConnector;
@@ -5,7 +8,7 @@ use hyper::http::uri::Scheme;
 use hyper::{Client, Request, Response, Uri};
 use hyper_tls::HttpsConnector;
 use serde::{Deserialize, Serialize};
-use tower_consul::{Consul as TowerConsul, KVValue};
+use tower_consul::{Consul as TowerConsul, ConsulService, KVValue};
 use tower_service::Service;
 
 use crate::cluster::shard::PrimaryShard;
@@ -13,7 +16,6 @@ use crate::cluster::shard::ReplicaShard;
 use crate::cluster::shard::Shard;
 use crate::cluster::ClusterError;
 use crate::{Error, Result};
-use bytes::Bytes;
 
 #[derive(Serialize, Deserialize)]
 pub struct NodeData {
@@ -68,7 +70,10 @@ impl Consul {
     }
 
     /// Registers a shard with the Consul cluster
-    pub fn register_shard<T: Shard + Serialize>(&mut self, shard: &T) -> impl Future<Item = (), Error = ClusterError> {
+    pub fn register_shard<T>(&mut self, shard: &T) -> impl Future<Item = (), Error = ClusterError>
+    where
+        T: Shard + Serialize,
+    {
         let key = format!("toshi/{}/{}", self.cluster_name(), shard.shard_id().to_hyphenated_ref());
         let shard = serde_json::to_vec(&shard).unwrap();
 
@@ -76,6 +81,12 @@ impl Consul {
             .set(&key, shard)
             .map(|_| ())
             .map_err(|err| ClusterError::FailedCreatingPrimaryShard(format!("{:?}", err)))
+    }
+
+    pub fn nodes(&mut self) -> impl Future<Item = Vec<ConsulService>, Error = ClusterError> {
+        self.client
+            .service_nodes("toshi")
+            .map_err(|err| ClusterError::FailedFetchingNodes(format!("{:?}", err)))
     }
 
     /// Gets the specified index
@@ -137,10 +148,10 @@ impl Builder {
     }
 
     pub fn build(self) -> Result<Consul> {
-        let address = self.address.unwrap_or_else(|| "127.0.0.1:8500".into());
+        let address = self.address.unwrap_or_else(|| "127.0.0.1:8500".parse().unwrap());
         let scheme = self.scheme.unwrap_or(Scheme::HTTP);
 
-        let client = TowerConsul::new(HttpsService::default(), 100, scheme.to_string(), address.clone()).map_err(|_| Error::SpawnError)?;
+        let client = TowerConsul::new(HttpsService::new(), 100, scheme.to_string(), address.to_string()).map_err(|_| Error::SpawnError)?;
 
         Ok(Consul {
             address,
@@ -157,8 +168,8 @@ pub struct HttpsService {
     client: Client<HttpsConnector<HttpConnector>>,
 }
 
-impl Default for HttpsService {
-    fn default() -> Self {
+impl HttpsService {
+    fn new() -> Self {
         let https = HttpsConnector::new(4).expect("Could not create TLS for Hyper");
         let client = Client::builder().build::<_, hyper::Body>(https);
 

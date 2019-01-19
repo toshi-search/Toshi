@@ -566,6 +566,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "futures-watch"
+version = "0.1.0"
+source = "git+https://github.com/carllerche/better-future#85c3071ce7989ff691ddd03738188f06cdba605f"
+dependencies = [
+ "fnv 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures 0.1.25 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "generic-array"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2091,6 +2100,7 @@ dependencies = [
  "failure 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "flate2 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures 0.1.25 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures-watch 0.1.0 (git+https://github.com/carllerche/better-future)",
  "h2 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
  "http 0.1.14 (registry+https://github.com/rust-lang/crates.io-index)",
  "hyper 0.12.21 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2115,6 +2125,7 @@ dependencies = [
  "tower-buffer 0.1.0 (git+https://github.com/tower-rs/tower)",
  "tower-consul 0.1.0 (git+https://github.com/LucioFranco/tower-consul)",
  "tower-direct-service 0.1.0 (git+https://github.com/tower-rs/tower)",
+ "tower-discover 0.1.0 (git+https://github.com/tower-rs/tower)",
  "tower-grpc 0.1.0 (git+https://github.com/tower-rs/tower-grpc)",
  "tower-grpc-build 0.1.0 (git+https://github.com/tower-rs/tower-grpc)",
  "tower-h2 0.1.0 (git+https://github.com/tower-rs/tower-h2)",
@@ -2168,6 +2179,15 @@ version = "0.1.0"
 source = "git+https://github.com/tower-rs/tower#d42f48bbbb8f70017b4929b3145a564c1ae77e2d"
 dependencies = [
  "futures 0.1.25 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "tower-discover"
+version = "0.1.0"
+source = "git+https://github.com/tower-rs/tower#d42f48bbbb8f70017b4929b3145a564c1ae77e2d"
+dependencies = [
+ "futures 0.1.25 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tower-service 0.2.0 (git+https://github.com/tower-rs/tower)",
 ]
 
 [[package]]
@@ -2570,6 +2590,7 @@ dependencies = [
 "checksum fuchsia-zircon-sys 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)" = "3dcaa9ae7725d12cdb85b3ad99a434db70b468c09ded17e012d86b5c1010f7a7"
 "checksum futures 0.1.25 (registry+https://github.com/rust-lang/crates.io-index)" = "49e7653e374fe0d0c12de4250f0bdb60680b8c80eed558c5c7538eec9c89e21b"
 "checksum futures-cpupool 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)" = "ab90cde24b3319636588d0c35fe03b1333857621051837ed769faefb4c2162e4"
+"checksum futures-watch 0.1.0 (git+https://github.com/carllerche/better-future)" = "<none>"
 "checksum generic-array 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)" = "ef25c5683767570c2bbd7deba372926a55eaae9982d7726ee2a1050239d45b9d"
 "checksum h2 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)" = "30e0b8e55b4d7ffedade2b9605851f8e85f5010663e7ad170ef3c0f0681bc43f"
 "checksum handlebars 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "d82e5750d8027a97b9640e3fefa66bbaf852a35228e1c90790efd13c4b09c166"
@@ -2736,6 +2757,7 @@ dependencies = [
 "checksum tower-buffer 0.1.0 (git+https://github.com/tower-rs/tower)" = "<none>"
 "checksum tower-consul 0.1.0 (git+https://github.com/LucioFranco/tower-consul)" = "<none>"
 "checksum tower-direct-service 0.1.0 (git+https://github.com/tower-rs/tower)" = "<none>"
+"checksum tower-discover 0.1.0 (git+https://github.com/tower-rs/tower)" = "<none>"
 "checksum tower-grpc 0.1.0 (git+https://github.com/tower-rs/tower-grpc)" = "<none>"
 "checksum tower-grpc-build 0.1.0 (git+https://github.com/tower-rs/tower-grpc)" = "<none>"
 "checksum tower-h2 0.1.0 (git+https://github.com/tower-rs/tower-h2)" = "<none>"

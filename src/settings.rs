@@ -56,6 +56,8 @@ pub struct Settings {
     pub port: u16,
     #[serde(default = "Settings::default_path")]
     pub path: String,
+    #[serde(default = "Settings::default_place_addr")]
+    pub place_addr: String,
     #[serde(default = "Settings::default_level")]
     pub log_level: String,
     #[serde(default = "Settings::default_writer_memory")]
@@ -68,10 +70,8 @@ pub struct Settings {
     pub bulk_buffer_size: usize,
     #[serde(default = "Settings::default_merge_policy")]
     pub merge_policy: ConfigMergePolicy,
-    #[serde(default = "Settings::default_consul_host")]
-    pub consul_host: String,
-    #[serde(default = "Settings::default_consul_port")]
-    pub consul_port: u16,
+    #[serde(default = "Settings::default_consul_addr")]
+    pub consul_addr: String,
     #[serde(default = "Settings::default_cluster_name")]
     pub cluster_name: String,
     #[serde(default = "Settings::default_enable_clustering")]
@@ -88,14 +88,14 @@ impl Default for Settings {
             host: Settings::default_host(),
             port: Settings::default_port(),
             path: Settings::default_path(),
+            place_addr: Settings::default_place_addr(),
             log_level: Settings::default_level(),
             writer_memory: Settings::default_writer_memory(),
             json_parsing_threads: Settings::default_json_parsing_threads(),
             auto_commit_duration: Settings::default_auto_commit_duration(),
             bulk_buffer_size: Settings::default_bulk_buffer_size(),
             merge_policy: Settings::default_merge_policy(),
-            consul_host: Settings::default_consul_host(),
-            consul_port: Settings::default_consul_port(),
+            consul_addr: Settings::default_consul_addr(),
             cluster_name: Settings::default_cluster_name(),
             enable_clustering: Settings::default_enable_clustering(),
             master: Settings::default_master(),
@@ -123,12 +123,7 @@ impl Settings {
             port: args.value_of("port").unwrap().parse().expect("Invalid port given."),
             path: args.value_of("path").unwrap().to_string(),
             log_level: args.value_of("level").unwrap().to_string(),
-            consul_host: args.value_of("consul-host").unwrap().to_string(),
-            consul_port: args
-                .value_of("consul-port")
-                .unwrap()
-                .parse()
-                .expect("Invalid port given for Consul."),
+            consul_addr: args.value_of("consul-addr").unwrap().to_string(),
             enable_clustering: args.is_present("enable-clustering"),
             cluster_name: args.value_of("cluster-name").unwrap().to_string(),
             ..Default::default()
@@ -164,6 +159,10 @@ impl Settings {
         8080
     }
 
+    pub fn default_place_addr() -> String {
+        "0.0.0.0:8082".to_string()
+    }
+
     pub fn default_level() -> String {
         "info".to_string()
     }
@@ -193,12 +192,8 @@ impl Settings {
         }
     }
 
-    pub fn default_consul_host() -> String {
-        "localhost".to_string()
-    }
-
-    pub fn default_consul_port() -> u16 {
-        8500
+    pub fn default_consul_addr() -> String {
+        "127.0.0.1:8500".to_string()
     }
 
     pub fn default_cluster_name() -> String {
@@ -263,8 +258,7 @@ mod tests {
         assert_eq!(default.merge_policy.level_log_size, None);
         assert_eq!(default.merge_policy.min_layer_size, None);
         assert_eq!(default.merge_policy.min_merge_size, None);
-        assert_eq!(default.consul_port, 8500);
-        assert_eq!(default.consul_host, "localhost");
+        assert_eq!(default.consul_addr, "127.0.0.1:8500");
     }
 
     #[test]
