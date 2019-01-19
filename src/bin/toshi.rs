@@ -212,25 +212,24 @@ fn shutdown(signal: oneshot::Sender<()>) -> impl Future<Item = (), Error = ()> {
     let sigint = Signal::new(SIGINT).flatten_stream().map(|_| String::from("SIGINT"));
     let sigterm = Signal::new(SIGTERM).flatten_stream().map(|_| String::from("SIGTERM"));
 
-    handle_shutdown(signal, sigint.select(sigterm), |s| info!("Received signal: {}", s))
+    handle_shutdown(signal, sigint.select(sigterm))
 }
 #[cfg(not(unix))]
 fn shutdown(signal: oneshot::Sender<()>) -> impl Future<Item = (), Error = ()> {
     let stream = tokio_signal::ctrl_c().flatten_stream().map(|_| String::from("ctrl-r"));
-    handle_shutdown(signal, stream, |_| {})
+    handle_shutdown(signal, stream)
 }
 
-fn handle_shutdown<S, F>(signal: oneshot::Sender<()>, stream: S, logger: F) -> impl Future<Item = (), Error = ()>
+fn handle_shutdown<S>(signal: oneshot::Sender<()>, stream: S) -> impl Future<Item = (), Error = ()>
 where
-    S: Stream<Item = String, Error = std::io::Error>,
-    F: Fn(&str),
+    S: Stream<Item = String, Error = std::io::Error>
 {
     stream
         .take(1)
         .into_future()
         .and_then(move |(sig, _)| {
             if let Some(s) = sig {
-                logger(&s)
+                info!("Received signal: {}", s)
             }
             info!("Gracefully shutting down...");
             Ok(signal.send(()))
