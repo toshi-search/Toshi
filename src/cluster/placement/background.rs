@@ -66,7 +66,7 @@ impl Future for Background {
 }
 
 enum State {
-    Fetching(Box<Future<Item = Vec<tower_consul::ConsulService>, Error = ClusterError> + Send>),
+    Fetching(Box<Future<Item = Vec<ConsulService>, Error = ClusterError> + Send>),
     Waiting(Delay),
 }
 

@@ -157,8 +157,8 @@ impl Builder {
             address,
             scheme,
             client,
-            cluster_name: self.cluster_name.unwrap_or("kitsune".into()),
-            node_id: self.node_id.unwrap_or("alpha".into()),
+            cluster_name: self.cluster_name.unwrap_or_else(|| "kitsune".into()),
+            node_id: self.node_id.unwrap_or_else(|| "alpha".into()),
         })
     }
 }
