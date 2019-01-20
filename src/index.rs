@@ -4,8 +4,10 @@ use std::iter::Iterator;
 use std::net::SocketAddr;
 use std::path::PathBuf;
 
-use futures::Future;
+use crossbeam::{unbounded, Receiver, Sender};
+use futures::{future, Future};
 use http::Uri;
+use log::info;
 use tantivy::directory::MmapDirectory;
 use tantivy::schema::Schema;
 use tantivy::Index;
@@ -144,7 +146,22 @@ impl IndexCatalog {
             .map_err(|e| Error::IOError(e.to_string()))
     }
 
-    pub fn refresh_remote_catalog(node: String) -> impl Future<Item = (), Error = RPCError> + Send + 'static {
+    pub fn refresh_multiple_nodes(
+        nodes: Vec<String>,
+    ) -> (
+        Receiver<String>,
+        future::JoinAll<Vec<impl Future<Item = (), Error = RPCError> + Send + 'static>>,
+    ) {
+        let (send, recv) = unbounded::<String>();
+        let n = nodes.into_iter().map(|n| {
+            let send_clone = send.clone();
+            IndexCatalog::refresh_remote_catalog(send_clone, n)
+        });
+
+        (recv, future::join_all(n.collect()))
+    }
+
+    pub fn refresh_remote_catalog(sender: Sender<String>, node: String) -> impl Future<Item = (), Error = RPCError> + Send + 'static {
         let socket: SocketAddr = node.parse().unwrap();
         let host_uri = IndexCatalog::create_host_uri(socket).unwrap();
         let grpc_conn = GrpcConn(socket);
@@ -153,12 +170,14 @@ impl IndexCatalog {
                 client
                     .list_indexes(tower_grpc::Request::new(ListRequest {}))
                     .map(|resp| resp.into_inner())
-                    .inspect(|x| println!("{:#?}", x))
+                    .inspect(|x| info!("{:#?}", x))
                     .map_err(|e| e.into())
             })
-            .map(|x| {
-                // Uhh... do stuff here that actually matters...
-                println!("{:#?}", x)
+            .map(move |x| {
+                info!("{:#?}", x);
+                for idx in x.indexes {
+                    sender.send(idx).unwrap();
+                }
             });
 
         client_fut
@@ -179,9 +198,11 @@ impl IndexCatalog {
 #[cfg(test)]
 pub mod tests {
     use std::sync::{Arc, RwLock};
+    use std::time::Duration;
 
     use tantivy::doc;
     use tantivy::schema::*;
+
 
     use super::*;
 
@@ -212,16 +233,20 @@ pub mod tests {
     }
 
     #[test]
-    #[ignore]
     pub fn test_remote_index_refresh() {
         let socket_addr: SocketAddr = "127.0.0.1:8081".parse().unwrap();
         let cat = create_test_catalog("test_index");
         let service = RpcServer::get_service(socket_addr, cat);
         let nodes = "127.0.0.1:8081".into();
-        let refresh = IndexCatalog::refresh_remote_catalog(nodes).map_err(|_| ());
-
-        let s = service.select(refresh).map(|_| ()).map_err(|_| ());
+        let (rcv, refresh) = IndexCatalog::refresh_multiple_nodes(vec![nodes]);
+        let reff = refresh.map(|_| ()).map_err(|_| ());
+        let s = service.select(reff).map(|_| ()).map_err(|_| ());
 
         tokio::run(s);
+
+
+        for i in rcv.recv_timeout(Duration::from_secs(2)) {
+            println!("{}", i);
+        }
     }
 }
