@@ -6,6 +6,7 @@ use std::sync::{Arc, Mutex};
 
 use hashbrown::HashMap;
 use http::Uri;
+use log::info;
 use tantivy::directory::MmapDirectory;
 use tantivy::schema::Schema;
 use tantivy::Index;
@@ -199,7 +200,7 @@ impl IndexCatalog {
                         .map_err(|e| e.into())
 
             })
-            .map(move |x| (x.0, x.1.indexes));
+            .map(move |(x, r)| (x, r.indexes));
 
         client_fut
     }
@@ -232,10 +233,12 @@ impl IndexCatalog {
 #[cfg(test)]
 pub mod tests {
     use std::sync::{Arc, RwLock};
+    use std::time::Duration;
 
     use tantivy::doc;
     use tantivy::schema::*;
     use tokio::runtime::Runtime;
+
 
     use super::*;
 
