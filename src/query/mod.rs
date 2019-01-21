@@ -29,7 +29,7 @@ pub trait CreateQuery {
     fn create_query(self, schema: &Schema) -> Result<Box<TantivyQuery>>;
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(untagged)]
 pub enum Query {
     Boolean { bool: BoolQuery },
@@ -42,13 +42,13 @@ pub enum Query {
     All,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(untagged)]
 pub enum Metrics {
     SumAgg { field: String },
 }
 
-#[derive(Serialize, Extract, Deserialize, Debug)]
+#[derive(Serialize, Extract, Deserialize, Debug, Clone)]
 pub struct Request {
     pub aggs: Option<Metrics>,
     pub query: Option<Query>,
@@ -70,7 +70,7 @@ impl Request {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(untagged)]
 pub enum TermQueries {
     Fuzzy(FuzzyQuery),

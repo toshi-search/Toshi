@@ -2,14 +2,11 @@ use crate::cluster::{consul::Consul, ClusterError};
 use futures::{sync::mpsc, try_ready, Future, Poll};
 use futures_watch::{Store, Watch};
 use log::debug;
-use std::collections::{HashSet, VecDeque};
-use std::hash::Hash;
+use std::collections::HashSet;
 use std::net::SocketAddr;
 use std::time::{Duration, Instant};
 use tokio::timer::Delay;
 use tower_consul::ConsulService;
-use tower_discover::Change;
-use tower_service::Service;
 
 pub struct Background {
     consul: Consul,

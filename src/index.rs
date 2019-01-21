@@ -23,6 +23,7 @@ use crate::query::Request;
 use crate::results::*;
 use crate::settings::Settings;
 use crate::{Error, Result};
+use futures::future::IntoFuture;
 
 pub struct IndexCatalog {
     pub settings: Settings,
@@ -108,7 +109,11 @@ impl IndexCatalog {
     }
 
     pub fn exists(&self, index: &str) -> bool {
-        self.get_collection().contains_key(&index.to_string())
+        self.get_collection().contains_key(index)
+    }
+
+    pub fn remote_exists(&self, index: &str) -> bool {
+        self.remote_indexes.contains_key(index)
     }
 
     pub fn get_mut_index(&mut self, name: &str) -> Result<&mut LocalIndex> {
@@ -117,6 +122,10 @@ impl IndexCatalog {
 
     pub fn get_index(&self, name: &str) -> Result<&LocalIndex> {
         self.local_indexes.get(name).ok_or_else(|| Error::UnknownIndex(name.into()))
+    }
+
+    pub fn get_remote_index(&self, name: &str) -> Result<&RemoteIndex> {
+        self.remote_indexes.get(name).ok_or_else(|| Error::UnknownIndex(name.into()))
     }
 
     pub fn refresh_catalog(&mut self) -> Result<()> {
@@ -150,7 +159,7 @@ impl IndexCatalog {
         nodes: Vec<String>,
     ) -> (
         Receiver<String>,
-        future::JoinAll<Vec<impl Future<Item = (), Error = RPCError> + Send + 'static>>,
+        future::JoinAll<Vec<impl Future<Item = (), Error = RPCError> + Send>>,
     ) {
         let (send, recv) = unbounded::<String>();
         let n = nodes.into_iter().map(|n| {
@@ -161,7 +170,7 @@ impl IndexCatalog {
         (recv, future::join_all(n.collect()))
     }
 
-    pub fn refresh_remote_catalog(sender: Sender<String>, node: String) -> impl Future<Item = (), Error = RPCError> + Send + 'static {
+    pub fn refresh_remote_catalog(sender: Sender<String>, node: String) -> impl Future<Item = (), Error = RPCError> + Send {
         let socket: SocketAddr = node.parse().unwrap();
         let host_uri = IndexCatalog::create_host_uri(socket).unwrap();
         let grpc_conn = GrpcConn(socket);
@@ -183,10 +192,21 @@ impl IndexCatalog {
         client_fut
     }
 
-    pub fn search_index(&self, index: &str, search: Request) -> Result<SearchResults> {
-        match self.get_index(index) {
-            Ok(hand) => hand.search_index(search),
-            Err(e) => Err(e),
+    pub fn search_local_index(&self, index: &'static str, search: Request) -> impl Future<Item = SearchResults, Error = Error> + Send + 'static {
+        dbg!(&search);
+        self.get_index(index).and_then(move |hand| hand.search_index(search)).into_future()
+    }
+
+    pub fn search_remote_index(&self, index: &'static str, search: Request) -> impl Future<Item = SearchResults, Error = Error> + Send {
+        match self.get_remote_index(index) {
+            Ok(hand) => hand
+                .search_index(search)
+                .and_then(|sr| {
+                    let doc: SearchResults = serde_json::from_slice(&sr.doc).unwrap();
+                    Ok(doc)
+                })
+                .map_err(|_| Error::IOError(":'(".into())),
+            Err(_) => panic!(":-("),
         }
     }
 
@@ -202,7 +222,6 @@ pub mod tests {
 
     use tantivy::doc;
     use tantivy::schema::*;
-
 
     use super::*;
 
@@ -243,7 +262,6 @@ pub mod tests {
         let s = service.select(reff).map(|_| ()).map_err(|_| ());
 
         tokio::run(s);
-
 
         for i in rcv.recv_timeout(Duration::from_secs(2)) {
             println!("{}", i);

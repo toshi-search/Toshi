@@ -1,17 +1,14 @@
 use crate::cluster::consul::Consul;
 use crate::cluster::placement_proto::{server, PlacementReply, PlacementRequest};
-use futures::{future, try_ready, Async, Future, Poll, Stream};
+use futures::{future, Future, Stream};
 use futures_watch::Watch;
 use log::error;
 use std::collections::HashSet;
-use std::fmt;
 use std::net::SocketAddr;
 use tokio::executor::DefaultExecutor;
 use tokio::net::TcpListener;
-use tower_discover::{Change, Discover};
 use tower_grpc::{Error, Request, Response};
 use tower_h2::Server;
-use tower_service::Service;
 
 pub mod background;
 
@@ -54,7 +51,7 @@ impl Place {
 impl server::Placement for Place {
     type GetPlacementFuture = GrpcFuture<PlacementReply>;
 
-    fn get_placement(&mut self, request: Request<PlacementRequest>) -> Self::GetPlacementFuture {
+    fn get_placement(&mut self, _request: Request<PlacementRequest>) -> Self::GetPlacementFuture {
         unimplemented!()
     }
 }
