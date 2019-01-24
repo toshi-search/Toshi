@@ -205,21 +205,23 @@ fn connect_to_consul(settings: &Settings) -> impl Future<Item = (), Error = ()> 
         // Build future that will connect to Consul and register the node_id
         consul_client
             .register_cluster()
-            .and_then(move |_| cluster::read_node_id(settings_path_read.as_str()))
-            .then(|result| match result {
-                Ok(id) => {
-                    let parsed_id = Uuid::parse_str(&id).expect("Parsed node ID is not a UUID.");
-                    cluster::write_node_id(settings_path_write, parsed_id.to_hyphenated().to_string())
-                }
+            .and_then(move |_| {
+                cluster::read_node_id(settings_path_read.as_str())
+                    .then(|result| match result {
+                        Ok(id) => {
+                            let parsed_id = Uuid::parse_str(&id).expect("Parsed node ID is not a UUID.");
+                            cluster::write_node_id(settings_path_write, parsed_id.to_hyphenated().to_string())
+                        }
 
-                Err(_) => {
-                    let new_id = Uuid::new_v4();
-                    cluster::write_node_id(settings_path_write, new_id.to_hyphenated().to_string())
-                }
-            })
-            .and_then(move |id| {
-                consul_client.set_node_id(id);
-                consul_client.register_node()
+                        Err(_) => {
+                            let new_id = Uuid::new_v4();
+                            cluster::write_node_id(settings_path_write, new_id.to_hyphenated().to_string())
+                        }
+                    })
+                    .and_then(move |id| {
+                        consul_client.set_node_id(id);
+                        consul_client.register_node()
+                    })
             })
             .map_err(|e| error!("Error: {}", e))
     })
