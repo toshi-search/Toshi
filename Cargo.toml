@@ -30,7 +30,7 @@ tower-consul         = { git = "https://github.com/LucioFranco/tower-consul" }
 tokio-connect        = { git = "https://github.com/carllerche/tokio-connect" }
 tower-web            = "^0.3"
 http                 = "^0.1"
-h2                   = "0.1.14"
+h2                   = "0.1.16"
 taken                = "0.1.1"
 flate2               = "^1.0"
 futures-watch        = { git = "https://github.com/carllerche/better-future" }
