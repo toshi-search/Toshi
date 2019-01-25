@@ -170,7 +170,7 @@ fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Future<I
         let run = future::lazy(move || connect_to_consul(&settings)).and_then(move |_| {
             tokio::spawn(commit_watcher);
 
-            let mut consul = Consul::builder()
+            let consul = Consul::builder()
                 .with_cluster_name(cluster_name)
                 .with_address(consul_addr)
                 .build()
