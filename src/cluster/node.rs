@@ -19,12 +19,12 @@ static NODE_ID_FILENAME: &'static str = ".node_id";
 
 /// Init the node id by reading the node id from path or writing a fresh one if not found
 pub fn init_node_id(path: String) -> impl Future<Item = String, Error = ClusterError> {
-    self::read_node_id(path.as_ref()).then(|result| {
+    read_node_id(path.as_ref()).then(|result| {
         let id = match result {
             Ok(id) => Uuid::parse_str(&id).expect("Parsed node ID is not a UUID."),
             Err(_) => Uuid::new_v4(),
         };
-        self::write_node_id(path, id.to_hyphenated().to_string())
+        write_node_id(path, id.to_hyphenated().to_string())
     })
 }
 
