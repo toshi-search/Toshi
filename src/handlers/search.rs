@@ -36,16 +36,15 @@ impl_web! {
         pub fn doc_search(&self, body: Request, index: String) -> impl Future<Item = SearchResults, Error = Error> + Send {
             info!("Query: {:?}", body);
             let mut futs = Vec::new();
-            let boxed_str = Box::leak(index.into_boxed_str());
             match self.catalog.read() {
                 Ok(cat) => {
-                    if cat.exists(boxed_str) {
-                        futs.push(future::Either::A(cat.search_local_index(boxed_str, body.clone())));
+                    if cat.exists(&index) {
+                        futs.push(future::Either::A(cat.search_local_index(&index, body.clone())));
                     }
-                    if cat.remote_exists(boxed_str) {
-                        futs.push(future::Either::B(cat.search_remote_index(boxed_str, body.clone())));
+                    if cat.remote_exists(&index) {
+                        futs.push(future::Either::B(cat.search_remote_index(&index, body.clone())));
                     }
-                    return future::join_all(futs).map(|r| SearchHandler::fold_results(r));
+                    return future::join_all(futs).map(|r| SearchHandler::fold_results(r.into_iter().flatten().collect()));
                 }
                 _ => panic!("asdf"),
             }
@@ -84,14 +83,14 @@ pub mod tests {
         let term = make_map("test_text", String::from("document"));
         let term_query = Query::Exact(ExactTerm { term });
         let search = Request::new(Some(term_query), None, 10);
-        let query = run_query(search, "test_index")
+        run_query(search, "test_index")
             .map(|q| {
                 dbg!(&q);
                 assert_eq!(q.hits, 3);
             })
-            .map_err(|_| ());
-
-        tokio::run(query);
+            .map_err(|_| ())
+            .wait()
+            .unwrap();
     }
 
     // Should I do this? with the tokio::run
@@ -101,15 +100,12 @@ pub mod tests {
         let handler = SearchHandler::new(Arc::clone(&cat));
         let body = r#"{ "query" : { "raw": "test_text:\"document\"" } }"#;
         let req: Request = serde_json::from_str(body).unwrap();
-        let docs = handler
+        handler
             .doc_search(req, "asdf".into())
-            .map_err(|err| match err {
-                Error::UnknownIndex(e) => assert_eq!(e.to_string(), "asdf"),
-                _ => assert_eq!(true, false),
-            })
-            .map(|_| ());
-
-        tokio::run(docs);
+            .map_err(|err| assert_eq!(err.to_string(), "asdf"))
+            .map(|_| ())
+            .wait()
+            .unwrap();
     }
 
     // Or this with the .wait() for the future?
@@ -122,13 +118,9 @@ pub mod tests {
         handler
             .doc_search(req, "test_index".into())
             .map_err(|err| {
-                dbg!(&err);
-                match err {
-                    Error::QueryError(e) => assert_eq!(e.to_string(), "invalid digit found in string"),
-                    _ => assert_eq!(true, false),
-                }
+                dbg!(&err.to_string());
+                assert_eq!(err.to_string(), "Query Parse Error: invalid digit found in string");
             })
-            .map(|r| dbg!(r))
             .wait();
     }
 

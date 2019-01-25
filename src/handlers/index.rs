@@ -94,6 +94,7 @@ impl_web! {
 mod tests {
     use crate::handlers::SearchHandler;
     use crate::index::tests::*;
+    use tokio::prelude::*;
 
     use super::*;
 
@@ -110,9 +111,9 @@ mod tests {
         let body: SchemaBody = serde_json::from_str(schema).unwrap();
         let req = handler.create(body, "new_index".into());
         assert_eq!(req.is_ok(), true);
-        //        let search = SearchHandler::new(Arc::clone(&shared_cat));
-        //        let docs = search.get_all_docs("new_index".into()).unwrap();
-        //        assert_eq!(docs.hits, 0);
+        let search = SearchHandler::new(Arc::clone(&shared_cat));
+        let docs = search.get_all_docs("new_index".into()).wait().unwrap();
+        assert_eq!(docs.hits, 0);
     }
 
     #[test]

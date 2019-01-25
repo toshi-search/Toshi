@@ -1,3 +1,4 @@
+use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -6,13 +7,13 @@ use tantivy::collector::TopDocs;
 use tantivy::query::{AllQuery, QueryParser};
 use tantivy::schema::*;
 use tantivy::{Document, Index, IndexWriter, Term};
+use tokio::prelude::*;
 
 use crate::handlers::index::{AddDocument, DeleteDoc, DocsAffected};
 use crate::query::{CreateQuery, Query, Request};
 use crate::results::{ScoredDoc, SearchResults};
 use crate::settings::Settings;
 use crate::{Error, Result};
-use futures::IntoFuture;
 
 pub enum IndexLocation {
     LOCAL,
@@ -40,6 +41,20 @@ pub struct LocalIndex {
     current_opstamp: AtomicUsize,
     settings: Settings,
     name: String,
+}
+
+impl PartialEq for LocalIndex {
+    fn eq(&self, other: &LocalIndex) -> bool {
+        self.name == *other.name
+    }
+}
+
+impl Eq for LocalIndex {}
+
+impl Hash for LocalIndex {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        state.write(self.name.as_bytes())
+    }
 }
 
 impl IndexHandle for LocalIndex {

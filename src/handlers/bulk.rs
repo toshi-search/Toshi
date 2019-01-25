@@ -99,8 +99,10 @@ mod tests {
     use super::*;
     use crate::handlers::SearchHandler;
     use crate::index::tests::*;
+
     use std::thread::sleep;
     use std::time::Duration;
+    use tokio::prelude::*;
 
     #[test]
     fn test_bulk_index() {
@@ -115,8 +117,8 @@ mod tests {
         assert_eq!(index_docs.is_ok(), true);
         sleep(Duration::from_secs(1));
 
-        //        let search = SearchHandler::new(Arc::clone(&server));
-        //        let check_docs = search.get_all_docs("test_index".into()).unwrap();
-        //        assert_eq!(check_docs.hits, 8);
+        let search = SearchHandler::new(Arc::clone(&server));
+        let check_docs = search.get_all_docs("test_index".into()).wait().unwrap();
+        assert_eq!(check_docs.hits, 8);
     }
 }
