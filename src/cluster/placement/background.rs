@@ -2,7 +2,7 @@ use crate::cluster::{consul::Consul, ClusterError};
 use futures::{sync::mpsc, try_ready, Future, Poll};
 use futures_watch::{Store, Watch};
 use log::debug;
-use std::collections::{HashSet};
+use std::collections::HashSet;
 use std::net::SocketAddr;
 use std::time::{Duration, Instant};
 use tokio::timer::Delay;
@@ -12,7 +12,6 @@ pub struct Background {
     consul: Consul,
     // TODO: better D/S for this?
     store: Store<HashSet<SocketAddr>>,
-//    nodes: HashSet<SocketAddr>,
     state: State,
     interval: Duration,
 }
@@ -28,7 +27,6 @@ impl Background {
         let bg = Background {
             consul,
             store,
-//            nodes: HashSet::new(),
             state,
             interval,
         };
