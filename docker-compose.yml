@@ -1,0 +1,16 @@
+version: '3'
+services:
+  # toshi:
+  #   image: rust:1.32-stretch
+  #   working_dir: /usr/src/toshi
+  #   volumes: 
+  #     - ./:/usr/src/toshi
+  #   command: tail -f /dev/null
+  #   depends_on:
+  #     - consul
+  #   ports:
+  #     - 8080:8080
+  consul:
+    image: consul
+    ports:
+      - 8500:8500
