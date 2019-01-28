@@ -66,7 +66,7 @@ impl Consul {
         self.client
             .set(&key, Vec::new())
             .map(|_| ())
-            .map_err(|err| ClusterError::FailedRegisteringNode(format!("{:?}", err)))
+            .map_err(|err| ClusterError::FailedRegisteringCluster(format!("{:?}", err)))
     }
 
     /// Registers a shard with the Consul cluster
