@@ -1,11 +1,12 @@
 use crate::cluster::{consul::Consul, ClusterError};
-use futures::{sync::mpsc, try_ready, Future, Poll};
+use futures::{try_ready, Future, Poll};
 use futures_watch::{Store, Watch};
 use log::debug;
 use std::collections::{HashSet, VecDeque};
 use std::hash::Hash;
 use std::net::SocketAddr;
 use std::time::{Duration, Instant};
+use tokio::sync::mpsc;
 use tokio::timer::Delay;
 use tower_consul::ConsulService;
 use tower_discover::Change;
@@ -93,8 +94,8 @@ impl From<ClusterError> for Error {
     }
 }
 
-impl From<mpsc::SendError<()>> for Error {
-    fn from(_: mpsc::SendError<()>) -> Self {
+impl From<mpsc::error::SendError> for Error {
+    fn from(_: mpsc::error::SendError) -> Self {
         Error::Send
     }
 }
