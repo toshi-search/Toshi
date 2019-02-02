@@ -77,5 +77,5 @@ codegen-units = 1
 #tower-h2             = { git = "https://github.com/tower-rs/tower-h2" }
 #tower-util           = { git = "https://github.com/tower-rs/tower" }
 #tower-http           = { git = "https://github.com/tower-rs/tower-http" }
-tower-consul         = { path = "../tower-consul" }
+# tower-consul         = { path = "../tower-consul" }
 #tokio-connect        = { git = "https://github.com/carllerche/tokio-connect" }
