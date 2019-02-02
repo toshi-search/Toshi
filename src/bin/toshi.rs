@@ -2,11 +2,13 @@ use std::net::SocketAddr;
 use std::{
     fs::create_dir,
     path::{Path, PathBuf},
+    str::FromStr,
     sync::{Arc, RwLock},
 };
 
 use clap::{crate_authors, crate_description, crate_version, App, Arg, ArgMatches};
-use futures::{future, Future, Stream};
+use futures::{future, sync::oneshot, Future, Stream};
+use http::Uri;
 use log::{error, info};
 use tokio::runtime::Runtime;
 use tokio::sync::oneshot;
@@ -170,14 +172,17 @@ fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Future<I
         let run = future::lazy(move || connect_to_consul(&settings)).and_then(move |_| {
             tokio::spawn(commit_watcher);
 
-            let consul = Consul::builder()
-                .with_cluster_name(cluster_name)
-                .with_address(consul_addr)
-                .build()
-                .expect("Could not build Consul client.");
-
+            let consul_dst = Uri::from_str(&consul_addr).expect("Consul address is not a proper uri");
             let place_addr = place_addr.parse().expect("Placement address must be a valid SocketAddr");
-            tokio::spawn(cluster::run(place_addr, consul).map_err(|e| error!("Error with running cluster: {}", e)));
+
+            let consul_fut = Consul::builder()
+                .with_cluster_name(cluster_name)
+                .with_destination(consul_dst)
+                .build()
+                .and_then(move |consul| cluster::run(place_addr, consul))
+                .map_err(|e| error!("Error connecting to consul: {}", e));
+
+            tokio::spawn(consul_fut);
 
             router_with_catalog(&bind, &catalog)
         });
@@ -192,22 +197,35 @@ fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Future<I
 fn connect_to_consul(settings: &Settings) -> impl Future<Item = (), Error = ()> {
     let consul_address = settings.consul_addr.clone();
     let cluster_name = settings.cluster_name.clone();
-    let settings_path = settings.path.clone();
+    let settings_path_read = settings.path.clone();
+    let settings_path_write = settings.path.clone();
+    let consul_dst = Uri::from_str(&consul_address).expect("Consul address is not a proper uri");
 
     future::lazy(move || {
-        let mut consul_client = Consul::builder()
+        Consul::builder()
             .with_cluster_name(cluster_name)
-            .with_address(consul_address)
+            .with_destination(consul_dst)
             .build()
-            .expect("Could not build Consul client.");
+            .and_then(|mut consul_client| {
+                let mut client_clone = consul_client.clone();
+                consul_client
+                    .register_cluster()
+                    .and_then(move |_| cluster::read_node_id(settings_path_read.as_str()))
+                    .then(|result| match result {
+                        Ok(id) => {
+                            let parsed_id = Uuid::parse_str(&id).expect("Parsed node ID is not a UUID.");
+                            cluster::write_node_id(settings_path_write, parsed_id.to_hyphenated().to_string())
+                        }
 
-        // Build future that will connect to Consul and register the node_id
-        consul_client
-            .register_cluster()
-            .and_then(|_| cluster::init_node_id(settings_path))
-            .and_then(move |id| {
-                consul_client.set_node_id(id);
-                consul_client.register_node()
+                        Err(_) => {
+                            let new_id = Uuid::new_v4();
+                            cluster::write_node_id(settings_path_write, new_id.to_hyphenated().to_string())
+                        }
+                    })
+                    .and_then(move |id| {
+                        client_clone.set_node_id(id);
+                        client_clone.register_node()
+                    })
             })
             .map_err(|e| error!("Error: {}", e))
     })

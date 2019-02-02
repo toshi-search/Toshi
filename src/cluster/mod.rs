@@ -41,7 +41,7 @@ pub mod shard;
 use self::placement::{Background, Place};
 
 /// Run the services associated with the cluster
-pub fn run(place_addr: SocketAddr, consul: Consul) -> impl Future<Item = (), Error = std::io::Error> {
+pub fn run(place_addr: SocketAddr, consul: Consul) -> impl Future<Item = (), Error = ClusterError> {
     future::lazy(move || {
         let (nodes, bg) = Background::new(consul.clone(), Duration::from_secs(2));
 
@@ -50,6 +50,7 @@ pub fn run(place_addr: SocketAddr, consul: Consul) -> impl Future<Item = (), Err
         // TODO: add cluster service et al
 
         Place::serve(consul, nodes, place_addr)
+            .map_err(|e| ClusterError::PlacementError(format!("{}", e)))
     })
 }
 
@@ -99,6 +100,10 @@ pub enum ClusterError {
     UnableToGetIndexHandle,
     #[fail(display = "Unable to store services")]
     UnableToStoreServices,
+    #[fail(display = "Failed to connect to consul: {}", _0)]
+    FailedConnectingToConsul(String),
+    #[fail(display = "Error with placement service: {}", _0)]
+    PlacementError(String)
 }
 
 pub type ConnectionError = ConnectError<io::Error>;

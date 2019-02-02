@@ -1,14 +1,17 @@
 //! Provides an interface to a Consul cluster
 
 use bytes::Bytes;
-use futures::{stream::Stream, Async, Future, Poll};
-use hyper::body::Body;
-use hyper::client::HttpConnector;
-use hyper::http::uri::Scheme;
-use hyper::{Client, Request, Response, Uri};
-use hyper_tls::HttpsConnector;
+use futures::{future, stream::Stream, Async, Future, Poll};
+use http::uri::Scheme;
+use hyper::client::{conn, connect::Destination, HttpConnector};
+use hyper::{Body, Request, Response, Uri};
+use hyper_tls::{HttpsConnector, MaybeHttpsStream};
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
+use tokio::net::TcpStream;
 use tower_consul::{Consul as TowerConsul, ConsulService, KVValue};
+use tower_direct_service::DirectService;
+use tower_hyper::{util::MakeService, Connect, ConnectError, Connection};
 use tower_service::Service;
 
 use crate::cluster::shard::PrimaryShard;
@@ -23,7 +26,7 @@ pub struct NodeData {
     pub shards: Vec<ReplicaShard>,
 }
 
-pub type ConsulClient = TowerConsul<HttpsService>;
+pub type ConsulClient = TowerConsul<BytesService>;
 
 /// Consul connection client, clones here are cheap
 /// since the entire backing of this is a tower Buffer.
@@ -116,22 +119,18 @@ impl Consul {
 #[derive(Default, Clone)]
 /// Builder struct for Consul
 pub struct Builder {
-    address: Option<String>,
-    scheme: Option<Scheme>,
+    destination: Option<Uri>,
     cluster_name: Option<String>,
     node_id: Option<String>,
 }
 
 impl Builder {
-    /// Sets the address of the consul service
-    pub fn with_address(mut self, address: String) -> Self {
-        self.address = Some(address);
-        self
-    }
-
-    /// Sets the scheme (http or https) for the Consul server
-    pub fn with_scheme(mut self, scheme: Scheme) -> Self {
-        self.scheme = Some(scheme);
+    /// Sets the Uri for the consul destination
+    ///
+    /// Must contain Schema and Authority, and must be
+    /// absolute or else build will fail.
+    pub fn with_destination(mut self, uri: Uri) -> Self {
+        self.destination = Some(uri);
         self
     }
 
@@ -147,49 +146,64 @@ impl Builder {
         self
     }
 
-    pub fn build(self) -> Result<Consul> {
-        let address = self.address.unwrap_or_else(|| "127.0.0.1:8500".parse().unwrap());
-        let scheme = self.scheme.unwrap_or(Scheme::HTTP);
+    pub fn build(self) -> impl Future<Item = Consul, Error = ClusterError> {
+        future::lazy(|| {
+            let uri = self.destination.unwrap_or_else(|| Uri::from_static("http://127.0.0.1:8500"));
+            let destination = Destination::try_from_uri(uri).expect("Unable to build consul uri");
+            let addr = destination.host().to_string();
+            let scheme = destination.scheme();
 
-        let client = TowerConsul::new(HttpsService::new(), 100, scheme.to_string(), address.to_string()).map_err(|_| Error::SpawnError)?;
+            let cluster_name = self.cluster_name.unwrap_or_else(|| "kitsune".into());
+            let node_id = self.node_id.unwrap_or_else(|| "alpha".into());
+            let scheme = Scheme::from_str(scheme).expect("This is a bug because this should be a valid scheme");
 
-        Ok(Consul {
-            address,
-            scheme,
-            client,
-            cluster_name: self.cluster_name.unwrap_or_else(|| "kitsune".into()),
-            node_id: self.node_id.unwrap_or_else(|| "alpha".into()),
+            let https_connector = HttpsConnector::new(1).expect("Unable to spawn https connector");
+            let mut connector = Connect::new(https_connector, conn::Builder::new());
+
+            connector
+                .make_service(destination.clone())
+                .map_err(|e| ClusterError::FailedConnectingToConsul(format!("{}", e)))
+                .and_then(move |conn| {
+                    let http_client = BytesService::new(conn);
+
+                    let client =
+                        TowerConsul::new(http_client, 100, scheme.to_string(), addr.clone()).expect("Unable to spawn consul client");
+
+                    Ok(Consul {
+                        address: addr,
+                        scheme,
+                        client,
+                        cluster_name,
+                        node_id,
+                    })
+                })
         })
     }
 }
 
-#[derive(Clone)]
-pub struct HttpsService {
-    client: Client<HttpsConnector<HttpConnector>>,
+pub struct BytesService {
+    conn: Connection<MaybeHttpsStream<TcpStream>, Body>,
 }
 
-impl HttpsService {
-    fn new() -> Self {
-        let https = HttpsConnector::new(4).expect("Could not create TLS for Hyper");
-        let client = Client::builder().build::<_, hyper::Body>(https);
-
-        HttpsService { client }
+impl BytesService {
+    fn new(conn: Connection<MaybeHttpsStream<TcpStream>, Body>) -> Self {
+        BytesService { conn }
     }
 }
 
-impl Service<Request<Bytes>> for HttpsService {
+impl Service<Request<Bytes>> for BytesService {
     type Response = Response<Bytes>;
     type Error = hyper::Error;
     type Future = Box<Future<Item = Self::Response, Error = Self::Error> + Send>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        Ok(Async::Ready(()))
+        self.conn.poll_ready()
     }
 
     fn call(&mut self, req: Request<Bytes>) -> Self::Future {
         let f = self
-            .client
-            .request(req.map(Body::from))
+            .conn
+            .call(req.map(Body::from))
             .and_then(|res| {
                 let status = res.status();
                 let headers = res.headers().clone();
