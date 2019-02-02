@@ -7,7 +7,8 @@ use std::{
 };
 
 use clap::{crate_authors, crate_description, crate_version, App, Arg, ArgMatches};
-use futures::{future, sync::oneshot, Future, Stream};
+use futures::{future, Future, Stream};
+use uuid::Uuid;
 use http::Uri;
 use log::{error, info};
 use tokio::runtime::Runtime;
