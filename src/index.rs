@@ -4,8 +4,6 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
-use crossbeam::{unbounded, Receiver, Sender};
-use futures::future::JoinAll;
 use hashbrown::HashMap;
 use http::Uri;
 use tantivy::directory::MmapDirectory;
@@ -38,27 +36,8 @@ impl IndexCatalog {
     }
 
     pub fn new(base_path: PathBuf, settings: Settings) -> Result<Self> {
-        let nodes = settings.nodes.clone();
         let remote_idxs = Arc::new(Mutex::new(HashMap::new()));
         let local_idxs = HashMap::new();
-
-        if settings.enable_clustering && settings.master {
-            let (recv, fut) = IndexCatalog::refresh_multiple_nodes(nodes);
-            let task = fut.into_future().map(|_| ()).map_err(|e| panic!("{:?}", e));
-
-            crossbeam::scope(|scope| {
-                let ari = Arc::clone(&remote_idxs);
-                let recv_clone = recv.clone();
-                scope.spawn(move |_| {
-                    for (idx, client) in recv_clone {
-                        let ri = RemoteIndex::new(idx.clone(), client);
-                        ari.lock().unwrap().insert(idx.clone(), ri);
-                    }
-                });
-            })
-            .unwrap();
-            tokio::spawn(task);
-        }
 
         let mut index_cat = IndexCatalog {
             settings,
@@ -69,6 +48,20 @@ impl IndexCatalog {
         index_cat.refresh_catalog()?;
 
         Ok(index_cat)
+    }
+
+    pub fn update_remote_indexes(&self) -> impl Future<Item = (), Error = ()> {
+        let cat_clone = Arc::clone(&self.remote_handles);
+        IndexCatalog::refresh_multiple_nodes(self.settings.nodes.clone())
+            .for_each(move |indexes| {
+                let cat = &cat_clone;
+                for idx in indexes.1 {
+                    let ri = RemoteIndex::new(idx.clone(), indexes.0.clone());
+                    cat.lock().unwrap().insert(idx.clone(), ri);
+                }
+                future::ok(())
+            })
+            .map_err(|e| panic!("{:?}", e))
     }
 
     pub fn base_path(&self) -> &PathBuf {
@@ -188,39 +181,25 @@ impl IndexCatalog {
             .map_err(|e| Error::IOError(e.to_string()))
     }
 
-    pub fn refresh_multiple_nodes(
-        nodes: Vec<String>,
-    ) -> (
-        Receiver<(String, RpcClient)>,
-        JoinAll<Vec<impl Future<Item = (), Error = RPCError>>>,
-    ) {
-        let (send, recv) = unbounded::<(String, RpcClient)>();
-
-        let n = nodes.iter().map(|n| {
-            let send_clone = send.clone();
-            IndexCatalog::refresh_remote_catalog(send_clone, n.to_owned())
-        });
-
-        (recv, future::join_all(n.collect()))
+    pub fn refresh_multiple_nodes(nodes: Vec<String>) -> impl stream::Stream<Item = (RpcClient, Vec<String>), Error = RPCError> {
+        let n = nodes.iter().map(|n| IndexCatalog::refresh_remote_catalog(n.to_owned()));
+        stream::futures_unordered(n)
     }
 
-    pub fn refresh_remote_catalog(sender: Sender<(String, RpcClient)>, node: String) -> impl Future<Item = (), Error = RPCError> + Send {
+    pub fn refresh_remote_catalog(node: String) -> impl Future<Item = (RpcClient, Vec<String>), Error = RPCError> + Send {
         let socket: SocketAddr = node.parse().unwrap();
         let host_uri = IndexCatalog::create_host_uri(socket).unwrap();
         let grpc_conn = GrpcConn(socket);
         let client_fut = RpcServer::create_client(grpc_conn.clone(), host_uri)
             .and_then(|mut client| {
                 let client_clone = client.clone();
-                client
-                    .list_indexes(tower_grpc::Request::new(ListRequest {}))
-                    .map(|resp| (client_clone, resp.into_inner()))
-                    .map_err(|e| e.into())
+                    client
+                        .list_indexes(tower_grpc::Request::new(ListRequest {}))
+                        .map(|resp| (client_clone, resp.into_inner()))
+                        .map_err(|e| e.into())
+
             })
-            .map(move |x| {
-                for idx in x.1.indexes {
-                    sender.send((idx, x.0.clone())).unwrap();
-                }
-            });
+            .map(move |x| (x.0, x.1.indexes));
 
         client_fut
     }
@@ -253,7 +232,6 @@ impl IndexCatalog {
 #[cfg(test)]
 pub mod tests {
     use std::sync::{Arc, RwLock};
-    use std::time::Duration;
 
     use tantivy::doc;
     use tantivy::schema::*;
@@ -287,28 +265,47 @@ pub mod tests {
         idx
     }
 
+  #[test]
+  pub fn create_tests_index() {
+    let mut builder = SchemaBuilder::new();
+    let test_text = builder.add_text_field("test_text", STORED | TEXT);
+    let test_int = builder.add_i64_field("test_i64", INT_STORED | INT_INDEXED);
+    let test_unsign = builder.add_u64_field("test_u64", INT_STORED | INT_INDEXED);
+    let test_unindexed = builder.add_text_field("test_unindex", STORED);
+
+    let schema = builder.build();
+    let idx = Index::create_in_dir("test_idx",schema).unwrap();
+    let mut writer = idx.writer(30_000_000).unwrap();
+    writer.add_document(doc! { test_text => "Test Document 1", test_int => 2014i64,  test_unsign => 10u64, test_unindexed => "no" });
+    writer.add_document(doc! { test_text => "Test Dockument 2", test_int => -2015i64, test_unsign => 11u64, test_unindexed => "yes" });
+    writer.add_document(doc! { test_text => "Test Duckiment 3", test_int => 2016i64,  test_unsign => 12u64, test_unindexed => "noo" });
+    writer.add_document(doc! { test_text => "Test Document 4", test_int => -2017i64, test_unsign => 13u64, test_unindexed => "yess" });
+    writer.add_document(doc! { test_text => "Test Document 5", test_int => 2018i64,  test_unsign => 14u64, test_unindexed => "nooo" });
+    writer.commit().unwrap();
+
+//        idx
+  }
+
     #[test]
+    #[allow(unused_must_use)]
     pub fn test_remote_index_refresh() {
         let mut rt = Runtime::new().unwrap();
         let socket_addr: SocketAddr = "127.0.0.1:8081".parse().unwrap();
         let cat = create_test_catalog("test_index");
         let service = RpcServer::get_service(socket_addr, cat);
         let nodes = "127.0.0.1:8081".to_string();
-        let (rcv, refresh) = IndexCatalog::refresh_multiple_nodes(vec![nodes]);
-        let reff = refresh.into_future().map(|_| ()).map_err(|_| ());
-        let s = service
-            .select(reff)
-            .map(|e| {
-                tokio::spawn(e.1);
-                ()
+        let refresh = IndexCatalog::refresh_multiple_nodes(vec![nodes]);
+        let reff = refresh
+            .for_each(|i| {
+                for idx in i.1 {
+                    println!("IDX={}", idx);
+                }
+                future::ok(())
             })
             .map_err(|_| ());
+        let s = service.select(reff);
 
-        rt.spawn(s);
+        rt.block_on(s);
         rt.shutdown_on_idle();
-        println!("Readin...");
-        for i in rcv.recv_timeout(Duration::from_secs(2)) {
-            println!("{}", i.0);
-        }
     }
 }

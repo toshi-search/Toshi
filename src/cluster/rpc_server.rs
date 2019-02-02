@@ -68,7 +68,7 @@ impl RpcServer {
             .map(|c| {
                 let uri = uri;
                 let connection = Builder::new().uri(uri).build(c).unwrap();
-                let buffer = match Buffer::new(connection, 0) {
+                let buffer = match Buffer::new(connection, 128) {
                     Ok(b) => b,
                     _ => panic!("asdf"),
                 };
@@ -123,6 +123,7 @@ impl server::IndexService for RpcServer {
         if let Ok(ref mut cat) = self.catalog.read() {
             let index = cat.get_index(&inner.index).unwrap();
             let query: query::Request = serde_json::from_slice(&inner.query).unwrap();
+            info!("QUERY = {:?}", query);
             match index.search_index(query) {
                 Ok(query_results) => {
                     let query_bytes: Vec<u8> = serde_json::to_vec(&query_results).unwrap();

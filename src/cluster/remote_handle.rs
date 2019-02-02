@@ -60,8 +60,10 @@ impl IndexHandle for RemoteIndex {
     fn search_index(&self, search: Request) -> Self::SearchResponse {
         let name = self.name.clone();
         let clients = self.remotes.clone();
+        info!("REQ = {:?}", search);
         let fut = clients.into_iter().map(move |mut client| {
             let bytes = serde_json::to_vec(&search).unwrap();
+            info!("{:?}", serde_json::to_string_pretty(&search).unwrap());
             let req = TowerRequest::new(SearchRequest {
                 index: name.clone(),
                 query: bytes,
