@@ -162,7 +162,10 @@ fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Future<I
     println!("{}", HEADER);
 
     if settings.enable_clustering {
-        let settings = settings.clone();
+        // I had this commented out for now in order to test the manual cluster reporting, next step is
+        // to turn this back on and get the information from consul instead.
+
+        //let settings = settings.clone();
         //        let place_addr = settings.place_addr.clone();
         //        let consul_addr = settings.consul_addr.clone();
         //        let cluster_name = settings.cluster_name.clone();
@@ -182,7 +185,7 @@ fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Future<I
         //            router_with_catalog(&bind, &catalog)
         //        });
         let run = commit_watcher.and_then(move |_| {
-            let update = catalog.read().unwrap().update_remote_indexes();
+            let update = catalog.read().unwrap().refresh_remote_indexes();
             tokio::spawn(update);
             router_with_catalog(&bind, &catalog)
         });
