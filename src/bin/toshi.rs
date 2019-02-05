@@ -185,7 +185,7 @@ fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Future<I
         //            router_with_catalog(&bind, &catalog)
         //        });
         let run = commit_watcher.and_then(move |_| {
-            let update = catalog.read().unwrap().refresh_remote_indexes();
+            let update = catalog.read().unwrap().update_remote_indexes();
             tokio::spawn(update);
             router_with_catalog(&bind, &catalog)
         });
