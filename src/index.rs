@@ -193,11 +193,10 @@ impl IndexCatalog {
         let client_fut = RpcServer::create_client(grpc_conn.clone(), host_uri)
             .and_then(|mut client| {
                 let client_clone = client.clone();
-                    client
-                        .list_indexes(tower_grpc::Request::new(ListRequest {}))
-                        .map(|resp| (client_clone, resp.into_inner()))
-                        .map_err(|e| e.into())
-
+                client
+                    .list_indexes(tower_grpc::Request::new(ListRequest {}))
+                    .map(|resp| (client_clone, resp.into_inner()))
+                    .map_err(|e| e.into())
             })
             .map(move |(x, r)| (x, r.indexes));
 
