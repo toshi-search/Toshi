@@ -10,10 +10,23 @@ use tokio::{
     io::{read_to_end, write_all},
 };
 
+use uuid::Uuid;
+
 use std::path::Path;
 use std::time;
 
 static NODE_ID_FILENAME: &'static str = ".node_id";
+
+/// Init the node id by reading the node id from path or writing a fresh one if not found
+pub fn init_node_id(path: String) -> impl Future<Item = String, Error = ClusterError> {
+    read_node_id(path.as_ref()).then(|result| {
+        let id = match result {
+            Ok(id) => Uuid::parse_str(&id).expect("Parsed node ID is not a UUID."),
+            Err(_) => Uuid::new_v4(),
+        };
+        write_node_id(path, id.to_hyphenated().to_string())
+    })
+}
 
 /// Write node id to the path `p` provided, this will also append `.node_id`
 pub fn write_node_id(p: String, id: String) -> impl Future<Item = String, Error = ClusterError> {
