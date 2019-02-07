@@ -2227,7 +2227,7 @@ dependencies = [
 [[package]]
 name = "tower-buffer"
 version = "0.1.0"
-source = "git+https://github.com/tower-rs/tower#61a183fe88067469e7bbab74cb4cecbcd3c60129"
+source = "git+https://github.com/tower-rs/tower#4c5ba67497eadc189445f308b4f52b8a120f3c85"
 dependencies = [
  "futures 0.1.25 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazycell 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2255,7 +2255,7 @@ dependencies = [
 [[package]]
 name = "tower-direct-service"
 version = "0.1.0"
-source = "git+https://github.com/tower-rs/tower#61a183fe88067469e7bbab74cb4cecbcd3c60129"
+source = "git+https://github.com/tower-rs/tower#4c5ba67497eadc189445f308b4f52b8a120f3c85"
 dependencies = [
  "futures 0.1.25 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -2263,7 +2263,7 @@ dependencies = [
 [[package]]
 name = "tower-discover"
 version = "0.1.0"
-source = "git+https://github.com/tower-rs/tower#61a183fe88067469e7bbab74cb4cecbcd3c60129"
+source = "git+https://github.com/tower-rs/tower#4c5ba67497eadc189445f308b4f52b8a120f3c85"
 dependencies = [
  "futures 0.1.25 (registry+https://github.com/rust-lang/crates.io-index)",
  "tower-service 0.2.0 (git+https://github.com/tower-rs/tower)",
@@ -2336,7 +2336,7 @@ dependencies = [
 [[package]]
 name = "tower-service"
 version = "0.2.0"
-source = "git+https://github.com/tower-rs/tower#61a183fe88067469e7bbab74cb4cecbcd3c60129"
+source = "git+https://github.com/tower-rs/tower#4c5ba67497eadc189445f308b4f52b8a120f3c85"
 dependencies = [
  "futures 0.1.25 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -2344,7 +2344,7 @@ dependencies = [
 [[package]]
 name = "tower-util"
 version = "0.1.0"
-source = "git+https://github.com/tower-rs/tower#61a183fe88067469e7bbab74cb4cecbcd3c60129"
+source = "git+https://github.com/tower-rs/tower#4c5ba67497eadc189445f308b4f52b8a120f3c85"
 dependencies = [
  "futures 0.1.25 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-io 0.1.11 (registry+https://github.com/rust-lang/crates.io-index)",
