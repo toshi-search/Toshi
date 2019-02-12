@@ -6,10 +6,10 @@ use std::{
 };
 
 use clap::{crate_authors, crate_description, crate_version, App, Arg, ArgMatches};
-use futures::{future, sync::oneshot, Future, Stream};
+use futures::{future, Future, Stream};
 use log::{error, info};
 use tokio::runtime::Runtime;
-use uuid::Uuid;
+use tokio::sync::oneshot;
 
 use toshi::{
     cluster::{self, rpc_server::RpcServer, Consul},
@@ -162,25 +162,20 @@ fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Future<I
     println!("{}", HEADER);
 
     if settings.enable_clustering {
-        let settings = settings.clone();
-        //        let place_addr = settings.place_addr.clone();
-        //        let consul_addr = settings.consul_addr.clone();
-        //        let cluster_name = settings.cluster_name.clone();
+        // I had this commented out for now in order to test the manual cluster reporting, next step is
+        // to turn this back on and get the information from consul instead.
+
+        //    let consul = Consul::builder()
+        //        .with_cluster_name(cluster_name)
+        //        .with_address(consul_addr)
+        //        .build()
+        //        .expect("Could not build Consul client.");
         //
-        //        let run = future::lazy(move || connect_to_consul(&settings)).and_then(move |_| {
-        //            tokio::spawn(commit_watcher);
+        //    let place_addr = place_addr.parse().expect("Placement address must be a valid SocketAddr");
+        //    tokio::spawn(cluster::run(place_addr, consul).map_err(|e| error!("Error with running cluster: {}", e)));
         //
-        //            let consul = Consul::builder()
-        //                .with_cluster_name(cluster_name)
-        //                .with_address(consul_addr)
-        //                .build()
-        //                .expect("Could not build Consul client.");
-        //
-        //            let place_addr = place_addr.parse().expect("Placement address must be a valid SocketAddr");
-        //            tokio::spawn(cluster::run(place_addr, consul).map_err(|e| error!("Error with running cluster: {}", e)));
-        //
-        //            router_with_catalog(&bind, &catalog)
-        //        });
+        //    router_with_catalog(&bind, &catalog)
+        //});
         let run = commit_watcher.and_then(move |_| {
             let update = catalog.read().unwrap().update_remote_indexes();
             tokio::spawn(update);
@@ -196,8 +191,7 @@ fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Future<I
 fn connect_to_consul(settings: &Settings) -> impl Future<Item = (), Error = ()> {
     let consul_address = settings.consul_addr.clone();
     let cluster_name = settings.cluster_name.clone();
-    let settings_path_read = settings.path.clone();
-    let settings_path_write = settings.path.clone();
+    let settings_path = settings.path.clone();
 
     future::lazy(move || {
         let mut consul_client = Consul::builder()
@@ -209,18 +203,7 @@ fn connect_to_consul(settings: &Settings) -> impl Future<Item = (), Error = ()> 
         // Build future that will connect to Consul and register the node_id
         consul_client
             .register_cluster()
-            .and_then(move |_| cluster::read_node_id(settings_path_read.as_str()))
-            .then(|result| match result {
-                Ok(id) => {
-                    let parsed_id = Uuid::parse_str(&id).expect("Parsed node ID is not a UUID.");
-                    cluster::write_node_id(settings_path_write, parsed_id.to_hyphenated().to_string())
-                }
-
-                Err(_) => {
-                    let new_id = Uuid::new_v4();
-                    cluster::write_node_id(settings_path_write, new_id.to_hyphenated().to_string())
-                }
-            })
+            .and_then(|_| cluster::init_node_id(settings_path))
             .and_then(move |id| {
                 consul_client.set_node_id(id);
                 consul_client.register_node()

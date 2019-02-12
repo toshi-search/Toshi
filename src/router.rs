@@ -15,8 +15,9 @@ use tower_web::ServiceBuilder;
 use crate::handlers::*;
 use crate::index::IndexCatalog;
 use crate::settings::VERSION;
+use http::StatusCode;
 
-pub fn router_with_catalog(addr: &SocketAddr, catalog: &Arc<RwLock<IndexCatalog>>) -> Box<Future<Item = (), Error = ()> + Send> {
+pub fn router_with_catalog(addr: &SocketAddr, catalog: &Arc<RwLock<IndexCatalog>>) -> impl Future<Item = (), Error = ()> + Send {
     let search_handler = SearchHandler::new(Arc::clone(catalog));
     let index_handler = IndexHandler::new(Arc::clone(catalog));
     let bulk_handler = BulkHandler::new(Arc::clone(catalog));
@@ -24,7 +25,7 @@ pub fn router_with_catalog(addr: &SocketAddr, catalog: &Arc<RwLock<IndexCatalog>
     let root_handler = RootHandler::new(VERSION);
     let listener = TcpListener::bind(addr).unwrap().incoming();
 
-    let router = ServiceBuilder::new()
+    ServiceBuilder::new()
         .resource(search_handler)
         .resource(index_handler)
         .resource(bulk_handler)
@@ -37,10 +38,10 @@ pub fn router_with_catalog(addr: &SocketAddr, catalog: &Arc<RwLock<IndexCatalog>
             let err_msg = ErrorResponse::new(error.to_string(), request.uri().path().into());
             let json = serde_json::to_string(&err_msg).unwrap();
 
-            let (status, body) = match error.kind() {
-                e if e.is_not_found() => (404, json),
-                e if e.is_bad_request() => (400, json),
-                e if e.is_internal() => (500, json),
+            let (status, body) = match error.status_code() {
+                StatusCode::NOT_FOUND => (404, json),
+                StatusCode::BAD_REQUEST => (400, json),
+                StatusCode::INTERNAL_SERVER_ERROR => (500, json),
                 _ => (404, json),
             };
             let response = Builder::new()
@@ -51,7 +52,5 @@ pub fn router_with_catalog(addr: &SocketAddr, catalog: &Arc<RwLock<IndexCatalog>
 
             Ok(response)
         })
-        .serve(listener);
-
-    Box::new(router)
+        .serve(listener)
 }

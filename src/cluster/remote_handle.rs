@@ -63,7 +63,6 @@ impl IndexHandle for RemoteIndex {
         info!("REQ = {:?}", search);
         let fut = clients.into_iter().map(move |mut client| {
             let bytes = serde_json::to_vec(&search).unwrap();
-            info!("{:?}", serde_json::to_string_pretty(&search).unwrap());
             let req = TowerRequest::new(SearchRequest {
                 index: name.clone(),
                 query: bytes,
@@ -75,7 +74,7 @@ impl IndexHandle for RemoteIndex {
                     res.into_inner()
                 })
                 .map_err(|e| {
-                    info!("{:?}", e);
+                    info!("ERR = {:?}", e);
                     e.into()
                 })
         });
@@ -84,7 +83,7 @@ impl IndexHandle for RemoteIndex {
     }
 
     fn add_document(&self, _: AddDocument) -> Self::AddResponse {
-        unimplemented!()
+        unimplemented!("All of the mutating calls should probably have some strategy to balance how they distribute documents and knowing where things are")
     }
 
     fn delete_term(&self, _: DeleteDoc) -> Self::DeleteResponse {
