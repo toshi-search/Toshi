@@ -1836,7 +1836,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "tantivy"
-version = "0.8.1"
+version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "atomicwrites 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2193,7 +2193,7 @@ dependencies = [
  "serde_json 1.0.38 (registry+https://github.com/rust-lang/crates.io-index)",
  "systemstat 0.1.3 (git+https://github.com/toshi-search/systemstat)",
  "taken 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "tantivy 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tantivy 0.8.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-connect 0.1.0 (git+https://github.com/carllerche/tokio-connect)",
  "tokio-executor 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2817,7 +2817,7 @@ dependencies = [
 "checksum synstructure 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)" = "73687139bf99285483c96ac0add482c3776528beac1d97d444f6e91f203a2015"
 "checksum systemstat 0.1.3 (git+https://github.com/toshi-search/systemstat)" = "<none>"
 "checksum taken 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "84e54dfeaad03f10a4e55e40f81f46521d63aeef036c0593dac7e04b186e6de4"
-"checksum tantivy 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)" = "252c9134bcd3a045c770ecc3a896a73e98fd8ed124b4380b837451f17b04d96b"
+"checksum tantivy 0.8.2 (registry+https://github.com/rust-lang/crates.io-index)" = "a08552afc58ea5a6395a087ce21c112b7de2b843d36f6fbd8df5c6f9ff63c8b5"
 "checksum tempdir 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)" = "15f2b5fb00ccdf689e0149d1b1b3c03fead81c2b37735d812fa8bddbbf41b6d8"
 "checksum tempfile 3.0.5 (registry+https://github.com/rust-lang/crates.io-index)" = "7e91405c14320e5c79b3d148e1c86f40749a36e490642202a31689cb1a3452b2"
 "checksum termcolor 1.0.4 (registry+https://github.com/rust-lang/crates.io-index)" = "4096add70612622289f2fdcdbd5086dc81c1e2675e6ae58d6c4f62a16c6d7f2f"
