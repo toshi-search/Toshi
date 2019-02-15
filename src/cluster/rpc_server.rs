@@ -3,6 +3,7 @@ use std::sync::{Arc, RwLock};
 
 use futures::{future, future::Future, stream::Stream};
 use log::{error, info};
+use tantivy::schema::Schema;
 use tokio::net::{TcpListener, TcpStream};
 use tokio_executor::DefaultExecutor;
 use tower_buffer::Buffer;
@@ -15,8 +16,7 @@ use tower_util::MakeService;
 
 use crate::cluster::cluster_rpc::server;
 use crate::cluster::cluster_rpc::*;
-use crate::cluster::GrpcConn;
-use crate::cluster::RPCError;
+use crate::cluster::{GrpcConn, RPCError};
 use crate::handle::IndexHandle;
 use crate::index::IndexCatalog;
 use crate::query;
@@ -68,7 +68,7 @@ impl RpcServer {
             .map(|c| {
                 let uri = uri;
                 let connection = Builder::new().uri(uri).build(c).unwrap();
-                let buffer = match Buffer::new(connection, 0) {
+                let buffer = match Buffer::new(connection, 128) {
                     Ok(b) => b,
                     _ => panic!("asdf"),
                 };
@@ -84,29 +84,79 @@ impl RpcServer {
     pub fn create_search_reply(result: Option<ResultReply>, doc: Vec<u8>) -> SearchReply {
         SearchReply { result, doc }
     }
+
+    pub fn error_response<T>(code: Code, msg: String) -> future::FutureResult<Response<T>, Error> {
+        let status = Status::with_code_and_message(code, msg);
+        future::failed(Error::Grpc(status))
+    }
 }
 
 impl server::IndexService for RpcServer {
     type ListIndexesFuture = future::FutureResult<Response<ListReply>, Error>;
     type PlaceIndexFuture = future::FutureResult<Response<ResultReply>, Error>;
-    type PlaceDocumentFuture = Box<Future<Item = Response<ResultReply>, Error = Error> + Send>;
-    type PlaceReplicaFuture = Box<Future<Item = Response<ResultReply>, Error = Error> + Send>;
+    type PlaceDocumentFuture = future::FutureResult<Response<ResultReply>, Error>;
+    type PlaceReplicaFuture = future::FutureResult<Response<ResultReply>, Error>;
     type SearchIndexFuture = future::FutureResult<Response<SearchReply>, Error>;
 
-    fn place_index(&mut self, _request: Request<PlaceRequest>) -> Self::PlaceIndexFuture {
-        unimplemented!()
-    }
-
     fn list_indexes(&mut self, _: Request<ListRequest>) -> Self::ListIndexesFuture {
-        if let Ok(ref mut cat) = self.catalog.read() {
+        if let Ok(ref cat) = self.catalog.read() {
             let indexes = cat.get_collection();
-            let lists: Vec<String> = indexes.into_iter().map(|t| t.0.to_string()).collect();
+            let lists: Vec<String> = indexes.into_iter().map(|(t, _)| t.to_string()).collect();
             let resp = Response::new(ListReply { indexes: lists });
             future::finished(resp)
         } else {
-            let status = Status::with_code_and_message(Code::NotFound, "Could not get lock on index catalog".into());
-            let err = Error::Grpc(status);
-            future::failed(err)
+            Self::error_response(Code::NotFound, "Could not get lock on index catalog".into())
+        }
+    }
+
+    fn search_index(&mut self, request: Request<SearchRequest>) -> Self::SearchIndexFuture {
+        let inner = request.into_inner();
+        if let Ok(ref cat) = self.catalog.read() {
+            if let Ok(index) = cat.get_index(&inner.index) {
+                let query: query::Request = serde_json::from_slice(&inner.query).unwrap();
+                info!("QUERY = {:?}", query);
+                match index.search_index(query) {
+                    Ok(query_results) => {
+                        let query_bytes: Vec<u8> = serde_json::to_vec(&query_results).unwrap();
+                        let result = Some(RpcServer::create_result(0, "".into()));
+                        future::finished(Response::new(RpcServer::create_search_reply(result, query_bytes)))
+                    }
+                    Err(e) => {
+                        let result = Some(RpcServer::create_result(1, e.to_string()));
+                        future::finished(Response::new(RpcServer::create_search_reply(result, vec![])))
+                    }
+                }
+            } else {
+                Self::error_response(Code::NotFound, format!("Index: {} not found", inner.index))
+            }
+        } else {
+            Self::error_response(
+                Code::NotFound,
+                format!("Could not obtain lock on catalog for index: {}", inner.index),
+            )
+        }
+    }
+
+    fn place_index(&mut self, request: Request<PlaceRequest>) -> Self::PlaceIndexFuture {
+        let PlaceRequest { index, schema } = request.into_inner();
+        if let Ok(ref mut cat) = self.catalog.write() {
+            if let Ok(schema) = serde_json::from_slice::<Schema>(&schema) {
+                let ip = cat.base_path().clone();
+                if let Ok(new_index) = IndexCatalog::create_from_managed(ip, &index.clone(), schema) {
+                    if let Ok(_) = cat.add_index(index.clone(), new_index) {
+                        let result = RpcServer::create_result(0, "".into());
+                        future::finished(Response::new(result))
+                    } else {
+                        Self::error_response(Code::Internal, format!("Insert: {} failed", index.clone()))
+                    }
+                } else {
+                    Self::error_response(Code::Internal, format!("Could not create index: {}", index.clone()))
+                }
+            } else {
+                Self::error_response(Code::NotFound, "Invalid schema in request".into())
+            }
+        } else {
+            Self::error_response(Code::NotFound, format!("Cannot obtain lock on catalog for index: {}", index))
         }
     }
 
@@ -117,39 +167,15 @@ impl server::IndexService for RpcServer {
     fn place_replica(&mut self, _request: Request<ReplicaRequest>) -> Self::PlaceReplicaFuture {
         unimplemented!()
     }
-
-    fn search_index(&mut self, request: Request<SearchRequest>) -> Self::SearchIndexFuture {
-        let inner = request.into_inner();
-        if let Ok(ref mut cat) = self.catalog.read() {
-            let index = cat.get_index(&inner.index).unwrap();
-            let query: query::Request = serde_json::from_slice(&inner.query).unwrap();
-            match index.search_index(query) {
-                Ok(query_results) => {
-                    let query_bytes: Vec<u8> = serde_json::to_vec(&query_results).unwrap();
-                    let result = Some(RpcServer::create_result(0, "".into()));
-                    let resp = Response::new(RpcServer::create_search_reply(result, query_bytes));
-                    future::finished(resp)
-                }
-                Err(e) => {
-                    let result = Some(RpcServer::create_result(1, e.to_string()));
-                    let resp = Response::new(RpcServer::create_search_reply(result, vec![]));
-                    future::finished(resp)
-                }
-            }
-        } else {
-            let status = Status::with_code_and_message(Code::NotFound, format!("Index: {} not found", inner.index));
-            let err = Error::Grpc(status);
-            future::failed(err)
-        }
-    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::index::tests::create_test_catalog;
-    use crate::query::Query;
     use futures::future::Future;
     use http::Uri;
+
+    use crate::index::tests::create_test_catalog;
+    use crate::query::Query;
 
     use super::*;
 

@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use tantivy::query::{BooleanQuery, Occur, Query};
 use tantivy::schema::Schema;
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct BoolQuery {
     #[serde(default = "Vec::new")]
     must: Vec<TermQueries>,

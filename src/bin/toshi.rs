@@ -162,26 +162,25 @@ fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Future<I
     println!("{}", HEADER);
 
     if settings.enable_clustering {
-        let settings = settings.clone();
-        let place_addr = settings.place_addr.clone();
-        let consul_addr = settings.consul_addr.clone();
-        let cluster_name = settings.cluster_name.clone();
+        // I had this commented out for now in order to test the manual cluster reporting, next step is
+        // to turn this back on and get the information from consul instead.
 
-        let run = future::lazy(move || connect_to_consul(&settings)).and_then(move |_| {
-            tokio::spawn(commit_watcher);
-
-            let consul = Consul::builder()
-                .with_cluster_name(cluster_name)
-                .with_address(consul_addr)
-                .build()
-                .expect("Could not build Consul client.");
-
-            let place_addr = place_addr.parse().expect("Placement address must be a valid SocketAddr");
-            tokio::spawn(cluster::run(place_addr, consul).map_err(|e| error!("Error with running cluster: {}", e)));
-
+        //    let consul = Consul::builder()
+        //        .with_cluster_name(cluster_name)
+        //        .with_address(consul_addr)
+        //        .build()
+        //        .expect("Could not build Consul client.");
+        //
+        //    let place_addr = place_addr.parse().expect("Placement address must be a valid SocketAddr");
+        //    tokio::spawn(cluster::run(place_addr, consul).map_err(|e| error!("Error with running cluster: {}", e)));
+        //
+        //    router_with_catalog(&bind, &catalog)
+        //});
+        let run = commit_watcher.and_then(move |_| {
+            let update = catalog.read().unwrap().update_remote_indexes();
+            tokio::spawn(update);
             router_with_catalog(&bind, &catalog)
         });
-
         future::Either::A(run)
     } else {
         let run = commit_watcher.and_then(move |_| router_with_catalog(&bind, &catalog));

@@ -47,11 +47,11 @@ impl IndexWatcher {
 pub mod tests {
     use super::*;
     use futures::future;
+    use tokio::runtime::Runtime;
 
     use crate::handlers::index::AddDocument;
     use crate::handlers::{IndexHandler, SearchHandler};
     use crate::index::tests::*;
-    use tokio::runtime::Runtime;
 
     #[test]
     pub fn test_auto_commit() {
@@ -75,7 +75,7 @@ pub mod tests {
 
         std::thread::sleep(std::time::Duration::from_secs(2));
 
-        let docs = search.get_all_docs("test_index".into()).unwrap();
+        let docs = search.get_all_docs("test_index".into()).wait().unwrap();
         println!("{}", docs.hits);
         assert_eq!(6, docs.hits);
         rt.shutdown_now();

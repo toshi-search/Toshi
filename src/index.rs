@@ -1,14 +1,15 @@
-use std::collections::HashMap;
 use std::fs;
 use std::iter::Iterator;
 use std::net::SocketAddr;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
-use futures::Future;
+use hashbrown::HashMap;
 use http::Uri;
 use tantivy::directory::MmapDirectory;
 use tantivy::schema::Schema;
 use tantivy::Index;
+use tokio::prelude::*;
 
 use crate::cluster::cluster_rpc::ListRequest;
 use crate::cluster::remote_handle::RemoteIndex;
@@ -25,8 +26,8 @@ use crate::{Error, Result};
 pub struct IndexCatalog {
     pub settings: Settings,
     base_path: PathBuf,
-    local_indexes: HashMap<String, LocalIndex>,
-    remote_indexes: HashMap<String, RemoteIndex>,
+    local_handles: HashMap<String, LocalIndex>,
+    remote_handles: Arc<Mutex<HashMap<String, RemoteIndex>>>,
 }
 
 impl IndexCatalog {
@@ -35,14 +36,32 @@ impl IndexCatalog {
     }
 
     pub fn new(base_path: PathBuf, settings: Settings) -> Result<Self> {
+        let remote_idxs = Arc::new(Mutex::new(HashMap::new()));
+        let local_idxs = HashMap::new();
+
         let mut index_cat = IndexCatalog {
             settings,
             base_path,
-            local_indexes: HashMap::new(),
-            remote_indexes: HashMap::new(),
+            local_handles: local_idxs,
+            remote_handles: remote_idxs,
         };
         index_cat.refresh_catalog()?;
+
         Ok(index_cat)
+    }
+
+    pub fn update_remote_indexes(&self) -> impl Future<Item = (), Error = ()> {
+        let cat_clone = Arc::clone(&self.remote_handles);
+        IndexCatalog::refresh_multiple_nodes(self.settings.nodes.clone())
+            .for_each(move |indexes| {
+                let cat = &cat_clone;
+                for idx in indexes.1 {
+                    let ri = RemoteIndex::new(idx.clone(), indexes.0.clone());
+                    cat.lock().unwrap().insert(idx.clone(), ri);
+                }
+                future::ok(())
+            })
+            .map_err(|e| panic!("{:?}", e))
     }
 
     pub fn base_path(&self) -> &PathBuf {
@@ -53,14 +72,16 @@ impl IndexCatalog {
     #[allow(dead_code)]
     pub fn with_index(name: String, index: Index) -> Result<Self> {
         let mut map = HashMap::new();
+        let remote_map = HashMap::new();
         let new_index = LocalIndex::new(index, Settings::default(), &name)
             .unwrap_or_else(|_| panic!("Unable to open index: {} because it's locked", name));
         map.insert(name, new_index);
+
         Ok(IndexCatalog {
             settings: Settings::default(),
             base_path: PathBuf::new(),
-            local_indexes: map,
-            remote_indexes: HashMap::new(),
+            local_handles: map,
+            remote_handles: Arc::new(Mutex::new(remote_map)),
         })
     }
 
@@ -86,39 +107,55 @@ impl IndexCatalog {
 
     pub fn add_index(&mut self, name: String, index: Index) -> Result<()> {
         let handle = LocalIndex::new(index, self.settings.clone(), &name)?;
-        self.local_indexes.insert(name.clone(), handle);
+        self.local_handles.insert(name.clone(), handle);
         Ok(())
     }
 
     pub fn add_remote_index(&mut self, name: String, remote: RpcClient) -> Result<()> {
         let ri = RemoteIndex::new(name.clone(), remote);
-        self.remote_indexes.entry(name).or_insert(ri);
+        self.remote_handles.lock()?.entry(name).or_insert(ri);
         Ok(())
     }
 
     #[allow(dead_code)]
     pub fn get_collection(&self) -> &HashMap<String, LocalIndex> {
-        &self.local_indexes
+        &self.local_handles
+    }
+
+    pub fn get_remote_collection(&self) -> Arc<Mutex<HashMap<String, RemoteIndex>>> {
+        Arc::clone(&self.remote_handles)
     }
 
     pub fn get_mut_collection(&mut self) -> &mut HashMap<String, LocalIndex> {
-        &mut self.local_indexes
+        &mut self.local_handles
     }
 
     pub fn exists(&self, index: &str) -> bool {
-        self.get_collection().contains_key(&index.to_string())
+        self.get_collection().contains_key(index)
+    }
+
+    pub fn remote_exists(&self, index: &str) -> bool {
+        self.get_remote_collection().lock().unwrap().contains_key(index)
     }
 
     pub fn get_mut_index(&mut self, name: &str) -> Result<&mut LocalIndex> {
-        self.local_indexes.get_mut(name).ok_or_else(|| Error::UnknownIndex(name.into()))
+        self.local_handles.get_mut(name).ok_or_else(|| Error::UnknownIndex(name.into()))
     }
 
     pub fn get_index(&self, name: &str) -> Result<&LocalIndex> {
-        self.local_indexes.get(name).ok_or_else(|| Error::UnknownIndex(name.into()))
+        self.local_handles.get(name).ok_or_else(|| Error::UnknownIndex(name.into()))
+    }
+
+    pub fn get_remote_index(&self, name: &str) -> Result<RemoteIndex> {
+        self.get_remote_collection()
+            .lock()?
+            .get(name)
+            .cloned()
+            .ok_or_else(|| Error::UnknownIndex(name.into()))
     }
 
     pub fn refresh_catalog(&mut self) -> Result<()> {
-        self.local_indexes.clear();
+        self.local_handles.clear();
 
         for dir in fs::read_dir(self.base_path.clone())? {
             let entry = dir?.path();
@@ -144,35 +181,51 @@ impl IndexCatalog {
             .map_err(|e| Error::IOError(e.to_string()))
     }
 
-    pub fn refresh_remote_catalog(node: String) -> impl Future<Item = (), Error = RPCError> + Send + 'static {
+    pub fn refresh_multiple_nodes(nodes: Vec<String>) -> impl stream::Stream<Item = (RpcClient, Vec<String>), Error = RPCError> {
+        let n = nodes.iter().map(|n| IndexCatalog::refresh_remote_catalog(n.to_owned()));
+        stream::futures_unordered(n)
+    }
+
+    pub fn refresh_remote_catalog(node: String) -> impl Future<Item = (RpcClient, Vec<String>), Error = RPCError> + Send {
         let socket: SocketAddr = node.parse().unwrap();
         let host_uri = IndexCatalog::create_host_uri(socket).unwrap();
         let grpc_conn = GrpcConn(socket);
         let client_fut = RpcServer::create_client(grpc_conn.clone(), host_uri)
             .and_then(|mut client| {
+                let client_clone = client.clone();
                 client
                     .list_indexes(tower_grpc::Request::new(ListRequest {}))
-                    .map(|resp| resp.into_inner())
-                    .inspect(|x| println!("{:#?}", x))
+                    .map(|resp| (client_clone, resp.into_inner()))
                     .map_err(|e| e.into())
             })
-            .map(|x| {
-                // Uhh... do stuff here that actually matters...
-                println!("{:#?}", x)
-            });
+            .map(move |(x, r)| (x, r.indexes));
 
         client_fut
     }
 
-    pub fn search_index(&self, index: &str, search: Request) -> Result<SearchResults> {
-        match self.get_index(index) {
-            Ok(hand) => hand.search_index(search),
-            Err(e) => Err(e),
+    pub fn search_local_index(&self, index: &str, search: Request) -> impl Future<Item = Vec<SearchResults>, Error = Error> + Send {
+        dbg!(&search);
+        self.get_index(index)
+            .and_then(move |hand| hand.search_index(search).map(|r| vec![r]))
+            .into_future()
+    }
+
+    pub fn search_remote_index(&self, index: &str, search: Request) -> impl Future<Item = Vec<SearchResults>, Error = Error> + Send {
+        match self.get_remote_index(index) {
+            Ok(hand) => hand
+                .search_index(search)
+                .and_then(|sr| {
+                    let doc: Vec<SearchResults> = sr.iter().map(|r| serde_json::from_slice(&r.doc).unwrap()).collect();
+                    Ok(doc)
+                })
+                .map_err(|_| Error::IOError(":'(".into())),
+            Err(_) => panic!(":-("),
         }
     }
 
     pub fn clear(&mut self) {
-        self.local_indexes.clear();
+        self.local_handles.clear();
+        self.remote_handles.lock().unwrap().clear()
     }
 }
 
@@ -182,6 +235,7 @@ pub mod tests {
 
     use tantivy::doc;
     use tantivy::schema::*;
+    use tokio::runtime::Runtime;
 
     use super::*;
 
@@ -213,15 +267,25 @@ pub mod tests {
 
     #[test]
     #[ignore]
+    #[allow(unused_must_use)]
     pub fn test_remote_index_refresh() {
+        let mut rt = Runtime::new().unwrap();
         let socket_addr: SocketAddr = "127.0.0.1:8081".parse().unwrap();
         let cat = create_test_catalog("test_index");
         let service = RpcServer::get_service(socket_addr, cat);
-        let nodes = "127.0.0.1:8081".into();
-        let refresh = IndexCatalog::refresh_remote_catalog(nodes).map_err(|_| ());
+        let nodes = "127.0.0.1:8081".to_string();
+        let refresh = IndexCatalog::refresh_multiple_nodes(vec![nodes]);
+        let reff = refresh
+            .for_each(|i| {
+                for idx in i.1 {
+                    println!("IDX={}", idx);
+                }
+                future::ok(())
+            })
+            .map_err(|_| ());
+        let s = service.select(reff);
 
-        let s = service.select(refresh).map(|_| ()).map_err(|_| ());
-
-        tokio::run(s);
+        rt.block_on(s);
+        rt.shutdown_on_idle();
     }
 }

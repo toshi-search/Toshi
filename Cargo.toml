@@ -28,13 +28,12 @@ tower-util           = { git = "https://github.com/tower-rs/tower" }
 tower-http           = { git = "https://github.com/tower-rs/tower-http" }
 tower-consul         = { git = "https://github.com/LucioFranco/tower-consul" }
 tokio-connect        = { git = "https://github.com/carllerche/tokio-connect" }
+futures-watch        = { git = "https://github.com/carllerche/better-future" }
 tower-web            = "^0.3"
 http                 = "^0.1"
-h2                   = "0.1.16"
+h2                   = "^0.1"
 taken                = "0.1.1"
 flate2               = "^1.0"
-futures-watch        = { git = "https://github.com/carllerche/better-future" }
-chashmap             = "^2.2"
 bytes                = "^0.4"
 prost                = "^0.4"
 prost-derive         = "^0.4"
@@ -53,8 +52,9 @@ config               = "^0.9"
 log                  = "^0.4"
 pretty_env_logger    = "^0.3"
 failure              = "^0.1"
-crossbeam            = "^0.7"
 num_cpus             = "^1.10"
+crossbeam            = "^0.7"
+hashbrown            = "0.1.8"
 serde                = { version = "^1.0", features = ["derive"] }
 clap                 = { version = "^2.32", features = ["color"] }
 uuid                 = { version = "^0.7", features = ["v4"] }
@@ -67,14 +67,3 @@ debug-assertions = false
 lto = true
 rpath = false
 codegen-units = 1
-
-#[patch.crates-io]
-#tower-service        = { git = "https://github.com/tower-rs/tower" }
-#tower-direct-service = { git = "https://github.com/tower-rs/tower" }
-#tower-buffer         = { git = "https://github.com/tower-rs/tower" }
-#tower-grpc           = { git = "https://github.com/tower-rs/tower-grpc" }
-#tower-h2             = { git = "https://github.com/tower-rs/tower-h2" }
-#tower-util           = { git = "https://github.com/tower-rs/tower" }
-#tower-http           = { git = "https://github.com/tower-rs/tower-http" }
-#tower-consul         = { git = "https://github.com/LucioFranco/tower-consul" }
-#tokio-connect        = { git = "https://github.com/carllerche/tokio-connect" }

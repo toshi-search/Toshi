@@ -1,3 +1,5 @@
+use std::hash::{Hash, Hasher};
+
 use log::info;
 use tokio::prelude::*;
 use tower_grpc::Request as TowerRequest;
@@ -13,19 +15,37 @@ use crate::query::Request;
 /// the remote host and full filling the request via rpc, we need to figure out a better way
 /// (tower-buffer) on how to keep these clients.
 
+#[derive(Clone)]
 pub struct RemoteIndex {
     name: String,
-    remote: RpcClient,
+    remotes: Vec<RpcClient>,
+}
+
+impl PartialEq for RemoteIndex {
+    fn eq(&self, other: &RemoteIndex) -> bool {
+        self.name == *other.name
+    }
+}
+
+impl Eq for RemoteIndex {}
+
+impl Hash for RemoteIndex {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        state.write(self.name.as_bytes())
+    }
 }
 
 impl RemoteIndex {
     pub fn new(name: String, remote: RpcClient) -> Self {
-        Self { name, remote }
+        Self {
+            name,
+            remotes: vec![remote],
+        }
     }
 }
 
 impl IndexHandle for RemoteIndex {
-    type SearchResponse = Box<Future<Item = SearchReply, Error = RPCError> + Send>;
+    type SearchResponse = Box<Future<Item = Vec<SearchReply>, Error = RPCError> + Send>;
     type DeleteResponse = Box<Future<Item = ResultReply, Error = RPCError> + Send>;
     type AddResponse = Box<Future<Item = ResultReply, Error = RPCError> + Send>;
 
@@ -39,25 +59,31 @@ impl IndexHandle for RemoteIndex {
 
     fn search_index(&self, search: Request) -> Self::SearchResponse {
         let name = self.name.clone();
-        let mut client = self.remote.clone();
-        let bytes = serde_json::to_vec(&search).unwrap();
-        let req = TowerRequest::new(SearchRequest { index: name, query: bytes });
-        let fut = client
-            .search_index(req)
-            .map(|res| {
-                info!("RESPONSE = {:?}", res);
-                res.into_inner()
-            })
-            .map_err(|e| {
-                info!("{:?}", e);
-                e.into()
+        let clients = self.remotes.clone();
+        info!("REQ = {:?}", search);
+        let fut = clients.into_iter().map(move |mut client| {
+            let bytes = serde_json::to_vec(&search).unwrap();
+            let req = TowerRequest::new(SearchRequest {
+                index: name.clone(),
+                query: bytes,
             });
+            client
+                .search_index(req)
+                .map(|res| {
+                    info!("RESPONSE = {:?}", res);
+                    res.into_inner()
+                })
+                .map_err(|e| {
+                    info!("ERR = {:?}", e);
+                    e.into()
+                })
+        });
 
-        Box::new(fut)
+        Box::new(future::join_all(fut))
     }
 
     fn add_document(&self, _: AddDocument) -> Self::AddResponse {
-        unimplemented!()
+        unimplemented!("All of the mutating calls should probably have some strategy to balance how they distribute documents and knowing where things are")
     }
 
     fn delete_term(&self, _: DeleteDoc) -> Self::DeleteResponse {
