@@ -31,7 +31,7 @@ pub fn router_with_catalog(addr: &SocketAddr, catalog: &Arc<RwLock<IndexCatalog>
         .resource(bulk_handler)
         .resource(summary_handler)
         .resource(root_handler)
-        .middleware(LogMiddleware::new("toshi"))
+        .middleware(LogMiddleware::new("toshi::router"))
         .middleware(DeflateMiddleware::new(Compression::fast()))
         .catch(|request: &Request<()>, error: TowerError| {
             info!("{:?}", error);
