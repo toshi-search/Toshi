@@ -1,25 +1,21 @@
-use crate::query::CreateQuery;
-use crate::{Error, Result};
-
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use tantivy::query::{Query, RegexQuery as TantivyRegexQuery};
 use tantivy::schema::Schema;
 
+use crate::query::{CreateQuery, KeyValue};
+use crate::{Error, Result};
+
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct RegexQuery {
-    regexp: HashMap<String, String>,
+    regexp: KeyValue<String>,
 }
 
 impl CreateQuery for RegexQuery {
     fn create_query(self, schema: &Schema) -> Result<Box<Query>> {
-        if let Some((k, v)) = self.regexp.into_iter().take(1).next() {
-            let field = schema
-                .get_field(&k)
-                .ok_or_else(|| Error::QueryError(format!("Field: {} does not exist", k)))?;
-            Ok(Box::new(TantivyRegexQuery::new(v, field)))
-        } else {
-            Err(Error::QueryError("Query generation failed".into()))
-        }
+        let KeyValue { field, value } = self.regexp;
+        let field = schema
+            .get_field(&field)
+            .ok_or_else(|| Error::QueryError(format!("Field: {} does not exist", field)))?;
+        Ok(Box::new(TantivyRegexQuery::new(value, field)))
     }
 }

@@ -204,23 +204,20 @@ impl IndexCatalog {
     }
 
     pub fn search_local_index(&self, index: &str, search: Request) -> impl Future<Item = Vec<SearchResults>, Error = Error> + Send {
-        dbg!(&search);
         self.get_index(index)
             .and_then(move |hand| hand.search_index(search).map(|r| vec![r]))
             .into_future()
     }
 
     pub fn search_remote_index(&self, index: &str, search: Request) -> impl Future<Item = Vec<SearchResults>, Error = Error> + Send {
-        match self.get_remote_index(index) {
-            Ok(hand) => hand
-                .search_index(search)
+        self.get_remote_index(index).into_future().and_then(move |hand| {
+            hand.search_index(search)
                 .and_then(|sr| {
                     let doc: Vec<SearchResults> = sr.iter().map(|r| serde_json::from_slice(&r.doc).unwrap()).collect();
                     Ok(doc)
                 })
-                .map_err(|_| Error::IOError(":'(".into())),
-            Err(_) => panic!(":-("),
-        }
+                .map_err(|_| Error::IOError("An error occured with the query".into()))
+        })
     }
 
     pub fn clear(&mut self) {

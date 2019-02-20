@@ -1,7 +1,9 @@
 use std::sync::{Arc, RwLock};
 
-use futures::{future, Future};
+use futures::prelude::*;
+use futures::stream::futures_unordered;
 use log::info;
+use tokio::prelude::*;
 use tower_web::*;
 
 use crate::index::IndexCatalog;
@@ -27,6 +29,26 @@ impl SearchHandler {
         }
         SearchResults::new(docs)
     }
+
+    fn inner_doc_search(&self, body: Request, index: String) -> impl Future<Item = SearchResults, Error = Error> + Send {
+        info!("Query: {:?}", body);
+        match self.catalog.read() {
+            Ok(c) => {
+                let tasks = vec![
+                    future::Either::A(c.search_local_index(&index, body.clone())),
+                    future::Either::B(c.search_remote_index(&index, body.clone())),
+                ];
+                futures_unordered(tasks)
+                    .then(|next| match next {
+                        Ok(v) => Ok(v),
+                        Err(_) => Ok(Vec::new()),
+                    })
+                    .concat2()
+                    .map(SearchHandler::fold_results)
+            }
+            Err(_) => panic!(),
+        }
+    }
 }
 
 impl_web! {
@@ -34,20 +56,7 @@ impl_web! {
         #[post("/:index")]
         #[content_type("application/json")]
         pub fn doc_search(&self, body: Request, index: String) -> impl Future<Item = SearchResults, Error = Error> + Send {
-            info!("Query: {:?}", body);
-            let mut futs = Vec::new();
-            match self.catalog.read() {
-                Ok(cat) => {
-                    if cat.exists(&index) {
-                        futs.push(future::Either::A(cat.search_local_index(&index, body.clone())));
-                    }
-                    if cat.remote_exists(&index) {
-                        futs.push(future::Either::B(cat.search_remote_index(&index, body.clone())));
-                    }
-                    return future::join_all(futs).map(|r| SearchHandler::fold_results(r.into_iter().flatten().collect()));
-                }
-                _ => panic!("asdf"),
-            }
+            self.inner_doc_search(body, index)
         }
 
         #[get("/:index")]
@@ -66,12 +75,6 @@ pub mod tests {
     use crate::query::*;
     use std::collections::HashMap;
 
-    pub fn make_map<V>(field: &'static str, term: V) -> HashMap<String, V> {
-        let mut term_map = HashMap::<String, V>::new();
-        term_map.insert(field.into(), term);
-        term_map
-    }
-
     pub fn run_query(req: Request, index: &str) -> impl Future<Item = SearchResults, Error = Error> + Send {
         let cat = create_test_catalog(index.into());
         let handler = SearchHandler::new(Arc::clone(&cat));
@@ -80,21 +83,35 @@ pub mod tests {
 
     #[test]
     fn test_term_query() {
-        let term = make_map("test_text", String::from("document"));
-        let term_query = Query::Exact(ExactTerm { term });
+        let term = KeyValue::new("test_text".into(), "document".into());
+        let term_query = Query::Exact(ExactTerm::new(term));
         let search = Request::new(Some(term_query), None, 10);
         run_query(search, "test_index")
             .map(|q| {
                 dbg!(&q);
                 assert_eq!(q.hits, 3);
             })
-            .map_err(|_| ())
             .wait()
             .unwrap();
     }
 
-    // Should I do this? with the tokio::run
     #[test]
+    fn test_phrase_query() {
+        let terms = TermPair::new(vec!["test".into(), "document".into()], None);
+        let phrase = KeyValue::new("test_text".into(), terms);
+        let term_query = Query::Phrase(PhraseQuery::new(phrase));
+        let search = Request::new(Some(term_query), None, 10);
+        run_query(search, "test_index")
+            .map(|q| {
+                dbg!(&q);
+                assert_eq!(q.hits, 3);
+            })
+            .wait()
+            .unwrap();
+    }
+
+    #[test]
+    #[allow(unused_must_use)]
     fn test_wrong_index_error() {
         let cat = create_test_catalog("test_index");
         let handler = SearchHandler::new(Arc::clone(&cat));
@@ -102,14 +119,13 @@ pub mod tests {
         let req: Request = serde_json::from_str(body).unwrap();
         handler
             .doc_search(req, "asdf".into())
-            .map_err(|err| assert_eq!(err.to_string(), "asdf"))
-            .map(|_| ())
-            .wait()
-            .unwrap();
+            .map_err(|err| assert_eq!(err.to_string(), "Unknown Index: \'asdf\' does not exist"))
+            .map(|d| dbg!(d))
+            .wait();
     }
 
-    // Or this with the .wait() for the future?
     #[test]
+    #[allow(unused)]
     fn test_bad_raw_query_syntax() {
         let cat = create_test_catalog("test_index");
         let handler = SearchHandler::new(Arc::clone(&cat));
@@ -175,8 +191,8 @@ pub mod tests {
 
     #[test]
     fn test_fuzzy_term_query() {
-        let fuzzy = make_map("test_text", FuzzyTerm::new("document".into(), 0, false));
-        let term_query = Query::Fuzzy(FuzzyQuery { fuzzy });
+        let fuzzy = KeyValue::new("test_text".into(), FuzzyTerm::new("document".into(), 0, false));
+        let term_query = Query::Fuzzy(FuzzyQuery::new(fuzzy));
         let search = Request::new(Some(term_query), None, 10);
         let query = run_query(search, "test_index")
             .map(|result| {

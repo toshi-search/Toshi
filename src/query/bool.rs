@@ -1,27 +1,27 @@
-use crate::query::{CreateQuery, TermQueries};
-use crate::Result;
+use crate::query::{CreateQuery, Query};
+use crate::{Error, Result};
 
 use serde::{Deserialize, Serialize};
-use tantivy::query::{BooleanQuery, Occur, Query};
+use tantivy::query::{BooleanQuery, Occur, Query as TQuery};
 use tantivy::schema::Schema;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct BoolQuery {
     #[serde(default = "Vec::new")]
-    must: Vec<TermQueries>,
+    must: Vec<Query>,
     #[serde(default = "Vec::new")]
-    filter: Vec<TermQueries>,
+    filter: Vec<Query>,
     #[serde(default = "Vec::new")]
-    must_not: Vec<TermQueries>,
+    must_not: Vec<Query>,
     #[serde(default = "Vec::new")]
-    should: Vec<TermQueries>,
+    should: Vec<Query>,
     minimum_should_match: Option<u64>,
     boost: Option<f64>,
 }
 
 impl CreateQuery for BoolQuery {
-    fn create_query(self, schema: &Schema) -> Result<Box<Query>> {
-        let mut all_queries: Vec<(Occur, Box<Query>)> = Vec::new();
+    fn create_query(self, schema: &Schema) -> Result<Box<TQuery>> {
+        let mut all_queries: Vec<(Occur, Box<TQuery>)> = Vec::new();
         all_queries.append(&mut parse_queries(schema, Occur::Must, &self.must)?);
         all_queries.append(&mut parse_queries(schema, Occur::MustNot, &self.must_not)?);
         all_queries.append(&mut parse_queries(schema, Occur::Should, &self.should)?);
@@ -29,17 +29,18 @@ impl CreateQuery for BoolQuery {
     }
 }
 
-fn parse_queries(schema: &Schema, occur: Occur, queries: &[TermQueries]) -> Result<Vec<(Occur, Box<Query>)>> {
+fn parse_queries(schema: &Schema, occur: Occur, queries: &[Query]) -> Result<Vec<(Occur, Box<TQuery>)>> {
     queries
         .iter()
         .map(|q| match q {
-            TermQueries::Fuzzy(f) => Ok((occur, f.clone().create_query(&schema)?)),
-            TermQueries::Exact(q) => Ok((occur, q.clone().create_query(&schema)?)),
-            TermQueries::Range(r) => Ok((occur, r.clone().create_query(&schema)?)),
-            TermQueries::Phrase(p) => Ok((occur, p.clone().create_query(&schema)?)),
-            TermQueries::Regex(r) => Ok((occur, r.clone().create_query(&schema)?)),
+            Query::Fuzzy(f) => Ok((occur, f.clone().create_query(&schema)?)),
+            Query::Exact(q) => Ok((occur, q.clone().create_query(&schema)?)),
+            Query::Range(r) => Ok((occur, r.clone().create_query(&schema)?)),
+            Query::Phrase(p) => Ok((occur, p.clone().create_query(&schema)?)),
+            Query::Regex(r) => Ok((occur, r.clone().create_query(&schema)?)),
+            _ => Err(Error::QueryError("Invalid type for boolean query".into())),
         })
-        .collect::<Result<Vec<(Occur, Box<Query>)>>>()
+        .collect::<Result<Vec<(Occur, Box<TQuery>)>>>()
 }
 
 #[cfg(test)]
@@ -55,9 +56,9 @@ mod tests {
         {"query": {
             "bool": {
                 "must":     [ {"term": {"user": "kimchy"}}, {"fuzzy": {"user": {"value": "kimchy", "distance": 214}}} ],
-                "filter":   [ {"range": {"age": {"gt": -10,"lte": 20}}} ],
+                "filter":   [ {"range": {"age": {"gt": -10, "lte": 20}}} ],
                 "must_not": [ {"term": {"user": "kimchy"}}, {"range": {"age": {"gt": -10, "lte": 20}}} ],
-                "should":   [ {"term": {"user": "kimchy"}}, {"range": {"age": {"gte": 10,"lte": 20}}} ],
+                "should":   [ {"term": {"user": "kimchy"}}, {"range": {"age": {"gte": 10, "lte": 20}}} ],
                 "minimum_should_match": 1,
                 "boost": 1.0
               }

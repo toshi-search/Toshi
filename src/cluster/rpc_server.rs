@@ -183,7 +183,7 @@ mod tests {
     #[ignore]
     fn client_test() {
         let body = r#"test_text:"Duckiment""#;
-        let req = query::Request::new(Some(Query::Raw { raw: body.into() }), None, 10);
+        let _req = query::Request::new(Some(Query::Raw { raw: body.into() }), None, 10);
         let list = ListRequest {};
         let socket_addr: SocketAddr = "127.0.0.1:8081".parse().unwrap();
 
