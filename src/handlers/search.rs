@@ -73,7 +73,6 @@ pub mod tests {
     use super::*;
     use crate::index::tests::*;
     use crate::query::*;
-    use std::collections::HashMap;
 
     pub fn run_query(req: Request, index: &str) -> impl Future<Item = SearchResults, Error = Error> + Send {
         let cat = create_test_catalog(index.into());
@@ -227,6 +226,19 @@ pub mod tests {
             .map(|results| {
                 assert_eq!(results.hits as usize, results.docs.len());
                 assert_eq!(results.docs[0].score.unwrap(), 1.0);
+            })
+            .map_err(|_| ());
+
+        tokio::run(docs);
+    }
+
+    #[test]
+    fn test_regex_query() {
+        let body = r#"{ "query" : { "regex" : { "test_text" : "d[ou]{1}c[k]?ument" } } }"#;
+        let req: Request = serde_json::from_str(&body).unwrap();
+        let docs = run_query(req, "test_index")
+            .map(|results| {
+                assert_eq!(results.hits, 4)
             })
             .map_err(|_| ());
 
