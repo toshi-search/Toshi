@@ -10,8 +10,6 @@ pub struct BoolQuery {
     #[serde(default = "Vec::new")]
     must: Vec<Query>,
     #[serde(default = "Vec::new")]
-    filter: Vec<Query>,
-    #[serde(default = "Vec::new")]
     must_not: Vec<Query>,
     #[serde(default = "Vec::new")]
     should: Vec<Query>,
@@ -56,7 +54,6 @@ mod tests {
         {"query": {
             "bool": {
                 "must":     [ {"term": {"user": "kimchy"}}, {"fuzzy": {"user": {"value": "kimchy", "distance": 214}}} ],
-                "filter":   [ {"range": {"age": {"gt": -10, "lte": 20}}} ],
                 "must_not": [ {"term": {"user": "kimchy"}}, {"range": {"age": {"gt": -10, "lte": 20}}} ],
                 "should":   [ {"term": {"user": "kimchy"}}, {"range": {"age": {"gte": 10, "lte": 20}}} ],
                 "minimum_should_match": 1,
