@@ -243,11 +243,18 @@ pub mod tests {
         tokio::run(docs);
     }
 
-    // This is ignored right now while we wait for https://github.com/tantivy-search/tantivy/pull/437
-    // to be released.
-    //#[test]
-    //#[ignore]
-    //fn test_aggregate_sum() {
-    //    let _body = r#"{ "query": { "field": "test_u64" } }"#;
-    //}
+    #[test]
+    fn test_bool_query() {
+        let test_json = r#"{"query": { "bool": {
+                "must": [ { "term": { "test_text": "document" } } ],
+                "must_not": [ {"range": {"test_i64": { "gt": 2017 } } } ] } } }"#;
+
+        let query = serde_json::from_str::<Request>(test_json).unwrap();
+        dbg!(&query);
+        let docs = run_query(query, "test_index")
+            .map(|results| assert_eq!(results.hits, 2))
+            .map_err(|_| ());
+
+        tokio::run(docs);
+    }
 }
