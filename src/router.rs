@@ -54,3 +54,17 @@ pub fn router_with_catalog(addr: &SocketAddr, catalog: &Arc<RwLock<IndexCatalog>
         })
         .serve(listener)
 }
+
+#[cfg(test)]
+pub mod tests {
+
+    use super::*;
+    use crate::index::tests::create_test_catalog;
+
+    #[test]
+    pub fn test_create_router() {
+        let catalog = create_test_catalog("test_index");
+        let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+        router_with_catalog(&addr, &catalog);
+    }
+}
