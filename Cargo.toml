@@ -19,7 +19,6 @@ tower-grpc-build = { git = "https://github.com/tower-rs/tower-grpc" }
 
 [dependencies]
 tower-service        = { git = "https://github.com/tower-rs/tower" }
-tower-direct-service = { git = "https://github.com/tower-rs/tower" }
 tower-discover       = { git = "https://github.com/tower-rs/tower" }
 tower-buffer         = { git = "https://github.com/tower-rs/tower" }
 tower-grpc           = { git = "https://github.com/tower-rs/tower-grpc" }
