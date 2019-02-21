@@ -237,9 +237,7 @@ pub mod tests {
         let body = r#"{ "query" : { "regex" : { "test_text" : "d[ou]{1}c[k]?ument" } } }"#;
         let req: Request = serde_json::from_str(&body).unwrap();
         let docs = run_query(req, "test_index")
-            .map(|results| {
-                assert_eq!(results.hits, 4)
-            })
+            .map(|results| assert_eq!(results.hits, 4))
             .map_err(|_| ());
 
         tokio::run(docs);
