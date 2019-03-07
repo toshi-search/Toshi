@@ -1,6 +1,7 @@
 # Toshi
 ##### A Full-Text Search Engine in Rust
 
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/4751c082efd74f849b5274d74c284c87)](https://app.codacy.com/app/shcarman/Toshi?utm_source=github.com&utm_medium=referral&utm_content=toshi-search/Toshi&utm_campaign=Badge_Grade_Settings)
 [![dependency status](https://deps.rs/repo/github/toshi-search/Toshi/status.svg)](https://deps.rs/repo/github/toshi-search/toshi) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Build Status](https://travis-ci.org/toshi-search/Toshi.svg?branch=master)](https://travis-ci.org/toshi-search/Toshi) [![codecov](https://codecov.io/gh/toshi-search/Toshi/branch/master/graph/badge.svg)](https://codecov.io/gh/toshi-search/Toshi) [![Coverage Status](https://coveralls.io/repos/github/toshi-search/Toshi/badge.svg?branch=master)](https://coveralls.io/github/toshi-search/Toshi?branch=master) [![Join the chat at https://gitter.im/toshi-search/Toshi](https://badges.gitter.im/toshi-search/Toshi.svg)](https://gitter.im/toshi-search/Toshi?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 > *Please note that this is far from production ready*
