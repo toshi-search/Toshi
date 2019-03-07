@@ -1,28 +1,30 @@
 use std::net::SocketAddr;
 use std::sync::{Arc, RwLock};
 
-use futures::{future, future::Future, stream::Stream};
+use futures::future::FutureResult;
+use futures::{future, future::Future, stream::Stream, Poll};
+use hyper::client::{conn::Builder, HttpConnector};
+use hyper::Body;
 use log::{error, info};
 use tantivy::schema::Schema;
-use tokio::net::{TcpListener, TcpStream};
+use tokio::net::TcpListener;
 use tokio_executor::DefaultExecutor;
-use tower_buffer::Buffer;
-use tower_grpc::{BoxBody, Code, Error, Request, Response, Status};
-use tower_h2::client::{Connect, Connection};
-use tower_h2::Server;
-use tower_http::add_origin::Builder;
-use tower_http::AddOrigin;
+use tower_grpc::{Code, Request, Response, Status};
+use tower_http_service::HttpService;
+use tower_service::Service;
 use tower_util::MakeService;
 
 use crate::cluster::cluster_rpc::server;
 use crate::cluster::cluster_rpc::*;
-use crate::cluster::{GrpcConn, RPCError};
+use crate::cluster::connect::*;
+use crate::cluster::server::Server;
+use crate::cluster::{connection::Connection, GrpcConn};
 use crate::handle::IndexHandle;
 use crate::index::IndexCatalog;
 use crate::query;
+use hyper::client::connect::Destination;
 
-pub type Buf = Buffer<AddOrigin<Connection<TcpStream, DefaultExecutor, BoxBody>>, http::Request<BoxBody>>;
-pub type RpcClient = client::IndexService<Buf>;
+pub type RpcClient = client::IndexService<Connection<hyper::Body>>;
 
 /// RPC Services should "ideally" work on only local indexes, they shouldn't be responsible for
 /// going to other nodes to get index data. It should be the master's duty to know where the local
@@ -48,33 +50,23 @@ impl RpcServer {
         let bind = TcpListener::bind(&addr).unwrap_or_else(|_| panic!("Failed to bind to host: {:?}", addr));
 
         info!("Bound to: {:?}", &bind.local_addr().unwrap());
-        let h2_settings = Default::default();
-        let mut h2 = Server::new(service, h2_settings, executor);
+        let mut hyp = Server::new(service);
 
         bind.incoming()
             .for_each(move |sock| {
-                let req = h2.serve(sock).map_err(|err| error!("h2 error: {:?}", err));
-                tokio::spawn(req);
+                let req = hyp.serve(sock).map_err(|err| error!("h2 error: {:?}", err));
+                hyper::rt::spawn(req);
                 Ok(())
             })
             .map_err(|err| error!("Server Error: {:?}", err))
     }
 
-    pub fn create_client(conn: GrpcConn, uri: http::Uri) -> impl Future<Item = RpcClient, Error = RPCError> + Send + 'static {
-        let mut connect = Connect::new(conn, Default::default(), DefaultExecutor::current());
-        let service = connect.make_service(());
-
-        service
-            .map(|c| {
-                let uri = uri;
-                let connection = Builder::new().uri(uri).build(c).unwrap();
-                let buffer = match Buffer::new(connection, 128) {
-                    Ok(b) => b,
-                    _ => panic!("asdf"),
-                };
-                client::IndexService::new(buffer)
-            })
-            .map_err(|e| e.into())
+    pub fn create_client(conn: GrpcConn, uri: http::Uri) -> impl Future<Item = RpcClient, Error = ConnectError<::std::io::Error>> {
+        let mut connector = HttpConnector::new(1);
+        let mut connect = Connect::new(conn, Builder::new());
+        let dest = Destination::try_from_uri(uri).unwrap();
+        connect.call(()).map(|c| client::IndexService::new(c))
+        //.map_err(|e| e.into())
     }
 
     pub fn create_result(code: i32, message: String) -> ResultReply {
@@ -85,25 +77,25 @@ impl RpcServer {
         SearchReply { result, doc }
     }
 
-    pub fn error_response<T>(code: Code, msg: String) -> future::FutureResult<Response<T>, Error> {
-        let status = Status::with_code_and_message(code, msg);
-        future::failed(Error::Grpc(status))
+    pub fn error_response<T>(code: Code, msg: String) -> Box<future::FutureResult<Response<T>, Status>> {
+        let status = Status::new(code, msg);
+        Box::new(future::failed(status))
     }
 }
 
 impl server::IndexService for RpcServer {
-    type ListIndexesFuture = future::FutureResult<Response<ListReply>, Error>;
-    type PlaceIndexFuture = future::FutureResult<Response<ResultReply>, Error>;
-    type PlaceDocumentFuture = future::FutureResult<Response<ResultReply>, Error>;
-    type PlaceReplicaFuture = future::FutureResult<Response<ResultReply>, Error>;
-    type SearchIndexFuture = future::FutureResult<Response<SearchReply>, Error>;
+    type ListIndexesFuture = Box<future::FutureResult<Response<ListReply>, Status>>;
+    type PlaceIndexFuture = Box<future::FutureResult<Response<ResultReply>, Status>>;
+    type PlaceDocumentFuture = Box<future::FutureResult<Response<ResultReply>, Status>>;
+    type PlaceReplicaFuture = Box<future::FutureResult<Response<ResultReply>, Status>>;
+    type SearchIndexFuture = Box<future::FutureResult<Response<SearchReply>, Status>>;
 
     fn list_indexes(&mut self, _: Request<ListRequest>) -> Self::ListIndexesFuture {
         if let Ok(ref cat) = self.catalog.read() {
             let indexes = cat.get_collection();
             let lists: Vec<String> = indexes.into_iter().map(|(t, _)| t.to_string()).collect();
             let resp = Response::new(ListReply { indexes: lists });
-            future::finished(resp)
+            Box::new(future::finished(resp))
         } else {
             Self::error_response(Code::NotFound, "Could not get lock on index catalog".into())
         }
@@ -119,11 +111,11 @@ impl server::IndexService for RpcServer {
                     Ok(query_results) => {
                         let query_bytes: Vec<u8> = serde_json::to_vec(&query_results).unwrap();
                         let result = Some(RpcServer::create_result(0, "".into()));
-                        future::finished(Response::new(RpcServer::create_search_reply(result, query_bytes)))
+                        Box::new(future::finished(Response::new(RpcServer::create_search_reply(result, query_bytes))))
                     }
                     Err(e) => {
                         let result = Some(RpcServer::create_result(1, e.to_string()));
-                        future::finished(Response::new(RpcServer::create_search_reply(result, vec![])))
+                        Box::new(future::finished(Response::new(RpcServer::create_search_reply(result, vec![]))))
                     }
                 }
             } else {
@@ -145,7 +137,7 @@ impl server::IndexService for RpcServer {
                 if let Ok(new_index) = IndexCatalog::create_from_managed(ip, &index.clone(), schema) {
                     if let Ok(_) = cat.add_index(index.clone(), new_index) {
                         let result = RpcServer::create_result(0, "".into());
-                        future::finished(Response::new(result))
+                        Box::new(future::finished(Response::new(result)))
                     } else {
                         Self::error_response(Code::Internal, format!("Insert: {} failed", index.clone()))
                     }
@@ -166,6 +158,23 @@ impl server::IndexService for RpcServer {
 
     fn place_replica(&mut self, _request: Request<ReplicaRequest>) -> Self::PlaceReplicaFuture {
         unimplemented!()
+    }
+}
+
+impl<T> Service<http::Request<Body>> for server::IndexServiceServer<T>
+where
+    T: server::IndexService,
+{
+    type Response = http::Response<Body>;
+    type Error = hyper::Error;
+    type Future = FutureResult<Self::Response, Self::Error>;
+
+    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+        Ok(().into())
+    }
+
+    fn call(&mut self, req: http::Request<Body>) -> Self::Future {
+        server::IndexService::call(req)
     }
 }
 

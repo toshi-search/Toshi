@@ -1,17 +1,18 @@
+use std::clone::Clone;
 use std::fs;
-use std::iter::Iterator;
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
+use futures::{future, stream, Future, IntoFuture, Stream};
 use hashbrown::HashMap;
 use http::Uri;
 use tantivy::directory::MmapDirectory;
 use tantivy::schema::Schema;
 use tantivy::Index;
-use tokio::prelude::*;
 
-use crate::cluster::cluster_rpc::ListRequest;
+use crate::cluster::cluster_rpc::server::*;
+use crate::cluster::cluster_rpc::*;
 use crate::cluster::remote_handle::RemoteIndex;
 use crate::cluster::rpc_server::RpcClient;
 use crate::cluster::rpc_server::RpcServer;
@@ -22,6 +23,8 @@ use crate::query::Request;
 use crate::results::*;
 use crate::settings::Settings;
 use crate::{Error, Result};
+
+pub type BoxError = Box<dyn ::std::error::Error + Send + Sync + 'static>;
 
 pub struct IndexCatalog {
     pub settings: Settings,
@@ -50,18 +53,19 @@ impl IndexCatalog {
         Ok(index_cat)
     }
 
-    pub fn update_remote_indexes(&self) -> impl Future<Item = (), Error = ()> {
-        let cat_clone = Arc::clone(&self.remote_handles);
-        IndexCatalog::refresh_multiple_nodes(self.settings.nodes.clone())
-            .for_each(move |indexes| {
-                let cat = &cat_clone;
-                for idx in indexes.1 {
-                    let ri = RemoteIndex::new(idx.clone(), indexes.0.clone());
-                    cat.lock().unwrap().insert(idx.clone(), ri);
-                }
-                future::ok(())
-            })
-            .map_err(|e| panic!("{:?}", e))
+    pub fn update_remote_indexes(&self) {
+        //        -> impl Future<Item = (), Error = ()> {
+        //        let cat_clone = Arc::clone(&self.remote_handles);
+        //        IndexCatalog::refresh_multiple_nodes(self.settings.nodes.clone())
+        //            .for_each(move |indexes| {
+        //                let cat = &cat_clone;
+        //                for idx in indexes.1 {
+        //                    let ri = RemoteIndex::new(idx.clone(), indexes.0);
+        //                    cat.lock().unwrap().insert(idx.clone(), ri);
+        //                }
+        //                future::ok(())
+        //            })
+        //            .map_err(|e| panic!("{:?}", e))
     }
 
     pub fn base_path(&self) -> &PathBuf {
@@ -181,26 +185,28 @@ impl IndexCatalog {
             .map_err(|e| Error::IOError(e.to_string()))
     }
 
-    pub fn refresh_multiple_nodes(nodes: Vec<String>) -> impl stream::Stream<Item = (RpcClient, Vec<String>), Error = RPCError> {
-        let n = nodes.iter().map(|n| IndexCatalog::refresh_remote_catalog(n.to_owned()));
-        stream::futures_unordered(n)
+    pub fn refresh_multiple_nodes(nodes: Vec<String>) {
+        //        -> impl stream::Stream<Item = (RpcClient, Vec<String>), Error = RPCError> {
+        //        let n = nodes.iter().map(|n| IndexCatalog::refresh_remote_catalog(n.to_owned()));
+        //        stream::futures_unordered(n)
     }
 
-    pub fn refresh_remote_catalog(node: String) -> impl Future<Item = (RpcClient, Vec<String>), Error = RPCError> + Send {
-        let socket: SocketAddr = node.parse().unwrap();
-        let host_uri = IndexCatalog::create_host_uri(socket).unwrap();
-        let grpc_conn = GrpcConn(socket);
-        let client_fut = RpcServer::create_client(grpc_conn.clone(), host_uri)
-            .and_then(|mut client| {
-                let client_clone = client.clone();
-                client
-                    .list_indexes(tower_grpc::Request::new(ListRequest {}))
-                    .map(|resp| (client_clone, resp.into_inner()))
-                    .map_err(|e| e.into())
-            })
-            .map(move |(x, r)| (x, r.indexes));
-
-        client_fut
+    pub fn refresh_remote_catalog(node: String) {
+        //        -> impl Future<Item = (RpcClient, Vec<String>), Error = RPCError> + Send {
+        //        let socket: SocketAddr = node.parse().unwrap();
+        //        let host_uri = IndexCatalog::create_host_uri(socket).unwrap();
+        //        let grpc_conn = GrpcConn(socket);
+        //        let client_fut = RpcServer::create_client(grpc_conn.clone(), host_uri)
+        //            .and_then(|mut client| {
+        //                let client_clone = client;
+        //                client
+        //                    .list_indexes(tower_grpc::Request::new(ListRequest {}))
+        //                    .map(|resp| (client_clone, resp.into_inner()))
+        //                    .map_err(|e| e.into())
+        //            })
+        //            .map(move |(x, r)| (x, r.indexes));
+        //
+        //        client_fut
     }
 
     pub fn search_local_index(&self, index: &str, search: Request) -> impl Future<Item = Vec<SearchResults>, Error = Error> + Send {
