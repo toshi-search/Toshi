@@ -1,6 +1,5 @@
 use std::sync::{Arc, RwLock};
 
-use futures::prelude::*;
 use futures::stream::futures_unordered;
 use log::info;
 use tokio::prelude::*;
