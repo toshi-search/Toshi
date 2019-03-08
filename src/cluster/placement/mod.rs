@@ -1,20 +1,21 @@
 use std::collections::HashSet;
 use std::net::SocketAddr;
 
-use crate::cluster::consul::Consul;
-use crate::cluster::placement_proto::{server, PlacementReply, PlacementRequest};
-use crate::cluster::server::Server;
 use futures::{future, Future, Poll, Stream};
 use futures_watch::Watch;
+use hyper::server::conn::Http;
+use hyper::Body;
 use log::error;
 use tokio::net::TcpListener;
 use tower_grpc::{Request, Response, Status};
 
-pub use self::background::Background;
-use futures::future::FutureResult;
-use hyper::server::conn::Http;
-use hyper::Body;
 use tower_service::Service;
+
+use crate::cluster::consul::Consul;
+use crate::cluster::placement_proto::{server, PlacementReply, PlacementRequest};
+
+pub use self::background::Background;
+use tower_hyper::body::LiftBody;
 
 pub mod background;
 
@@ -37,7 +38,7 @@ impl Place {
             let placer = Place { consul, nodes };
             let mut placement = server::PlacementServer::new(placer);
 
-            let mut hyp = Server::new(placement);
+            let mut hyp = tower_hyper::server::Server::new(placement);
             bind.incoming().for_each(move |stream| {
                 if let Err(e) = stream.set_nodelay(true) {
                     return Err(e);
@@ -60,16 +61,16 @@ impl server::Placement for Place {
     }
 }
 
-impl Service<http::Request<Body>> for server::PlacementServer<Place> {
-    type Response = http::Response<Body>;
-    type Error = hyper::Error;
-    type Future = FutureResult<Self::Response, Self::Error>;
+impl<T> Service<http::Request<Body>> for server::PlacementServer<T> {
+    type Response = http::Response<LiftBody<Body>>;
+    type Error = h2::Error;
+    type Future = Box<Future<Item = Self::Response, Error = Self::Error> + Send>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        Ok(().into())
+        unimplemented!()
     }
 
     fn call(&mut self, req: http::Request<Body>) -> Self::Future {
-        self.maker.make_service(()).call(req)
+        unimplemented!()
     }
 }

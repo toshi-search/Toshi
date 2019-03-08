@@ -33,12 +33,8 @@ pub mod cluster_rpc {
     include!(concat!(env!("OUT_DIR"), "\\cluster_rpc.rs"));
 }
 
-pub mod client;
-pub mod connect;
-pub mod connection;
 pub mod consul;
 pub mod node;
-pub mod server;
 
 mod placement;
 pub mod remote_handle;
