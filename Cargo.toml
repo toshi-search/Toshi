@@ -25,6 +25,7 @@ tower-util           = { git = "https://github.com/tower-rs/tower" }
 tower-service        = { git = "https://github.com/tower-rs/tower" }
 tower-http-service   = { git = "https://github.com/tower-rs/tower-http" }
 tower-add-origin     = { git = "https://github.com/tower-rs/tower-http" }
+tower-hyper          = { git = "https://github.com/tower-rs/tower-hyper" }
 tower-consul         = { git = "https://github.com/LucioFranco/tower-consul" }
 futures-watch        = { git = "https://github.com/carllerche/better-future" }
 tower-web            = "^0.3"

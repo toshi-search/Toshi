@@ -4,7 +4,7 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
-use futures::{future, stream, Future, IntoFuture, Stream};
+use futures::{Future, IntoFuture, Stream};
 use hashbrown::HashMap;
 use http::Uri;
 use tantivy::directory::MmapDirectory;
@@ -12,12 +12,8 @@ use tantivy::schema::Schema;
 use tantivy::Index;
 
 use crate::cluster::cluster_rpc::server::*;
-use crate::cluster::cluster_rpc::*;
 use crate::cluster::remote_handle::RemoteIndex;
 use crate::cluster::rpc_server::RpcClient;
-use crate::cluster::rpc_server::RpcServer;
-use crate::cluster::GrpcConn;
-use crate::cluster::RPCError;
 use crate::handle::{IndexHandle, LocalIndex};
 use crate::query::Request;
 use crate::results::*;
