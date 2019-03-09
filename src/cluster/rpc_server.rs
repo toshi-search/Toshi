@@ -1,32 +1,28 @@
 use std::net::SocketAddr;
 use std::sync::{Arc, RwLock};
 
-use futures::{future, future::Future, stream::Stream, Poll};
-use hyper::client::connect::Destination;
-use hyper::client::{conn::Builder, HttpConnector};
-use hyper::Body;
+use tokio::prelude::*;
 use log::{error, info};
 use tantivy::schema::Schema;
-use tokio::net::TcpListener;
+use tokio::net::{TcpListener, TcpStream};
 use tokio_executor::DefaultExecutor;
-use tower_grpc::{Code, Request, Response, Status};
-use tower_hyper::body::LiftBody;
-use tower_hyper::client::{Connect, ConnectError, Connection};
-use tower_hyper::server::Server;
-
-use tower_buffer::Buffer;
-use tower_service::Service;
-use tower_util::ext::ServiceExt;
+use tower_grpc::{Code, Request, Response, Status, BoxBody};
 use tower_util::MakeService;
-
-use crate::cluster::cluster_rpc::server;
 use crate::cluster::cluster_rpc::*;
-use crate::cluster::GrpcConn;
-use crate::handle::IndexHandle;
-use crate::index::IndexCatalog;
-use crate::query;
+use crate::cluster::cluster_rpc::server::*;
 
-pub type RpcClient = client::IndexService<Buffer<Connection<LiftBody<Body>>, http::Request<LiftBody<Body>>>>;
+use crate::cluster::{GrpcConn, RPCError};
+use crate::handle::IndexHandle;
+use crate::index::{IndexCatalog, BoxError};
+use crate::query;
+use tower_add_origin::{AddOrigin, Builder};
+use tower_h2::client::{Connection, Connect, ConnectError};
+use tower_h2::Server;
+
+//pub type RpcClient = client::IndexService<Buffer<Connection<Body>, http::Request<Body>>>;
+
+pub type Buf = AddOrigin<Connection<TcpStream, DefaultExecutor, BoxBody>>;
+pub type RpcClient = client::IndexService<Buf>;
 
 /// RPC Services should "ideally" work on only local indexes, they shouldn't be responsible for
 /// going to other nodes to get index data. It should be the master's duty to know where the local
@@ -52,26 +48,32 @@ impl RpcServer {
         let bind = TcpListener::bind(&addr).unwrap_or_else(|_| panic!("Failed to bind to host: {:?}", addr));
 
         info!("Bound to: {:?}", &bind.local_addr().unwrap());
-        let mut hyp = Server::new(service);
+        //let mut hyp = Server::new(service);
+        let mut h2 = Server::new(service, Default::default(), executor);
 
         bind.incoming()
             .for_each(move |sock| {
-                let req = hyp.serve(sock).map_err(|err| error!("h2 error: {:?}", err));
-                hyper::rt::spawn(req);
+                let req = h2.serve(sock).map_err(|err| error!("h2 error: {:?}", err));
+                tokio::spawn(req);
                 Ok(())
             })
             .map_err(|err| error!("Server Error: {:?}", err))
     }
 
-    pub fn create_client(conn: GrpcConn, uri: http::Uri) -> impl Future<Item = RpcClient, Error = ConnectError<::std::io::Error>> {
-        let mut connector = HttpConnector::new(1);
-        let mut connect = Connect::new(conn, Builder::new());
-        let dest = Destination::try_from_uri(uri).unwrap();
-        connect.make_service(()).map(|c| {
-            let buf = Buffer::new(c, 128).unwrap();
-            client::IndexService::new(buf)
-        })
-        //.map_err(|e| e.into())
+    pub fn create_client(conn: GrpcConn, uri: http::Uri) -> impl Future<Item = RpcClient, Error = ConnectError<::std::io::Error>> + Send + 'static {
+        let mut connect = Connect::new(conn, Default::default(), DefaultExecutor::current());
+
+        connect.make_service(())
+            .map(|c| {
+                let uri = uri;
+                let connection = Builder::new().uri(uri).build(c).unwrap();
+//                let buffer = match Buffer::new(connection, 128) {
+//                    Ok(b) => b,
+//                    _ => panic!("asdf"),
+//                };
+                client::IndexService::new(connection)
+            })
+//            .map_err(|e| e.into())
     }
 
     pub fn create_result(code: i32, message: String) -> ResultReply {
@@ -166,20 +168,20 @@ impl server::IndexService for RpcServer {
     }
 }
 
-impl<T> Service<http::Request<Body>> for server::IndexServiceServer<T> {
-    type Response = http::Response<LiftBody<Body>>;
-    type Error = h2::Error;
-    type Future = Box<Future<Item = Self::Response, Error = Self::Error> + Send>;
-
-    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        unimplemented!()
-    }
-
-    fn call(&mut self, req: http::Request<Body>) -> Self::Future {
-        let fut = self.make_service(()).call(req);
-        Box::new(fut)
-    }
-}
+//impl<T> Service<http::Request<Body>> for server::IndexServiceServer<T> {
+//    type Response = http::Response<LiftBody<Body>>;
+//    type Error = h2::Error;
+//    type Future = Box<Future<Item = Self::Response, Error = Self::Error> + Send>;
+//
+//    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+//        unimplemented!()
+//    }
+//
+//    fn call(&mut self, req: http::Request<Body>) -> Self::Future {
+//        let fut = self.make_service(()).call(req);
+//        Box::new(fut)
+//    }
+//}
 
 #[cfg(test)]
 mod tests {

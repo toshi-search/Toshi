@@ -14,9 +14,13 @@ use tokio::prelude::*;
 
 pub use self::consul::Consul;
 pub use self::node::*;
+use tower_h2::client::ConnectError;
 
 pub mod placement_proto {
     use prost_derive::{Enumeration, Message};
+
+//    pub use server::*;
+//    pub use client::*;
 
     #[cfg(target_family = "unix")]
     include!(concat!(env!("OUT_DIR"), "/placement.rs"));
@@ -26,6 +30,9 @@ pub mod placement_proto {
 
 pub mod cluster_rpc {
     use prost_derive::{Enumeration, Message};
+
+//    pub use server::*;
+//    pub use client::*;
 
     #[cfg(target_family = "unix")]
     include!(concat!(env!("OUT_DIR"), "/cluster_rpc.rs"));
@@ -102,6 +109,7 @@ pub enum ClusterError {
     UnableToStoreServices,
 }
 
+pub type ConnectionError = ConnectError<io::Error>;
 pub type BufError = tower_buffer::error::ServiceError;
 pub type GrpcError = tower_grpc::Status;
 
@@ -111,6 +119,23 @@ pub enum RPCError {
     RPCError(GrpcError),
     #[fail(display = "Error in RPC Buffer: {}", _0)]
     BufError(BufError),
+    #[fail(display = "Error in RPC Connect: {}", _0)]
+    ConnectError(ConnectionError),
+
+    #[fail(display = "")]
+    BoxError(Box<dyn ::std::error::Error + Send + Sync + 'static>)
+}
+
+impl From<ConnectionError> for RPCError {
+    fn from(err: ConnectError<io::Error>) -> Self {
+        RPCError::ConnectError(err)
+    }
+}
+
+impl From<Box<dyn ::std::error::Error + Send + Sync + 'static>> for RPCError {
+    fn from(err: Box<dyn ::std::error::Error + Send + Sync + 'static>) -> Self {
+        RPCError::BoxError(err)
+    }
 }
 
 impl From<GrpcError> for RPCError {

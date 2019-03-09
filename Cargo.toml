@@ -15,23 +15,23 @@ name = "toshi"
 path = "src/lib.rs"
 
 [build-dependencies]
-tower-grpc-build = { git = "https://github.com/tower-rs/tower-grpc", default-features = false }
+tower-grpc-build = { git = "https://github.com/tower-rs/tower-grpc" }
 
 [dependencies]
 tower-discover       = { git = "https://github.com/tower-rs/tower" }
 tower-buffer         = { git = "https://github.com/tower-rs/tower" }
-tower-grpc           = { git = "https://github.com/tower-rs/tower-grpc" , default-features = false, features = ["protobuf"]}
+tower-grpc           = { git = "https://github.com/tower-rs/tower-grpc"}
+tower-h2             = {git = "https://github.com/tower-rs/tower-h2"}
 tower-util           = { git = "https://github.com/tower-rs/tower" }
 tower-service        = { git = "https://github.com/tower-rs/tower" }
 tower-http-service   = { git = "https://github.com/tower-rs/tower-http" }
 tower-add-origin     = { git = "https://github.com/tower-rs/tower-http" }
-tower-hyper          = { git = "https://github.com/tower-rs/tower-hyper" }
 tower-consul         = { git = "https://github.com/LucioFranco/tower-consul" }
 futures-watch        = { git = "https://github.com/carllerche/better-future" }
+tokio-connect = { git = "https://github.com/carllerche/tokio-connect" }
 tower-web            = "^0.3"
 http                 = "^0.1"
 h2                   = "^0.1"
-taken                = "0.1.1"
 flate2               = "^1.0"
 bytes                = "^0.4"
 prost                = "^0.4"
@@ -43,8 +43,6 @@ serde_json           = "^1.0"
 futures              = "^0.1"
 tantivy              = "^0.8"
 tokio                = "^0.1"
-tokio-io = "^0.1"
-tokio-buf = "^0.1"
 tokio-executor       = "^0.1"
 tokio-threadpool     = "^0.1"
 tokio-signal         = "^0.2"
