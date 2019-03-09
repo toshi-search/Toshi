@@ -2,6 +2,7 @@ use std::hash::{Hash, Hasher};
 
 use crate::cluster::cluster_rpc::{ResultReply, SearchReply, SearchRequest};
 use crate::cluster::rpc_server::RpcClient;
+use crate::cluster::cluster_rpc::*;
 use crate::cluster::RPCError;
 use crate::handle::{IndexHandle, IndexLocation};
 use crate::handlers::index::{AddDocument, DeleteDoc};
