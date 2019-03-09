@@ -4,7 +4,6 @@ use std::time::Duration;
 use self::placement::{Background, Place};
 use failure::Fail;
 use futures::{future, Future};
-use hyper::client::connect::Connect;
 use log::error;
 use serde::{Deserialize, Serialize};
 use std::io;
@@ -19,8 +18,8 @@ use tower_h2::client::ConnectError;
 pub mod placement_proto {
     use prost_derive::{Enumeration, Message};
 
-//    pub use server::*;
-//    pub use client::*;
+    //    pub use server::*;
+    //    pub use client::*;
 
     #[cfg(target_family = "unix")]
     include!(concat!(env!("OUT_DIR"), "/placement.rs"));
@@ -31,8 +30,8 @@ pub mod placement_proto {
 pub mod cluster_rpc {
     use prost_derive::{Enumeration, Message};
 
-//    pub use server::*;
-//    pub use client::*;
+    //    pub use server::*;
+    //    pub use client::*;
 
     #[cfg(target_family = "unix")]
     include!(concat!(env!("OUT_DIR"), "/cluster_rpc.rs"));
@@ -109,21 +108,21 @@ pub enum ClusterError {
     UnableToStoreServices,
 }
 
+pub type BoxError = Box<dyn ::std::error::Error + Send + Sync + 'static>;
 pub type ConnectionError = ConnectError<io::Error>;
 pub type BufError = tower_buffer::error::ServiceError;
-pub type GrpcError = tower_grpc::Status;
 
 #[derive(Debug, Fail)]
 pub enum RPCError {
     #[fail(display = "Error in RPC: {}", _0)]
-    RPCError(GrpcError),
+    RPCError(tower_grpc::Status),
     #[fail(display = "Error in RPC Buffer: {}", _0)]
     BufError(BufError),
     #[fail(display = "Error in RPC Connect: {}", _0)]
     ConnectError(ConnectionError),
 
     #[fail(display = "")]
-    BoxError(Box<dyn ::std::error::Error + Send + Sync + 'static>)
+    BoxError(Box<dyn ::std::error::Error + Send + Sync + 'static>),
 }
 
 impl From<ConnectionError> for RPCError {
@@ -132,14 +131,14 @@ impl From<ConnectionError> for RPCError {
     }
 }
 
-impl From<Box<dyn ::std::error::Error + Send + Sync + 'static>> for RPCError {
-    fn from(err: Box<dyn ::std::error::Error + Send + Sync + 'static>) -> Self {
+impl From<BoxError> for RPCError {
+    fn from(err: BoxError) -> Self {
         RPCError::BoxError(err)
     }
 }
 
-impl From<GrpcError> for RPCError {
-    fn from(err: GrpcError) -> Self {
+impl From<tower_grpc::Status> for RPCError {
+    fn from(err: tower_grpc::Status) -> Self {
         RPCError::RPCError(err)
     }
 }
