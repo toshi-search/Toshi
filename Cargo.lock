@@ -2144,16 +2144,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tokio-tls"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-dependencies = [
- "futures 0.1.25 (registry+https://github.com/rust-lang/crates.io-index)",
- "native-tls 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "tokio-io 0.1.12 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
 name = "tokio-udp"
 version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2210,7 +2200,6 @@ dependencies = [
  "hyper 0.12.25 (registry+https://github.com/rust-lang/crates.io-index)",
  "hyper-tls 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "mime 0.3.13 (registry+https://github.com/rust-lang/crates.io-index)",
  "num_cpus 1.10.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "pretty_env_logger 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "prost 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2223,13 +2212,10 @@ dependencies = [
  "tokio-connect 0.1.0 (git+https://github.com/carllerche/tokio-connect)",
  "tokio-executor 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-signal 0.2.7 (registry+https://github.com/rust-lang/crates.io-index)",
- "tokio-threadpool 0.1.12 (registry+https://github.com/rust-lang/crates.io-index)",
- "tokio-tls 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "tower-add-origin 0.1.0 (git+https://github.com/tower-rs/tower-http)",
  "tower-buffer 0.1.0 (git+https://github.com/tower-rs/tower)",
  "tower-consul 0.1.0 (git+https://github.com/LucioFranco/tower-consul)",
- "tower-discover 0.1.0 (git+https://github.com/tower-rs/tower)",
- "tower-grpc 0.1.0 (git+https://github.com/tower-rs/tower-grpc)",
+ "tower-grpc 0.1.0 (git+https://github.com/tower-rs/tower-grpc?branch=map-status-better)",
  "tower-grpc-build 0.1.0 (git+https://github.com/tower-rs/tower-grpc)",
  "tower-h2 0.1.0 (git+https://github.com/tower-rs/tower-h2)",
  "tower-http-service 0.1.0 (git+https://github.com/tower-rs/tower-http)",
@@ -2252,7 +2238,7 @@ dependencies = [
 [[package]]
 name = "tower-buffer"
 version = "0.1.0"
-source = "git+https://github.com/tower-rs/tower#ac9488f5f280a64f191c2ffa9bdddbf777b9c743"
+source = "git+https://github.com/tower-rs/tower#720d31c65ff2ec9c2531dc7f5c46bc0456847295"
 dependencies = [
  "futures 0.1.25 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-executor 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2276,18 +2262,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "tower-discover"
-version = "0.1.0"
-source = "git+https://github.com/tower-rs/tower#ac9488f5f280a64f191c2ffa9bdddbf777b9c743"
-dependencies = [
- "futures 0.1.25 (registry+https://github.com/rust-lang/crates.io-index)",
- "tower-service 0.2.0 (git+https://github.com/tower-rs/tower)",
-]
-
-[[package]]
 name = "tower-grpc"
 version = "0.1.0"
-source = "git+https://github.com/tower-rs/tower-grpc#b3b717e067f193a292971b7e8d2a3b385cbec3fe"
+source = "git+https://github.com/tower-rs/tower-grpc?branch=map-status-better#770ba223834533e06eac73a52d2c4d55e9f943fc"
 dependencies = [
  "base64 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "bytes 0.4.12 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2345,7 +2322,7 @@ dependencies = [
 [[package]]
 name = "tower-layer"
 version = "0.1.0"
-source = "git+https://github.com/tower-rs/tower#ac9488f5f280a64f191c2ffa9bdddbf777b9c743"
+source = "git+https://github.com/tower-rs/tower#720d31c65ff2ec9c2531dc7f5c46bc0456847295"
 dependencies = [
  "futures 0.1.25 (registry+https://github.com/rust-lang/crates.io-index)",
  "tower-service 0.2.0 (git+https://github.com/tower-rs/tower)",
@@ -2362,7 +2339,7 @@ dependencies = [
 [[package]]
 name = "tower-service"
 version = "0.2.0"
-source = "git+https://github.com/tower-rs/tower#ac9488f5f280a64f191c2ffa9bdddbf777b9c743"
+source = "git+https://github.com/tower-rs/tower#720d31c65ff2ec9c2531dc7f5c46bc0456847295"
 dependencies = [
  "futures 0.1.25 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -2370,7 +2347,7 @@ dependencies = [
 [[package]]
 name = "tower-util"
 version = "0.1.0"
-source = "git+https://github.com/tower-rs/tower#ac9488f5f280a64f191c2ffa9bdddbf777b9c743"
+source = "git+https://github.com/tower-rs/tower#720d31c65ff2ec9c2531dc7f5c46bc0456847295"
 dependencies = [
  "futures 0.1.25 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-io 0.1.12 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2881,15 +2858,13 @@ dependencies = [
 "checksum tokio-tcp 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)" = "1d14b10654be682ac43efee27401d792507e30fd8d26389e1da3b185de2e4119"
 "checksum tokio-threadpool 0.1.12 (registry+https://github.com/rust-lang/crates.io-index)" = "742e511f6ce2298aeb86fc9ea0d8df81c2388c6ebae3dc8a7316e8c9df0df801"
 "checksum tokio-timer 0.2.10 (registry+https://github.com/rust-lang/crates.io-index)" = "2910970404ba6fa78c5539126a9ae2045d62e3713041e447f695f41405a120c6"
-"checksum tokio-tls 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "354b8cd83825b3c20217a9dc174d6a0c67441a2fae5c41bcb1ea6679f6ae0f7c"
 "checksum tokio-udp 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)" = "66268575b80f4a4a710ef83d087fdfeeabdce9b74c797535fbac18a2cb906e92"
 "checksum tokio-uds 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)" = "037ffc3ba0e12a0ab4aca92e5234e0dedeb48fddf6ccd260f1f150a36a9f2445"
 "checksum toml 0.4.10 (registry+https://github.com/rust-lang/crates.io-index)" = "758664fc71a3a69038656bee8b6be6477d2a6c315a6b81f7081f591bffa4111f"
 "checksum tower-add-origin 0.1.0 (git+https://github.com/tower-rs/tower-http)" = "<none>"
 "checksum tower-buffer 0.1.0 (git+https://github.com/tower-rs/tower)" = "<none>"
 "checksum tower-consul 0.1.0 (git+https://github.com/LucioFranco/tower-consul)" = "<none>"
-"checksum tower-discover 0.1.0 (git+https://github.com/tower-rs/tower)" = "<none>"
-"checksum tower-grpc 0.1.0 (git+https://github.com/tower-rs/tower-grpc)" = "<none>"
+"checksum tower-grpc 0.1.0 (git+https://github.com/tower-rs/tower-grpc?branch=map-status-better)" = "<none>"
 "checksum tower-grpc-build 0.1.0 (git+https://github.com/tower-rs/tower-grpc)" = "<none>"
 "checksum tower-h2 0.1.0 (git+https://github.com/tower-rs/tower-h2)" = "<none>"
 "checksum tower-http-service 0.1.0 (git+https://github.com/tower-rs/tower-http)" = "<none>"

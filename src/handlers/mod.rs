@@ -16,12 +16,14 @@ pub struct QueryOptions {
 }
 
 #[derive(Serialize)]
+#[allow(dead_code)]
 pub struct ErrorResponse {
     message: String,
     uri: String,
 }
 
 impl ErrorResponse {
+    #[allow(dead_code)]
     pub fn new(message: String, uri: String) -> Self {
         Self { message, uri }
     }

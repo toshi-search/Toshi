@@ -1,27 +1,27 @@
 use std::net::SocketAddr;
 use std::sync::{Arc, RwLock};
 
-use tokio::prelude::*;
+use crate::cluster::cluster_rpc::*;
 use log::{error, info};
 use tantivy::schema::Schema;
 use tokio::net::{TcpListener, TcpStream};
+use tokio::prelude::*;
 use tokio_executor::DefaultExecutor;
-use tower_grpc::{Code, Request, Response, Status, BoxBody};
+use tower_grpc::{BoxBody, Code, Request, Response, Status};
 use tower_util::MakeService;
-use crate::cluster::cluster_rpc::*;
-use crate::cluster::cluster_rpc::server::*;
 
-use crate::cluster::{GrpcConn, RPCError};
+use crate::cluster::GrpcConn;
 use crate::handle::IndexHandle;
-use crate::index::{IndexCatalog, BoxError};
+use crate::index::IndexCatalog;
 use crate::query;
 use tower_add_origin::{AddOrigin, Builder};
-use tower_h2::client::{Connection, Connect, ConnectError};
+use tower_buffer::Buffer;
+use tower_h2::client::{Connect, ConnectError, Connection};
 use tower_h2::Server;
 
 //pub type RpcClient = client::IndexService<Buffer<Connection<Body>, http::Request<Body>>>;
 
-pub type Buf = AddOrigin<Connection<TcpStream, DefaultExecutor, BoxBody>>;
+pub type Buf = Buffer<AddOrigin<Connection<TcpStream, DefaultExecutor, BoxBody>>, http::Request<BoxBody>>;
 pub type RpcClient = client::IndexService<Buf>;
 
 /// RPC Services should "ideally" work on only local indexes, they shouldn't be responsible for
@@ -60,20 +60,21 @@ impl RpcServer {
             .map_err(|err| error!("Server Error: {:?}", err))
     }
 
-    pub fn create_client(conn: GrpcConn, uri: http::Uri) -> impl Future<Item = RpcClient, Error = ConnectError<::std::io::Error>> + Send + 'static {
+    pub fn create_client(
+        conn: GrpcConn,
+        uri: http::Uri,
+    ) -> impl Future<Item = RpcClient, Error = ConnectError<::std::io::Error>> + Send + 'static {
         let mut connect = Connect::new(conn, Default::default(), DefaultExecutor::current());
 
-        connect.make_service(())
-            .map(|c| {
-                let uri = uri;
-                let connection = Builder::new().uri(uri).build(c).unwrap();
-//                let buffer = match Buffer::new(connection, 128) {
-//                    Ok(b) => b,
-//                    _ => panic!("asdf"),
-//                };
-                client::IndexService::new(connection)
-            })
-//            .map_err(|e| e.into())
+        connect.make_service(()).map(|c| {
+            let uri = uri;
+            let connection = Builder::new().uri(uri).build(c).unwrap();
+            let buffer = match Buffer::new(connection, 128) {
+                Ok(b) => b,
+                _ => panic!("asdf"),
+            };
+            client::IndexService::new(buffer)
+        })
     }
 
     pub fn create_result(code: i32, message: String) -> ResultReply {
@@ -142,7 +143,7 @@ impl server::IndexService for RpcServer {
             if let Ok(schema) = serde_json::from_slice::<Schema>(&schema) {
                 let ip = cat.base_path().clone();
                 if let Ok(new_index) = IndexCatalog::create_from_managed(ip, &index.clone(), schema) {
-                    if let Ok(_) = cat.add_index(index.clone(), new_index) {
+                    if cat.add_index(index.clone(), new_index).is_ok() {
                         let result = RpcServer::create_result(0, "".into());
                         Box::new(future::finished(Response::new(result)))
                     } else {
@@ -182,52 +183,52 @@ impl server::IndexService for RpcServer {
 //        Box::new(fut)
 //    }
 //}
-
-#[cfg(test)]
-mod tests {
-    use futures::future::Future;
-    use http::Uri;
-
-    use crate::index::tests::create_test_catalog;
-    use crate::query::Query;
-
-    use super::*;
-
-    #[test]
-    #[ignore]
-    fn client_test() {
-        let body = r#"test_text:"Duckiment""#;
-        let _req = query::Request::new(Some(Query::Raw { raw: body.into() }), None, 10);
-        let list = ListRequest {};
-        let socket_addr: SocketAddr = "127.0.0.1:8081".parse().unwrap();
-
-        let host_uri = Uri::builder()
-            .scheme("http")
-            .authority(socket_addr.to_string().as_str())
-            .path_and_query("")
-            .build()
-            .unwrap();
-
-        let tcp_stream = GrpcConn(socket_addr);
-        let cat = create_test_catalog("test_index");
-        let service = RpcServer::get_service(socket_addr, cat);
-
-        let client_fut = RpcServer::create_client(tcp_stream.clone(), host_uri)
-            .and_then(|mut client| {
-                future::ok(
-                    client
-                        .list_indexes(Request::new(list))
-                        .map(|resp| resp.into_inner())
-                        .map_err(|_| ()),
-                )
-            })
-            .map_err(|_| ())
-            .and_then(|x| x)
-            .map(|x| println!("{:#?}", x))
-            .map_err(|_| ());
-
-        let s = service.select(client_fut).map(|_| ()).map_err(|_| ());
-
-        tokio::run(s);
-    }
-}
+//
+//#[cfg(test)]
+//mod tests {
+//    use futures::future::Future;
+//    use http::Uri;
+//
+//    use crate::index::tests::create_test_catalog;
+//    use crate::query::Query;
+//
+//    use super::*;
+//
+//    #[test]
+//    #[ignore]
+//    fn client_test() {
+//        let body = r#"test_text:"Duckiment""#;
+//        let _req = query::Request::new(Some(Query::Raw { raw: body.into() }), None, 10);
+//        let list = ListRequest {};
+//        let socket_addr: SocketAddr = "127.0.0.1:8081".parse().unwrap();
+//
+//        let host_uri = Uri::builder()
+//            .scheme("http")
+//            .authority(socket_addr.to_string().as_str())
+//            .path_and_query("")
+//            .build()
+//            .unwrap();
+//
+//        let tcp_stream = GrpcConn(socket_addr);
+//        let cat = create_test_catalog("test_index");
+//        let service = RpcServer::get_service(socket_addr, cat);
+//
+//        let client_fut = RpcServer::create_client(tcp_stream.clone(), host_uri)
+//            .and_then(|mut client| {
+//                future::ok(
+//                    client
+//                        .list_indexes(Request::new(list))
+//                        .map(|resp| resp.into_inner())
+//                        .map_err(|_| ()),
+//                )
+//            })
+//            .map_err(|_| ())
+//            .and_then(|x| x)
+//            .map(|x| println!("{:#?}", x))
+//            .map_err(|_| ());
+//
+//        let s = service.select(client_fut).map(|_| ()).map_err(|_| ());
+//
+//        tokio::run(s);
+//    }
+//}

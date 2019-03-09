@@ -1,17 +1,15 @@
 use std::collections::HashSet;
-use std::io;
 use std::net::SocketAddr;
 
-use futures::{future, Future, Poll, Stream};
+use futures::{future, Future, Stream};
 use futures_watch::Watch;
 use log::error;
-use tokio::net::{TcpListener, TcpStream, tcp::ConnectFuture};
+use tokio::net::TcpListener;
 use tower_grpc::{Request, Response, Status};
-use tower_util::MakeService;
 use tower_h2::Server;
 
 use crate::cluster::consul::Consul;
-use crate::cluster::placement_proto::{PlacementReply, PlacementRequest, server};
+use crate::cluster::placement_proto::{server, PlacementReply, PlacementRequest};
 
 pub use self::background::Background;
 use tokio_executor::DefaultExecutor;
@@ -37,7 +35,7 @@ impl Place {
             let placer = Place { consul, nodes };
             let placement = server::PlacementServer::new(placer);
 
-//            let mut hyp = tower_hyper::server::Server::new(placement);
+            //            let mut hyp = tower_hyper::server::Server::new(placement);
             let mut h2 = Server::new(placement, Default::default(), DefaultExecutor::current());
             bind.incoming().for_each(move |stream| {
                 if let Err(e) = stream.set_nodelay(true) {
