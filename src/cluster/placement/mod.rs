@@ -1,23 +1,25 @@
-use crate::cluster::consul::Consul;
-use crate::cluster::placement_proto::{server, PlacementReply, PlacementRequest};
+use std::collections::HashSet;
+use std::net::SocketAddr;
+
 use futures::{future, Future, Stream};
 use futures_watch::Watch;
 use log::error;
-use std::collections::HashSet;
-use std::net::SocketAddr;
-use tokio::executor::DefaultExecutor;
 use tokio::net::TcpListener;
-use tower_grpc::{Error, Request, Response};
+use tower_grpc::{Request, Response, Status};
 use tower_h2::Server;
+
+use crate::cluster::consul::Consul;
+use crate::cluster::placement_proto::{server, PlacementReply, PlacementRequest};
+
+pub use self::background::Background;
+use tokio_executor::DefaultExecutor;
 
 pub mod background;
 
-pub use self::background::Background;
-
 // TODO: replace this with an actual future
-type GrpcFuture<T> = Box<Future<Item = Response<T>, Error = Error> + Send + 'static>;
+type GrpcFuture<T> = Box<Future<Item = Response<T>, Error = Status> + Send + 'static>;
 
-/// The placement service for toshi. Its role is to
+/// The placement service for Toshi. Its role is to
 /// tell the cluster where to place writes and reads.
 #[derive(Clone)]
 pub struct Place {
@@ -32,14 +34,15 @@ impl Place {
         future::lazy(move || TcpListener::bind(&addr)).and_then(|bind| {
             let placer = Place { consul, nodes };
             let placement = server::PlacementServer::new(placer);
-            let mut server = Server::new(placement, Default::default(), DefaultExecutor::current());
 
+            //            let mut hyp = tower_hyper::server::Server::new(placement);
+            let mut h2 = Server::new(placement, Default::default(), DefaultExecutor::current());
             bind.incoming().for_each(move |stream| {
                 if let Err(e) = stream.set_nodelay(true) {
                     return Err(e);
                 }
 
-                let serve = server.serve(stream);
+                let serve = h2.serve(stream);
                 tokio::spawn(serve.map_err(|e| error!("Placement Server Error: {:?}", e)));
 
                 Ok(())
@@ -55,3 +58,17 @@ impl server::Placement for Place {
         unimplemented!()
     }
 }
+//
+//impl<T> Service<http::Request<Body>> for server::PlacementServer<T> {
+//    type Response = http::Response<LiftBody<Body>>;
+//    type Error = h2::Error;
+//    type Future = Box<Future<Item = Self::Response, Error = Self::Error> + Send>;
+//
+//    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+//        unimplemented!()
+//    }
+//
+//    fn call(&mut self, req: http::Request<Body>) -> Self::Future {
+//        unimplemented!()
+//    }
+//}

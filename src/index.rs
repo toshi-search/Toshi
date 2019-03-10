@@ -1,5 +1,5 @@
+use std::clone::Clone;
 use std::fs;
-use std::iter::Iterator;
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -11,12 +11,10 @@ use tantivy::schema::Schema;
 use tantivy::Index;
 use tokio::prelude::*;
 
-use crate::cluster::cluster_rpc::ListRequest;
+use crate::cluster::cluster_rpc::*;
 use crate::cluster::remote_handle::RemoteIndex;
-use crate::cluster::rpc_server::RpcClient;
-use crate::cluster::rpc_server::RpcServer;
-use crate::cluster::GrpcConn;
-use crate::cluster::RPCError;
+use crate::cluster::rpc_server::{RpcClient, RpcServer};
+use crate::cluster::{GrpcConn, RPCError};
 use crate::handle::{IndexHandle, LocalIndex};
 use crate::query::Request;
 use crate::results::*;
@@ -190,7 +188,9 @@ impl IndexCatalog {
         let socket: SocketAddr = node.parse().unwrap();
         let host_uri = IndexCatalog::create_host_uri(socket).unwrap();
         let grpc_conn = GrpcConn(socket);
-        let client_fut = RpcServer::create_client(grpc_conn.clone(), host_uri)
+
+        RpcServer::create_client(grpc_conn.clone(), host_uri)
+            .map_err(|e| e.into())
             .and_then(|mut client| {
                 let client_clone = client.clone();
                 client
@@ -198,29 +198,24 @@ impl IndexCatalog {
                     .map(|resp| (client_clone, resp.into_inner()))
                     .map_err(|e| e.into())
             })
-            .map(move |(x, r)| (x, r.indexes));
-
-        client_fut
+            .map(move |(x, r)| (x, r.indexes))
     }
 
     pub fn search_local_index(&self, index: &str, search: Request) -> impl Future<Item = Vec<SearchResults>, Error = Error> + Send {
-        dbg!(&search);
         self.get_index(index)
             .and_then(move |hand| hand.search_index(search).map(|r| vec![r]))
             .into_future()
     }
 
     pub fn search_remote_index(&self, index: &str, search: Request) -> impl Future<Item = Vec<SearchResults>, Error = Error> + Send {
-        match self.get_remote_index(index) {
-            Ok(hand) => hand
-                .search_index(search)
+        self.get_remote_index(index).into_future().and_then(move |hand| {
+            hand.search_index(search)
                 .and_then(|sr| {
                     let doc: Vec<SearchResults> = sr.iter().map(|r| serde_json::from_slice(&r.doc).unwrap()).collect();
                     Ok(doc)
                 })
-                .map_err(|_| Error::IOError(":'(".into())),
-            Err(_) => panic!(":-("),
-        }
+                .map_err(|_| Error::IOError("An error occured with the query".into()))
+        })
     }
 
     pub fn clear(&mut self) {
@@ -235,7 +230,6 @@ pub mod tests {
 
     use tantivy::doc;
     use tantivy::schema::*;
-    use tokio::runtime::Runtime;
 
     use super::*;
 
@@ -265,27 +259,27 @@ pub mod tests {
         idx
     }
 
-    #[test]
-    #[ignore]
-    #[allow(unused_must_use)]
-    pub fn test_remote_index_refresh() {
-        let mut rt = Runtime::new().unwrap();
-        let socket_addr: SocketAddr = "127.0.0.1:8081".parse().unwrap();
-        let cat = create_test_catalog("test_index");
-        let service = RpcServer::get_service(socket_addr, cat);
-        let nodes = "127.0.0.1:8081".to_string();
-        let refresh = IndexCatalog::refresh_multiple_nodes(vec![nodes]);
-        let reff = refresh
-            .for_each(|i| {
-                for idx in i.1 {
-                    println!("IDX={}", idx);
-                }
-                future::ok(())
-            })
-            .map_err(|_| ());
-        let s = service.select(reff);
-
-        rt.block_on(s);
-        rt.shutdown_on_idle();
-    }
+    //    #[test]
+    //    #[ignore]
+    //    #[allow(unused_must_use)]
+    //    pub fn test_remote_index_refresh() {
+    //        let mut rt = Runtime::new().unwrap();
+    //        let socket_addr: SocketAddr = "127.0.0.1:8081".parse().unwrap();
+    //        let cat = create_test_catalog("test_index");
+    //        let service = RpcServer::get_service(socket_addr, cat);
+    //        let nodes = "127.0.0.1:8081".to_string();
+    //        let refresh = IndexCatalog::refresh_multiple_nodes(vec![nodes]);
+    //        let reff = refresh
+    //            .for_each(|i| {
+    //                for idx in i.1 {
+    //                    println!("IDX={}", idx);
+    //                }
+    //                future::ok(())
+    //            })
+    //            .map_err(|_| ());
+    //        let s = service.select(reff);
+    //
+    //        rt.block_on(s);
+    //        rt.shutdown_on_idle();
+    //    }
 }

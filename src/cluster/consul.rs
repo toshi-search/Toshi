@@ -9,7 +9,6 @@ use hyper::{Client, Request, Response, Uri};
 use hyper_tls::HttpsConnector;
 use serde::{Deserialize, Serialize};
 use tower_consul::{Consul as TowerConsul, ConsulService, KVValue};
-use tower_service::Service;
 
 use crate::cluster::shard::PrimaryShard;
 use crate::cluster::shard::ReplicaShard;
@@ -177,7 +176,7 @@ impl HttpsService {
     }
 }
 
-impl Service<Request<Bytes>> for HttpsService {
+impl tower_service::Service<Request<Bytes>> for HttpsService {
     type Response = Response<Bytes>;
     type Error = hyper::Error;
     type Future = Box<Future<Item = Self::Response, Error = Self::Error> + Send>;

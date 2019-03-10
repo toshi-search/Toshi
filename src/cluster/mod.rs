@@ -1,12 +1,15 @@
+use std::net::SocketAddr;
+use std::time::Duration;
+
+use self::placement::{Background, Place};
 use failure::Fail;
 use futures::{future, Future};
 use log::error;
 use serde::{Deserialize, Serialize};
 use std::io;
-use std::net::SocketAddr;
-use std::time::Duration;
 use tokio::net::tcp::ConnectFuture;
 use tokio::net::TcpStream;
+use tokio::prelude::*;
 
 pub use self::consul::Consul;
 pub use self::node::*;
@@ -14,6 +17,9 @@ use tower_h2::client::ConnectError;
 
 pub mod placement_proto {
     use prost_derive::{Enumeration, Message};
+
+    //    pub use server::*;
+    //    pub use client::*;
 
     #[cfg(target_family = "unix")]
     include!(concat!(env!("OUT_DIR"), "/placement.rs"));
@@ -23,6 +29,9 @@ pub mod placement_proto {
 
 pub mod cluster_rpc {
     use prost_derive::{Enumeration, Message};
+
+    //    pub use server::*;
+    //    pub use client::*;
 
     #[cfg(target_family = "unix")]
     include!(concat!(env!("OUT_DIR"), "/cluster_rpc.rs"));
@@ -37,8 +46,6 @@ mod placement;
 pub mod remote_handle;
 pub mod rpc_server;
 pub mod shard;
-
-use self::placement::{Background, Place};
 
 /// Run the services associated with the cluster
 pub fn run(place_addr: SocketAddr, consul: Consul) -> impl Future<Item = (), Error = std::io::Error> {
@@ -101,24 +108,21 @@ pub enum ClusterError {
     UnableToStoreServices,
 }
 
+pub type BoxError = Box<dyn ::std::error::Error + Send + Sync + 'static>;
 pub type ConnectionError = ConnectError<io::Error>;
-pub type BufError = tower_buffer::Error<tower_h2::client::Error>;
-pub type GrpcError = tower_grpc::Error<tower_buffer::Error<ConnectionError>>;
+pub type BufError = tower_buffer::error::ServiceError;
 
 #[derive(Debug, Fail)]
 pub enum RPCError {
     #[fail(display = "Error in RPC: {}", _0)]
-    RPCError(tower_grpc::Error<GrpcError>),
+    RPCError(tower_grpc::Status),
+    #[fail(display = "Error in RPC Buffer: {}", _0)]
+    BufError(BufError),
     #[fail(display = "Error in RPC Connect: {}", _0)]
     ConnectError(ConnectionError),
-    #[fail(display = "Error in RPC Buffer: {}", _0)]
-    BufError(tower_grpc::Error<BufError>),
-}
 
-impl From<GrpcError> for RPCError {
-    fn from(err: GrpcError) -> Self {
-        RPCError::RPCError(tower_grpc::Error::Inner(err))
-    }
+    #[fail(display = "")]
+    BoxError(Box<dyn ::std::error::Error + Send + Sync + 'static>),
 }
 
 impl From<ConnectionError> for RPCError {
@@ -127,9 +131,15 @@ impl From<ConnectionError> for RPCError {
     }
 }
 
-impl From<tower_grpc::Error<BufError>> for RPCError {
-    fn from(err: tower_grpc::Error<BufError>) -> Self {
-        RPCError::BufError(err)
+impl From<BoxError> for RPCError {
+    fn from(err: BoxError) -> Self {
+        RPCError::BoxError(err)
+    }
+}
+
+impl From<tower_grpc::Status> for RPCError {
+    fn from(err: tower_grpc::Status) -> Self {
+        RPCError::RPCError(err)
     }
 }
 
@@ -142,12 +152,16 @@ pub enum DiskType {
 #[derive(Debug, Clone)]
 pub struct GrpcConn(pub SocketAddr);
 
-impl tokio_connect::Connect for GrpcConn {
-    type Connected = TcpStream;
+impl tower_service::Service<()> for GrpcConn {
+    type Response = TcpStream;
     type Error = io::Error;
     type Future = ConnectFuture;
 
-    fn connect(&self) -> Self::Future {
+    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+        Ok(().into())
+    }
+
+    fn call(&mut self, _: ()) -> Self::Future {
         TcpStream::connect(&self.0)
     }
 }
