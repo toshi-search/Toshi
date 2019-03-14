@@ -1,26 +1,22 @@
-use std::net::SocketAddr;
-use std::{
-    fs::create_dir,
-    path::{Path, PathBuf},
-    sync::{Arc, RwLock},
-};
+use std::fs::create_dir;
+use std::net::{IpAddr, SocketAddr};
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, RwLock};
 
-use clap::{crate_authors, crate_description, crate_version, App, Arg, ArgMatches};
-use futures::{future, Future, Stream};
+use futures::{future, Future};
 use log::{error, info};
 use tokio::runtime::Runtime;
 use tokio::sync::oneshot;
 
-use toshi::{
-    cluster::{self, rpc_server::RpcServer, Consul},
-    commit::IndexWatcher,
-    index::IndexCatalog,
-    router::router_with_catalog,
-    settings::{Settings, HEADER, RPC_HEADER},
-};
+use toshi::cluster::rpc_server::RpcServer;
+use toshi::commit::IndexWatcher;
+use toshi::index::IndexCatalog;
+use toshi::router::router_with_catalog;
+use toshi::settings::{Settings, HEADER, RPC_HEADER};
+use toshi::{cluster, shutdown, support};
 
 pub fn main() -> Result<(), ()> {
-    let settings = settings();
+    let settings = support::settings();
 
     std::env::set_var("RUST_LOG", &settings.log_level);
     pretty_env_logger::init();
@@ -49,23 +45,21 @@ pub fn main() -> Result<(), ()> {
     };
 
     let toshi = {
-        let server = if settings.master {
-            future::Either::A(run(index_catalog.clone(), &settings))
+        // If experimental is enabled and master is false, they are a data node...
+        // not even going to try and become the master...
+        let server = if settings.experimental && settings.experimental_features.master {
+            future::Either::A(run_master(Arc::clone(&index_catalog), &settings))
         } else {
-            let addr = format!("{}:{}", &settings.host, settings.port);
-            println!("{}", RPC_HEADER);
-            info!("I am a data node...Binding to: {}", addr);
-            let bind: SocketAddr = addr.parse().unwrap();
-            future::Either::B(RpcServer::get_service(bind, Arc::clone(&index_catalog)))
+            future::Either::B(run(Arc::clone(&index_catalog), &settings))
         };
-        let shutdown = shutdown(tx);
+        let shutdown = shutdown::shutdown(tx);
         server.select(shutdown)
     };
 
     rt.spawn(toshi.map(|_| ()).map_err(|_| ()));
 
     shutdown_signal
-        .map_err(|_| unreachable!("Shutdown signal channel should not error, This is a bug."))
+        .map_err(|e| unreachable!("Shutdown signal channel should not error, This is a bug. \n {:?} ", e))
         .and_then(move |_| {
             index_catalog
                 .write()
@@ -77,72 +71,16 @@ pub fn main() -> Result<(), ()> {
         .wait()
 }
 
-fn settings() -> Settings {
-    let options: ArgMatches = App::new("Toshi Search")
-        .version(crate_version!())
-        .about(crate_description!())
-        .author(crate_authors!())
-        .arg(
-            Arg::with_name("config")
-                .short("c")
-                .long("config")
-                .takes_value(true)
-                .default_value("config/config.toml"),
-        )
-        .arg(
-            Arg::with_name("level")
-                .short("l")
-                .long("level")
-                .takes_value(true)
-                .default_value("info"),
-        )
-        .arg(
-            Arg::with_name("path")
-                .short("d")
-                .long("data-path")
-                .takes_value(true)
-                .default_value("data/"),
-        )
-        .arg(
-            Arg::with_name("host")
-                .short("h")
-                .long("host")
-                .takes_value(true)
-                .default_value("0.0.0.0"),
-        )
-        .arg(
-            Arg::with_name("port")
-                .short("p")
-                .long("port")
-                .takes_value(true)
-                .default_value("8080"),
-        )
-        .arg(
-            Arg::with_name("consul-addr")
-                .short("C")
-                .long("consul-addr")
-                .takes_value(true)
-                .default_value("127.0.0.1:8500"),
-        )
-        .arg(
-            Arg::with_name("cluster-name")
-                .short("N")
-                .long("cluster-name")
-                .takes_value(true)
-                .default_value("kitsune"),
-        )
-        .arg(
-            Arg::with_name("enable-clustering")
-                .short("e")
-                .long("enable-clustering")
-                .takes_value(true),
-        )
-        .get_matches();
+fn run_master(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Future<Item = (), Error = ()> {
+    let consul_addr = settings.experimental_features.consul_addr.clone();
+    let cluster_name = settings.experimental_features.cluster_name.clone();
+    let addr: IpAddr = settings.host.parse().expect(&format!("Invalid ip address: {}", &settings.host));
+    let settings = settings.clone();
+    let bind: SocketAddr = SocketAddr::new(addr, settings.port);
 
-    match options.value_of("config") {
-        Some(v) => Settings::new(v).expect("Invalid configuration file"),
-        None => Settings::from_args(&options),
-    }
+    println!("{}", RPC_HEADER);
+    info!("I am a data node...Binding to: {}", addr);
+    future::lazy(move || cluster::connect_to_consul(&settings)).and_then(move |_| RpcServer::serve(bind, catalog))
 }
 
 fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Future<Item = (), Error = ()> {
@@ -161,24 +99,29 @@ fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Future<I
 
     println!("{}", HEADER);
 
-    if settings.enable_clustering {
-        // I had this commented out for now in order to test the manual cluster reporting, next step is
-        // to turn this back on and get the information from consul instead.
+    if settings.experimental {
+        let settings = settings.clone();
+        let place_addr = settings.place_addr.clone();
+        let consul_addr = settings.experimental_features.consul_addr.clone();
+        let cluster_name = settings.experimental_features.cluster_name.clone();
+        let nodes = settings.experimental_features.nodes.clone();
 
-        //    let consul = Consul::builder()
-        //        .with_cluster_name(cluster_name)
-        //        .with_address(consul_addr)
-        //        .build()
-        //        .expect("Could not build Consul client.");
-        //
-        //    let place_addr = place_addr.parse().expect("Placement address must be a valid SocketAddr");
-        //    tokio::spawn(cluster::run(place_addr, consul).map_err(|e| error!("Error with running cluster: {}", e)));
-        //
-        //    router_with_catalog(&bind, &catalog)
-        //});
-        let run = commit_watcher.and_then(move |_| {
-            let update = catalog.read().unwrap().update_remote_indexes();
-            tokio::spawn(update);
+        let run = future::lazy(move || cluster::connect_to_consul(&settings)).and_then(move |_| {
+            tokio::spawn(commit_watcher);
+
+            if nodes.is_empty() {
+                let consul = cluster::Consul::builder()
+                    .with_cluster_name(cluster_name)
+                    .with_address(consul_addr)
+                    .build()
+                    .expect("Could not build Consul client.");
+
+                let place_addr = place_addr.parse().expect("Placement address must be a valid SocketAddr");
+                tokio::spawn(cluster::run(place_addr, consul).map_err(|e| error!("Error with running cluster: {}", e)));
+            } else {
+                let update = catalog.read().unwrap().update_remote_indexes();
+                tokio::spawn(update);
+            }
             router_with_catalog(&bind, &catalog)
         });
         future::Either::A(run)
@@ -186,61 +129,4 @@ fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Future<I
         let run = commit_watcher.and_then(move |_| router_with_catalog(&bind, &catalog));
         future::Either::B(run)
     }
-}
-
-fn connect_to_consul(settings: &Settings) -> impl Future<Item = (), Error = ()> {
-    let consul_address = settings.consul_addr.clone();
-    let cluster_name = settings.cluster_name.clone();
-    let settings_path = settings.path.clone();
-
-    future::lazy(move || {
-        let mut consul_client = Consul::builder()
-            .with_cluster_name(cluster_name)
-            .with_address(consul_address)
-            .build()
-            .expect("Could not build Consul client.");
-
-        // Build future that will connect to Consul and register the node_id
-        consul_client
-            .register_cluster()
-            .and_then(|_| cluster::init_node_id(settings_path))
-            .and_then(move |id| {
-                consul_client.set_node_id(id);
-                consul_client.register_node()
-            })
-            .map_err(|e| error!("Error: {}", e))
-    })
-}
-
-#[cfg(unix)]
-fn shutdown(signal: oneshot::Sender<()>) -> impl Future<Item = (), Error = ()> {
-    use tokio_signal::unix::{Signal, SIGINT, SIGTERM};
-
-    let sigint = Signal::new(SIGINT).flatten_stream().map(|_| String::from("SIGINT"));
-    let sigterm = Signal::new(SIGTERM).flatten_stream().map(|_| String::from("SIGTERM"));
-
-    handle_shutdown(signal, sigint.select(sigterm))
-}
-#[cfg(not(unix))]
-fn shutdown(signal: oneshot::Sender<()>) -> impl Future<Item = (), Error = ()> {
-    let stream = tokio_signal::ctrl_c().flatten_stream().map(|_| String::from("ctrl-r"));
-    handle_shutdown(signal, stream)
-}
-
-fn handle_shutdown<S>(signal: oneshot::Sender<()>, stream: S) -> impl Future<Item = (), Error = ()>
-where
-    S: Stream<Item = String, Error = std::io::Error>,
-{
-    stream
-        .take(1)
-        .into_future()
-        .and_then(move |(sig, _)| {
-            if let Some(s) = sig {
-                info!("Received signal: {}", s);
-            }
-            info!("Gracefully shutting down...");
-            Ok(signal.send(()))
-        })
-        .map(|_| ())
-        .map_err(|_| unreachable!("Signal handling should never error out"))
 }

@@ -92,6 +92,12 @@ impl From<Box<::std::error::Error + Send + 'static>> for Error {
     }
 }
 
+impl<T> From<crossbeam::channel::SendError<T>> for Error {
+    fn from(err: crossbeam::channel::SendError<T>) -> Self {
+        Error::IOError(err.to_string())
+    }
+}
+
 pub type Result<T> = std::result::Result<T, Error>;
 
 mod handle;
@@ -104,3 +110,5 @@ pub mod commit;
 pub mod index;
 pub mod router;
 pub mod settings;
+pub mod shutdown;
+pub mod support;

@@ -50,7 +50,7 @@ impl IndexCatalog {
 
     pub fn update_remote_indexes(&self) -> impl Future<Item = (), Error = ()> {
         let cat_clone = Arc::clone(&self.remote_handles);
-        IndexCatalog::refresh_multiple_nodes(self.settings.nodes.clone())
+        IndexCatalog::refresh_multiple_nodes(self.settings.experimental_features.nodes.clone())
             .for_each(move |indexes| {
                 let cat = &cat_clone;
                 for idx in indexes.1 {

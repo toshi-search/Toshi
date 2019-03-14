@@ -1,4 +1,5 @@
 //! Provides an interface to a Consul cluster
+use std::str::from_utf8;
 
 use bytes::Bytes;
 use futures::{stream::Stream, Async, Future, Poll};
@@ -16,11 +17,16 @@ use crate::cluster::shard::Shard;
 use crate::cluster::ClusterError;
 use crate::{Error, Result};
 
+pub const SERVICE_NAME: &'static str = "toshi/";
+
 #[derive(Serialize, Deserialize)]
 pub struct NodeData {
     pub primaries: Vec<PrimaryShard>,
     pub shards: Vec<ReplicaShard>,
 }
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Hosts(pub Vec<String>);
 
 pub type ConsulClient = TowerConsul<HttpsService>;
 
@@ -41,6 +47,11 @@ impl Consul {
         Builder::default()
     }
 
+    #[inline]
+    pub fn node_path(&self) -> String {
+        SERVICE_NAME.to_string() + &self.cluster_name() + "/" + &self.node_id()
+    }
+
     /// Build the consul uri
     pub fn build_uri(self) -> Result<Uri> {
         Uri::builder()
@@ -52,16 +63,41 @@ impl Consul {
 
     /// Registers this node with Consul via HTTP API
     pub fn register_node(&mut self) -> impl Future<Item = (), Error = ClusterError> {
-        let key = "toshi/".to_owned() + &self.cluster_name() + "/" + &self.node_id();
+        let key = SERVICE_NAME.to_string() + &self.cluster_name() + "/" + &self.node_id();
         self.client
             .set(&key, Vec::new())
             .map(|_| ())
             .map_err(|err| ClusterError::FailedRegisteringNode(format!("{:?}", err)))
     }
 
+    pub fn place_node_descriptor(&mut self, hosts: Hosts) -> impl Future<Item = (), Error = ClusterError> {
+        let key = self.node_path();
+        let mut client = self.client.clone();
+
+        self.client
+            .get(&key)
+            .then(move |v| match v {
+                Ok(vals) => {
+                    let mut h: Vec<Hosts> = vals
+                        .iter()
+                        .map(|kv| {
+                            let decoded_data = base64::decode(&kv.value).unwrap();
+                            serde_json::from_str::<Hosts>(from_utf8(&decoded_data).unwrap()).unwrap()
+                        })
+                        .collect();
+                    h.push(hosts);
+                    let kvs = serde_json::to_vec(&h).unwrap();
+                    tokio::spawn(client.set(&key, kvs).map(|_| ()).map_err(|_| ()));
+                    Ok(())
+                }
+                Err(e) => Err(e),
+            })
+            .map_err(|err| ClusterError::FailedRegisteringCluster(format!("{:?}", err)))
+    }
+
     /// Registers a cluster with Consul via the HTTP API
     pub fn register_cluster(&mut self) -> impl Future<Item = (), Error = ClusterError> {
-        let key = "toshi/".to_owned() + &self.cluster_name();
+        let key = SERVICE_NAME.to_string() + &self.cluster_name();
         self.client
             .set(&key, Vec::new())
             .map(|_| ())
@@ -150,7 +186,10 @@ impl Builder {
         let address = self.address.unwrap_or_else(|| "127.0.0.1:8500".parse().unwrap());
         let scheme = self.scheme.unwrap_or(Scheme::HTTP);
 
-        let client = TowerConsul::new(HttpsService::new(), 100, scheme.to_string(), address.to_string()).map_err(|_| Error::SpawnError)?;
+        let client = TowerConsul::new(HttpsService::new(), 100, scheme.to_string(), address.to_string()).map_err(|e| {
+            dbg!(e);
+            Error::SpawnError
+        })?;
 
         Ok(Consul {
             address,

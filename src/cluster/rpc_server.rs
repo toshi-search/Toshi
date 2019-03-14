@@ -1,23 +1,24 @@
 use std::net::SocketAddr;
 use std::sync::{Arc, RwLock};
 
-use crate::cluster::cluster_rpc::*;
 use log::{error, info};
 use tantivy::schema::Schema;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::prelude::*;
 use tokio_executor::DefaultExecutor;
+use tower_add_origin::{AddOrigin, Builder};
+use tower_buffer::Buffer;
 use tower_grpc::{BoxBody, Code, Request, Response, Status};
+use tower_h2::client::{Connect, ConnectError, Connection};
+use tower_h2::Server;
 use tower_util::MakeService;
 
+use crate::cluster::cluster_rpc::server;
+use crate::cluster::cluster_rpc::*;
 use crate::cluster::GrpcConn;
 use crate::handle::IndexHandle;
 use crate::index::IndexCatalog;
 use crate::query;
-use tower_add_origin::{AddOrigin, Builder};
-use tower_buffer::Buffer;
-use tower_h2::client::{Connect, ConnectError, Connection};
-use tower_h2::Server;
 
 //pub type RpcClient = client::IndexService<Buffer<Connection<Body>, http::Request<Body>>>;
 
@@ -40,10 +41,9 @@ impl Clone for RpcServer {
 }
 
 impl RpcServer {
-    pub fn get_service(addr: SocketAddr, catalog: Arc<RwLock<IndexCatalog>>) -> impl Future<Item = (), Error = ()> {
+    pub fn serve(addr: SocketAddr, catalog: Arc<RwLock<IndexCatalog>>) -> impl Future<Item = (), Error = ()> {
         let service = server::IndexServiceServer::new(RpcServer { catalog });
         let executor = DefaultExecutor::current();
-
         info!("Binding on port: {:?}", addr);
         let bind = TcpListener::bind(&addr).unwrap_or_else(|_| panic!("Failed to bind to host: {:?}", addr));
 

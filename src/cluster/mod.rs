@@ -1,19 +1,71 @@
+use std::io;
 use std::net::SocketAddr;
 use std::time::Duration;
 
-use self::placement::{Background, Place};
 use failure::Fail;
-use futures::{future, Future};
+use futures::{future, Future, Poll};
 use log::error;
 use serde::{Deserialize, Serialize};
-use std::io;
 use tokio::net::tcp::ConnectFuture;
 use tokio::net::TcpStream;
-use tokio::prelude::*;
+use tower_h2::client::ConnectError;
+
+use crate::cluster::consul::Hosts;
+use crate::settings::Settings;
 
 pub use self::consul::Consul;
 pub use self::node::*;
-use tower_h2::client::ConnectError;
+use self::placement::{Background, Place};
+
+pub type BoxError = Box<dyn ::std::error::Error + Send + Sync + 'static>;
+pub type ConnectionError = ConnectError<io::Error>;
+pub type BufError = tower_buffer::error::ServiceError;
+pub type GrpcError = tower_grpc::Status;
+
+pub mod consul;
+pub mod node;
+pub mod placement;
+pub mod remote_handle;
+pub mod rpc_server;
+pub mod shard;
+
+/// Run the services associated with the cluster
+pub fn run(place_addr: SocketAddr, consul: Consul) -> impl Future<Item = (), Error = std::io::Error> {
+    future::lazy(move || {
+        let (nodes, bg) = Background::new(consul.clone(), Duration::from_secs(2));
+        tokio::spawn(bg.map_err(|e| error!("Error in background placement sync: {:?}", e)));
+        Place::serve(consul, nodes, place_addr)
+    })
+}
+
+pub fn connect_to_consul(settings: &Settings) -> impl Future<Item = (), Error = ()> {
+    let consul_address = settings.experimental_features.consul_addr.clone();
+    let cluster_name = settings.experimental_features.cluster_name.clone();
+    let settings_path = settings.path.clone();
+
+    let hostname = hostname::get_hostname().unwrap();
+    let hosts = Hosts(vec![format!("{}:{}", hostname, settings.port)]);
+    dbg!(serde_json::to_string_pretty(&hosts).unwrap());
+
+    future::lazy(move || {
+        let mut consul_client = Consul::builder()
+            .with_cluster_name(cluster_name)
+            .with_address(consul_address)
+            .build()
+            .expect("Could not build Consul client.");
+
+        // Build future that will connect to Consul and register the node_id
+        consul_client
+            .register_cluster()
+            .and_then(|_| init_node_id(settings_path))
+            .and_then(move |id| {
+                consul_client.set_node_id(id);
+                consul_client.register_node();
+                consul_client.place_node_descriptor(hosts)
+            })
+            .map_err(|e| error!("Error: {}", e))
+    })
+}
 
 pub mod placement_proto {
     use prost_derive::{Enumeration, Message};
@@ -39,25 +91,10 @@ pub mod cluster_rpc {
     include!(concat!(env!("OUT_DIR"), "\\cluster_rpc.rs"));
 }
 
-pub mod consul;
-pub mod node;
-
-mod placement;
-pub mod remote_handle;
-pub mod rpc_server;
-pub mod shard;
-
-/// Run the services associated with the cluster
-pub fn run(place_addr: SocketAddr, consul: Consul) -> impl Future<Item = (), Error = std::io::Error> {
-    future::lazy(move || {
-        let (nodes, bg) = Background::new(consul.clone(), Duration::from_secs(2));
-
-        tokio::spawn(bg.map_err(|e| error!("Error in background placement sync: {:?}", e)));
-
-        // TODO: add cluster service et al
-
-        Place::serve(consul, nodes, place_addr)
-    })
+#[derive(Serialize, Deserialize, Debug)]
+pub enum DiskType {
+    HDD,
+    SSD,
 }
 
 #[derive(Debug, Fail, Serialize, Deserialize)]
@@ -108,10 +145,6 @@ pub enum ClusterError {
     UnableToStoreServices,
 }
 
-pub type BoxError = Box<dyn ::std::error::Error + Send + Sync + 'static>;
-pub type ConnectionError = ConnectError<io::Error>;
-pub type BufError = tower_buffer::error::ServiceError;
-
 #[derive(Debug, Fail)]
 pub enum RPCError {
     #[fail(display = "Error in RPC: {}", _0)]
@@ -141,12 +174,6 @@ impl From<tower_grpc::Status> for RPCError {
     fn from(err: tower_grpc::Status) -> Self {
         RPCError::RPCError(err)
     }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub enum DiskType {
-    SSD,
-    HDD,
 }
 
 #[derive(Debug, Clone)]

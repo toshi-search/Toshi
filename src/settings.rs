@@ -1,10 +1,10 @@
+use std::str::FromStr;
+
 use clap::ArgMatches;
 use config::{Config, ConfigError, File, FileFormat, Source};
 use crossbeam::channel::{bounded, unbounded, Receiver, Sender};
 use serde::Deserialize;
 use tantivy::merge_policy::*;
-
-use std::str::FromStr;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -49,6 +49,29 @@ impl ConfigMergePolicy {
 }
 
 #[derive(Deserialize, Clone, Debug)]
+pub struct Experimental {
+    #[serde(default = "Settings::default_consul_addr")]
+    pub consul_addr: String,
+    #[serde(default = "Settings::default_cluster_name")]
+    pub cluster_name: String,
+    #[serde(default = "Settings::default_master")]
+    pub master: bool,
+    #[serde(default = "Settings::default_nodes")]
+    pub nodes: Vec<String>,
+}
+
+impl Default for Experimental {
+    fn default() -> Self {
+        Self {
+            consul_addr: Settings::default_consul_addr(),
+            cluster_name: Settings::default_cluster_name(),
+            master: Settings::default_master(),
+            nodes: Settings::default_nodes(),
+        }
+    }
+}
+
+#[derive(Deserialize, Clone, Debug)]
 pub struct Settings {
     #[serde(default = "Settings::default_host")]
     pub host: String,
@@ -70,16 +93,10 @@ pub struct Settings {
     pub bulk_buffer_size: usize,
     #[serde(default = "Settings::default_merge_policy")]
     pub merge_policy: ConfigMergePolicy,
-    #[serde(default = "Settings::default_consul_addr")]
-    pub consul_addr: String,
-    #[serde(default = "Settings::default_cluster_name")]
-    pub cluster_name: String,
-    #[serde(default = "Settings::default_enable_clustering")]
-    pub enable_clustering: bool,
-    #[serde(default = "Settings::default_master")]
-    pub master: bool,
-    #[serde(default = "Settings::default_nodes")]
-    pub nodes: Vec<String>,
+    #[serde(default = "Settings::default_experimental")]
+    pub experimental: bool,
+    #[serde(default = "Experimental::default")]
+    pub experimental_features: Experimental,
 }
 
 impl Default for Settings {
@@ -95,11 +112,8 @@ impl Default for Settings {
             auto_commit_duration: Settings::default_auto_commit_duration(),
             bulk_buffer_size: Settings::default_bulk_buffer_size(),
             merge_policy: Settings::default_merge_policy(),
-            consul_addr: Settings::default_consul_addr(),
-            cluster_name: Settings::default_cluster_name(),
-            enable_clustering: Settings::default_enable_clustering(),
-            master: Settings::default_master(),
-            nodes: Settings::default_nodes(),
+            experimental: Settings::default_experimental(),
+            experimental_features: Experimental::default(),
         }
     }
 }
@@ -118,14 +132,19 @@ impl Settings {
     }
 
     pub fn from_args(args: &ArgMatches) -> Self {
+        let exper = Experimental {
+            consul_addr: args.value_of("consul-addr").unwrap().to_string(),
+            cluster_name: args.value_of("cluster-name").unwrap().to_string(),
+            master: args.value_of("master").unwrap().parse().unwrap(),
+            nodes: args.values_of("nodes").unwrap().map(|n| n.to_string()).collect(),
+        };
         Self {
             host: args.value_of("host").unwrap().to_string(),
             port: args.value_of("port").unwrap().parse().expect("Invalid port given."),
             path: args.value_of("path").unwrap().to_string(),
             log_level: args.value_of("level").unwrap().to_string(),
-            consul_addr: args.value_of("consul-addr").unwrap().to_string(),
-            enable_clustering: args.is_present("enable-clustering"),
-            cluster_name: args.value_of("cluster-name").unwrap().to_string(),
+            experimental: args.is_present("experimental"),
+            experimental_features: exper,
             ..Default::default()
         }
     }
@@ -200,16 +219,16 @@ impl Settings {
         "kitsune".to_string()
     }
 
-    pub fn default_enable_clustering() -> bool {
-        false
-    }
-
     pub fn default_master() -> bool {
-        true
+        false
     }
 
     pub fn default_nodes() -> Vec<String> {
         Vec::new()
+    }
+
+    pub fn default_experimental() -> bool {
+        false
     }
 
     pub fn get_channel<T>(&self) -> (Sender<T>, Receiver<T>) {
@@ -258,7 +277,8 @@ mod tests {
         assert_eq!(default.merge_policy.level_log_size, None);
         assert_eq!(default.merge_policy.min_layer_size, None);
         assert_eq!(default.merge_policy.min_merge_size, None);
-        assert_eq!(default.consul_addr, "127.0.0.1:8500");
+        assert_eq!(default.experimental, false);
+        assert_eq!(default.experimental_features.master, false);
     }
 
     #[test]
