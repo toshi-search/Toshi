@@ -1,5 +1,4 @@
 pub mod placement_proto {
-    use prost_derive::{Enumeration, Message};
 
     pub use client::*;
     pub use server::*;
@@ -11,7 +10,6 @@ pub mod placement_proto {
 }
 
 pub mod cluster_rpc {
-    use prost_derive::{Enumeration, Message};
 
     pub use client::*;
     pub use server::*;
