@@ -67,30 +67,6 @@ pub fn connect_to_consul(settings: &Settings) -> impl Future<Item = (), Error = 
     })
 }
 
-pub mod placement_proto {
-    use prost_derive::{Enumeration, Message};
-
-    //    pub use server::*;
-    //    pub use client::*;
-
-    #[cfg(target_family = "unix")]
-    include!(concat!(env!("OUT_DIR"), "/placement.rs"));
-    #[cfg(target_family = "windows")]
-    include!(concat!(env!("OUT_DIR"), "\\placement.rs"));
-}
-
-pub mod cluster_rpc {
-    use prost_derive::{Enumeration, Message};
-
-    //    pub use server::*;
-    //    pub use client::*;
-
-    #[cfg(target_family = "unix")]
-    include!(concat!(env!("OUT_DIR"), "/cluster_rpc.rs"));
-    #[cfg(target_family = "windows")]
-    include!(concat!(env!("OUT_DIR"), "\\cluster_rpc.rs"));
-}
-
 #[derive(Serialize, Deserialize, Debug)]
 pub enum DiskType {
     HDD,

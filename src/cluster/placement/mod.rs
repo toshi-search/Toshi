@@ -9,7 +9,7 @@ use tower_grpc::{Request, Response, Status};
 use tower_h2::Server;
 
 use crate::cluster::consul::Consul;
-use crate::cluster::placement_proto::{server, PlacementReply, PlacementRequest};
+use toshi_proto::placement_proto::{server, PlacementReply, PlacementRequest};
 
 pub use self::background::Background;
 use tokio_executor::DefaultExecutor;

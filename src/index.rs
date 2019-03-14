@@ -11,7 +11,6 @@ use tantivy::schema::Schema;
 use tantivy::Index;
 use tokio::prelude::*;
 
-use crate::cluster::cluster_rpc::*;
 use crate::cluster::remote_handle::RemoteIndex;
 use crate::cluster::rpc_server::{RpcClient, RpcServer};
 use crate::cluster::{GrpcConn, RPCError};
@@ -20,6 +19,7 @@ use crate::query::Request;
 use crate::results::*;
 use crate::settings::Settings;
 use crate::{Error, Result};
+use toshi_proto::cluster_rpc::*;
 
 pub struct IndexCatalog {
     pub settings: Settings,

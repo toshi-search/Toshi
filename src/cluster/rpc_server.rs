@@ -13,8 +13,8 @@ use tower_h2::client::{Connect, ConnectError, Connection};
 use tower_h2::Server;
 use tower_util::MakeService;
 
-use crate::cluster::cluster_rpc::server;
-use crate::cluster::cluster_rpc::*;
+use toshi_proto::cluster_rpc::*;
+
 use crate::cluster::GrpcConn;
 use crate::handle::IndexHandle;
 use crate::index::IndexCatalog;

@@ -1,0 +1,18 @@
+[package]
+name    = "toshi-proto"
+version = "0.1.0"
+authors = ["Stephen Carman <shcarman@gmail.com>"]
+description = "A full text search engine based on Tantivy"
+repository = "https://github.com/toshi-search/Toshi"
+license = "MIT"
+edition = "2018"
+build = "build.rs"
+
+[build-dependencies]
+tower-grpc-build = { git = "https://github.com/tower-rs/tower-grpc" }
+
+[dependencies]
+tower-grpc = { git = "https://github.com/tower-rs/tower-grpc" }
+bytes              = "^0.4"
+prost              = "^0.4"
+prost-derive       = "^0.4"

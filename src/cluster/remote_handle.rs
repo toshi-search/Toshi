@@ -1,14 +1,16 @@
 use std::hash::{Hash, Hasher};
 
-use crate::cluster::cluster_rpc::{ResultReply, SearchReply, SearchRequest};
+use log::info;
+use tokio::prelude::*;
+use tower_grpc::Request as TowerRequest;
+
+use toshi_proto::cluster_rpc::{ResultReply, SearchReply, SearchRequest};
+
 use crate::cluster::rpc_server::RpcClient;
 use crate::cluster::RPCError;
 use crate::handle::{IndexHandle, IndexLocation};
 use crate::handlers::index::{AddDocument, DeleteDoc};
 use crate::query::Request;
-use log::info;
-use tokio::prelude::*;
-use tower_grpc::Request as TowerRequest;
 
 /// A reference to an index stored somewhere else on the cluster, this operates via calling
 /// the remote host and full filling the request via rpc, we need to figure out a better way
