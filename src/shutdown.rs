@@ -14,7 +14,7 @@ pub fn shutdown(signal: oneshot::Sender<()>) -> impl Future<Item = (), Error = (
 
 #[cfg(not(unix))]
 pub fn shutdown(signal: oneshot::Sender<()>) -> impl Future<Item = (), Error = ()> {
-    let stream = tokio_signal::ctrl_c().flatten_stream().map(|_| String::from("ctrl-r"));
+    let stream = tokio_signal::ctrl_c().flatten_stream().map(|_| String::from("ctrl-c"));
     handle_shutdown(signal, stream)
 }
 

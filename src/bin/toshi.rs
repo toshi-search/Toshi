@@ -72,8 +72,6 @@ pub fn main() -> Result<(), ()> {
 }
 
 fn run_master(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Future<Item = (), Error = ()> {
-    let consul_addr = settings.experimental_features.consul_addr.clone();
-    let cluster_name = settings.experimental_features.cluster_name.clone();
     let addr: IpAddr = settings.host.parse().expect(&format!("Invalid ip address: {}", &settings.host));
     let settings = settings.clone();
     let bind: SocketAddr = SocketAddr::new(addr, settings.port);

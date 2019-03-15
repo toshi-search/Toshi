@@ -211,7 +211,7 @@ mod tests {
     #[test]
     fn test_cpu_metadata() {
         if cfg!(target_os = "windows") {
-            println!("Test not supported on macos yet");
+            println!("Test not supported on windows yet");
             return;
         }
         let sys = systemstat::System::new();
