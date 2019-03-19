@@ -6,12 +6,12 @@ use tantivy::schema::Schema;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::prelude::*;
 use tokio_executor::DefaultExecutor;
+use tower::MakeService;
 use tower_add_origin::{AddOrigin, Builder};
 use tower_buffer::Buffer;
 use tower_grpc::{BoxBody, Code, Request, Response, Status};
 use tower_h2::client::{Connect, ConnectError, Connection};
 use tower_h2::Server;
-use tower::MakeService;
 
 use toshi_proto::cluster_rpc::*;
 
