@@ -2229,7 +2229,7 @@ dependencies = [
 [[package]]
 name = "tower"
 version = "0.1.0"
-source = "git+https://github.com/tower-rs/tower#92f4a0cb729a82df01086fa3c8e0e4dd80d36947"
+source = "git+https://github.com/tower-rs/tower#733b597f38a1acf1c9a25ed4528a96d168bb4cd8"
 dependencies = [
  "futures 0.1.25 (registry+https://github.com/rust-lang/crates.io-index)",
  "tower-service 0.2.0 (git+https://github.com/tower-rs/tower)",
@@ -2249,7 +2249,7 @@ dependencies = [
 [[package]]
 name = "tower-buffer"
 version = "0.1.0"
-source = "git+https://github.com/tower-rs/tower#92f4a0cb729a82df01086fa3c8e0e4dd80d36947"
+source = "git+https://github.com/tower-rs/tower#733b597f38a1acf1c9a25ed4528a96d168bb4cd8"
 dependencies = [
  "futures 0.1.25 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-executor 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2333,7 +2333,7 @@ dependencies = [
 [[package]]
 name = "tower-layer"
 version = "0.1.0"
-source = "git+https://github.com/tower-rs/tower#92f4a0cb729a82df01086fa3c8e0e4dd80d36947"
+source = "git+https://github.com/tower-rs/tower#733b597f38a1acf1c9a25ed4528a96d168bb4cd8"
 dependencies = [
  "futures 0.1.25 (registry+https://github.com/rust-lang/crates.io-index)",
  "tower-service 0.2.0 (git+https://github.com/tower-rs/tower)",
@@ -2350,7 +2350,7 @@ dependencies = [
 [[package]]
 name = "tower-service"
 version = "0.2.0"
-source = "git+https://github.com/tower-rs/tower#92f4a0cb729a82df01086fa3c8e0e4dd80d36947"
+source = "git+https://github.com/tower-rs/tower#733b597f38a1acf1c9a25ed4528a96d168bb4cd8"
 dependencies = [
  "futures 0.1.25 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -2358,7 +2358,7 @@ dependencies = [
 [[package]]
 name = "tower-service-util"
 version = "0.1.0"
-source = "git+https://github.com/tower-rs/tower#92f4a0cb729a82df01086fa3c8e0e4dd80d36947"
+source = "git+https://github.com/tower-rs/tower#733b597f38a1acf1c9a25ed4528a96d168bb4cd8"
 dependencies = [
  "either 1.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures 0.1.25 (registry+https://github.com/rust-lang/crates.io-index)",
