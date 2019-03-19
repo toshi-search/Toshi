@@ -21,7 +21,7 @@ toshi-proto        = { path = "toshi-proto" }
 tower-buffer       = { git = "https://github.com/tower-rs/tower" }
 tower-grpc         = { git = "https://github.com/tower-rs/tower-grpc" }
 tower-h2           = { git = "https://github.com/tower-rs/tower-h2" }
-tower-util         = { git = "https://github.com/tower-rs/tower" }
+tower              = { git = "https://github.com/tower-rs/tower" }
 tower-service      = { git = "https://github.com/tower-rs/tower" }
 tower-http-service = { git = "https://github.com/tower-rs/tower-http" }
 tower-add-origin   = { git = "https://github.com/tower-rs/tower-http" }

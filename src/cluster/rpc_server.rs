@@ -11,7 +11,7 @@ use tower_buffer::Buffer;
 use tower_grpc::{BoxBody, Code, Request, Response, Status};
 use tower_h2::client::{Connect, ConnectError, Connection};
 use tower_h2::Server;
-use tower_util::MakeService;
+use tower::MakeService;
 
 use toshi_proto::cluster_rpc::*;
 
