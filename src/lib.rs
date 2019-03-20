@@ -27,7 +27,7 @@ impl From<TantivyError> for Error {
             TantivyError::SchemaError(e) => Error::UnknownIndex(e.to_string()),
             TantivyError::InvalidArgument(e) | TantivyError::ErrorInThread(e) => Error::IOError(e),
             TantivyError::Poisoned => Error::IOError("Poisoned".into()),
-            TantivyError::LockFailure(e) => Error::IOError(format!("Failed to acquire lock: {:?}", e)),
+            TantivyError::LockFailure(i, e) => Error::IOError(format!("Failed to acquire lock: {:?}", e)),
             TantivyError::FastFieldError(e) => Error::IOError(format!("Fast Field Error: {:?}", e)),
             TantivyError::IndexAlreadyExists => Error::IOError("Index Already Exists".into()),
         }
@@ -48,6 +48,7 @@ impl From<QueryParserError> for Error {
             }
             QueryParserError::AllButQueryForbidden => Error::QueryError("Cannot have queries only exclude documents".into()),
             QueryParserError::UnknownTokenizer(e1, _) => Error::QueryError(e1),
+            QueryParserError::DateFormatError(p) => Error::QueryError(p.to_string()),
         }
     }
 }

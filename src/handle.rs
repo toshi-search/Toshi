@@ -6,7 +6,7 @@ use log::debug;
 use tantivy::collector::TopDocs;
 use tantivy::query::{AllQuery, QueryParser};
 use tantivy::schema::*;
-use tantivy::{Document, Index, IndexWriter, Term};
+use tantivy::{Document, Index, IndexWriter, ReloadPolicy, Term};
 use tokio::prelude::*;
 
 use crate::handlers::index::{AddDocument, DeleteDoc, DocsAffected};
@@ -71,8 +71,12 @@ impl IndexHandle for LocalIndex {
     }
 
     fn search_index(&self, search: Request) -> Self::SearchResponse {
-        self.index.load_searchers()?;
-        let searcher = self.index.searcher();
+        let searcher = self
+            .index
+            .reader_builder()
+            .reload_policy(ReloadPolicy::OnCommit)
+            .try_into()?
+            .searcher();
         let schema = self.index.schema();
         let collector = TopDocs::with_limit(search.limit);
         if let Some(query) = search.query {

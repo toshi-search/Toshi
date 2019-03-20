@@ -242,8 +242,8 @@ pub mod tests {
     pub fn create_test_index() -> Index {
         let mut builder = SchemaBuilder::new();
         let test_text = builder.add_text_field("test_text", STORED | TEXT);
-        let test_int = builder.add_i64_field("test_i64", INT_STORED | INT_INDEXED);
-        let test_unsign = builder.add_u64_field("test_u64", INT_STORED | INT_INDEXED);
+        let test_int = builder.add_i64_field("test_i64", STORED | INDEXED);
+        let test_unsign = builder.add_u64_field("test_u64", STORED | INDEXED);
         let test_unindexed = builder.add_text_field("test_unindex", STORED);
 
         let schema = builder.build();
