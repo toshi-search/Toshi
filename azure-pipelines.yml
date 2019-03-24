@@ -3,7 +3,6 @@ trigger:
 pr:
   - master
 jobs:
-  - template: ci/azure-install-deps.yml
   - job: run_tests
     displayName: Run Tests
     strategy:
@@ -17,10 +16,11 @@ jobs:
     pool:
       vmImage: $(vmImage)
     steps:
+        - template: ci/azure-install-deps.yml
         - script: |
             cargo fmt --all -- --check
             cargo test
           displayName: cargo test -p toshi
           workingDirectory: $(Build.SourcesDirectory)/toshi
           condition: succeeded()
-  - template: ci/azure-run-kcov.yml
+        - template: ci/azure-run-kcov.yml
