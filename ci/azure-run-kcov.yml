@@ -1,11 +1,6 @@
-jobs:
-  - job: run_kcov
+steps:
+  - script: |
+      cargo coverage --exclude-pattern '/toshi/src/bin,/src/bin,/bin,/target,/toshi/src/query/aggregate,/src/query/aggregate,/src/shutdown.rs,/src/support.rs' && bash <(curl -s https://codecov.io/bash) -s target/kcov
+      cargo coveralls --exclude-pattern '/toshi/src/bin,/src/bin,/bin,/target,/toshi/src/query/aggregate,/src/query/aggregate,/src/shutdown.rs,/src/support.rs'
     displayName: Run KCov
-    pool:
-      vmImage: ubuntu-16.04
-    steps:
-      - script: |
-          cargo coverage --exclude-pattern '/toshi/src/bin,/src/bin,/bin,/target,/toshi/src/query/aggregate,/src/query/aggregate,/src/shutdown.rs,/src/support.rs' && bash <(curl -s https://codecov.io/bash) -s target/kcov
-          cargo coveralls --exclude-pattern '/toshi/src/bin,/src/bin,/bin,/target,/toshi/src/query/aggregate,/src/query/aggregate,/src/shutdown.rs,/src/support.rs'
-        displayName: Run KCov
-        condition: eq( variables['Agent.OS'], 'Linux' )
+    condition: eq( variables['Agent.OS'], 'Linux' )

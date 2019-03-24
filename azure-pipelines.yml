@@ -4,7 +4,6 @@ pr:
   - master
 jobs:
   - template: ci/azure-install-deps.yml
-  - template: ci/azure-rustfmt.yml
   - job: run_tests
     displayName: Run Tests
     strategy:
@@ -18,7 +17,9 @@ jobs:
     pool:
       vmImage: $(vmImage)
     steps:
-        - script: cargo test
+        - script: |
+            cargo fmt --all -- --check
+            cargo test
           displayName: cargo test -p toshi
           workingDirectory: $(Build.SourcesDirectory)/toshi
           condition: succeeded()
