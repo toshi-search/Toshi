@@ -20,7 +20,5 @@ jobs:
         - script: |
             cargo fmt --all -- --check
             cargo test
-          displayName: cargo test -p toshi
-          workingDirectory: $(Build.SourcesDirectory)/toshi
-          condition: succeeded()
+          displayName: cargo test
         - template: ci/azure-run-kcov.yml
