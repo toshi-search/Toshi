@@ -1,6 +1,6 @@
 jobs:
   # Check formatting
-  - job: ${{ parameters.name }}
+  - job: Install rustfmt
     displayName: Check rustfmt
     pool:
       vmImage: $(vmImage)

@@ -9,10 +9,9 @@ jobs:
     condition: eq( variables['Agent.OS'], 'Linux' )
 
   - template: ci/azure-rustfmt.yml
-    parameters: rustfmt
 
-  - job: ${{ parameters.name }}
-    displayName: ${{ parameters.displayName }}
+  - job: Run Tests
+    displayName: Run Tests
     strategy:
       matrix:
         Linux:
@@ -26,9 +25,9 @@ jobs:
 
     steps:
         - script: cargo test
-          displayName: cargo test -p ${{ crate }}
-          workingDirectory: $(Build.SourcesDirectory)/${{ crate }}
-          condition: and(succeeded(), not(variables['isRelease']))
+          displayName: cargo test -p toshi
+          workingDirectory: $(Build.SourcesDirectory)/toshi
+          condition: and(succeeded())
 
   - template: ci/azure-install-kcov.yml
     condition: eq( variables['Agent.OS'], 'Linux' )

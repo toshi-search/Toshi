@@ -1,6 +1,6 @@
 jobs:
   # Check formatting
-  - job: ${{ parameters.name }}
+  - job: Install KCov Deps
     displayName: Install Apt Deps
     pool:
       vmImage: ubuntu-16.04
