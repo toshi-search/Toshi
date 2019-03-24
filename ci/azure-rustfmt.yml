@@ -1,6 +1,6 @@
 jobs:
   # Check formatting
-  - job: Install rustfmt
+  - job: run_rustfmt
     displayName: Check rustfmt
     pool:
       vmImage: $(vmImage)

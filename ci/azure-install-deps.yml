@@ -1,6 +1,6 @@
 jobs:
   # Check formatting
-  - job: Install KCov Deps
+  - job: install_kcov
     displayName: Install Apt Deps
     pool:
       vmImage: ubuntu-16.04
