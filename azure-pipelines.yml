@@ -5,8 +5,7 @@ pr:
   - master
 
 jobs:
-  - template: ci/azure-install-apt-deps.yml
-    condition: eq( variables['Agent.OS'], 'Linux' )
+  - template: ci/azure-install-deps.yml
 
   - template: ci/azure-rustfmt.yml
 
@@ -29,5 +28,4 @@ jobs:
           workingDirectory: $(Build.SourcesDirectory)/toshi
           condition: and(succeeded())
 
-  - template: ci/azure-install-kcov.yml
-    condition: eq( variables['Agent.OS'], 'Linux' )
+  - template: ci/azure-run-kcov.yml

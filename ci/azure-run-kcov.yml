@@ -1,6 +1,6 @@
 jobs:
-  - job: Install KCov
-    displayName: Install KCov
+  - job: Run KCov
+    displayName: Run KCov
     pool:
       vmImage: ubuntu-16.04
     steps:
@@ -8,11 +8,7 @@ jobs:
         parameters:
           rust_version: stable
       - script: |
-          cargo install cargo-update || echo "cargo-update already installed"
-          cargo install cargo-travis || echo "cargo-travis already installed"
-          cargo install-update -a
-        displayName: Install cargo-update and cargo-travis
-      - script: |
           cargo coverage --exclude-pattern '/toshi/src/bin,/src/bin,/bin,/target,/toshi/src/query/aggregate,/src/query/aggregate,/src/shutdown.rs,/src/support.rs' && bash <(curl -s https://codecov.io/bash) -s target/kcov
           cargo coveralls --exclude-pattern '/toshi/src/bin,/src/bin,/bin,/target,/toshi/src/query/aggregate,/src/query/aggregate,/src/shutdown.rs,/src/support.rs'
         displayName: Run KCov
+        condition: eq( variables['Agent.OS'], 'Linux' )
