@@ -2184,7 +2184,7 @@ dependencies = [
 
 [[package]]
 name = "tokio-signal"
-version = "0.2.7"
+version = "0.2.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "futures 0.1.25 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2327,7 +2327,7 @@ dependencies = [
  "tokio 0.1.18 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-connect 0.1.0 (git+https://github.com/carllerche/tokio-connect)",
  "tokio-executor 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
- "tokio-signal 0.2.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tokio-signal 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "toshi-proto 0.1.0",
  "tower 0.1.0 (git+https://github.com/tower-rs/tower)",
  "tower-add-origin 0.1.0 (git+https://github.com/tower-rs/tower-http)",
@@ -3011,7 +3011,7 @@ dependencies = [
 "checksum tokio-fs 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)" = "3fe6dc22b08d6993916647d108a1a7d15b9cd29c4f4496c62b92c45b5041b7af"
 "checksum tokio-io 0.1.12 (registry+https://github.com/rust-lang/crates.io-index)" = "5090db468dad16e1a7a54c8c67280c5e4b544f3d3e018f0b913b400261f85926"
 "checksum tokio-reactor 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)" = "6af16bfac7e112bea8b0442542161bfc41cbfa4466b580bdda7d18cb88b911ce"
-"checksum tokio-signal 0.2.7 (registry+https://github.com/rust-lang/crates.io-index)" = "dd6dc5276ea05ce379a16de90083ec80836440d5ef8a6a39545a3207373b8296"
+"checksum tokio-signal 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)" = "57cf28c3f48db8ee2d14f0d82a1c2c9b647cfb69927b099cc4c003043e49a852"
 "checksum tokio-sync 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)" = "fda385df506bf7546e70872767f71e81640f1f251bdf2fd8eb81a0eaec5fe022"
 "checksum tokio-tcp 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)" = "1d14b10654be682ac43efee27401d792507e30fd8d26389e1da3b185de2e4119"
 "checksum tokio-threadpool 0.1.13 (registry+https://github.com/rust-lang/crates.io-index)" = "ec5759cf26cf9659555f36c431b515e3d05f66831741c85b4b5d5dfb9cf1323c"
