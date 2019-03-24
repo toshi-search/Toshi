@@ -1,18 +1,34 @@
-
 trigger:
-- master
+  - master
 
 pr:
-- master
+  - master
 
-pool:
-  vmImage: 'Ubuntu-16.04'
+jobs:
+  - template: ci/azure-install-apt-deps.yml
+    condition: eq( variables['Agent.OS'], 'Linux' )
 
-steps:
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
+  - template: ci/azure-rustfmt.yml
+    parameters: rustfmt
 
-- script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
+  - job: ${{ parameters.name }}
+    displayName: ${{ parameters.displayName }}
+    strategy:
+      matrix:
+        Linux:
+          vmImage: ubuntu-16.04
+        MacOS:
+          vmImage: macOS-10.13
+        Windows:
+          vmImage: vs2017-win2016
+    pool:
+      vmImage: $(vmImage)
+
+    steps:
+        - script: cargo test
+          displayName: cargo test -p ${{ crate }}
+          workingDirectory: $(Build.SourcesDirectory)/${{ crate }}
+          condition: and(succeeded(), not(variables['isRelease']))
+
+  - template: ci/azure-install-kcov.yml
+    condition: eq( variables['Agent.OS'], 'Linux' )
