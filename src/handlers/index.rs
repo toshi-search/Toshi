@@ -6,10 +6,10 @@ use tantivy::schema::*;
 use tantivy::Index;
 use tower_web::*;
 
+use crate::error::Error;
 use crate::handle::IndexHandle;
 use crate::handlers::CreatedResponse;
 use crate::index::IndexCatalog;
-use crate::Error;
 
 #[derive(Extract, Deserialize)]
 pub struct SchemaBody(Schema);
@@ -99,7 +99,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_create_index() {
+    fn test_create_index() -> ::std::io::Result<()> {
         let shared_cat = create_test_catalog("test_index".into());
         let schema = r#"[
             { "name": "test_text", "type": "text", "options": { "indexing": { "record": "position", "tokenizer": "default" }, "stored": true } },
@@ -114,6 +114,7 @@ mod tests {
         let search = SearchHandler::new(Arc::clone(&shared_cat));
         let docs = search.get_all_docs("new_index".into()).wait().unwrap();
         assert_eq!(docs.hits, 0);
+        remove_dir_all::remove_dir_all("new_index")
     }
 
     #[test]

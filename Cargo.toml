@@ -14,7 +14,7 @@ name = "toshi"
 path = "src/lib.rs"
 
 [workspace]
-members = ["./", "toshi-proto"]
+members = [ "./", "toshi-proto" ]
 
 [dependencies]
 toshi-proto        = { path = "toshi-proto" }
@@ -42,7 +42,7 @@ futures            = "^0.1"
 tantivy            = "^0.9"
 tokio              = "^0.1"
 tokio-executor     = "^0.1"
-tokio-signal       = "^0.2"
+tokio-signal       = "=0.2.7"
 config             = "^0.9"
 log                = "^0.4"
 pretty_env_logger  = "^0.3"
@@ -56,6 +56,10 @@ serde              = { version = "^1.0", features = ["derive"] }
 clap               = { version = "^2.32", features = ["color"] }
 uuid               = { version = "^0.7", features = ["v4"] }
 systemstat         = { git = "https://github.com/toshi-search/systemstat" }
+
+[dev-dependencies]
+remove_dir_all = "0.5.1"
+pretty_assertions = "0.6.1"
 
 [profile.release]
 opt-level = 3

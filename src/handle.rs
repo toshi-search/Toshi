@@ -13,7 +13,7 @@ use crate::handlers::index::{AddDocument, DeleteDoc, DocsAffected};
 use crate::query::{CreateQuery, Query, Request};
 use crate::results::{ScoredDoc, SearchResults};
 use crate::settings::Settings;
-use crate::{Error, Result};
+use crate::{error::Error, Result};
 
 pub enum IndexLocation {
     LOCAL,

@@ -18,7 +18,7 @@ use crate::handle::{IndexHandle, LocalIndex};
 use crate::query::Request;
 use crate::results::*;
 use crate::settings::Settings;
-use crate::{Error, Result};
+use crate::{error::Error, Result};
 use toshi_proto::cluster_rpc::*;
 
 pub struct IndexCatalog {

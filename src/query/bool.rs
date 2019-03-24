@@ -1,5 +1,5 @@
 use crate::query::{CreateQuery, Query};
-use crate::{Error, Result};
+use crate::{error::Error, Result};
 
 use serde::{Deserialize, Serialize};
 use tantivy::query::{BooleanQuery, Occur, Query as TQuery};

@@ -15,7 +15,7 @@ use crate::cluster::shard::PrimaryShard;
 use crate::cluster::shard::ReplicaShard;
 use crate::cluster::shard::Shard;
 use crate::cluster::ClusterError;
-use crate::{Error, Result};
+use crate::{error::Error, Result};
 
 pub const SERVICE_NAME: &'static str = "toshi/";
 

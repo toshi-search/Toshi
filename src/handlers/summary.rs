@@ -1,5 +1,5 @@
+use crate::error::Error;
 use crate::index::IndexCatalog;
-use crate::Error;
 
 use std::sync::{Arc, RwLock};
 use tower_web::*;

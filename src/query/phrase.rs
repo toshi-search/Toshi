@@ -1,5 +1,5 @@
 use crate::query::*;
-use crate::{Error, Result};
+use crate::{error::Error, Result};
 
 use serde::{Deserialize, Serialize};
 use tantivy::query::{PhraseQuery as TantivyPhraseQuery, Query};
@@ -80,7 +80,7 @@ pub mod tests {
         assert_eq!(query.is_err(), true);
         assert_eq!(
             query.unwrap_err().to_string(),
-            "Query Parse Error: Phrase Query must have more than 1 term"
+            "Error in query execution: 'Phrase Query must have more than 1 term'"
         );
     }
 
@@ -95,7 +95,7 @@ pub mod tests {
         assert_eq!(query.is_err(), true);
         assert_eq!(
             query.unwrap_err().to_string(),
-            "Query Parse Error: Differing numbers of offsets and query terms (2 and 1)"
+            "Error in query execution: 'Differing numbers of offsets and query terms (2 and 1)'"
         );
     }
 }

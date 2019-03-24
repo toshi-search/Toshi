@@ -8,6 +8,7 @@ use log::{error, info};
 use tokio::runtime::Runtime;
 use tokio::sync::oneshot;
 
+use std::error::Error;
 use toshi::cluster::rpc_server::RpcServer;
 use toshi::commit::IndexWatcher;
 use toshi::index::IndexCatalog;
@@ -59,7 +60,7 @@ pub fn main() -> Result<(), ()> {
     rt.spawn(toshi.map(|_| ()).map_err(|_| ()));
 
     shutdown_signal
-        .map_err(|e| unreachable!("Shutdown signal channel should not error, This is a bug. \n {:?} ", e))
+        .map_err(|e| unreachable!("Shutdown signal channel should not error, This is a bug. \n {:?} ", e.description()))
         .and_then(move |_| {
             index_catalog
                 .write()

@@ -1,15 +1,22 @@
-use crate::query::SummaryDoc;
-use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+
+use serde::{Deserialize, Serialize};
 use tantivy::schema::NamedFieldDocument;
 use tantivy::schema::Value;
-use tower_web::*;
+use tower_web::Response;
+
+use crate::error::Error;
+use crate::query::SummaryDoc;
 
 #[derive(Response, Serialize, Deserialize, Debug)]
 pub struct SearchResults {
     pub hits: usize,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub docs: Vec<ScoredDoc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub aggregate: Option<Vec<SummaryDoc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<Error>,
 }
 
 impl SearchResults {
@@ -18,6 +25,7 @@ impl SearchResults {
             hits: docs.len(),
             docs,
             aggregate: None,
+            error: None,
         }
     }
 
@@ -26,6 +34,16 @@ impl SearchResults {
             hits: docs.len(),
             docs,
             aggregate: Some(aggregate),
+            error: None,
+        }
+    }
+
+    pub fn with_error(error: Error) -> Self {
+        Self {
+            hits: 0,
+            docs: Vec::new(),
+            aggregate: None,
+            error: Some(error),
         }
     }
 }

@@ -5,11 +5,11 @@ use log::info;
 use tokio::prelude::*;
 use tower_web::*;
 
+use crate::error::Error;
 use crate::index::IndexCatalog;
 use crate::query::Request;
 use crate::results::ScoredDoc;
 use crate::results::SearchResults;
-use crate::Error;
 
 #[derive(Clone)]
 pub struct SearchHandler {
@@ -68,10 +68,11 @@ impl_web! {
 
 #[cfg(test)]
 pub mod tests {
-
-    use super::*;
     use crate::index::tests::*;
     use crate::query::*;
+    use pretty_assertions::assert_eq;
+
+    use super::*;
 
     pub fn run_query(req: Request, index: &str) -> impl Future<Item = SearchResults, Error = Error> + Send {
         let cat = create_test_catalog(index.into());

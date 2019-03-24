@@ -3,7 +3,7 @@ use tantivy::query::{Query, RegexQuery as TantivyRegexQuery};
 use tantivy::schema::Schema;
 
 use crate::query::{CreateQuery, KeyValue};
-use crate::{Error, Result};
+use crate::{error::Error, Result};
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct RegexQuery {

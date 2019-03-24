@@ -2,7 +2,7 @@ use std::fmt;
 use std::marker::PhantomData;
 
 use serde::de::{Deserializer, Error as SerdeError, MapAccess, Visitor};
-use serde::ser::SerializeStruct;
+use serde::ser::SerializeMap;
 use serde::Serializer;
 use serde::{Deserialize, Serialize};
 use tantivy::query::Query as TantivyQuery;
@@ -21,7 +21,7 @@ pub use {
 };
 
 use crate::settings::Settings;
-use crate::{Error, Result};
+use crate::{error::Error, Result};
 
 mod aggregate;
 mod bool;
@@ -151,9 +151,21 @@ where
     where
         S: Serializer,
     {
-        let mut t = serializer.serialize_struct("KeyValue", 2)?;
-        t.serialize_field("field", &self.field)?;
-        t.serialize_field("value", &self.value)?;
-        t.end()
+        let mut m = serializer.serialize_map(Some(1))?;
+        m.serialize_entry(&self.field, &self.value)?;
+        m.end()
+    }
+}
+
+#[cfg(test)]
+pub mod tests {
+
+    use super::*;
+
+    #[test]
+    fn test_kv_serialize() {
+        let kv = KeyValue::new("test_field".into(), 1);
+        let expected = r#"{"test_field":1}"#;
+        assert_eq!(expected, serde_json::to_string(&kv).unwrap());
     }
 }

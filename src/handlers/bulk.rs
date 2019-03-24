@@ -11,9 +11,9 @@ use tantivy::Document;
 use tantivy::IndexWriter;
 use tower_web::*;
 
+use crate::error::Error;
 use crate::handlers::CreatedResponse;
 use crate::index::IndexCatalog;
-use crate::Error;
 
 #[derive(Clone)]
 pub struct BulkHandler {

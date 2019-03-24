@@ -17,6 +17,7 @@ use toshi_proto::cluster_rpc::*;
 
 use crate::cluster::GrpcConn;
 use crate::handle::IndexHandle;
+use crate::handlers::index::AddDocument;
 use crate::index::IndexCatalog;
 use crate::query;
 
@@ -160,8 +161,26 @@ impl server::IndexService for RpcServer {
         }
     }
 
-    fn place_document(&mut self, _request: Request<DocumentRequest>) -> Self::PlaceDocumentFuture {
-        unimplemented!()
+    fn place_document(&mut self, request: Request<DocumentRequest>) -> Self::PlaceDocumentFuture {
+        let DocumentRequest { index, document } = request.into_inner();
+        if let Ok(ref cat) = self.catalog.read() {
+            if let Ok(idx) = cat.get_index(&index) {
+                if let Ok(doc) = serde_json::from_slice::<AddDocument>(&document) {
+                    if idx.add_document(doc).is_ok() {
+                        let result = RpcServer::create_result(0, "".into());
+                        Box::new(future::finished(Response::new(result)))
+                    } else {
+                        Self::error_response(Code::Internal, format!("Add Document Failed: {}", index))
+                    }
+                } else {
+                    Self::error_response(Code::Internal, format!("Invalid Document request: {}", index))
+                }
+            } else {
+                Self::error_response(Code::NotFound, "Could not find index".into())
+            }
+        } else {
+            Self::error_response(Code::NotFound, format!("Cannot obtain lock on catalog for index: {}", index))
+        }
     }
 
     fn place_replica(&mut self, _request: Request<ReplicaRequest>) -> Self::PlaceReplicaFuture {
