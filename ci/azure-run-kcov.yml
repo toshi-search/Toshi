@@ -1,6 +1,12 @@
 steps:
   - script: |
-      cargo coverage --exclude-pattern '/toshi/src/bin,/src/bin,/bin,/target,/toshi/src/query/aggregate,/src/query/aggregate,/src/shutdown.rs,/src/support.rs' && bash <(curl -s https://codecov.io/bash) -s target/kcov -t $(CODECOV_TOKEN)
-      cargo coveralls --exclude-pattern '/toshi/src/bin,/src/bin,/bin,/target,/toshi/src/query/aggregate,/src/query/aggregate,/src/shutdown.rs,/src/support.rs'
-    displayName: Run KCov
+      cargo coverage --exclude-pattern '/toshi/src/bin,/src/bin,/bin,/target,/toshi/src/query/aggregate,/src/query/aggregate,/src/shutdown.rs,/src/support.rs'
+    displayName: Run Cargo Coverage
+    condition: eq( variables['Agent.OS'], 'Linux' )
+  - script: |
+      bash <(curl -s https://codecov.io/bash) -s target/kcov -t $(CODECOV_TOKEN)
+    displayName: Upload CodeCov
+#  - script: |
+#      cargo coveralls --exclude-pattern '/toshi/src/bin,/src/bin,/bin,/target,/toshi/src/query/aggregate,/src/query/aggregate,/src/shutdown.rs,/src/support.rs'
+#    displayName: Run KCov
     condition: eq( variables['Agent.OS'], 'Linux' )
