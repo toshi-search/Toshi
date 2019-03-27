@@ -2355,9 +2355,10 @@ dependencies = [
 [[package]]
 name = "tower"
 version = "0.1.0"
-source = "git+https://github.com/tower-rs/tower#db2f0ecfb3f53b0d286748382de442194008508b"
+source = "git+https://github.com/tower-rs/tower#b01252c5e988a72f429ee6dd48ae9efc2e97d851"
 dependencies = [
  "futures 0.1.25 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tower-layer 0.1.0 (git+https://github.com/tower-rs/tower)",
  "tower-service 0.2.0 (git+https://github.com/tower-rs/tower)",
  "tower-service-util 0.1.0 (git+https://github.com/tower-rs/tower)",
 ]
@@ -2375,7 +2376,7 @@ dependencies = [
 [[package]]
 name = "tower-buffer"
 version = "0.1.0"
-source = "git+https://github.com/tower-rs/tower#db2f0ecfb3f53b0d286748382de442194008508b"
+source = "git+https://github.com/tower-rs/tower#b01252c5e988a72f429ee6dd48ae9efc2e97d851"
 dependencies = [
  "futures 0.1.25 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-executor 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2460,7 +2461,7 @@ dependencies = [
 [[package]]
 name = "tower-layer"
 version = "0.1.0"
-source = "git+https://github.com/tower-rs/tower#db2f0ecfb3f53b0d286748382de442194008508b"
+source = "git+https://github.com/tower-rs/tower#b01252c5e988a72f429ee6dd48ae9efc2e97d851"
 dependencies = [
  "futures 0.1.25 (registry+https://github.com/rust-lang/crates.io-index)",
  "tower-service 0.2.0 (git+https://github.com/tower-rs/tower)",
@@ -2477,7 +2478,7 @@ dependencies = [
 [[package]]
 name = "tower-service"
 version = "0.2.0"
-source = "git+https://github.com/tower-rs/tower#db2f0ecfb3f53b0d286748382de442194008508b"
+source = "git+https://github.com/tower-rs/tower#b01252c5e988a72f429ee6dd48ae9efc2e97d851"
 dependencies = [
  "futures 0.1.25 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -2485,7 +2486,7 @@ dependencies = [
 [[package]]
 name = "tower-service-util"
 version = "0.1.0"
-source = "git+https://github.com/tower-rs/tower#db2f0ecfb3f53b0d286748382de442194008508b"
+source = "git+https://github.com/tower-rs/tower#b01252c5e988a72f429ee6dd48ae9efc2e97d851"
 dependencies = [
  "either 1.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures 0.1.25 (registry+https://github.com/rust-lang/crates.io-index)",
