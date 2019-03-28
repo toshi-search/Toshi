@@ -1951,7 +1951,7 @@ dependencies = [
 
 [[package]]
 name = "tantivy"
-version = "0.9.0"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "atomicwrites 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2323,7 +2323,7 @@ dependencies = [
  "serde 1.0.89 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.39 (registry+https://github.com/rust-lang/crates.io-index)",
  "systemstat 0.1.3 (git+https://github.com/toshi-search/systemstat)",
- "tantivy 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tantivy 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio 0.1.18 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-connect 0.1.0 (git+https://github.com/carllerche/tokio-connect)",
  "tokio-executor 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2993,7 +2993,7 @@ dependencies = [
 "checksum synom 0.11.3 (registry+https://github.com/rust-lang/crates.io-index)" = "a393066ed9010ebaed60b9eafa373d4b1baac186dd7e008555b0f702b51945b6"
 "checksum synstructure 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)" = "73687139bf99285483c96ac0add482c3776528beac1d97d444f6e91f203a2015"
 "checksum systemstat 0.1.3 (git+https://github.com/toshi-search/systemstat)" = "<none>"
-"checksum tantivy 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)" = "e22d8b907600e67828944d3d3cedd1dfc5e3a0fcc82dfb8b51cd01086c81f979"
+"checksum tantivy 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)" = "67a63475a55950ad47573f881d912b8fab7f1f53a9cc2e036185efc92b471402"
 "checksum tantivy-fst 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "16b22af5ff09b8897093287642a5aaee6f30eb496526ef83a8dd0f4c636ac367"
 "checksum tempdir 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)" = "15f2b5fb00ccdf689e0149d1b1b3c03fead81c2b37735d812fa8bddbbf41b6d8"
 "checksum tempfile 3.0.7 (registry+https://github.com/rust-lang/crates.io-index)" = "b86c784c88d98c801132806dadd3819ed29d8600836c4088e855cdf3e178ed8a"
