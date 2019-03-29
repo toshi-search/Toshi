@@ -239,6 +239,53 @@ pub mod tests {
         Arc::new(RwLock::new(catalog))
     }
 
+    use failure::Fail;
+    use serde::{Deserialize, Serialize};
+
+    #[derive(Debug, Deserialize, Serialize)]
+    struct Line {
+        index: u64,
+        song: String,
+        year: u64,
+        artist: String,
+        genre: String,
+        lyrics: String,
+    }
+
+    #[ignore]
+    #[test]
+    pub fn create_rap_index() -> ::std::result::Result<(), Box<::std::error::Error>> {
+        let mut builder = SchemaBuilder::new();
+        builder.add_text_field("lyrics", STORED | TEXT);
+        builder.add_u64_field("index", STORED | INDEXED | FAST);
+        builder.add_text_field("genre", STORED | TEXT);
+        builder.add_u64_field("year", STORED | INDEXED | FAST);
+        builder.add_text_field("artist", STORED | TEXT);
+        builder.add_text_field("song", STORED | TEXT);
+
+        let schema = builder.build();
+        let idx = IndexCatalog::create_from_managed(PathBuf::from("data/"), "rap", schema.clone()).unwrap();
+        let mut writer = idx.writer(30_000_000).unwrap();
+
+        let mut reader = csv::ReaderBuilder::new()
+            .trim(csv::Trim::All)
+            .double_quote(true)
+            .flexible(true)
+            .from_path("D:\\data\\lyrics.csv")?;
+        println!("Writing some csv...");
+        for result in reader.deserialize() {
+            let record: Line = result?;
+            println!("Doc: {:?}", record);
+            let record_json: String = serde_json::to_string(&record).unwrap();
+            let doc: Document = schema.parse_document(&record_json).unwrap();
+            writer.add_document(doc);
+        }
+        println!("Doing a commit...");
+        writer.commit().map_err(|e| e.compat())?;
+
+        Ok(())
+    }
+
     pub fn create_test_index() -> Index {
         let mut builder = SchemaBuilder::new();
         let test_text = builder.add_text_field("test_text", STORED | TEXT);

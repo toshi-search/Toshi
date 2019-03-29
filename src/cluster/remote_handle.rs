@@ -63,7 +63,10 @@ impl IndexHandle for RemoteIndex {
         let clients = self.remotes.clone();
         info!("REQ = {:?}", search);
         let fut = clients.into_iter().map(move |mut client| {
-            let bytes = serde_json::to_vec(&search).unwrap();
+            let bytes = match serde_json::to_vec(&search) {
+                Ok(v) => v,
+                Err(_) => Vec::new(),
+            };
             let req = TowerRequest::new(SearchRequest {
                 index: name.clone(),
                 query: bytes,
@@ -71,7 +74,7 @@ impl IndexHandle for RemoteIndex {
             client
                 .search_index(req)
                 .map(|res| {
-                    info!("RESPONSE = {:?}", res);
+                    //info!("RESPONSE = {:?}", res);
                     res.into_inner()
                 })
                 .map_err(|e| {

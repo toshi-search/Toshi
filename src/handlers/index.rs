@@ -53,6 +53,16 @@ impl IndexHandler {
             Err(e) => Err(Error::IOError(e.to_string())),
         }
     }
+
+    fn inner_delete(&self, body: DeleteDoc, index: String) -> Result<DocsAffected, Error> {
+        if self.catalog.read().unwrap().exists(&index) {
+            let index_lock = self.catalog.read()?;
+            let index_handle = index_lock.get_index(&index)?;
+            index_handle.delete_term(body)
+        } else {
+            Err(Error::IOError("Failed to obtain index lock".into()))
+        }
+    }
 }
 
 impl_web! {
@@ -60,13 +70,7 @@ impl_web! {
         #[delete("/:index")]
         #[content_type("application/json")]
         pub fn delete(&self, body: DeleteDoc, index: String) -> Result<DocsAffected, Error> {
-            if self.catalog.read().unwrap().exists(&index) {
-                let index_lock = self.catalog.read().unwrap();
-                let index_handle = index_lock.get_index(&index)?;
-                index_handle.delete_term(body)
-            } else {
-                Err(Error::IOError("Failed to obtain index lock".into()))
-            }
+            self.inner_delete(body, index)
         }
 
         #[put("/:index")]

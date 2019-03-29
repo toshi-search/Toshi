@@ -22,10 +22,10 @@ impl SearchHandler {
     }
 
     fn fold_results(results: Vec<SearchResults>) -> SearchResults {
-        let mut docs: Vec<ScoredDoc> = Vec::new();
-        for result in results {
-            docs.extend(result.docs);
-        }
+        let docs: Vec<ScoredDoc> = results.into_iter().fold(Vec::new(), |mut r, d| {
+            r.extend(d.docs);
+            r
+        });
         SearchResults::new(docs)
     }
 
