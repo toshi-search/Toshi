@@ -254,7 +254,7 @@ pub mod tests {
 
     #[ignore]
     #[test]
-    pub fn create_rap_index() -> ::std::result::Result<(), Box<::std::error::Error>> {
+    pub fn create_music_index() -> ::std::result::Result<(), Box<::std::error::Error>> {
         let mut builder = SchemaBuilder::new();
         builder.add_text_field("lyrics", STORED | TEXT);
         builder.add_u64_field("index", STORED | INDEXED | FAST);

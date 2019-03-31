@@ -6,7 +6,7 @@ use log::debug;
 use tantivy::collector::TopDocs;
 use tantivy::query::{AllQuery, QueryParser};
 use tantivy::schema::*;
-use tantivy::{Document, Index, IndexWriter, ReloadPolicy, Term};
+use tantivy::{Document, Index, IndexReader, IndexWriter, ReloadPolicy, Term};
 use tokio::prelude::*;
 
 use crate::handlers::index::{AddDocument, DeleteDoc, DocsAffected};
@@ -29,7 +29,7 @@ pub trait IndexHandle {
     fn index_location(&self) -> IndexLocation;
     fn search_index(&self, search: Request) -> Self::SearchResponse;
     fn add_document(&self, doc: AddDocument) -> Self::AddResponse;
-    fn delete_term(&self, term: DeleteDoc) -> Self::DeleteResponse;
+    fn delete_term(&mut self, term: DeleteDoc) -> Self::DeleteResponse;
 }
 
 /// Index handle that operates on an Index local to the node, a remote index handle
@@ -38,7 +38,9 @@ pub trait IndexHandle {
 pub struct LocalIndex {
     index: Index,
     writer: Arc<Mutex<IndexWriter>>,
+    reader: IndexReader,
     current_opstamp: AtomicUsize,
+    deleted_docs: u64,
     settings: Settings,
     name: String,
 }
@@ -71,12 +73,7 @@ impl IndexHandle for LocalIndex {
     }
 
     fn search_index(&self, search: Request) -> Self::SearchResponse {
-        let searcher = self
-            .index
-            .reader_builder()
-            .reload_policy(ReloadPolicy::OnCommit)
-            .try_into()?
-            .searcher();
+        let searcher = self.reader.searcher();
         let schema = self.index.schema();
         let collector = TopDocs::with_limit(search.limit);
         if let Some(query) = search.query {
@@ -145,10 +142,11 @@ impl IndexHandle for LocalIndex {
         Ok(())
     }
 
-    fn delete_term(&self, term: DeleteDoc) -> Self::DeleteResponse {
+    fn delete_term(&mut self, term: DeleteDoc) -> Self::DeleteResponse {
         let index_schema = self.index.schema();
         let writer_lock = self.get_writer();
         let mut index_writer = writer_lock.lock()?;
+        let before = self.reader.searcher().num_docs();
 
         for (field, value) in term.terms {
             let f = index_schema.get_field(&field).unwrap();
@@ -161,12 +159,8 @@ impl IndexHandle for LocalIndex {
                 self.set_opstamp(0);
             }
         }
-        let docs_affected = self
-            .index
-            .load_metas()
-            .map(|meta| meta.segments.iter().map(|seg| seg.num_deleted_docs()).sum())
-            .unwrap_or(0);
-
+        let docs_affected = before - self.reader.searcher().num_docs();
+        self.deleted_docs += docs_affected;
         Ok(DocsAffected { docs_affected })
     }
 }
@@ -177,10 +171,13 @@ impl LocalIndex {
         i.set_merge_policy(settings.get_merge_policy());
         let current_opstamp = AtomicUsize::new(0);
         let writer = Arc::new(Mutex::new(i));
+        let reader = index.reader_builder().reload_policy(ReloadPolicy::OnCommit).try_into()?;
         Ok(Self {
             index,
+            reader,
             writer,
             current_opstamp,
+            deleted_docs: 0,
             settings,
             name: name.into(),
         })

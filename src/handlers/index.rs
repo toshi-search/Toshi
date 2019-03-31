@@ -14,7 +14,7 @@ use crate::index::IndexCatalog;
 #[derive(Extract, Deserialize)]
 pub struct SchemaBody(Schema);
 
-#[derive(Extract, Deserialize)]
+#[derive(Debug, Extract, Deserialize)]
 pub struct DeleteDoc {
     pub options: Option<IndexOptions>,
     pub terms: HashMap<String, String>,
@@ -25,12 +25,12 @@ pub struct IndexHandler {
     catalog: Arc<RwLock<IndexCatalog>>,
 }
 
-#[derive(Response, Deserialize)]
+#[derive(Debug, Response, Deserialize)]
 pub struct DocsAffected {
-    pub docs_affected: u32,
+    pub docs_affected: u64,
 }
 
-#[derive(Extract, Deserialize)]
+#[derive(Debug, Extract, Deserialize)]
 pub struct IndexOptions {
     #[serde(default)]
     pub commit: bool,
@@ -54,13 +54,16 @@ impl IndexHandler {
         }
     }
 
-    fn inner_delete(&self, body: DeleteDoc, index: String) -> Result<DocsAffected, Error> {
-        if self.catalog.read().unwrap().exists(&index) {
-            let index_lock = self.catalog.read()?;
-            let index_handle = index_lock.get_index(&index)?;
-            index_handle.delete_term(body)
+    fn delete_term(catalog: &Arc<RwLock<IndexCatalog>>, body: DeleteDoc, index: String) -> Result<DocsAffected, Error> {
+        if let Ok(mut index_lock) = catalog.write() {
+            if index_lock.exists(&index) {
+                let index_handle = index_lock.get_mut_index(&index)?;
+                index_handle.delete_term(body)
+            } else {
+                Err(Error::IOError("Index does not exist".into()))
+            }
         } else {
-            Err(Error::IOError("Failed to obtain index lock".into()))
+            Err(Error::IOError("Failed to obtain lock on catalog".into()))
         }
     }
 }
@@ -70,7 +73,7 @@ impl_web! {
         #[delete("/:index")]
         #[content_type("application/json")]
         pub fn delete(&self, body: DeleteDoc, index: String) -> Result<DocsAffected, Error> {
-            self.inner_delete(body, index)
+            IndexHandler::delete_term(&self.catalog, body, index)
         }
 
         #[put("/:index")]
@@ -98,6 +101,7 @@ impl_web! {
 mod tests {
     use crate::handlers::SearchHandler;
     use crate::index::tests::*;
+    use pretty_assertions::{assert_eq, assert_ne};
     use tokio::prelude::*;
 
     use super::*;
@@ -146,8 +150,8 @@ mod tests {
             terms,
         };
         let req = handler.delete(delete, "test_index".into());
+
         assert_eq!(req.is_ok(), true);
-        assert_eq!(req.unwrap().docs_affected, 3);
     }
 
     #[test]

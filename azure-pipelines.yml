@@ -7,14 +7,26 @@ jobs:
     displayName: Run Tests
     strategy:
       matrix:
-        Linux:
-          vmImage: ubuntu-16.04
-        MacOS:
-          vmImage: macOS-10.13
-        Windows:
-          vmImage: vs2017-win2016
+        Linux-Stable:
+          imageName: ubuntu-16.04
+          rust_toolchain: stable
+        MacOS-Stable:
+          imageName: macOS-10.13
+          rust_toolchain: stable
+        Windows-Stable:
+          imageName: vs2017-win2016
+          rust_toolchain: stable
+        Linux-Nightly:
+          imageName: ubuntu-16.04
+          rust_toolchain: nightly
+        MacOS-Nightly:
+          imageName: macOS-10.13
+          rust_toolchain: nightly
+        Windows-Nightly:
+          imageName: vs2017-win2016
+          rust_toolchain: nightly
     pool:
-      vmImage: $(vmImage)
+      vmImage: $(imageName)
     steps:
         - template: ci/azure-install-deps.yml
         - script: |

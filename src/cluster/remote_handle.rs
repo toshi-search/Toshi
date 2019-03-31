@@ -90,7 +90,7 @@ impl IndexHandle for RemoteIndex {
         unimplemented!("All of the mutating calls should probably have some strategy to balance how they distribute documents and knowing where things are")
     }
 
-    fn delete_term(&self, _: DeleteDoc) -> Self::DeleteResponse {
+    fn delete_term(&mut self, _: DeleteDoc) -> Self::DeleteResponse {
         unimplemented!()
     }
 }
