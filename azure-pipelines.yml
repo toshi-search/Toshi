@@ -9,22 +9,22 @@ jobs:
       matrix:
         Linux-Stable:
           imageName: ubuntu-16.04
-          rust_toolchain: stable
+          rustup_toolchain: stable
         MacOS-Stable:
           imageName: macOS-10.13
-          rust_toolchain: stable
+          rustup_toolchain: stable
         Windows-Stable:
           imageName: vs2017-win2016
-          rust_toolchain: stable
+          rustup_toolchain: stable
         Linux-Nightly:
           imageName: ubuntu-16.04
-          rust_toolchain: nightly
+          rustup_toolchain: nightly
         MacOS-Nightly:
           imageName: macOS-10.13
-          rust_toolchain: nightly
+          rustup_toolchain: nightly
         Windows-Nightly:
           imageName: vs2017-win2016
-          rust_toolchain: nightly
+          rustup_toolchain: nightly
     pool:
       vmImage: $(imageName)
     steps:
