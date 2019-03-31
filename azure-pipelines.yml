@@ -39,4 +39,4 @@ jobs:
         - template: ci/azure-run-kcov.yml
         - script: |
             echo "##vso[task.complete result=Succeeded;]DONE"
-          condition: eq($(optional), true)
+          condition: and(always(), in(variables['Build.DefinitionName'], "Linux-Nightly", "MacOS-Nightly", "Windows-Nightly"))
