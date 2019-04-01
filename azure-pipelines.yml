@@ -16,18 +16,6 @@ jobs:
         Windows-Stable:
           imageName: vs2017-win2016
           rustup_toolchain: stable
-        Linux-Nightly:
-          imageName: ubuntu-16.04
-          rustup_toolchain: nightly
-          optional: true
-        MacOS-Nightly:
-          imageName: macOS-10.13
-          rustup_toolchain: nightly
-          optional: true
-        Windows-Nightly:
-          imageName: vs2017-win2016
-          rustup_toolchain: nightly
-          optional: true
     pool:
       vmImage: $(imageName)
     steps:
@@ -37,6 +25,3 @@ jobs:
             cargo test
           displayName: cargo test
         - template: ci/azure-run-kcov.yml
-        - script: |
-            echo "##vso[task.complete result=Succeeded;]DONE"
-          condition: and(always(), in(variables['Build.DefinitionName'], 'Linux-Nightly', 'MacOS-Nightly', 'Windows-Nightly'))
