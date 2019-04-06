@@ -108,10 +108,13 @@ impl IndexHandler {
             let new_index = IndexCatalog::create_from_managed(base_path, &index, body.0.clone()).unwrap();
             IndexHandler::add_index(&cat_clone, index.clone(), new_index).unwrap();
         }
-        self.create_remote_index(index, body.0).concat2().map(move |clients| {
-            IndexHandler::add_remote_index(&cat_clone, idx_clone, clients).unwrap();
-            CreatedResponse
-        }).map_err(|e| e.into())
+        self.create_remote_index(index, body.0)
+            .concat2()
+            .map(move |clients| {
+                IndexHandler::add_remote_index(&cat_clone, idx_clone, clients).unwrap();
+                CreatedResponse
+            })
+            .map_err(|e| e.into())
     }
 }
 

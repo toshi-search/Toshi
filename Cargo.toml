@@ -23,7 +23,7 @@ tower-grpc         = { git = "https://github.com/tower-rs/tower-grpc" }
 tower-h2           = { git = "https://github.com/tower-rs/tower-h2" }
 tower              = { git = "https://github.com/tower-rs/tower" }
 tower-service      = { git = "https://github.com/tower-rs/tower" }
-tower-http = { git = "https://github.com/tower-rs/tower-http" }
+tower-http         = { git = "https://github.com/tower-rs/tower-http" }
 tower-add-origin   = { git = "https://github.com/tower-rs/tower-http" }
 tower-consul       = { git = "https://github.com/LucioFranco/tower-consul" }
 futures-watch      = { git = "https://github.com/carllerche/better-future" }
@@ -51,7 +51,7 @@ num_cpus           = "^1.10"
 hostname           = "^0.1"
 base64             = "^0.10"
 crossbeam          = "^0.7"
-hashbrown          = "^0.1"
+hashbrown          = "^0.2"
 serde              = { version = "^1.0", features = ["derive"] }
 clap               = { version = "^2.32", features = ["color"] }
 uuid               = { version = "^0.7", features = ["v4"] }
