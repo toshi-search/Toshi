@@ -53,7 +53,7 @@ base64             = "^0.10"
 crossbeam          = "^0.7"
 hashbrown          = "^0.1"
 serde              = { version = "^1.0", features = ["derive"] }
-clap               = { version = "^2.32", features = ["color"] }
+clap               = { version = "^2.33", features = ["color"] }
 uuid               = { version = "^0.7", features = ["v4"] }
 systemstat         = { git = "https://github.com/toshi-search/systemstat" }
 
