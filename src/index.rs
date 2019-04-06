@@ -19,6 +19,7 @@ use crate::query::Request;
 use crate::results::*;
 use crate::settings::Settings;
 use crate::{error::Error, Result};
+use http::uri::Scheme;
 use toshi_proto::cluster_rpc::*;
 
 pub struct IndexCatalog {
@@ -115,7 +116,12 @@ impl IndexCatalog {
         Ok(())
     }
 
-    #[allow(dead_code)]
+    pub fn add_multi_remote_index(&mut self, name: String, remote: Vec<RpcClient>) -> Result<()> {
+        let ri = RemoteIndex::with_clients(name.clone(), remote);
+        self.remote_handles.lock()?.entry(name).or_insert(ri);
+        Ok(())
+    }
+
     pub fn get_collection(&self) -> &HashMap<String, LocalIndex> {
         &self.local_handles
     }
@@ -172,11 +178,19 @@ impl IndexCatalog {
 
     fn create_host_uri(socket: SocketAddr) -> Result<Uri> {
         Uri::builder()
-            .scheme("http")
+            .scheme(Scheme::HTTP)
             .authority(socket.to_string().as_str())
             .path_and_query("")
             .build()
             .map_err(|e| Error::IOError(e.to_string()))
+    }
+
+    pub fn create_client(node: String) -> impl Future<Item = RpcClient, Error = RPCError> + Send {
+        let socket: SocketAddr = node.parse().unwrap();
+        let host_uri = IndexCatalog::create_host_uri(socket).unwrap();
+        let grpc_conn = GrpcConn(socket);
+
+        RpcServer::create_client(grpc_conn.clone(), host_uri).map_err(|e| e.into())
     }
 
     pub fn refresh_multiple_nodes(nodes: Vec<String>) -> impl stream::Stream<Item = (RpcClient, Vec<String>), Error = RPCError> {
@@ -185,12 +199,7 @@ impl IndexCatalog {
     }
 
     pub fn refresh_remote_catalog(node: String) -> impl Future<Item = (RpcClient, Vec<String>), Error = RPCError> + Send {
-        let socket: SocketAddr = node.parse().unwrap();
-        let host_uri = IndexCatalog::create_host_uri(socket).unwrap();
-        let grpc_conn = GrpcConn(socket);
-
-        RpcServer::create_client(grpc_conn.clone(), host_uri)
-            .map_err(|e| e.into())
+        IndexCatalog::create_client(node)
             .and_then(|mut client| {
                 let client_clone = client.clone();
                 client

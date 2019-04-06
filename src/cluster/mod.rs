@@ -129,7 +129,6 @@ pub enum RPCError {
     BufError(BufError),
     #[fail(display = "Error in RPC Connect: {}", _0)]
     ConnectError(ConnectionError),
-
     #[fail(display = "")]
     BoxError(Box<dyn ::std::error::Error + Send + Sync + 'static>),
 }

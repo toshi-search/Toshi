@@ -1,3 +1,4 @@
+use crate::cluster::RPCError;
 use failure::Fail;
 use serde::{Deserialize, Serialize};
 use tantivy::query::QueryParserError;
@@ -88,6 +89,12 @@ impl From<Box<::std::error::Error + Send + 'static>> for Error {
 
 impl<T> From<crossbeam::channel::SendError<T>> for Error {
     fn from(err: crossbeam::channel::SendError<T>) -> Self {
+        Error::IOError(err.to_string())
+    }
+}
+
+impl From<RPCError> for Error {
+    fn from(err: RPCError) -> Self {
         Error::IOError(err.to_string())
     }
 }

@@ -38,10 +38,11 @@ impl Hash for RemoteIndex {
 
 impl RemoteIndex {
     pub fn new(name: String, remote: RpcClient) -> Self {
-        Self {
-            name,
-            remotes: vec![remote],
-        }
+        RemoteIndex::with_clients(name, vec![remote])
+    }
+
+    pub fn with_clients(name: String, remotes: Vec<RpcClient>) -> Self {
+        Self { name, remotes }
     }
 }
 
@@ -74,7 +75,7 @@ impl IndexHandle for RemoteIndex {
             client
                 .search_index(req)
                 .map(|res| {
-                    //info!("RESPONSE = {:?}", res);
+                    info!("RESPONSE = {:?}", res);
                     res.into_inner()
                 })
                 .map_err(|e| {

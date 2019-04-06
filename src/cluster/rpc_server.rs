@@ -79,6 +79,10 @@ impl RpcServer {
         })
     }
 
+    pub fn ok_result() -> ResultReply {
+        RpcServer::create_result(0, "".into())
+    }
+
     pub fn create_result(code: i32, message: String) -> ResultReply {
         ResultReply { code, message }
     }
@@ -128,13 +132,16 @@ impl server::IndexService for RpcServer {
                 };
 
                 info!("QUERY = {:?}", query);
+
                 match index.search_index(query) {
                     Ok(query_results) => {
+                        info!("Query Response = {:?}", query_results);
                         let query_bytes: Vec<u8> = serde_json::to_vec(&query_results).unwrap();
-                        let result = Some(RpcServer::create_result(0, "".into()));
+                        let result = Some(RpcServer::ok_result());
                         Box::new(future::finished(Response::new(RpcServer::create_search_reply(result, query_bytes))))
                     }
                     Err(e) => {
+                        info!("Query Response = {:?}", e);
                         let result = Some(RpcServer::create_result(1, e.to_string()));
                         Box::new(future::finished(Response::new(RpcServer::create_search_reply(result, vec![]))))
                     }
@@ -157,8 +164,7 @@ impl server::IndexService for RpcServer {
                 let ip = cat.base_path().clone();
                 if let Ok(new_index) = IndexCatalog::create_from_managed(ip, &index.clone(), schema) {
                     if cat.add_index(index.clone(), new_index).is_ok() {
-                        let result = RpcServer::create_result(0, "".into());
-                        Box::new(future::finished(Response::new(result)))
+                        Box::new(future::finished(Response::new(RpcServer::ok_result())))
                     } else {
                         Self::error_response(Code::Internal, format!("Insert: {} failed", index.clone()))
                     }
@@ -179,8 +185,7 @@ impl server::IndexService for RpcServer {
             if let Ok(idx) = cat.get_index(&index) {
                 if let Ok(doc) = serde_json::from_slice::<AddDocument>(&document) {
                     if idx.add_document(doc).is_ok() {
-                        let result = RpcServer::create_result(0, "".into());
-                        Box::new(future::finished(Response::new(result)))
+                        Box::new(future::finished(Response::new(RpcServer::ok_result())))
                     } else {
                         Self::error_response(Code::Internal, format!("Add Document Failed: {}", index))
                     }

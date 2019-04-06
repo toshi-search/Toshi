@@ -11,7 +11,7 @@ use crate::query::SummaryDoc;
 #[derive(Response, Serialize, Deserialize, Debug)]
 pub struct SearchResults {
     pub hits: usize,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default = "Vec::new")]
     pub docs: Vec<ScoredDoc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub aggregate: Option<Vec<SummaryDoc>>,
