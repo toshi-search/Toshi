@@ -23,7 +23,7 @@ tower-grpc         = { git = "https://github.com/tower-rs/tower-grpc" }
 tower-h2           = { git = "https://github.com/tower-rs/tower-h2" }
 tower              = { git = "https://github.com/tower-rs/tower" }
 tower-service      = { git = "https://github.com/tower-rs/tower" }
-tower-http-service = { git = "https://github.com/tower-rs/tower-http" }
+tower-http         = { git = "https://github.com/tower-rs/tower-http" }
 tower-add-origin   = { git = "https://github.com/tower-rs/tower-http" }
 tower-consul       = { git = "https://github.com/LucioFranco/tower-consul" }
 futures-watch      = { git = "https://github.com/carllerche/better-future" }
@@ -42,7 +42,7 @@ futures            = "^0.1"
 tantivy            = "^0.9"
 tokio              = "^0.1"
 tokio-executor     = "^0.1"
-tokio-signal       = "=0.2.7"
+tokio-signal       = "^0.2"
 config             = "^0.9"
 log                = "^0.4"
 pretty_env_logger  = "^0.3"
@@ -51,7 +51,8 @@ num_cpus           = "^1.10"
 hostname           = "^0.1"
 base64             = "^0.10"
 crossbeam          = "^0.7"
-hashbrown          = "^0.1"
+hashbrown          = "^0.2"
+rand               = { version = "^0.6", features = ["log"] }
 serde              = { version = "^1.0", features = ["derive"] }
 clap               = { version = "^2.32", features = ["color"] }
 uuid               = { version = "^0.7", features = ["v4"] }
@@ -60,6 +61,7 @@ systemstat         = { git = "https://github.com/toshi-search/systemstat" }
 [dev-dependencies]
 remove_dir_all = "0.5.1"
 pretty_assertions = "0.6.1"
+csv = "1"
 
 [profile.release]
 opt-level = 3

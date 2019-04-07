@@ -54,7 +54,7 @@ impl BulkHandler {
         Ok(())
     }
 
-    fn inner_handle(&self, body: Vec<u8>, index: String) -> impl Future<Item = CreatedResponse, Error = Error> + Send + 'static {
+    fn inner_handle(&self, body: Vec<u8>, index: String) -> impl Future<Item = CreatedResponse, Error = Error> + Send {
         let index_lock = self.catalog.read().unwrap();
         let index_handle = index_lock.get_index(&index).unwrap();
         let index = index_handle.get_index();
@@ -105,7 +105,7 @@ impl_web! {
     impl BulkHandler {
         #[post("/:index/_bulk")]
         #[content_type("application/json")]
-        pub fn handle(&self, body: Vec<u8>, index: String) -> impl Future<Item = CreatedResponse, Error = Error> + Send + 'static {
+        pub fn handle(&self, body: Vec<u8>, index: String) -> impl Future<Item = CreatedResponse, Error = Error> + Send {
             self.inner_handle(body, index)
         }
     }

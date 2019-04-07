@@ -19,6 +19,7 @@ use crate::query::Request;
 use crate::results::*;
 use crate::settings::Settings;
 use crate::{error::Error, Result};
+use http::uri::Scheme;
 use toshi_proto::cluster_rpc::*;
 
 pub struct IndexCatalog {
@@ -115,7 +116,12 @@ impl IndexCatalog {
         Ok(())
     }
 
-    #[allow(dead_code)]
+    pub fn add_multi_remote_index(&mut self, name: String, remote: Vec<RpcClient>) -> Result<()> {
+        let ri = RemoteIndex::with_clients(name.clone(), remote);
+        self.remote_handles.lock()?.entry(name).or_insert(ri);
+        Ok(())
+    }
+
     pub fn get_collection(&self) -> &HashMap<String, LocalIndex> {
         &self.local_handles
     }
@@ -172,11 +178,19 @@ impl IndexCatalog {
 
     fn create_host_uri(socket: SocketAddr) -> Result<Uri> {
         Uri::builder()
-            .scheme("http")
+            .scheme(Scheme::HTTP)
             .authority(socket.to_string().as_str())
             .path_and_query("")
             .build()
             .map_err(|e| Error::IOError(e.to_string()))
+    }
+
+    pub fn create_client(node: String) -> impl Future<Item = RpcClient, Error = RPCError> + Send {
+        let socket: SocketAddr = node.parse().unwrap();
+        let host_uri = IndexCatalog::create_host_uri(socket).unwrap();
+        let grpc_conn = GrpcConn(socket);
+
+        RpcServer::create_client(grpc_conn.clone(), host_uri).map_err(|e| e.into())
     }
 
     pub fn refresh_multiple_nodes(nodes: Vec<String>) -> impl stream::Stream<Item = (RpcClient, Vec<String>), Error = RPCError> {
@@ -185,12 +199,7 @@ impl IndexCatalog {
     }
 
     pub fn refresh_remote_catalog(node: String) -> impl Future<Item = (RpcClient, Vec<String>), Error = RPCError> + Send {
-        let socket: SocketAddr = node.parse().unwrap();
-        let host_uri = IndexCatalog::create_host_uri(socket).unwrap();
-        let grpc_conn = GrpcConn(socket);
-
-        RpcServer::create_client(grpc_conn.clone(), host_uri)
-            .map_err(|e| e.into())
+        IndexCatalog::create_client(node)
             .and_then(|mut client| {
                 let client_clone = client.clone();
                 client
@@ -237,6 +246,53 @@ pub mod tests {
         let idx = create_test_index();
         let catalog = IndexCatalog::with_index(name.into(), idx).unwrap();
         Arc::new(RwLock::new(catalog))
+    }
+
+    use failure::Fail;
+    use serde::{Deserialize, Serialize};
+
+    #[derive(Debug, Deserialize, Serialize)]
+    struct Line {
+        index: u64,
+        song: String,
+        year: u64,
+        artist: String,
+        genre: String,
+        lyrics: String,
+    }
+
+    #[ignore]
+    #[test]
+    pub fn create_music_index() -> ::std::result::Result<(), Box<::std::error::Error>> {
+        let mut builder = SchemaBuilder::new();
+        builder.add_text_field("lyrics", STORED | TEXT);
+        builder.add_u64_field("index", STORED | INDEXED | FAST);
+        builder.add_text_field("genre", STORED | TEXT);
+        builder.add_u64_field("year", STORED | INDEXED | FAST);
+        builder.add_text_field("artist", STORED | TEXT);
+        builder.add_text_field("song", STORED | TEXT);
+
+        let schema = builder.build();
+        let idx = IndexCatalog::create_from_managed(PathBuf::from("data/"), "rap", schema.clone()).unwrap();
+        let mut writer = idx.writer(30_000_000).unwrap();
+
+        let mut reader = csv::ReaderBuilder::new()
+            .trim(csv::Trim::All)
+            .double_quote(true)
+            .flexible(true)
+            .from_path("D:\\data\\lyrics.csv")?;
+        println!("Writing some csv...");
+        for result in reader.deserialize() {
+            let record: Line = result?;
+            println!("Doc: {:?}", record);
+            let record_json: String = serde_json::to_string(&record).unwrap();
+            let doc: Document = schema.parse_document(&record_json).unwrap();
+            writer.add_document(doc);
+        }
+        println!("Doing a commit...");
+        writer.commit().map_err(|e| e.compat())?;
+
+        Ok(())
     }
 
     pub fn create_test_index() -> Index {

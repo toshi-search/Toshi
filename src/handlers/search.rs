@@ -22,10 +22,10 @@ impl SearchHandler {
     }
 
     fn fold_results(results: Vec<SearchResults>) -> SearchResults {
-        let mut docs: Vec<ScoredDoc> = Vec::new();
-        for result in results {
-            docs.extend(result.docs);
-        }
+        let docs: Vec<ScoredDoc> = results.into_iter().fold(Vec::new(), |mut r, d| {
+            r.extend(d.docs);
+            r
+        });
         SearchResults::new(docs)
     }
 
@@ -45,7 +45,7 @@ impl SearchHandler {
                     .concat2()
                     .map(SearchHandler::fold_results)
             }
-            Err(_) => panic!(),
+            Err(e) => panic!("{:?}", e),
         }
     }
 }
@@ -75,7 +75,7 @@ pub mod tests {
     use super::*;
 
     pub fn run_query(req: Request, index: &str) -> impl Future<Item = SearchResults, Error = Error> + Send {
-        let cat = create_test_catalog(index.into());
+        let cat = create_test_catalog(index);
         let handler = SearchHandler::new(Arc::clone(&cat));
         handler.doc_search(req, index.into())
     }
@@ -181,7 +181,7 @@ pub mod tests {
         let docs = run_query(req, "test_index")
             .map(|result| {
                 assert_eq!(result.hits as usize, result.docs.len());
-                assert_eq!(result.docs[0].doc.get("test_text").unwrap()[0].text().unwrap(), "Test Duckiment 3")
+                assert_eq!(result.docs[0].doc["test_text"][0].text().unwrap(), "Test Duckiment 3")
             })
             .map_err(|_| ());
 

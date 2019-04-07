@@ -15,4 +15,5 @@ tower-grpc-build = { git = "https://github.com/tower-rs/tower-grpc" }
 tower-grpc = { git = "https://github.com/tower-rs/tower-grpc" }
 bytes              = "^0.4"
 prost              = "^0.5"
+prost-types        = "^0.5"
 prost-derive       = "^0.5"

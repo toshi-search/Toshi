@@ -38,10 +38,11 @@ impl Hash for RemoteIndex {
 
 impl RemoteIndex {
     pub fn new(name: String, remote: RpcClient) -> Self {
-        Self {
-            name,
-            remotes: vec![remote],
-        }
+        RemoteIndex::with_clients(name, vec![remote])
+    }
+
+    pub fn with_clients(name: String, remotes: Vec<RpcClient>) -> Self {
+        Self { name, remotes }
     }
 }
 
@@ -63,7 +64,10 @@ impl IndexHandle for RemoteIndex {
         let clients = self.remotes.clone();
         info!("REQ = {:?}", search);
         let fut = clients.into_iter().map(move |mut client| {
-            let bytes = serde_json::to_vec(&search).unwrap();
+            let bytes = match serde_json::to_vec(&search) {
+                Ok(v) => v,
+                Err(_) => Vec::new(),
+            };
             let req = TowerRequest::new(SearchRequest {
                 index: name.clone(),
                 query: bytes,
@@ -87,7 +91,7 @@ impl IndexHandle for RemoteIndex {
         unimplemented!("All of the mutating calls should probably have some strategy to balance how they distribute documents and knowing where things are")
     }
 
-    fn delete_term(&self, _: DeleteDoc) -> Self::DeleteResponse {
+    fn delete_term(&mut self, _: DeleteDoc) -> Self::DeleteResponse {
         unimplemented!()
     }
 }

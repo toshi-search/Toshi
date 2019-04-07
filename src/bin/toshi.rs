@@ -46,12 +46,10 @@ pub fn main() -> Result<(), ()> {
     };
 
     let toshi = {
-        // If experimental is enabled and master is false, they are a data node...
-        // not even going to try and become the master...
         let server = if settings.experimental && settings.experimental_features.master {
             future::Either::A(run_master(Arc::clone(&index_catalog), &settings))
         } else {
-            future::Either::B(run(Arc::clone(&index_catalog), &settings))
+            future::Either::B(run_data(Arc::clone(&index_catalog), &settings))
         };
         let shutdown = shutdown::shutdown(tx);
         server.select(shutdown)
@@ -72,18 +70,8 @@ pub fn main() -> Result<(), ()> {
         .wait()
 }
 
-fn run_master(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Future<Item = (), Error = ()> {
-    let addr: IpAddr = settings.host.parse().expect(&format!("Invalid ip address: {}", &settings.host));
-    let settings = settings.clone();
-    let bind: SocketAddr = SocketAddr::new(addr, settings.port);
-
-    println!("{}", RPC_HEADER);
-    info!("I am a data node...Binding to: {}", addr);
-    future::lazy(move || cluster::connect_to_consul(&settings)).and_then(move |_| RpcServer::serve(bind, catalog))
-}
-
-fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Future<Item = (), Error = ()> {
-    let commit_watcher = if settings.auto_commit_duration > 0 {
+fn create_watcher(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Future<Item = (), Error = ()> {
+    if settings.auto_commit_duration > 0 {
         let commit_watcher = IndexWatcher::new(catalog.clone(), settings.auto_commit_duration);
         future::Either::A(future::lazy(move || {
             commit_watcher.start();
@@ -91,10 +79,24 @@ fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Future<I
         }))
     } else {
         future::Either::B(future::ok::<(), ()>(()))
-    };
+    }
+}
 
-    let addr = format!("{}:{}", &settings.host, settings.port);
-    let bind: SocketAddr = addr.parse().expect("Failed to parse socket address");
+fn run_data(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Future<Item = (), Error = ()> {
+    let commit_watcher = create_watcher(Arc::clone(&catalog), settings);
+    let addr: IpAddr = settings.host.parse().expect(&format!("Invalid ip address: {}", &settings.host));
+    let settings = settings.clone();
+    let bind: SocketAddr = SocketAddr::new(addr, settings.port);
+
+    println!("{}", RPC_HEADER);
+    info!("I am a data node...Binding to: {}", addr);
+    commit_watcher.and_then(move |_| RpcServer::serve(bind, catalog))
+}
+
+fn run_master(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Future<Item = (), Error = ()> {
+    let commit_watcher = create_watcher(Arc::clone(&catalog), settings);
+    let addr: IpAddr = settings.host.parse().expect(&format!("Invalid ip address: {}", &settings.host));
+    let bind: SocketAddr = SocketAddr::new(addr, settings.port);
 
     println!("{}", HEADER);
 
@@ -105,10 +107,9 @@ fn run(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Future<I
         let cluster_name = settings.experimental_features.cluster_name.clone();
         let nodes = settings.experimental_features.nodes.clone();
 
-        let run = future::lazy(move || cluster::connect_to_consul(&settings)).and_then(move |_| {
-            tokio::spawn(commit_watcher);
-
+        let run = commit_watcher.and_then(move |_| {
             if nodes.is_empty() {
+                tokio::spawn(cluster::connect_to_consul(&settings));
                 let consul = cluster::Consul::builder()
                     .with_cluster_name(cluster_name)
                     .with_address(consul_addr)

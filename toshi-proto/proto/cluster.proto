@@ -17,8 +17,9 @@ service IndexService {
 enum ResultCode {
     SUCCESS = 0;
     FAILURE = 1;
-    UNKNOWNNNNN = 2;
-    MAGIC_UNICORN = 3;
+    NO_RESULTS = 2;
+    UNKNOWNNNNN = 3;
+    MAGIC_UNICORN = 4;
 }
 
 message ResultReply {

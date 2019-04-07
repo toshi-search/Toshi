@@ -1,3 +1,4 @@
+use std::io::Error;
 use std::net::SocketAddr;
 use std::sync::{Arc, RwLock};
 
@@ -20,6 +21,7 @@ use crate::handle::IndexHandle;
 use crate::handlers::index::AddDocument;
 use crate::index::IndexCatalog;
 use crate::query;
+use crate::query::Query::All;
 
 //pub type RpcClient = client::IndexService<Buffer<Connection<Body>, http::Request<Body>>>;
 
@@ -54,6 +56,7 @@ impl RpcServer {
 
         bind.incoming()
             .for_each(move |sock| {
+                info!("Connection from: {:?}", sock.local_addr().unwrap());
                 let req = h2.serve(sock).map_err(|err| error!("h2 error: {:?}", err));
                 tokio::spawn(req);
                 Ok(())
@@ -61,10 +64,8 @@ impl RpcServer {
             .map_err(|err| error!("Server Error: {:?}", err))
     }
 
-    pub fn create_client(
-        conn: GrpcConn,
-        uri: http::Uri,
-    ) -> impl Future<Item = RpcClient, Error = ConnectError<::std::io::Error>> + Send + 'static {
+    pub fn create_client(conn: GrpcConn, uri: http::Uri) -> impl Future<Item = RpcClient, Error = ConnectError<Error>> + Send {
+        info!("Creating Client to: {:?}", uri);
         let mut connect = Connect::new(conn, Default::default(), DefaultExecutor::current());
 
         connect.make_service(()).map(|c| {
@@ -76,6 +77,10 @@ impl RpcServer {
             };
             client::IndexService::new(buffer)
         })
+    }
+
+    pub fn ok_result() -> ResultReply {
+        RpcServer::create_result(0, "".into())
     }
 
     pub fn create_result(code: i32, message: String) -> ResultReply {
@@ -99,11 +104,13 @@ impl server::IndexService for RpcServer {
     type PlaceReplicaFuture = Box<future::FutureResult<Response<ResultReply>, Status>>;
     type SearchIndexFuture = Box<future::FutureResult<Response<SearchReply>, Status>>;
 
-    fn list_indexes(&mut self, _: Request<ListRequest>) -> Self::ListIndexesFuture {
+    fn list_indexes(&mut self, req: Request<ListRequest>) -> Self::ListIndexesFuture {
         if let Ok(ref cat) = self.catalog.read() {
+            info!("Request From: {:?}", req);
             let indexes = cat.get_collection();
             let lists: Vec<String> = indexes.into_iter().map(|(t, _)| t.to_string()).collect();
             let resp = Response::new(ListReply { indexes: lists });
+            info!("Response: {:?}", resp);
             Box::new(future::finished(resp))
         } else {
             Self::error_response(Code::NotFound, "Could not get lock on index catalog".into())
@@ -114,15 +121,27 @@ impl server::IndexService for RpcServer {
         let inner = request.into_inner();
         if let Ok(ref cat) = self.catalog.read() {
             if let Ok(index) = cat.get_index(&inner.index) {
-                let query: query::Request = serde_json::from_slice(&inner.query).unwrap();
+                let query: query::Request = match serde_json::from_slice(&inner.query) {
+                    Ok(query::Request {
+                        query: None,
+                        ref aggs,
+                        limit,
+                    }) => query::Request::new(Some(All), aggs.clone(), limit),
+                    Ok(v) => v,
+                    Err(e) => return Self::error_response(Code::Internal, e.to_string()),
+                };
+
                 info!("QUERY = {:?}", query);
+
                 match index.search_index(query) {
                     Ok(query_results) => {
+                        info!("Query Response = {:?}", query_results);
                         let query_bytes: Vec<u8> = serde_json::to_vec(&query_results).unwrap();
-                        let result = Some(RpcServer::create_result(0, "".into()));
+                        let result = Some(RpcServer::ok_result());
                         Box::new(future::finished(Response::new(RpcServer::create_search_reply(result, query_bytes))))
                     }
                     Err(e) => {
+                        info!("Query Response = {:?}", e);
                         let result = Some(RpcServer::create_result(1, e.to_string()));
                         Box::new(future::finished(Response::new(RpcServer::create_search_reply(result, vec![]))))
                     }
@@ -145,8 +164,7 @@ impl server::IndexService for RpcServer {
                 let ip = cat.base_path().clone();
                 if let Ok(new_index) = IndexCatalog::create_from_managed(ip, &index.clone(), schema) {
                     if cat.add_index(index.clone(), new_index).is_ok() {
-                        let result = RpcServer::create_result(0, "".into());
-                        Box::new(future::finished(Response::new(result)))
+                        Box::new(future::finished(Response::new(RpcServer::ok_result())))
                     } else {
                         Self::error_response(Code::Internal, format!("Insert: {} failed", index.clone()))
                     }
@@ -167,8 +185,7 @@ impl server::IndexService for RpcServer {
             if let Ok(idx) = cat.get_index(&index) {
                 if let Ok(doc) = serde_json::from_slice::<AddDocument>(&document) {
                     if idx.add_document(doc).is_ok() {
-                        let result = RpcServer::create_result(0, "".into());
-                        Box::new(future::finished(Response::new(result)))
+                        Box::new(future::finished(Response::new(RpcServer::ok_result())))
                     } else {
                         Self::error_response(Code::Internal, format!("Add Document Failed: {}", index))
                     }

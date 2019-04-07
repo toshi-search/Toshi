@@ -17,7 +17,7 @@ use crate::cluster::shard::Shard;
 use crate::cluster::ClusterError;
 use crate::{error::Error, Result};
 
-pub const SERVICE_NAME: &'static str = "toshi/";
+pub const SERVICE_NAME: &str = "toshi/";
 
 #[derive(Serialize, Deserialize)]
 pub struct NodeData {
