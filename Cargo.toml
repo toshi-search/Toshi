@@ -52,6 +52,7 @@ hostname           = "^0.1"
 base64             = "^0.10"
 crossbeam          = "^0.7"
 hashbrown          = "^0.2"
+rand               = { version = "^0.6", features = ["log"] }
 serde              = { version = "^1.0", features = ["derive"] }
 clap               = { version = "^2.32", features = ["color"] }
 uuid               = { version = "^0.7", features = ["v4"] }
