@@ -2369,7 +2369,7 @@ dependencies = [
  "tower-h2 0.1.0 (git+https://github.com/tower-rs/tower-h2)",
  "tower-http 0.1.0 (git+https://github.com/tower-rs/tower-http)",
  "tower-service 0.2.0 (git+https://github.com/tower-rs/tower)",
- "tower-web 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tower-web 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "uuid 0.7.4 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -2637,7 +2637,7 @@ dependencies = [
 
 [[package]]
 name = "tower-web"
-version = "0.3.6"
+version = "0.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "atoi 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3186,7 +3186,7 @@ dependencies = [
 "checksum tower-service 0.2.0 (git+https://github.com/tower-rs/tower)" = "<none>"
 "checksum tower-timeout 0.1.0 (git+https://github.com/tower-rs/tower)" = "<none>"
 "checksum tower-util 0.1.0 (git+https://github.com/tower-rs/tower)" = "<none>"
-"checksum tower-web 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)" = "bfb497b5eab0dfca6e9b5c3313e59ea027871f1c6496e0f55fef9585be9b3f8b"
+"checksum tower-web 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)" = "f38f4e9aa8add743a8b66a35d497a2703710a54f65da709baa3fd98ddaa7eac2"
 "checksum tower-web-macros 0.3.4 (registry+https://github.com/rust-lang/crates.io-index)" = "82cff135f305971f22457aa9521afd23c319c73a64ef893881a8a6709697fa0d"
 "checksum try-lock 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "e604eb7b43c06650e854be16a2a03155743d3752dd1c943f6829e26b7a36e382"
 "checksum typenum 1.10.0 (registry+https://github.com/rust-lang/crates.io-index)" = "612d636f949607bdf9b123b4a6f6d966dedf3ff669f7f045890d3a4a73948169"
