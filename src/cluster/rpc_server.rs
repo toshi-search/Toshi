@@ -8,7 +8,7 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::prelude::*;
 use tokio_executor::DefaultExecutor;
 use tower::MakeService;
-use tower_add_origin::{AddOrigin, Builder};
+use tower_request_modifier::{Builder, RequestModifier};
 use tower_buffer::Buffer;
 use tower_grpc::{BoxBody, Code, Request, Response, Status};
 use tower_h2::client::{Connect, ConnectError, Connection};
@@ -25,7 +25,7 @@ use crate::query::Query::All;
 
 //pub type RpcClient = client::IndexService<Buffer<Connection<Body>, http::Request<Body>>>;
 
-pub type Buf = Buffer<AddOrigin<Connection<TcpStream, DefaultExecutor, BoxBody>>, http::Request<BoxBody>>;
+pub type Buf = Buffer<RequestModifier<Connection<TcpStream, DefaultExecutor, BoxBody>, BoxBody>, http::Request<BoxBody>>;
 pub type RpcClient = client::IndexService<Buf>;
 
 /// RPC Services should "ideally" work on only local indexes, they shouldn't be responsible for
@@ -70,7 +70,7 @@ impl RpcServer {
 
         connect.make_service(()).map(|c| {
             let uri = uri;
-            let connection = Builder::new().uri(uri).build(c).unwrap();
+            let connection = Builder::new().set_origin(uri).build(c).unwrap();
             let buffer = match Buffer::new(connection, 128) {
                 Ok(b) => b,
                 _ => panic!("asdf"),
