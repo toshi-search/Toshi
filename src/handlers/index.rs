@@ -1,10 +1,15 @@
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
+use futures::future::{Either, Future};
+use futures::stream::{futures_unordered, Stream};
 use serde::{Deserialize, Serialize};
 use tantivy::schema::*;
 use tantivy::Index;
+use tower_grpc::Request;
 use tower_web::*;
+
+use toshi_proto::cluster_rpc::*;
 
 use crate::cluster::rpc_server::RpcClient;
 use crate::cluster::RPCError;
@@ -12,10 +17,6 @@ use crate::error::Error;
 use crate::handle::IndexHandle;
 use crate::handlers::CreatedResponse;
 use crate::index::IndexCatalog;
-use futures::stream::*;
-use futures::Future;
-use toshi_proto::cluster_rpc::*;
-use tower_grpc::Request;
 
 #[derive(Extract, Deserialize)]
 pub struct SchemaBody(Schema);
@@ -36,13 +37,13 @@ pub struct DocsAffected {
     pub docs_affected: u64,
 }
 
-#[derive(Debug, Extract, Deserialize)]
+#[derive(Debug, Clone, Extract, Serialize, Deserialize)]
 pub struct IndexOptions {
     #[serde(default)]
     pub commit: bool,
 }
 
-#[derive(Extract, Deserialize)]
+#[derive(Debug, Clone, Extract, Serialize, Deserialize)]
 pub struct AddDocument {
     pub options: Option<IndexOptions>,
     pub document: serde_json::Value,
@@ -116,6 +117,20 @@ impl IndexHandler {
             })
             .map_err(|e| e.into())
     }
+
+    fn inner_add(&self, body: AddDocument, index: String) -> impl Future<Item = CreatedResponse, Error = Error> + Send {
+        match self.catalog.write() {
+            Ok(cat) => {
+                let tasks = vec![
+                    Either::A(cat.add_local_document(&index, body.clone())),
+                    Either::B(cat.add_remote_document(&index, body.clone())),
+                ];
+
+                futures_unordered(tasks).collect().map(|_| CreatedResponse)
+            }
+            Err(_) => panic!(":("),
+        }
+    }
 }
 
 impl_web! {
@@ -147,10 +162,11 @@ impl_web! {
 
 #[cfg(test)]
 mod tests {
-    use crate::handlers::SearchHandler;
-    use crate::index::tests::*;
     use pretty_assertions::assert_eq;
     use tokio::prelude::*;
+
+    use crate::handlers::SearchHandler;
+    use crate::index::tests::*;
 
     use super::*;
 

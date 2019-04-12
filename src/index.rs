@@ -15,6 +15,8 @@ use crate::cluster::remote_handle::RemoteIndex;
 use crate::cluster::rpc_server::{RpcClient, RpcServer};
 use crate::cluster::{GrpcConn, RPCError};
 use crate::handle::{IndexHandle, LocalIndex};
+use crate::handlers::index::AddDocument;
+use crate::handlers::CreatedResponse;
 use crate::query::Request;
 use crate::results::*;
 use crate::settings::Settings;
@@ -150,6 +152,13 @@ impl IndexCatalog {
         self.local_handles.get(name).ok_or_else(|| Error::UnknownIndex(name.into()))
     }
 
+    pub fn get_owned_index(&self, name: &str) -> Result<LocalIndex> {
+        self.local_handles
+            .get(name)
+            .cloned()
+            .ok_or_else(|| Error::UnknownIndex(name.into()))
+    }
+
     pub fn get_remote_index(&self, name: &str) -> Result<RemoteIndex> {
         self.get_remote_collection()
             .lock()?
@@ -223,8 +232,25 @@ impl IndexCatalog {
                     let doc: Vec<SearchResults> = sr.iter().map(|r| serde_json::from_slice(&r.doc).unwrap()).collect();
                     Ok(doc)
                 })
-                .map_err(|_| Error::IOError("An error occured with the query".into()))
+                .map_err(|_| Error::IOError("An error occurred with the query".into()))
         })
+    }
+
+    pub fn add_remote_document(&self, index: &str, doc: AddDocument) -> impl Future<Item = CreatedResponse, Error = Error> + Send {
+        self.get_remote_index(index)
+            .into_future()
+            .and_then(move |hand| {
+                hand.add_document(doc)
+                    .map_err(|_| Error::IOError("An error occurred with the query".into()))
+            })
+            .map(|_| CreatedResponse)
+    }
+
+    pub fn add_local_document(&self, index: &str, doc: AddDocument) -> impl Future<Item = CreatedResponse, Error = Error> + Send {
+        self.get_owned_index(index)
+            .into_future()
+            .and_then(move |hand| hand.add_document(doc))
+            .map(|_| CreatedResponse)
     }
 
     pub fn clear(&mut self) {

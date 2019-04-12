@@ -45,6 +45,20 @@ pub struct LocalIndex {
     name: String,
 }
 
+impl Clone for LocalIndex {
+    fn clone(&self) -> Self {
+        Self {
+            index: self.index.clone(),
+            writer: Arc::clone(&self.writer),
+            reader: self.reader.clone(),
+            current_opstamp: AtomicUsize::new(self.current_opstamp.load(Ordering::Relaxed)),
+            deleted_docs: self.deleted_docs,
+            settings: self.settings.clone(),
+            name: self.name.clone(),
+        }
+    }
+}
+
 impl PartialEq for LocalIndex {
     fn eq(&self, other: &LocalIndex) -> bool {
         self.name == *other.name
