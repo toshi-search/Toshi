@@ -17,6 +17,10 @@ use crate::error::Error;
 use crate::handle::IndexHandle;
 use crate::handlers::CreatedResponse;
 use crate::index::IndexCatalog;
+use futures::stream::*;
+use futures::Future;
+use toshi_proto::cluster_rpc::*;
+use tower_grpc::Request;
 
 #[derive(Extract, Deserialize)]
 pub struct SchemaBody(Schema);
