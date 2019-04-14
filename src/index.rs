@@ -4,25 +4,27 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
+use futures::stream::{futures_unordered, Stream};
 use hashbrown::HashMap;
+use http::uri::Scheme;
 use http::Uri;
 use tantivy::directory::MmapDirectory;
 use tantivy::schema::Schema;
 use tantivy::Index;
 use tokio::prelude::*;
 
+use toshi_proto::cluster_rpc::*;
+
 use crate::cluster::remote_handle::RemoteIndex;
 use crate::cluster::rpc_server::{RpcClient, RpcServer};
 use crate::cluster::{GrpcConn, RPCError};
 use crate::handle::{IndexHandle, LocalIndex};
-use crate::handlers::index::AddDocument;
+use crate::handlers::index::{AddDocument, SchemaBody};
 use crate::handlers::CreatedResponse;
 use crate::query::Request;
 use crate::results::*;
 use crate::settings::Settings;
 use crate::{error::Error, Result};
-use http::uri::Scheme;
-use toshi_proto::cluster_rpc::*;
 
 pub struct IndexCatalog {
     pub settings: Settings,
@@ -219,6 +221,46 @@ impl IndexCatalog {
             .map(move |(x, r)| (x, r.indexes))
     }
 
+    fn create_remote_stream(&self, index: String, schema: Schema) -> impl Stream<Item = Vec<RpcClient>, Error = RPCError> + Send {
+        let nodes = self.settings.experimental_features.nodes.clone();
+
+        let futs = nodes.into_iter().map(move |n| {
+            let c = IndexCatalog::create_client(n);
+            let schema = schema.clone();
+            let index = index.clone();
+            c.and_then(move |mut client| {
+                let client_clone = client.clone();
+                let s = serde_json::to_vec(&schema).unwrap();
+                let request = tower_grpc::Request::new(PlaceRequest { index, schema: s });
+                client.place_index(request).map(move |_| vec![client_clone]).map_err(|e| e.into())
+            })
+        });
+        futures_unordered(futs)
+    }
+
+    pub fn create_local_index<'a>(
+        &'a mut self,
+        index: String,
+        schema: SchemaBody,
+    ) -> impl Future<Item = CreatedResponse, Error = Error> + Send + 'a {
+        let new_index = IndexCatalog::create_from_managed(self.base_path.clone(), &index, schema.0.clone());
+        future::result(new_index).and_then(move |idx| self.add_index(index.into(), idx).map(|_| CreatedResponse))
+    }
+
+    pub fn create_remote_index<'a>(
+        &'a mut self,
+        index: String,
+        schema: SchemaBody,
+    ) -> impl Future<Item = CreatedResponse, Error = Error> + Send + 'a {
+        let c = self.create_remote_stream(index.clone(), schema.0).concat2();
+
+        c.map(move |clients| {
+            self.add_multi_remote_index(index, clients).unwrap();
+            CreatedResponse
+        })
+        .map_err(|e| e.into())
+    }
+
     pub fn search_local_index(&self, index: &str, search: Request) -> impl Future<Item = Vec<SearchResults>, Error = Error> + Send {
         self.get_index(index)
             .and_then(move |hand| hand.search_index(search).map(|r| vec![r]))
@@ -263,6 +305,8 @@ impl IndexCatalog {
 pub mod tests {
     use std::sync::{Arc, RwLock};
 
+    use failure::Fail;
+    use serde::{Deserialize, Serialize};
     use tantivy::doc;
     use tantivy::schema::*;
 
@@ -273,9 +317,6 @@ pub mod tests {
         let catalog = IndexCatalog::with_index(name.into(), idx).unwrap();
         Arc::new(RwLock::new(catalog))
     }
-
-    use failure::Fail;
-    use serde::{Deserialize, Serialize};
 
     #[derive(Debug, Deserialize, Serialize)]
     struct Line {

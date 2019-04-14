@@ -23,7 +23,7 @@ use toshi_proto::cluster_rpc::*;
 use tower_grpc::Request;
 
 #[derive(Extract, Deserialize)]
-pub struct SchemaBody(Schema);
+pub struct SchemaBody(pub Schema);
 
 #[derive(Debug, Extract, Deserialize)]
 pub struct DeleteDoc {

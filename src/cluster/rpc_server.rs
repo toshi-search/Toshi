@@ -23,8 +23,6 @@ use crate::index::IndexCatalog;
 use crate::query;
 use crate::query::Query::All;
 
-//pub type RpcClient = client::IndexService<Buffer<Connection<Body>, http::Request<Body>>>;
-
 pub type Buf = Buffer<RequestModifier<Connection<TcpStream, DefaultExecutor, BoxBody>, BoxBody>, http::Request<BoxBody>>;
 pub type RpcClient = client::IndexService<Buf>;
 
@@ -44,14 +42,13 @@ impl Clone for RpcServer {
 }
 
 impl RpcServer {
-    pub fn serve(addr: SocketAddr, catalog: Arc<RwLock<IndexCatalog>>) -> impl Future<Item = (), Error = ()> {
+    pub fn serve(addr: SocketAddr, catalog: Arc<RwLock<IndexCatalog>>) -> impl Future<Item = (), Error = ()> + Send {
         let service = server::IndexServiceServer::new(RpcServer { catalog });
         let executor = DefaultExecutor::current();
         info!("Binding on port: {:?}", addr);
         let bind = TcpListener::bind(&addr).unwrap_or_else(|_| panic!("Failed to bind to host: {:?}", addr));
 
         info!("Bound to: {:?}", &bind.local_addr().unwrap());
-        //let mut hyp = Server::new(service);
         let mut h2 = Server::new(service, Default::default(), executor);
 
         bind.incoming()

@@ -1,6 +1,7 @@
 use std::hash::{Hash, Hasher};
 
 use log::info;
+use rand::prelude::*;
 use tokio::prelude::*;
 use tower_grpc::Request as TowerRequest;
 
@@ -91,7 +92,8 @@ impl IndexHandle for RemoteIndex {
         let name = self.name.clone();
         let clients = self.remotes.clone();
         info!("REQ = {:?}", add);
-        let fut = clients.into_iter().map(move |mut client| {
+        let mut random = thread_rng();
+        let fut = clients.into_iter().choose(&mut random).map(move |mut client| {
             let bytes = match serde_json::to_vec(&add) {
                 Ok(v) => v,
                 Err(_) => Vec::new(),
