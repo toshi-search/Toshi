@@ -87,7 +87,6 @@ pub mod tests {
         let search = Request::new(Some(term_query), None, 10);
         run_query(search, "test_index")
             .map(|q| {
-                dbg!(&q);
                 assert_eq!(q.hits, 3);
             })
             .wait();
@@ -102,7 +101,6 @@ pub mod tests {
         let search = Request::new(Some(term_query), None, 10);
         run_query(search, "test_index")
             .map(|q| {
-                dbg!(&q);
                 assert_eq!(q.hits, 3);
             })
             .wait();
@@ -119,7 +117,6 @@ pub mod tests {
         handler
             .doc_search(req, "asdf".into())
             .map_err(|err| assert_eq!(err.to_string(), "Unknown Index: \'asdf\' does not exist"))
-            .map(|d| dbg!(d))
             .wait();
         Ok(())
     }
@@ -134,7 +131,6 @@ pub mod tests {
         handler
             .doc_search(req, "test_index".into())
             .map_err(|err| {
-                dbg!(&err.to_string());
                 assert_eq!(err.to_string(), "Query Parse Error: invalid digit found in string");
             })
             .wait();
@@ -259,7 +255,6 @@ pub mod tests {
                 "must_not": [ {"range": {"test_i64": { "gt": 2017 } } } ] } } }"#;
 
         let query = serde_json::from_str::<Request>(test_json)?;
-        dbg!(&query);
         let docs = run_query(query, "test_index")
             .map(|results| assert_eq!(results.hits, 2))
             .map_err(|_| ());

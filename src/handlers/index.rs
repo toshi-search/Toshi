@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::convert::Into;
 use std::sync::{Arc, RwLock};
 
 use futures::future::{Either, Future};
@@ -9,7 +10,7 @@ use tantivy::Index;
 use tower_grpc::Request;
 use tower_web::*;
 
-use toshi_proto::cluster_rpc::*;
+use toshi_proto::cluster_rpc::PlaceRequest;
 
 use crate::cluster::rpc_server::RpcClient;
 use crate::cluster::RPCError;
@@ -18,7 +19,7 @@ use crate::handle::IndexHandle;
 use crate::handlers::CreatedResponse;
 use crate::index::IndexCatalog;
 
-#[derive(Extract, Deserialize)]
+#[derive(Extract, Deserialize, Clone)]
 pub struct SchemaBody(pub Schema);
 
 #[derive(Debug, Extract, Deserialize)]
@@ -83,7 +84,6 @@ impl IndexHandler {
 
     fn create_remote_index(&self, index: String, schema: Schema) -> impl Stream<Item = Vec<RpcClient>, Error = RPCError> + Send {
         let nodes = self.catalog.read().unwrap().settings.experimental_features.nodes.clone();
-        dbg!(&nodes);
         let futs = nodes.into_iter().map(move |n| {
             let c = IndexCatalog::create_client(n.clone());
             let index = index.clone();
@@ -95,7 +95,7 @@ impl IndexHandler {
                     index: index.clone(),
                     schema: s,
                 });
-                client.place_index(request).map(move |_| vec![client_clone]).map_err(|e| e.into())
+                client.place_index(request).map(move |_| vec![client_clone]).map_err(Into::into)
             })
         });
         futures_unordered(futs)
@@ -105,7 +105,7 @@ impl IndexHandler {
         let cat_clone = Arc::clone(&self.catalog);
         let idx_clone = index.clone();
         {
-            let base_path = cat_clone.try_read().unwrap().base_path().clone();
+            let base_path = cat_clone.read().unwrap().base_path().clone();
             let new_index = IndexCatalog::create_from_managed(base_path, &index, body.0.clone()).unwrap();
             IndexHandler::add_index(&cat_clone, index.clone(), new_index).unwrap();
         }
@@ -115,20 +115,27 @@ impl IndexHandler {
                 IndexHandler::add_remote_index(&cat_clone, idx_clone, clients).unwrap();
                 CreatedResponse
             })
-            .map_err(|e| e.into())
+            .map_err(Into::into)
     }
 
     fn inner_add(&self, body: AddDocument, index: String) -> impl Future<Item = CreatedResponse, Error = Error> + Send {
-        match self.catalog.write() {
+        match self.catalog.read() {
             Ok(cat) => {
                 let tasks = vec![
                     Either::A(cat.add_local_document(&index, body.clone())),
                     Either::B(cat.add_remote_document(&index, body.clone())),
                 ];
 
-                futures_unordered(tasks).collect().map(|_| CreatedResponse)
+                futures_unordered(tasks)
+                    .then(|t| match t {
+                        Ok(s) => Ok(s),
+                        Err(Error::UnknownIndex(_)) => Ok(CreatedResponse),
+                        Err(e) => Err(e),
+                    })
+                    .collect()
+                    .map(|_| CreatedResponse)
             }
-            Err(_) => panic!(":("),
+            _ => panic!(":("),
         }
     }
 }
@@ -143,13 +150,8 @@ impl_web! {
 
         #[put("/:index")]
         #[content_type("application/json")]
-        pub fn add(&self, body: AddDocument, index: String) -> Result<CreatedResponse, Error> {
-            if let Ok(ref index_lock) = self.catalog.write() {
-                if let Ok(ref index_handle) = index_lock.get_index(&index) {
-                    index_handle.add_document(body)?;
-                }
-            }
-            Ok(CreatedResponse)
+        pub fn add(&self, body: AddDocument, index: String) -> impl Future<Item = CreatedResponse, Error = Error> + Send {
+            self.inner_add(body, index)
         }
 
         #[put("/:index/_create")]
@@ -194,12 +196,12 @@ mod tests {
     fn test_doc_create() {
         let shared_cat = create_test_catalog("test_index");
         let body: AddDocument = serde_json::from_str(
-            r#" {"options": {"commit": true}, "document": {"test_text": "Babbaboo!", "test_u64": 10, "test_i64": -10} }"#,
+            r#" {"options": {"commit": true }, "document": {"test_text": "Babbaboo!", "test_u64": 10, "test_i64": -10} }"#,
         )
         .unwrap();
 
         let handler = IndexHandler::new(Arc::clone(&shared_cat));
-        let req = handler.add(body, "test_index".into());
+        let req = handler.add(body, "test_index".into()).wait();
 
         assert_eq!(req.is_ok(), true);
     }
@@ -228,7 +230,7 @@ mod tests {
             document: bad_json,
             options: None,
         };
-        let req = handler.add(add_doc, "test_index".into());
+        let req = handler.add(add_doc, "test_index".into()).wait();
         assert_eq!(req.is_err(), true);
     }
 }

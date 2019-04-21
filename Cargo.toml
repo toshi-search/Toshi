@@ -61,7 +61,6 @@ systemstat             = { git = "https://github.com/toshi-search/systemstat" }
 [dev-dependencies]
 remove_dir_all = "0.5.1"
 pretty_assertions = "0.6.1"
-csv = "1"
 
 [profile.release]
 opt-level = 3

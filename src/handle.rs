@@ -39,7 +39,7 @@ pub struct LocalIndex {
     index: Index,
     writer: Arc<Mutex<IndexWriter>>,
     reader: IndexReader,
-    current_opstamp: AtomicUsize,
+    current_opstamp: Arc<AtomicUsize>,
     deleted_docs: u64,
     settings: Settings,
     name: String,
@@ -51,7 +51,7 @@ impl Clone for LocalIndex {
             index: self.index.clone(),
             writer: Arc::clone(&self.writer),
             reader: self.reader.clone(),
-            current_opstamp: AtomicUsize::new(self.current_opstamp.load(Ordering::Relaxed)),
+            current_opstamp: Arc::clone(&self.current_opstamp),
             deleted_docs: self.deleted_docs,
             settings: self.settings.clone(),
             name: self.name.clone(),
@@ -113,7 +113,7 @@ impl IndexHandle for LocalIndex {
                     searcher.search(&*bool_query, &collector)?
                 }
                 Query::Range(range) => {
-                    debug!("{:#?}", range);
+                    debug!("{:?}", range);
                     let range_query = range.create_query(&schema)?;
                     debug!("{:?}", range_query);
                     searcher.search(&*range_query, &collector)?
@@ -122,7 +122,7 @@ impl IndexHandle for LocalIndex {
                     let fields: Vec<Field> = schema.fields().iter().filter_map(|e| schema.get_field(e.name())).collect();
                     let query_parser = QueryParser::for_index(&self.index, fields);
                     let query = query_parser.parse_query(&raw)?;
-                    debug!("{:#?}", query);
+                    debug!("{:?}", query);
                     searcher.search(&*query, &collector)?
                 }
                 Query::All => searcher.search(&AllQuery, &collector)?,
@@ -149,6 +149,8 @@ impl IndexHandle for LocalIndex {
             if opts.commit {
                 index_writer.commit().unwrap();
                 self.set_opstamp(0);
+            } else {
+                self.set_opstamp(self.get_opstamp() + 1);
             }
         } else {
             self.set_opstamp(self.get_opstamp() + 1);
@@ -183,7 +185,7 @@ impl LocalIndex {
     pub fn new(index: Index, settings: Settings, name: &str) -> Result<Self> {
         let i = index.writer(settings.writer_memory)?;
         i.set_merge_policy(settings.get_merge_policy());
-        let current_opstamp = AtomicUsize::new(0);
+        let current_opstamp = Arc::new(AtomicUsize::new(0));
         let writer = Arc::new(Mutex::new(i));
         let reader = index.reader_builder().reload_policy(ReloadPolicy::OnCommit).try_into()?;
         Ok(Self {
@@ -214,10 +216,12 @@ impl LocalIndex {
     }
 
     pub fn get_opstamp(&self) -> usize {
-        self.current_opstamp.load(Ordering::Relaxed)
+        log::info!("Got the opstamp");
+        self.current_opstamp.load(Ordering::SeqCst)
     }
 
     pub fn set_opstamp(&self, opstamp: usize) {
-        self.current_opstamp.store(opstamp, Ordering::Relaxed)
+        log::info!("Setting stamp to {}", opstamp);
+        self.current_opstamp.store(opstamp, Ordering::SeqCst)
     }
 }
