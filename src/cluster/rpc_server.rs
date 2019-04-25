@@ -8,11 +8,11 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::prelude::*;
 use tokio_executor::DefaultExecutor;
 use tower::MakeService;
-use tower_add_origin::{AddOrigin, Builder};
 use tower_buffer::Buffer;
 use tower_grpc::{BoxBody, Code, Request, Response, Status};
 use tower_h2::client::{Connect, ConnectError, Connection};
 use tower_h2::Server;
+use tower_request_modifier::{Builder, RequestModifier};
 
 use toshi_proto::cluster_rpc::*;
 
@@ -23,9 +23,7 @@ use crate::index::IndexCatalog;
 use crate::query;
 use crate::query::Query::All;
 
-//pub type RpcClient = client::IndexService<Buffer<Connection<Body>, http::Request<Body>>>;
-
-pub type Buf = Buffer<AddOrigin<Connection<TcpStream, DefaultExecutor, BoxBody>>, http::Request<BoxBody>>;
+pub type Buf = Buffer<RequestModifier<Connection<TcpStream, DefaultExecutor, BoxBody>, BoxBody>, http::Request<BoxBody>>;
 pub type RpcClient = client::IndexService<Buf>;
 
 /// RPC Services should "ideally" work on only local indexes, they shouldn't be responsible for
@@ -44,14 +42,13 @@ impl Clone for RpcServer {
 }
 
 impl RpcServer {
-    pub fn serve(addr: SocketAddr, catalog: Arc<RwLock<IndexCatalog>>) -> impl Future<Item = (), Error = ()> {
+    pub fn serve(addr: SocketAddr, catalog: Arc<RwLock<IndexCatalog>>) -> impl Future<Item = (), Error = ()> + Send {
         let service = server::IndexServiceServer::new(RpcServer { catalog });
         let executor = DefaultExecutor::current();
         info!("Binding on port: {:?}", addr);
         let bind = TcpListener::bind(&addr).unwrap_or_else(|_| panic!("Failed to bind to host: {:?}", addr));
 
         info!("Bound to: {:?}", &bind.local_addr().unwrap());
-        //let mut hyp = Server::new(service);
         let mut h2 = Server::new(service, Default::default(), executor);
 
         bind.incoming()
@@ -70,7 +67,7 @@ impl RpcServer {
 
         connect.make_service(()).map(|c| {
             let uri = uri;
-            let connection = Builder::new().uri(uri).build(c).unwrap();
+            let connection = Builder::new().set_origin(uri).build(c).unwrap();
             let buffer = match Buffer::new(connection, 128) {
                 Ok(b) => b,
                 _ => panic!("asdf"),

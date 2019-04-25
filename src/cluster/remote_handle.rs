@@ -1,10 +1,11 @@
 use std::hash::{Hash, Hasher};
 
 use log::info;
+use rand::prelude::*;
 use tokio::prelude::*;
 use tower_grpc::Request as TowerRequest;
 
-use toshi_proto::cluster_rpc::{ResultReply, SearchReply, SearchRequest};
+use toshi_proto::cluster_rpc::{DocumentRequest, ResultReply, SearchReply, SearchRequest};
 
 use crate::cluster::rpc_server::RpcClient;
 use crate::cluster::RPCError;
@@ -49,7 +50,7 @@ impl RemoteIndex {
 impl IndexHandle for RemoteIndex {
     type SearchResponse = Box<Future<Item = Vec<SearchReply>, Error = RPCError> + Send>;
     type DeleteResponse = Box<Future<Item = ResultReply, Error = RPCError> + Send>;
-    type AddResponse = Box<Future<Item = ResultReply, Error = RPCError> + Send>;
+    type AddResponse = Box<Future<Item = Vec<i32>, Error = RPCError> + Send>;
 
     fn get_name(&self) -> String {
         self.name.clone()
@@ -87,8 +88,33 @@ impl IndexHandle for RemoteIndex {
         Box::new(future::join_all(fut))
     }
 
-    fn add_document(&self, _: AddDocument) -> Self::AddResponse {
-        unimplemented!("All of the mutating calls should probably have some strategy to balance how they distribute documents and knowing where things are")
+    fn add_document(&self, add: AddDocument) -> Self::AddResponse {
+        let name = self.name.clone();
+        let clients = self.remotes.clone();
+        info!("REQ = {:?}", add);
+        let mut random = thread_rng();
+        let fut = clients.into_iter().choose(&mut random).map(move |mut client| {
+            let bytes = match serde_json::to_vec(&add) {
+                Ok(v) => v,
+                Err(_) => Vec::new(),
+            };
+            let req = TowerRequest::new(DocumentRequest {
+                index: name.clone(),
+                document: bytes,
+            });
+            client
+                .place_document(req)
+                .map(|res| {
+                    info!("RESPONSE = {:?}", res);
+                    res.into_inner().code
+                })
+                .map_err(|e| {
+                    info!("ERR = {:?}", e);
+                    e.into()
+                })
+        });
+
+        Box::new(future::join_all(fut))
     }
 
     fn delete_term(&mut self, _: DeleteDoc) -> Self::DeleteResponse {

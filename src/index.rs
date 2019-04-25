@@ -4,23 +4,27 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
+use futures::stream::Stream;
 use hashbrown::HashMap;
+use http::uri::Scheme;
 use http::Uri;
 use tantivy::directory::MmapDirectory;
 use tantivy::schema::Schema;
 use tantivy::Index;
 use tokio::prelude::*;
 
+use toshi_proto::cluster_rpc::*;
+
 use crate::cluster::remote_handle::RemoteIndex;
 use crate::cluster::rpc_server::{RpcClient, RpcServer};
 use crate::cluster::{GrpcConn, RPCError};
 use crate::handle::{IndexHandle, LocalIndex};
+use crate::handlers::index::AddDocument;
+use crate::handlers::CreatedResponse;
 use crate::query::Request;
 use crate::results::*;
 use crate::settings::Settings;
 use crate::{error::Error, Result};
-use http::uri::Scheme;
-use toshi_proto::cluster_rpc::*;
 
 pub struct IndexCatalog {
     pub settings: Settings,
@@ -150,6 +154,13 @@ impl IndexCatalog {
         self.local_handles.get(name).ok_or_else(|| Error::UnknownIndex(name.into()))
     }
 
+    pub fn get_owned_index(&self, name: &str) -> Result<LocalIndex> {
+        self.local_handles
+            .get(name)
+            .cloned()
+            .ok_or_else(|| Error::UnknownIndex(name.into()))
+    }
+
     pub fn get_remote_index(&self, name: &str) -> Result<RemoteIndex> {
         self.get_remote_collection()
             .lock()?
@@ -190,7 +201,7 @@ impl IndexCatalog {
         let host_uri = IndexCatalog::create_host_uri(socket).unwrap();
         let grpc_conn = GrpcConn(socket);
 
-        RpcServer::create_client(grpc_conn.clone(), host_uri).map_err(|e| e.into())
+        RpcServer::create_client(grpc_conn.clone(), host_uri).map_err(Into::into)
     }
 
     pub fn refresh_multiple_nodes(nodes: Vec<String>) -> impl stream::Stream<Item = (RpcClient, Vec<String>), Error = RPCError> {
@@ -205,7 +216,7 @@ impl IndexCatalog {
                 client
                     .list_indexes(tower_grpc::Request::new(ListRequest {}))
                     .map(|resp| (client_clone, resp.into_inner()))
-                    .map_err(|e| e.into())
+                    .map_err(Into::into)
             })
             .map(move |(x, r)| (x, r.indexes))
     }
@@ -223,8 +234,26 @@ impl IndexCatalog {
                     let doc: Vec<SearchResults> = sr.iter().map(|r| serde_json::from_slice(&r.doc).unwrap()).collect();
                     Ok(doc)
                 })
-                .map_err(|_| Error::IOError("An error occured with the query".into()))
+                .map_err(|_| Error::IOError("An error occurred with the query".into()))
         })
+    }
+
+    pub fn add_remote_document(&self, index: &str, doc: AddDocument) -> impl Future<Item = CreatedResponse, Error = Error> + Send {
+        self.get_remote_index(index)
+            .into_future()
+            .and_then(move |hand| {
+                hand.add_document(doc)
+                    .map_err(|_| Error::IOError("An error occurred with the query".into()))
+            })
+            .map(|_| CreatedResponse)
+    }
+
+    pub fn add_local_document(&self, index: &str, doc: AddDocument) -> impl Future<Item = CreatedResponse, Error = Error> + Send {
+        log::info!("{:?}", doc);
+        self.get_owned_index(index)
+            .into_future()
+            .and_then(move |hand| hand.add_document(doc))
+            .map(|_| CreatedResponse)
     }
 
     pub fn clear(&mut self) {
@@ -237,6 +266,8 @@ impl IndexCatalog {
 pub mod tests {
     use std::sync::{Arc, RwLock};
 
+    use failure::Fail;
+    use serde::{Deserialize, Serialize};
     use tantivy::doc;
     use tantivy::schema::*;
 
@@ -248,9 +279,6 @@ pub mod tests {
         Arc::new(RwLock::new(catalog))
     }
 
-    use failure::Fail;
-    use serde::{Deserialize, Serialize};
-
     #[derive(Debug, Deserialize, Serialize)]
     struct Line {
         index: u64,
@@ -259,40 +287,6 @@ pub mod tests {
         artist: String,
         genre: String,
         lyrics: String,
-    }
-
-    #[ignore]
-    #[test]
-    pub fn create_music_index() -> ::std::result::Result<(), Box<::std::error::Error>> {
-        let mut builder = SchemaBuilder::new();
-        builder.add_text_field("lyrics", STORED | TEXT);
-        builder.add_u64_field("index", STORED | INDEXED | FAST);
-        builder.add_text_field("genre", STORED | TEXT);
-        builder.add_u64_field("year", STORED | INDEXED | FAST);
-        builder.add_text_field("artist", STORED | TEXT);
-        builder.add_text_field("song", STORED | TEXT);
-
-        let schema = builder.build();
-        let idx = IndexCatalog::create_from_managed(PathBuf::from("data/"), "rap", schema.clone()).unwrap();
-        let mut writer = idx.writer(30_000_000).unwrap();
-
-        let mut reader = csv::ReaderBuilder::new()
-            .trim(csv::Trim::All)
-            .double_quote(true)
-            .flexible(true)
-            .from_path("D:\\data\\lyrics.csv")?;
-        println!("Writing some csv...");
-        for result in reader.deserialize() {
-            let record: Line = result?;
-            println!("Doc: {:?}", record);
-            let record_json: String = serde_json::to_string(&record).unwrap();
-            let doc: Document = schema.parse_document(&record_json).unwrap();
-            writer.add_document(doc);
-        }
-        println!("Doing a commit...");
-        writer.commit().map_err(|e| e.compat())?;
-
-        Ok(())
     }
 
     pub fn create_test_index() -> Index {
@@ -314,28 +308,4 @@ pub mod tests {
 
         idx
     }
-
-    //    #[test]
-    //    #[ignore]
-    //    #[allow(unused_must_use)]
-    //    pub fn test_remote_index_refresh() {
-    //        let mut rt = Runtime::new().unwrap();
-    //        let socket_addr: SocketAddr = "127.0.0.1:8081".parse().unwrap();
-    //        let cat = create_test_catalog("test_index");
-    //        let service = RpcServer::get_service(socket_addr, cat);
-    //        let nodes = "127.0.0.1:8081".to_string();
-    //        let refresh = IndexCatalog::refresh_multiple_nodes(vec![nodes]);
-    //        let reff = refresh
-    //            .for_each(|i| {
-    //                for idx in i.1 {
-    //                    println!("IDX={}", idx);
-    //                }
-    //                future::ok(())
-    //            })
-    //            .map_err(|_| ());
-    //        let s = service.select(reff);
-    //
-    //        rt.block_on(s);
-    //        rt.shutdown_on_idle();
-    //    }
 }

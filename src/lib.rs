@@ -11,4 +11,4 @@ pub mod settings;
 pub mod shutdown;
 pub mod support;
 
-pub type Result<T> = std::result::Result<T, error::Error>;
+pub type Result<T> = std::result::Result<T, crate::error::Error>;

@@ -81,71 +81,69 @@ pub mod tests {
     }
 
     #[test]
-    fn test_term_query() {
+    fn test_term_query() -> Result<(), ()> {
         let term = KeyValue::new("test_text".into(), "document".into());
         let term_query = Query::Exact(ExactTerm::new(term));
         let search = Request::new(Some(term_query), None, 10);
         run_query(search, "test_index")
             .map(|q| {
-                dbg!(&q);
                 assert_eq!(q.hits, 3);
             })
-            .wait()
-            .unwrap();
+            .wait();
+        Ok(())
     }
 
     #[test]
-    fn test_phrase_query() {
+    fn test_phrase_query() -> Result<(), ()> {
         let terms = TermPair::new(vec!["test".into(), "document".into()], None);
         let phrase = KeyValue::new("test_text".into(), terms);
         let term_query = Query::Phrase(PhraseQuery::new(phrase));
         let search = Request::new(Some(term_query), None, 10);
         run_query(search, "test_index")
             .map(|q| {
-                dbg!(&q);
                 assert_eq!(q.hits, 3);
             })
-            .wait()
-            .unwrap();
+            .wait();
+        Ok(())
     }
 
     #[test]
     #[allow(unused_must_use)]
-    fn test_wrong_index_error() {
+    fn test_wrong_index_error() -> Result<(), serde_json::Error> {
         let cat = create_test_catalog("test_index");
         let handler = SearchHandler::new(Arc::clone(&cat));
         let body = r#"{ "query" : { "raw": "test_text:\"document\"" } }"#;
-        let req: Request = serde_json::from_str(body).unwrap();
+        let req: Request = serde_json::from_str(body)?;
         handler
             .doc_search(req, "asdf".into())
             .map_err(|err| assert_eq!(err.to_string(), "Unknown Index: \'asdf\' does not exist"))
-            .map(|d| dbg!(d))
             .wait();
+        Ok(())
     }
 
     #[test]
     #[allow(unused)]
-    fn test_bad_raw_query_syntax() {
+    fn test_bad_raw_query_syntax() -> Result<(), serde_json::Error> {
         let cat = create_test_catalog("test_index");
         let handler = SearchHandler::new(Arc::clone(&cat));
         let body = r#"{ "query" : { "raw": "asd*(@sq__" } }"#;
-        let req: Request = serde_json::from_str(body).unwrap();
+        let req: Request = serde_json::from_str(body)?;
         handler
             .doc_search(req, "test_index".into())
             .map_err(|err| {
-                dbg!(&err.to_string());
                 assert_eq!(err.to_string(), "Query Parse Error: invalid digit found in string");
             })
             .wait();
+        Ok(())
     }
 
     #[test]
-    fn test_unindexed_field() {
+    fn test_unindexed_field() -> Result<(), serde_json::Error> {
         let cat = create_test_catalog("test_index");
         let handler = SearchHandler::new(Arc::clone(&cat));
         let body = r#"{ "query" : { "raw": "test_unindex:asdf" } }"#;
 
-        let req: Request = serde_json::from_str(body).unwrap();
+        let req: Request = serde_json::from_str(body)?;
         let docs = handler
             .doc_search(req, "test_index".into())
             .map_err(|err| match err {
@@ -155,14 +153,15 @@ pub mod tests {
             .map(|_| ());
 
         tokio::run(docs);
+        Ok(())
     }
 
     #[test]
-    fn test_bad_term_field_syntax() {
+    fn test_bad_term_field_syntax() -> Result<(), serde_json::Error> {
         let cat = create_test_catalog("test_index");
         let handler = SearchHandler::new(Arc::clone(&cat));
         let body = r#"{ "query" : { "term": { "asdf": "Document" } } }"#;
-        let req: Request = serde_json::from_str(body).unwrap();
+        let req: Request = serde_json::from_str(body)?;
         let docs = handler
             .doc_search(req, "test_index".into())
             .map_err(|err| match err {
@@ -172,10 +171,11 @@ pub mod tests {
             .map(|_| ());
 
         tokio::run(docs);
+        Ok(())
     }
 
     #[test]
-    fn test_raw_query() {
+    fn test_raw_query() -> Result<(), serde_json::Error> {
         let body = r#"test_text:"Duckiment""#;
         let req = Request::new(Some(Query::Raw { raw: body.into() }), None, 10);
         let docs = run_query(req, "test_index")
@@ -186,10 +186,11 @@ pub mod tests {
             .map_err(|_| ());
 
         tokio::run(docs);
+        Ok(())
     }
 
     #[test]
-    fn test_fuzzy_term_query() {
+    fn test_fuzzy_term_query() -> Result<(), serde_json::Error> {
         let fuzzy = KeyValue::new("test_text".into(), FuzzyTerm::new("document".into(), 0, false));
         let term_query = Query::Fuzzy(FuzzyQuery::new(fuzzy));
         let search = Request::new(Some(term_query), None, 10);
@@ -202,12 +203,13 @@ pub mod tests {
             .map_err(|_| ());
 
         tokio::run(query);
+        Ok(())
     }
 
     #[test]
-    fn test_inclusive_range_query() {
+    fn test_inclusive_range_query() -> Result<(), serde_json::Error> {
         let body = r#"{ "query" : { "range" : { "test_i64" : { "gte" : 2012, "lte" : 2015 } } } }"#;
-        let req: Request = serde_json::from_str(body).unwrap();
+        let req: Request = serde_json::from_str(body)?;
         let docs = run_query(req, "test_index")
             .map(|result| {
                 assert_eq!(result.hits as usize, result.docs.len());
@@ -216,12 +218,13 @@ pub mod tests {
             .map_err(|_| ());
 
         tokio::run(docs);
+        Ok(())
     }
 
     #[test]
-    fn test_exclusive_range_query() {
+    fn test_exclusive_range_query() -> Result<(), serde_json::Error> {
         let body = r#"{ "query" : { "range" : { "test_i64" : { "gt" : 2012, "lt" : 2015 } } } }"#;
-        let req: Request = serde_json::from_str(&body).unwrap();
+        let req: Request = serde_json::from_str(&body)?;
         let docs = run_query(req, "test_index")
             .map(|results| {
                 assert_eq!(results.hits as usize, results.docs.len());
@@ -230,31 +233,33 @@ pub mod tests {
             .map_err(|_| ());
 
         tokio::run(docs);
+        Ok(())
     }
 
     #[test]
-    fn test_regex_query() {
+    fn test_regex_query() -> Result<(), serde_json::Error> {
         let body = r#"{ "query" : { "regex" : { "test_text" : "d[ou]{1}c[k]?ument" } } }"#;
-        let req: Request = serde_json::from_str(&body).unwrap();
+        let req: Request = serde_json::from_str(&body)?;
         let docs = run_query(req, "test_index")
             .map(|results| assert_eq!(results.hits, 4))
             .map_err(|_| ());
 
         tokio::run(docs);
+        Ok(())
     }
 
     #[test]
-    fn test_bool_query() {
+    fn test_bool_query() -> Result<(), serde_json::Error> {
         let test_json = r#"{"query": { "bool": {
                 "must": [ { "term": { "test_text": "document" } } ],
                 "must_not": [ {"range": {"test_i64": { "gt": 2017 } } } ] } } }"#;
 
-        let query = serde_json::from_str::<Request>(test_json).unwrap();
-        dbg!(&query);
+        let query = serde_json::from_str::<Request>(test_json)?;
         let docs = run_query(query, "test_index")
             .map(|results| assert_eq!(results.hits, 2))
             .map_err(|_| ());
 
         tokio::run(docs);
+        Ok(())
     }
 }
