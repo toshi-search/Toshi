@@ -200,7 +200,7 @@ impl LocalIndex {
     }
 
     fn parse_doc(schema: &Schema, bytes: &str) -> Result<Document> {
-        schema.parse_document(bytes).map_err(|e| e.into())
+        schema.parse_document(bytes).map_err(Into::into)
     }
 
     pub fn get_index(&self) -> &Index {

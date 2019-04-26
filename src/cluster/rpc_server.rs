@@ -68,10 +68,7 @@ impl RpcServer {
         connect.make_service(()).map(|c| {
             let uri = uri;
             let connection = Builder::new().set_origin(uri).build(c).unwrap();
-            let buffer = match Buffer::new(connection, 128) {
-                Ok(b) => b,
-                _ => panic!("asdf"),
-            };
+            let buffer = Buffer::new(connection, 128);
             client::IndexService::new(buffer)
         })
     }

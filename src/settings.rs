@@ -136,7 +136,7 @@ impl Settings {
             consul_addr: args.value_of("consul-addr").unwrap().to_string(),
             cluster_name: args.value_of("cluster-name").unwrap().to_string(),
             master: args.value_of("master").unwrap().parse().unwrap(),
-            nodes: args.values_of("nodes").unwrap().map(|n| n.to_string()).collect(),
+            nodes: args.values_of("nodes").unwrap().map(ToString::to_string).collect(),
         };
         Self {
             host: args.value_of("host").unwrap().to_string(),

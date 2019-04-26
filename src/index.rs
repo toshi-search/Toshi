@@ -266,7 +266,6 @@ impl IndexCatalog {
 pub mod tests {
     use std::sync::{Arc, RwLock};
 
-    use failure::Fail;
     use serde::{Deserialize, Serialize};
     use tantivy::doc;
     use tantivy::schema::*;
