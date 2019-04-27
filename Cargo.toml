@@ -18,16 +18,15 @@ members = [ "./", "toshi-proto" ]
 
 [dependencies]
 toshi-proto            = { path = "toshi-proto" }
-tower-buffer           = { git = "https://github.com/tower-rs/tower" }
+tower                  = "0.1.0"
+tower-service          = "0.2.0"
+tower-buffer           = "0.1.0"
 tower-grpc             = { git = "https://github.com/tower-rs/tower-grpc" }
 tower-h2               = { git = "https://github.com/tower-rs/tower-h2" }
-tower                  = { git = "https://github.com/tower-rs/tower" }
-tower-service          = { git = "https://github.com/tower-rs/tower" }
 tower-http             = { git = "https://github.com/tower-rs/tower-http" }
 tower-request-modifier = { git = "https://github.com/tower-rs/tower-http" }
 tower-consul           = { git = "https://github.com/LucioFranco/tower-consul" }
 futures-watch          = { git = "https://github.com/carllerche/better-future" }
-tokio-connect          = { git = "https://github.com/carllerche/tokio-connect" }
 tower-web              = "^0.3"
 http                   = "^0.1"
 h2                     = "^0.1"
@@ -69,6 +68,3 @@ debug-assertions = false
 lto = true
 rpath = false
 codegen-units = 1
-
-[patch.crates-io]
-tower-service = { git = "https://github.com/tower-rs/tower" }

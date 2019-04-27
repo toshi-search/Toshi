@@ -56,7 +56,9 @@ pub enum Metrics {
 
 #[derive(Serialize, Extract, Deserialize, Debug, Clone)]
 pub struct Request {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub aggs: Option<Metrics>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub query: Option<Query>,
     #[serde(default = "Settings::default_result_limit")]
     pub limit: usize,

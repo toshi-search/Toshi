@@ -46,7 +46,7 @@ pub fn main() -> Result<(), ()> {
     };
 
     let toshi = {
-        let server = if settings.experimental && settings.experimental_features.master {
+        let server = if settings.experimental_features.master {
             future::Either::A(run_master(Arc::clone(&index_catalog), &settings))
         } else {
             future::Either::B(run_data(Arc::clone(&index_catalog), &settings))
@@ -84,7 +84,10 @@ fn create_watcher(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> im
 
 fn run_data(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Future<Item = (), Error = ()> {
     let commit_watcher = create_watcher(Arc::clone(&catalog), settings);
-    let addr: IpAddr = settings.host.parse().expect(&format!("Invalid ip address: {}", &settings.host));
+    let addr: IpAddr = settings
+        .host
+        .parse()
+        .unwrap_or_else(|_| panic!("Invalid ip address: {}", &settings.host));
     let settings = settings.clone();
     let bind: SocketAddr = SocketAddr::new(addr, settings.port);
 
@@ -95,7 +98,10 @@ fn run_data(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Fut
 
 fn run_master(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Future<Item = (), Error = ()> {
     let commit_watcher = create_watcher(Arc::clone(&catalog), settings);
-    let addr: IpAddr = settings.host.parse().expect(&format!("Invalid ip address: {}", &settings.host));
+    let addr: IpAddr = settings
+        .host
+        .parse()
+        .unwrap_or_else(|_| panic!("Invalid ip address: {}", &settings.host));
     let bind: SocketAddr = SocketAddr::new(addr, settings.port);
 
     println!("{}", HEADER);

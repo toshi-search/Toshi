@@ -216,12 +216,12 @@ impl LocalIndex {
     }
 
     pub fn get_opstamp(&self) -> usize {
-        log::info!("Got the opstamp");
+        log::trace!("Got the opstamp");
         self.current_opstamp.load(Ordering::SeqCst)
     }
 
     pub fn set_opstamp(&self, opstamp: usize) {
-        log::info!("Setting stamp to {}", opstamp);
+        log::trace!("Setting stamp to {}", opstamp);
         self.current_opstamp.store(opstamp, Ordering::SeqCst)
     }
 }

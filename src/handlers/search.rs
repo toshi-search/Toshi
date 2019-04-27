@@ -81,7 +81,7 @@ pub mod tests {
     }
 
     #[test]
-    fn test_term_query() -> Result<(), ()> {
+    fn test_term_query() {
         let term = KeyValue::new("test_text".into(), "document".into());
         let term_query = Query::Exact(ExactTerm::new(term));
         let search = Request::new(Some(term_query), None, 10);
@@ -89,12 +89,12 @@ pub mod tests {
             .map(|q| {
                 assert_eq!(q.hits, 3);
             })
-            .wait();
-        Ok(())
+            .wait()
+            .unwrap();
     }
 
     #[test]
-    fn test_phrase_query() -> Result<(), ()> {
+    fn test_phrase_query() {
         let terms = TermPair::new(vec!["test".into(), "document".into()], None);
         let phrase = KeyValue::new("test_text".into(), terms);
         let term_query = Query::Phrase(PhraseQuery::new(phrase));
@@ -103,8 +103,8 @@ pub mod tests {
             .map(|q| {
                 assert_eq!(q.hits, 3);
             })
-            .wait();
-        Ok(())
+            .wait()
+            .unwrap();
     }
 
     #[test]
@@ -142,7 +142,6 @@ pub mod tests {
         let cat = create_test_catalog("test_index");
         let handler = SearchHandler::new(Arc::clone(&cat));
         let body = r#"{ "query" : { "raw": "test_unindex:asdf" } }"#;
-
         let req: Request = serde_json::from_str(body)?;
         let docs = handler
             .doc_search(req, "test_index".into())
