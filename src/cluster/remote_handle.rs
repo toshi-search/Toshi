@@ -3,7 +3,7 @@ use std::hash::{Hash, Hasher};
 use log::info;
 use rand::prelude::*;
 use tokio::prelude::*;
-use tower_grpc::Request as TowerRequest;
+use tower_grpc::{Request as TowerRequest, Response};
 
 use toshi_proto::cluster_rpc::{DocumentRequest, ResultReply, SearchReply, SearchRequest};
 
@@ -73,16 +73,10 @@ impl IndexHandle for RemoteIndex {
                 index: name.clone(),
                 query: bytes,
             });
-            client
-                .search_index(req)
-                .map(|res| {
-                    info!("RESPONSE = {:?}", res);
-                    res.into_inner()
-                })
-                .map_err(|e| {
-                    info!("ERR = {:?}", e);
-                    e.into()
-                })
+            client.search_index(req).map(Response::into_inner).map_err(|e| {
+                info!("ERR = {:?}", e);
+                e.into()
+            })
         });
 
         Box::new(future::join_all(fut))

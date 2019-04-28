@@ -249,7 +249,6 @@ impl IndexCatalog {
     }
 
     pub fn add_local_document(&self, index: &str, doc: AddDocument) -> impl Future<Item = CreatedResponse, Error = Error> + Send {
-        log::info!("{:?}", doc);
         self.get_owned_index(index)
             .into_future()
             .and_then(move |hand| hand.add_document(doc))

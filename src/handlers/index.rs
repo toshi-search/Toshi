@@ -4,6 +4,7 @@ use std::sync::{Arc, RwLock};
 
 use futures::future::{Either, Future};
 use futures::stream::{futures_unordered, Stream};
+use rand::random;
 use serde::{Deserialize, Serialize};
 use tantivy::schema::*;
 use tantivy::Index;
@@ -121,19 +122,11 @@ impl IndexHandler {
     fn inner_add(&self, body: AddDocument, index: String) -> impl Future<Item = CreatedResponse, Error = Error> + Send {
         match self.catalog.read() {
             Ok(cat) => {
-                let tasks = vec![
-                    Either::A(cat.add_local_document(&index, body.clone())),
-                    Either::B(cat.add_remote_document(&index, body.clone())),
-                ];
-
-                futures_unordered(tasks)
-                    .then(|t| match t {
-                        Ok(s) => Ok(s),
-                        Err(Error::UnknownIndex(_)) => Ok(CreatedResponse),
-                        Err(e) => Err(e),
-                    })
-                    .collect()
-                    .map(|_| CreatedResponse)
+                let location: bool = random();
+                if location && cat.remote_exists(&index) {
+                    return Either::A(cat.add_remote_document(&index, body.clone()));
+                }
+                Either::B(cat.add_local_document(&index, body.clone()))
             }
             _ => panic!(":("),
         }

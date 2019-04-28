@@ -103,8 +103,8 @@ impl server::IndexService for RpcServer {
             info!("Request From: {:?}", req);
             let indexes = cat.get_collection();
             let lists: Vec<String> = indexes.into_iter().map(|(t, _)| t.to_string()).collect();
+            info!("Response: {:?}", lists.join(", "));
             let resp = Response::new(ListReply { indexes: lists });
-            info!("Response: {:?}", resp);
             Box::new(future::finished(resp))
         } else {
             Self::error_response(Code::NotFound, "Could not get lock on index catalog".into())
@@ -129,7 +129,7 @@ impl server::IndexService for RpcServer {
 
                 match index.search_index(query) {
                     Ok(query_results) => {
-                        info!("Query Response = {:?}", query_results);
+                        info!("Query Response = {:?} hits", query_results.hits);
                         let query_bytes: Vec<u8> = serde_json::to_vec(&query_results).unwrap();
                         let result = Some(RpcServer::ok_result());
                         Box::new(future::finished(Response::new(RpcServer::create_search_reply(result, query_bytes))))

@@ -18,9 +18,9 @@ members = [ "./", "toshi-proto" ]
 
 [dependencies]
 toshi-proto            = { path = "toshi-proto" }
-tower                  = "0.1.0"
-tower-service          = "0.2.0"
-tower-buffer           = "0.1.0"
+tower                  = "^0.1"
+tower-service          = "^0.2"
+tower-buffer           = "^0.1"
 tower-grpc             = { git = "https://github.com/tower-rs/tower-grpc" }
 tower-h2               = { git = "https://github.com/tower-rs/tower-h2" }
 tower-http             = { git = "https://github.com/tower-rs/tower-http" }
