@@ -11,8 +11,8 @@ use tokio::prelude::*;
 use tower::MakeService;
 use tower_buffer::Buffer;
 use tower_grpc::{BoxBody, Code, Request, Response, Status};
-use tower_hyper::client::{Connect, ConnectError, Connection};
-use tower_hyper::{client as hyper_client, util, Server};
+use tower_hyper::client::{Connect, ConnectError, Connection, Builder as ClientBuilder};
+use tower_hyper::Server;
 use tower_request_modifier::{Builder, RequestModifier};
 
 use toshi_proto::cluster_rpc::*;
@@ -21,6 +21,7 @@ use crate::handle::IndexHandle;
 use crate::handlers::index::AddDocument;
 use crate::index::IndexCatalog;
 use crate::{query, query::Query};
+use tower_hyper::util::{Destination, Connector};
 
 pub type Buf = Buffer<RequestModifier<Connection<BoxBody>, BoxBody>, http::Request<BoxBody>>;
 pub type RpcClient = client::IndexService<Buf>;
@@ -59,15 +60,15 @@ impl RpcServer {
             .map_err(|err| error!("Server Error: {:?}", err))
     }
 
+    //TODO: Make DNS Threads and Buffer Requests Configurable options
     pub fn create_client(uri: http::Uri) -> impl Future<Item = RpcClient, Error = ConnectError<Error>> + Send {
         info!("Creating Client to: {:?}", uri);
-        let dst = util::Destination::try_from_uri(uri.clone()).unwrap();
-        let connector = util::Connector::new(HttpConnector::new(8));
-        let settings = hyper_client::Builder::new().http2_only(true).clone();
-        let mut connect = Connect::new(connector, settings);
-        let uri_clone = uri.clone();
+        let dst = Destination::try_from_uri(uri.clone()).unwrap();
+        let connector = Connector::new(HttpConnector::new(num_cpus::get()));
+        let mut connect = Connect::new(connector, ClientBuilder::new());
+
         connect.make_service(dst).map(move |c| {
-            let connection = Builder::new().set_origin(uri_clone).build(c).unwrap();
+            let connection = Builder::new().set_origin(uri).build(c).unwrap();
             let buffer = Buffer::new(connection, 128);
             client::IndexService::new(buffer)
         })
