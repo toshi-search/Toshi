@@ -3,12 +3,10 @@ use std::net::SocketAddr;
 use std::time::Duration;
 
 use failure::Fail;
-use futures::{future, Future, Poll};
+use futures::{future, Future};
 use log::error;
 use serde::{Deserialize, Serialize};
-use tokio::net::tcp::ConnectFuture;
-use tokio::net::TcpStream;
-use tower_h2::client::ConnectError;
+use tower_hyper::client::ConnectError;
 
 use crate::cluster::consul::Hosts;
 use crate::settings::Settings;
@@ -148,22 +146,5 @@ impl From<BoxError> for RPCError {
 impl From<tower_grpc::Status> for RPCError {
     fn from(err: tower_grpc::Status) -> Self {
         RPCError::RPCError(err)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct GrpcConn(pub SocketAddr);
-
-impl tower_service::Service<()> for GrpcConn {
-    type Response = TcpStream;
-    type Error = io::Error;
-    type Future = ConnectFuture;
-
-    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        Ok(().into())
-    }
-
-    fn call(&mut self, _: ()) -> Self::Future {
-        TcpStream::connect(&self.0)
     }
 }

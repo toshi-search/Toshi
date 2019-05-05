@@ -17,14 +17,15 @@ use toshi_proto::cluster_rpc::*;
 
 use crate::cluster::remote_handle::RemoteIndex;
 use crate::cluster::rpc_server::{RpcClient, RpcServer};
-use crate::cluster::{GrpcConn, RPCError};
+use crate::cluster::{RPCError};
+use crate::error::Error;
 use crate::handle::{IndexHandle, LocalIndex};
 use crate::handlers::index::AddDocument;
 use crate::handlers::CreatedResponse;
 use crate::query::Request;
 use crate::results::*;
 use crate::settings::Settings;
-use crate::{error::Error, Result};
+use crate::Result;
 
 pub struct IndexCatalog {
     pub settings: Settings,
@@ -199,9 +200,7 @@ impl IndexCatalog {
     pub fn create_client(node: String) -> impl Future<Item = RpcClient, Error = RPCError> + Send {
         let socket: SocketAddr = node.parse().unwrap();
         let host_uri = IndexCatalog::create_host_uri(socket).unwrap();
-        let grpc_conn = GrpcConn(socket);
-
-        RpcServer::create_client(grpc_conn.clone(), host_uri).map_err(Into::into)
+        RpcServer::create_client(host_uri).map_err(Into::into)
     }
 
     pub fn refresh_multiple_nodes(nodes: Vec<String>) -> impl stream::Stream<Item = (RpcClient, Vec<String>), Error = RPCError> {

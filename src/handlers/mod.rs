@@ -6,6 +6,8 @@ pub mod summary;
 
 pub use self::{bulk::BulkHandler, index::IndexHandler, root::RootHandler, search::SearchHandler, summary::SummaryHandler};
 
+use futures::Future;
+use hyper::Body;
 use serde::{Deserialize, Serialize};
 use tower_web::{Extract, Response};
 
@@ -30,4 +32,7 @@ impl ErrorResponse {
 }
 
 #[derive(Response, Debug)]
+#[web(status = "201")]
 pub struct CreatedResponse;
+
+pub type ResponseFuture = Box<Future<Item = hyper::Response<Body>, Error = failure::Error> + Send>;

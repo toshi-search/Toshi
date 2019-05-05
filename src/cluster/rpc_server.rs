@@ -2,28 +2,27 @@ use std::io::Error;
 use std::net::SocketAddr;
 use std::sync::{Arc, RwLock};
 
+use futures::Future;
+use hyper::client::connect::HttpConnector;
 use log::{error, info};
 use tantivy::schema::Schema;
-use tokio::net::{TcpListener, TcpStream};
+use tokio::net::TcpListener;
 use tokio::prelude::*;
-use tokio_executor::DefaultExecutor;
 use tower::MakeService;
 use tower_buffer::Buffer;
 use tower_grpc::{BoxBody, Code, Request, Response, Status};
-use tower_h2::client::{Connect, ConnectError, Connection};
-use tower_h2::Server;
+use tower_hyper::client::{Connect, ConnectError, Connection};
+use tower_hyper::{client as hyper_client, util, Server};
 use tower_request_modifier::{Builder, RequestModifier};
 
 use toshi_proto::cluster_rpc::*;
 
-use crate::cluster::GrpcConn;
 use crate::handle::IndexHandle;
 use crate::handlers::index::AddDocument;
 use crate::index::IndexCatalog;
-use crate::query;
-use crate::query::Query::All;
+use crate::{query, query::Query};
 
-pub type Buf = Buffer<RequestModifier<Connection<TcpStream, DefaultExecutor, BoxBody>, BoxBody>, http::Request<BoxBody>>;
+pub type Buf = Buffer<RequestModifier<Connection<BoxBody>, BoxBody>, http::Request<BoxBody>>;
 pub type RpcClient = client::IndexService<Buf>;
 
 /// RPC Services should "ideally" work on only local indexes, they shouldn't be responsible for
@@ -44,30 +43,31 @@ impl Clone for RpcServer {
 impl RpcServer {
     pub fn serve(addr: SocketAddr, catalog: Arc<RwLock<IndexCatalog>>) -> impl Future<Item = (), Error = ()> + Send {
         let service = server::IndexServiceServer::new(RpcServer { catalog });
-        let executor = DefaultExecutor::current();
         info!("Binding on port: {:?}", addr);
         let bind = TcpListener::bind(&addr).unwrap_or_else(|_| panic!("Failed to bind to host: {:?}", addr));
 
         info!("Bound to: {:?}", &bind.local_addr().unwrap());
-        let mut h2 = Server::new(service, Default::default(), executor);
+        let mut hyp = Server::new(service);
 
         bind.incoming()
             .for_each(move |sock| {
                 info!("Connection from: {:?}", sock.local_addr().unwrap());
-                let req = h2.serve(sock).map_err(|err| error!("h2 error: {:?}", err));
+                let req = hyp.serve(sock).map_err(|err| error!("hyper error: {:?}", err));
                 tokio::spawn(req);
                 Ok(())
             })
             .map_err(|err| error!("Server Error: {:?}", err))
     }
 
-    pub fn create_client(conn: GrpcConn, uri: http::Uri) -> impl Future<Item = RpcClient, Error = ConnectError<Error>> + Send {
+    pub fn create_client(uri: http::Uri) -> impl Future<Item = RpcClient, Error = ConnectError<Error>> + Send {
         info!("Creating Client to: {:?}", uri);
-        let mut connect = Connect::new(conn, Default::default(), DefaultExecutor::current());
-
-        connect.make_service(()).map(|c| {
-            let uri = uri;
-            let connection = Builder::new().set_origin(uri).build(c).unwrap();
+        let dst = util::Destination::try_from_uri(uri.clone()).unwrap();
+        let connector = util::Connector::new(HttpConnector::new(8));
+        let settings = hyper_client::Builder::new().http2_only(true).clone();
+        let mut connect = Connect::new(connector, settings);
+        let uri_clone = uri.clone();
+        connect.make_service(dst).map(move |c| {
+            let connection = Builder::new().set_origin(uri_clone).build(c).unwrap();
             let buffer = Buffer::new(connection, 128);
             client::IndexService::new(buffer)
         })
@@ -120,7 +120,7 @@ impl server::IndexService for RpcServer {
                         query: None,
                         ref aggs,
                         limit,
-                    }) => query::Request::new(Some(All), aggs.clone(), limit),
+                    }) => query::Request::new(Some(Query::All), aggs.clone(), limit),
                     Ok(v) => v,
                     Err(e) => return Self::error_response(Code::Internal, e.to_string()),
                 };

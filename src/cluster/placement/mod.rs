@@ -6,13 +6,11 @@ use futures_watch::Watch;
 use log::error;
 use tokio::net::TcpListener;
 use tower_grpc::{Request, Response, Status};
-use tower_h2::Server;
 
 use crate::cluster::consul::Consul;
 use toshi_proto::placement_proto::{server, PlacementReply, PlacementRequest};
 
 pub use self::background::Background;
-use tokio_executor::DefaultExecutor;
 
 pub mod background;
 
@@ -35,14 +33,14 @@ impl Place {
             let placer = Place { consul, nodes };
             let placement = server::PlacementServer::new(placer);
 
-            //            let mut hyp = tower_hyper::server::Server::new(placement);
-            let mut h2 = Server::new(placement, Default::default(), DefaultExecutor::current());
+            let mut hyp = tower_hyper::server::Server::new(placement);
+
             bind.incoming().for_each(move |stream| {
                 if let Err(e) = stream.set_nodelay(true) {
                     return Err(e);
                 }
 
-                let serve = h2.serve(stream);
+                let serve = hyp.serve(stream);
                 tokio::spawn(serve.map_err(|e| error!("Placement Server Error: {:?}", e)));
 
                 Ok(())

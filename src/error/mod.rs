@@ -19,6 +19,12 @@ pub enum Error {
     SpawnError,
 }
 
+impl From<hyper::Error> for Error {
+    fn from(err: hyper::Error) -> Self {
+        Error::IOError(err.to_string())
+    }
+}
+
 impl From<TantivyError> for Error {
     fn from(err: tantivy::Error) -> Self {
         Error::IOError(err.to_string())
