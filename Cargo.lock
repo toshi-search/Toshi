@@ -731,7 +731,7 @@ dependencies = [
 [[package]]
 name = "http-body"
 version = "0.1.0"
-source = "git+https://github.com/tower-rs/tower-http#e7ef6ef623411342ee89c0a83ef924db6206143a"
+source = "git+https://github.com/tower-rs/tower-http#9a3b77d07fdbd355bfe9f89157886d39f2e13a05"
 dependencies = [
  "bytes 0.4.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures 0.1.26 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2359,7 +2359,7 @@ dependencies = [
 [[package]]
 name = "tower"
 version = "0.1.0"
-source = "git+https://github.com/tower-rs/tower#8a646dd25c0a923ac039731f7683e2b148795197"
+source = "git+https://github.com/tower-rs/tower#4d6d2c8572cc6012872743603f57a187ac229b5d"
 dependencies = [
  "futures 0.1.26 (registry+https://github.com/rust-lang/crates.io-index)",
  "tower-buffer 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2442,7 +2442,7 @@ dependencies = [
 [[package]]
 name = "tower-grpc"
 version = "0.1.0"
-source = "git+https://github.com/tower-rs/tower-grpc#597f56ce0eb47267a17cebe4b0120a713c12a3c0"
+source = "git+https://github.com/tower-rs/tower-grpc#111dc661d7caf9c036991e6663e78854fad0755b"
 dependencies = [
  "base64 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "bytes 0.4.12 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2452,16 +2452,15 @@ dependencies = [
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "percent-encoding 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "prost 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "tower-h2 0.1.0 (git+https://github.com/tower-rs/tower-h2)",
  "tower-http 0.1.0 (git+https://github.com/tower-rs/tower-http)",
  "tower-service 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "tower-util 0.1.0 (git+https://github.com/tower-rs/tower)",
+ "tower-util 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "tower-grpc-build"
 version = "0.1.0"
-source = "git+https://github.com/tower-rs/tower-grpc#597f56ce0eb47267a17cebe4b0120a713c12a3c0"
+source = "git+https://github.com/tower-rs/tower-grpc#111dc661d7caf9c036991e6663e78854fad0755b"
 dependencies = [
  "codegen 0.1.1 (git+https://github.com/carllerche/codegen)",
  "heck 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2488,7 +2487,7 @@ dependencies = [
 [[package]]
 name = "tower-http"
 version = "0.1.0"
-source = "git+https://github.com/tower-rs/tower-http#e7ef6ef623411342ee89c0a83ef924db6206143a"
+source = "git+https://github.com/tower-rs/tower-http#9a3b77d07fdbd355bfe9f89157886d39f2e13a05"
 dependencies = [
  "http-body 0.1.0 (git+https://github.com/tower-rs/tower-http)",
  "tower-http-util 0.1.0 (git+https://github.com/tower-rs/tower-http)",
@@ -2497,7 +2496,7 @@ dependencies = [
 [[package]]
 name = "tower-http-util"
 version = "0.1.0"
-source = "git+https://github.com/tower-rs/tower-http#e7ef6ef623411342ee89c0a83ef924db6206143a"
+source = "git+https://github.com/tower-rs/tower-http#9a3b77d07fdbd355bfe9f89157886d39f2e13a05"
 dependencies = [
  "futures 0.1.26 (registry+https://github.com/rust-lang/crates.io-index)",
  "http 0.1.17 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2588,7 +2587,7 @@ dependencies = [
 [[package]]
 name = "tower-util"
 version = "0.1.0"
-source = "git+https://github.com/tower-rs/tower#8a646dd25c0a923ac039731f7683e2b148795197"
+source = "git+https://github.com/tower-rs/tower#4d6d2c8572cc6012872743603f57a187ac229b5d"
 dependencies = [
  "futures 0.1.26 (registry+https://github.com/rust-lang/crates.io-index)",
  "tower-layer 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
