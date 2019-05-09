@@ -11,7 +11,7 @@ use tokio::prelude::*;
 use tower::MakeService;
 use tower_buffer::Buffer;
 use tower_grpc::{BoxBody, Code, Request, Response, Status};
-use tower_hyper::client::{Connect, ConnectError, Connection, Builder as ClientBuilder};
+use tower_hyper::client::{Connect, ConnectError, Connection};
 use tower_hyper::Server;
 use tower_request_modifier::{Builder, RequestModifier};
 
@@ -21,7 +21,7 @@ use crate::handle::IndexHandle;
 use crate::handlers::index::AddDocument;
 use crate::index::IndexCatalog;
 use crate::{query, query::Query};
-use tower_hyper::util::{Destination, Connector};
+use tower_hyper::util::{Connector, Destination};
 
 pub type Buf = Buffer<RequestModifier<Connection<BoxBody>, BoxBody>, http::Request<BoxBody>>;
 pub type RpcClient = client::IndexService<Buf>;
@@ -65,7 +65,7 @@ impl RpcServer {
         info!("Creating Client to: {:?}", uri);
         let dst = Destination::try_from_uri(uri.clone()).unwrap();
         let connector = Connector::new(HttpConnector::new(num_cpus::get()));
-        let mut connect = Connect::new(connector, ClientBuilder::new());
+        let mut connect = Connect::new(connector);
 
         connect.make_service(dst).map(move |c| {
             let connection = Builder::new().set_origin(uri).build(c).unwrap();

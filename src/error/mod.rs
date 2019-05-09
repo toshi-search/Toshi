@@ -93,8 +93,8 @@ impl From<Box<::std::error::Error + Send + 'static>> for Error {
     }
 }
 
-impl<T> From<crossbeam::channel::SendError<T>> for Error {
-    fn from(err: crossbeam::channel::SendError<T>) -> Self {
+impl From<crossbeam::channel::SendError<bytes::Bytes>> for Error {
+    fn from(err: crossbeam::channel::SendError<bytes::Bytes>) -> Self {
         Error::IOError(err.to_string())
     }
 }

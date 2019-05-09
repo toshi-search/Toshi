@@ -70,13 +70,13 @@ pub mod tests {
 
         let body = r#"{"document": { "test_text": "Babbaboo!", "test_u64": 10 , "test_i64": -10, "test_unindex": "asdf1234" } }"#;
         let add: AddDocument = serde_json::from_str(body).unwrap();
-        handler.add(add, "test_index".into()).wait().unwrap();
+        handler.add_document(add, "test_index".into()).wait().unwrap();
 
         std::thread::sleep(std::time::Duration::from_secs(2));
 
-        let docs = search.get_all_docs("test_index".into()).wait();
+        let docs = search.all_docs("test_index".into()).wait();
         assert_eq!(true, docs.is_ok());
-        //        assert_eq!(6, docs.unwrap().hits);
+        assert_eq!(6, docs.unwrap().into_body().concat2().wait());
         rt.shutdown_now();
     }
 }

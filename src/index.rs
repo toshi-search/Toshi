@@ -17,11 +17,10 @@ use toshi_proto::cluster_rpc::*;
 
 use crate::cluster::remote_handle::RemoteIndex;
 use crate::cluster::rpc_server::{RpcClient, RpcServer};
-use crate::cluster::{RPCError};
+use crate::cluster::RPCError;
 use crate::error::Error;
 use crate::handle::{IndexHandle, LocalIndex};
 use crate::handlers::index::AddDocument;
-use crate::handlers::CreatedResponse;
 use crate::query::Request;
 use crate::results::*;
 use crate::settings::Settings;
@@ -237,21 +236,21 @@ impl IndexCatalog {
         })
     }
 
-    pub fn add_remote_document(&self, index: &str, doc: AddDocument) -> impl Future<Item = CreatedResponse, Error = Error> + Send {
+    pub fn add_remote_document(&self, index: &str, doc: AddDocument) -> impl Future<Item = (), Error = Error> + Send {
         self.get_remote_index(index)
             .into_future()
             .and_then(move |hand| {
                 hand.add_document(doc)
                     .map_err(|_| Error::IOError("An error occurred with the query".into()))
             })
-            .map(|_| CreatedResponse)
+            .map(|_| ())
     }
 
-    pub fn add_local_document(&self, index: &str, doc: AddDocument) -> impl Future<Item = CreatedResponse, Error = Error> + Send {
+    pub fn add_local_document(&self, index: &str, doc: AddDocument) -> impl Future<Item = (), Error = Error> + Send {
         self.get_owned_index(index)
             .into_future()
             .and_then(move |hand| hand.add_document(doc))
-            .map(|_| CreatedResponse)
+            .map(|_| ())
     }
 
     pub fn clear(&mut self) {

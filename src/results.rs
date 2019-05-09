@@ -3,12 +3,11 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use tantivy::schema::NamedFieldDocument;
 use tantivy::schema::Value;
-use tower_web::Response;
 
 use crate::error::Error;
 use crate::query::SummaryDoc;
 
-#[derive(Response, Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct SearchResults {
     pub hits: usize,
     #[serde(default = "Vec::new")]
