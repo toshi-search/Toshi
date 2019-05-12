@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 use tantivy::query::QueryParserError;
 use tantivy::schema::DocParsingError;
 use tantivy::TantivyError;
+use hyper::Body;
+use crate::results::ErrorResponse;
 
 #[derive(Debug, Fail, Clone, Serialize, Deserialize)]
 pub enum Error {
@@ -17,6 +19,12 @@ pub enum Error {
     QueryError(String),
     #[fail(display = "Failed to find known executor")]
     SpawnError,
+}
+
+impl From<Error> for http::Response<Body> {
+    fn from(err: Error) -> Self {
+        ErrorResponse::from(err).into()
+    }
 }
 
 impl From<hyper::Error> for Error {

@@ -1,12 +1,10 @@
-use crate::index::IndexCatalog;
+use std::sync::{Arc, RwLock};
+use std::time::Duration;
 
 use futures::{Future, Stream};
 use tokio::timer::Interval;
 
-use std::{
-    sync::{Arc, RwLock},
-    time::Duration,
-};
+use crate::index::IndexCatalog;
 
 pub struct IndexWatcher {
     commit_duration: u64,
@@ -45,13 +43,14 @@ impl IndexWatcher {
 
 #[cfg(test)]
 pub mod tests {
-    use super::*;
     use futures::future;
+    use hyper::Body;
     use tokio::runtime::Runtime;
 
-    use crate::handlers::index::AddDocument;
     use crate::handlers::{IndexHandler, SearchHandler};
     use crate::index::tests::*;
+
+    use super::*;
 
     #[test]
     pub fn test_auto_commit() {
@@ -69,8 +68,7 @@ pub mod tests {
         rt.spawn(fut);
 
         let body = r#"{"document": { "test_text": "Babbaboo!", "test_u64": 10 , "test_i64": -10, "test_unindex": "asdf1234" } }"#;
-        let add: AddDocument = serde_json::from_str(body).unwrap();
-        handler.add_document(add, "test_index".into()).wait().unwrap();
+        handler.add_document(Body::from(body), "test_index".into()).wait().unwrap();
 
         std::thread::sleep(std::time::Duration::from_secs(2));
 

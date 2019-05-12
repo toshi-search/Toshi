@@ -2,7 +2,7 @@ use std::sync::{Arc, RwLock};
 
 use futures::stream::futures_unordered;
 use http::header::CONTENT_TYPE;
-use http::Response;
+use http::{Response, StatusCode};
 use hyper::Body;
 use log::info;
 use tokio::prelude::*;
@@ -12,6 +12,8 @@ use crate::index::IndexCatalog;
 use crate::query::Request;
 use crate::results::ScoredDoc;
 use crate::results::SearchResults;
+use crate::router::empty_with_code;
+use futures::future::Either;
 
 #[derive(Clone)]
 pub struct SearchHandler {
@@ -40,23 +42,29 @@ impl SearchHandler {
                     let c = catalog.read().unwrap();
                     let req = if req.query.is_none() { Request::all_docs() } else { req };
                     info!("Query: {:?}", req);
-                    let tasks = vec![
-                        future::Either::A(c.search_local_index(&index, req.clone())),
-                        future::Either::B(c.search_remote_index(&index, req.clone())),
-                    ];
-                    futures_unordered(tasks)
-                        .then(|next| match next {
-                            Ok(v) => Ok(v),
-                            Err(_) => Ok(Vec::new()),
-                        })
-                        .concat2()
-                        .map(SearchHandler::fold_results)
-                        .map(|results| {
-                            Response::builder()
-                                .header(CONTENT_TYPE, "application/json")
-                                .body(Body::from(serde_json::to_vec(&results).unwrap()))
-                                .unwrap()
-                        })
+                    if c.exists(&index) {
+                        let mut tasks = vec![
+                            future::Either::A(c.search_local_index(&index, req.clone())),
+                        ];
+                        if c.remote_exists(&index) {
+                            tasks.push(future::Either::B(c.search_remote_index(&index, req.clone())));
+                        }
+                        Either::A(futures_unordered(tasks)
+                            .then(|next| match next {
+                                Ok(v) => Ok(v),
+                                Err(_) => Ok(Vec::new()),
+                            })
+                            .concat2()
+                            .map(SearchHandler::fold_results)
+                            .map(|results| {
+                                Response::builder()
+                                    .header(CONTENT_TYPE, "application/json")
+                                    .body(Body::from(serde_json::to_vec(&results).unwrap()))
+                                    .unwrap()
+                            }))
+                    } else {
+                        Either::B(future::ok(empty_with_code(StatusCode::NOT_FOUND)))
+                    }
                 })
                 .map_err(failure::Error::from),
         )

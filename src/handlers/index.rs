@@ -2,13 +2,15 @@ use std::collections::HashMap;
 use std::convert::Into;
 use std::sync::{Arc, RwLock};
 
-use futures::Future;
+use futures::future::Either;
 use futures::stream::{futures_unordered, Stream};
-use http::StatusCode;
+use futures::{future, Future};
+use http::{StatusCode, Response};
+use hyper::Body;
 use rand::random;
 use serde::{Deserialize, Serialize};
-use tantivy::Index;
 use tantivy::schema::*;
+use tantivy::Index;
 use tower_grpc::Request;
 
 use toshi_proto::cluster_rpc::PlaceRequest;
@@ -20,8 +22,6 @@ use crate::handle::IndexHandle;
 use crate::handlers::ResponseFuture;
 use crate::index::IndexCatalog;
 use crate::router::empty_with_code;
-use hyper::Body;
-use futures::future::Either;
 
 #[derive(Deserialize, Clone)]
 pub struct SchemaBody(pub Schema);
@@ -86,7 +86,11 @@ impl IndexHandler {
         }
     }
 
-    fn create_remote_index(nodes: Vec<String>, index: String, schema: Schema) -> impl Stream<Item = Vec<RpcClient>, Error = RPCError> + Send {
+    fn create_remote_index(
+        nodes: Vec<String>,
+        index: String,
+        schema: Schema,
+    ) -> impl Stream<Item = Vec<RpcClient>, Error = RPCError> + Send {
         let futs = nodes.into_iter().map(move |n| {
             let c = IndexCatalog::create_client(n.clone());
             let index = index.clone();
@@ -109,52 +113,62 @@ impl IndexHandler {
         let idx_clone = index.clone();
         let nodes = cat_clone.read().unwrap().settings.experimental_features.nodes.clone();
 
-        let task = body.concat2()
+        let task = body
+            .concat2()
             .map_err(|e: hyper::Error| -> Error { e.into() })
             .map(|b| serde_json::from_slice::<SchemaBody>(&b).unwrap())
             .and_then(move |b| {
                 {
                     let base_path = cat_clone.read().unwrap().base_path().clone();
-                    let new_index = IndexCatalog::create_from_managed(base_path, &index, b.0.clone()).unwrap();
-                    IndexHandler::add_index(&cat_clone, index.clone(), new_index).unwrap();
+                    let new_index: Index = match IndexCatalog::create_from_managed(base_path, &index, b.0.clone()) {
+                        Ok(v) => v,
+                        Err(e) => return Either::A(future::ok(Response::from(e)))
+                    };
+                    match IndexHandler::add_index(&cat_clone, index.clone(), new_index) {
+                        Ok(_) => (),
+                        Err(e) => return Either::A(future::ok(Response::from(e)))
+                    };
                 }
 
-                IndexHandler::create_remote_index(nodes, index, b.0)
+                Either::B(IndexHandler::create_remote_index(nodes, index, b.0)
                     .concat2()
                     .map(move |clients| {
                         IndexHandler::add_remote_index(&cat_clone, idx_clone, clients)
                             .map(|()| empty_with_code(StatusCode::CREATED))
                             .unwrap()
-                    }).map_err(Into::into)
-
-        }).map_err(failure::Error::from);
+                    })
+                    .map_err(Into::into))
+            })
+            .map_err(failure::Error::from);
         Box::new(task)
     }
 
     pub fn add_document(&self, body: Body, index: String) -> ResponseFuture {
         let cat_clone = Arc::clone(&self.catalog);
-        let task = body.concat2()
+        let task = body
+            .concat2()
             .map_err(|e: hyper::Error| -> Error { e.into() })
             .map(|b| serde_json::from_slice::<AddDocument>(&b).unwrap())
-            .and_then(move |b| {
-                match cat_clone.read() {
-                    Ok(cat) => {
-                        let location: bool = random();
-                        if location && cat.remote_exists(&index) {
-                            Either::A(cat
-                                .add_remote_document(&index, b.clone())
+            .and_then(move |b| match cat_clone.read() {
+                Ok(cat) => {
+                    let location: bool = random();
+                    if location && cat.remote_exists(&index) {
+                        Either::A(
+                            cat.add_remote_document(&index, b.clone())
                                 .map(|_| empty_with_code(StatusCode::CREATED))
-                                .map_err(Into::into))
-                        } else {
-                            Either::B(cat
-                                .add_local_document(&index, b.clone())
+                                .map_err(Into::into),
+                        )
+                    } else {
+                        Either::B(
+                            cat.add_local_document(&index, b.clone())
                                 .map(|_| empty_with_code(StatusCode::CREATED))
-                                .map_err(Into::into))
-                        }
+                                .map_err(Into::into),
+                        )
                     }
-                    _ => panic!(":("),
                 }
-            }).map_err(failure::Error::from);
+                _ => panic!(":("),
+            })
+            .map_err(failure::Error::from);
         Box::new(task)
     }
 }

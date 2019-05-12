@@ -6,7 +6,7 @@ use std::thread;
 use bytes::Bytes;
 use crossbeam::channel::{unbounded, Receiver, Sender};
 use failure::Error as FailError;
-use http::{Response, StatusCode};
+use http::StatusCode;
 use hyper::Body;
 use tantivy::schema::Schema;
 use tantivy::{Document, IndexWriter};

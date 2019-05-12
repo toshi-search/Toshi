@@ -1,13 +1,13 @@
 use std::net::SocketAddr;
 use std::sync::{Arc, RwLock};
 
+use http::{Response, StatusCode};
 use hyper::service::service_fn;
 use hyper::{Body, Method, Request, Server};
 use tokio::prelude::*;
 
 use crate::handlers::*;
 use crate::index::IndexCatalog;
-use http::{Response, StatusCode};
 
 pub fn empty_with_code(code: StatusCode) -> http::Response<Body> {
     Response::builder().status(code).body(Body::empty()).unwrap()
@@ -38,7 +38,7 @@ pub fn router_with_catalog(addr: &SocketAddr, catalog: Arc<RwLock<IndexCatalog>>
                 (&Method::PUT, [idx, action]) => match *action {
                     "_create" => index_handler.create_index(req.into_body(), idx.to_string()),
                     "" => index_handler.add_document(req.into_body(), idx.to_string()),
-                    _ => not_found()
+                    _ => not_found(),
                 },
                 (&Method::GET, [idx, action]) => match *action {
                     "_summary" => summary_handler.summary(idx.to_string()),
