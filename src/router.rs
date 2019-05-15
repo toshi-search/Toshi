@@ -82,6 +82,6 @@ pub mod tests {
         pretty_env_logger::init();
         let catalog = create_test_catalog("test_index");
         let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-        hyper::rt::run(router_with_catalog(&addr, Arc::clone(&catalog)));
+        router_with_catalog(&addr, Arc::clone(&catalog));
     }
 }

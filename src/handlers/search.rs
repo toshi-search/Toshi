@@ -43,25 +43,25 @@ impl SearchHandler {
                     let req = if req.query.is_none() { Request::all_docs() } else { req };
                     info!("Query: {:?}", req);
                     if c.exists(&index) {
-                        let mut tasks = vec![
-                            future::Either::A(c.search_local_index(&index, req.clone())),
-                        ];
+                        let mut tasks = vec![future::Either::A(c.search_local_index(&index, req.clone()))];
                         if c.remote_exists(&index) {
                             tasks.push(future::Either::B(c.search_remote_index(&index, req.clone())));
                         }
-                        Either::A(futures_unordered(tasks)
-                            .then(|next| match next {
-                                Ok(v) => Ok(v),
-                                Err(_) => Ok(Vec::new()),
-                            })
-                            .concat2()
-                            .map(SearchHandler::fold_results)
-                            .map(|results| {
-                                Response::builder()
-                                    .header(CONTENT_TYPE, "application/json")
-                                    .body(Body::from(serde_json::to_vec(&results).unwrap()))
-                                    .unwrap()
-                            }))
+                        Either::A(
+                            futures_unordered(tasks)
+                                .then(|next| match next {
+                                    Ok(v) => Ok(v),
+                                    Err(_) => Ok(Vec::new()),
+                                })
+                                .concat2()
+                                .map(SearchHandler::fold_results)
+                                .map(|results| {
+                                    Response::builder()
+                                        .header(CONTENT_TYPE, "application/json")
+                                        .body(Body::from(serde_json::to_vec(&results).unwrap()))
+                                        .unwrap()
+                                }),
+                        )
                     } else {
                         Either::B(future::ok(empty_with_code(StatusCode::NOT_FOUND)))
                     }
@@ -98,8 +98,9 @@ pub mod tests {
         let term_query = Query::Exact(ExactTerm::new(term));
         let search = Request::new(Some(term_query), None, 10);
         run_query(search, "test_index")
-            .map(|_q| {
-                //                assert_eq!(q.hits, 3);
+            .map(|q| {
+                let body: SearchResults = serde_json::from_slice(&q.into_body().concat2().wait().unwrap()).unwrap();
+                assert_eq!(body.hits, 3);
             })
             .wait()
             .unwrap();
@@ -112,8 +113,9 @@ pub mod tests {
         let term_query = Query::Phrase(PhraseQuery::new(phrase));
         let search = Request::new(Some(term_query), None, 10);
         run_query(search, "test_index")
-            .map(|_q| {
-                //                assert_eq!(q.hits, 3);
+            .map(|q| {
+                let body: SearchResults = serde_json::from_slice(&q.into_body().concat2().wait().unwrap()).unwrap();
+                assert_eq!(body.hits, 3);
             })
             .wait()
             .unwrap();
@@ -157,11 +159,8 @@ pub mod tests {
         let _req: Request = serde_json::from_str(body)?;
         let docs = handler
             .doc_search(Body::from(body), "test_index".into())
-            .map_err(|err| match err {
-                //                Error::QueryError(e) => assert_eq!(e.to_string(), "Query to unindexed field \'test_unindex\'"),
-                _ => assert_eq!(true, false),
-            })
-            .map(|_| ());
+            .map(|q| ())
+            .map_err(|_| ());
 
         tokio::run(docs);
         Ok(())
@@ -175,11 +174,8 @@ pub mod tests {
         let _req: Request = serde_json::from_str(body)?;
         let docs = handler
             .doc_search(Body::from(body), "test_index".into())
-            .map_err(|err| match err {
-                //                Error::QueryError(e) => assert_eq!(e.to_string(), "Field: asdf does not exist"),
-                _ => assert_eq!(true, false),
-            })
-            .map(|_| ());
+            .map(|_| ())
+            .map_err(|_| ());
 
         tokio::run(docs);
         Ok(())
@@ -190,9 +186,10 @@ pub mod tests {
         let body = r#"test_text:"Duckiment""#;
         let req = Request::new(Some(Query::Raw { raw: body.into() }), None, 10);
         let docs = run_query(req, "test_index")
-            .map(|_result| {
-                //                assert_eq!(result.hits as usize, result.docs.len());
-                //                assert_eq!(result.docs[0].doc["test_text"][0].text().unwrap(), "Test Duckiment 3")
+            .map(|q| {
+                let body: SearchResults = serde_json::from_slice(&q.into_body().concat2().wait().unwrap()).unwrap();
+                assert_eq!(body.hits as usize, body.docs.len());
+                assert_eq!(body.docs[0].doc["test_text"][0].text().unwrap(), "Test Duckiment 3")
             })
             .map_err(|_| ());
 
@@ -206,10 +203,12 @@ pub mod tests {
         let term_query = Query::Fuzzy(FuzzyQuery::new(fuzzy));
         let search = Request::new(Some(term_query), None, 10);
         let query = run_query(search, "test_index")
-            .map(|_result| {
-                //                assert_eq!(result.hits as usize, result.docs.len());
-                //                assert_eq!(result.hits, 3);
-                //                assert_eq!(result.docs.len(), 3);
+            .map(|q| {
+                let body: SearchResults = serde_json::from_slice(&q.into_body().concat2().wait().unwrap()).unwrap();
+
+                assert_eq!(body.hits as usize, body.docs.len());
+                assert_eq!(body.hits, 3);
+                assert_eq!(body.docs.len(), 3);
             })
             .map_err(|_| ());
 
@@ -222,9 +221,11 @@ pub mod tests {
         let body = r#"{ "query" : { "range" : { "test_i64" : { "gte" : 2012, "lte" : 2015 } } } }"#;
         let req: Request = serde_json::from_str(body)?;
         let docs = run_query(req, "test_index")
-            .map(|_result| {
-                //                assert_eq!(result.hits as usize, result.docs.len());
-                //                assert_eq!(result.docs[0].score.unwrap(), 1.0);
+            .map(|q| {
+                let body: SearchResults = serde_json::from_slice(&q.into_body().concat2().wait().unwrap()).unwrap();
+
+                assert_eq!(body.hits as usize, body.docs.len());
+                assert_eq!(body.docs[0].score.unwrap(), 1.0);
             })
             .map_err(|_| ());
 
@@ -237,9 +238,11 @@ pub mod tests {
         let body = r#"{ "query" : { "range" : { "test_i64" : { "gt" : 2012, "lt" : 2015 } } } }"#;
         let req: Request = serde_json::from_str(&body)?;
         let docs = run_query(req, "test_index")
-            .map(|_results| {
-                //                assert_eq!(results.hits as usize, results.docs.len());
-                //                assert_eq!(results.docs[0].score.unwrap(), 1.0);
+            .map(|q| {
+                let body: SearchResults = serde_json::from_slice(&q.into_body().concat2().wait().unwrap()).unwrap();
+
+                assert_eq!(body.hits as usize, body.docs.len());
+                assert_eq!(body.docs[0].score.unwrap(), 1.0);
             })
             .map_err(|_| ());
 
@@ -251,11 +254,14 @@ pub mod tests {
     fn test_regex_query() -> Result<(), serde_json::Error> {
         let body = r#"{ "query" : { "regex" : { "test_text" : "d[ou]{1}c[k]?ument" } } }"#;
         let req: Request = serde_json::from_str(&body)?;
-        let _docs = run_query(req, "test_index")
-            //            .map(|results| assert_eq!(results.hits, 4))
+        let docs = run_query(req, "test_index")
+            .map(|q| {
+                let body: SearchResults = serde_json::from_slice(&q.into_body().concat2().wait().unwrap()).unwrap();
+                assert_eq!(body.hits, 4)
+            })
             .map_err(|_| ());
 
-        //        tokio::run(docs);
+        tokio::run(docs);
         Ok(())
     }
 
@@ -266,11 +272,14 @@ pub mod tests {
                 "must_not": [ {"range": {"test_i64": { "gt": 2017 } } } ] } } }"#;
 
         let query = serde_json::from_str::<Request>(test_json)?;
-        let _docs = run_query(query, "test_index")
-            //            .map(|results| assert_eq!(results.hits, 2))
+        let docs = run_query(query, "test_index")
+            .map(|q| {
+                let body: SearchResults = serde_json::from_slice(&q.into_body().concat2().wait().unwrap()).unwrap();
+                assert_eq!(body.hits, 2)
+            })
             .map_err(|_| ());
 
-        //        tokio::run(docs);
+        tokio::run(docs);
         Ok(())
     }
 }

@@ -64,7 +64,7 @@ impl ScoredDoc {
 
 #[derive(Serialize)]
 pub struct ErrorResponse {
-    message: String
+    message: String,
 }
 
 impl From<Error> for ErrorResponse {

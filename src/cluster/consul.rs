@@ -7,8 +7,8 @@ use hyper::body::Body;
 use hyper::client::HttpConnector;
 use hyper::http::uri::Scheme;
 use hyper::{Client, Request, Response, Uri};
-use hyper_tls::HttpsConnector;
 use serde::{Deserialize, Serialize};
+use tower::Service;
 use tower_consul::{Consul as TowerConsul, ConsulService, KVValue};
 
 use crate::cluster::shard::PrimaryShard;
@@ -203,19 +203,19 @@ impl Builder {
 
 #[derive(Clone)]
 pub struct HttpsService {
-    client: Client<HttpsConnector<HttpConnector>>,
+    client: Client<HttpConnector>,
 }
 
 impl HttpsService {
     fn new() -> Self {
-        let https = HttpsConnector::new(4).expect("Could not create TLS for Hyper");
+        let https = HttpConnector::new(4);
         let client = Client::builder().build::<_, hyper::Body>(https);
 
         HttpsService { client }
     }
 }
 
-impl tower_service::Service<Request<Bytes>> for HttpsService {
+impl Service<Request<Bytes>> for HttpsService {
     type Response = Response<Bytes>;
     type Error = hyper::Error;
     type Future = Box<Future<Item = Self::Response, Error = Self::Error> + Send>;

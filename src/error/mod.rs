@@ -1,11 +1,11 @@
 use crate::cluster::RPCError;
+use crate::results::ErrorResponse;
 use failure::Fail;
+use hyper::Body;
 use serde::{Deserialize, Serialize};
 use tantivy::query::QueryParserError;
 use tantivy::schema::DocParsingError;
 use tantivy::TantivyError;
-use hyper::Body;
-use crate::results::ErrorResponse;
 
 #[derive(Debug, Fail, Clone, Serialize, Deserialize)]
 pub enum Error {

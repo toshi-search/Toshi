@@ -2,10 +2,9 @@ use std::collections::HashMap;
 use std::convert::Into;
 use std::sync::{Arc, RwLock};
 
-use futures::future::Either;
 use futures::stream::{futures_unordered, Stream};
 use futures::{future, Future};
-use http::{StatusCode, Response};
+use http::{Response, StatusCode};
 use hyper::Body;
 use rand::random;
 use serde::{Deserialize, Serialize};
@@ -59,30 +58,23 @@ impl IndexHandler {
         IndexHandler { catalog }
     }
 
+    #[inline]
     fn add_index(catalog: &Arc<RwLock<IndexCatalog>>, name: String, index: Index) -> Result<(), Error> {
-        match catalog.write() {
-            Ok(ref mut cat) => cat.add_index(name, index),
-            Err(e) => Err(Error::IOError(e.to_string())),
-        }
+        catalog.write()?.add_index(name, index)
     }
 
+    #[inline]
     fn add_remote_index(catalog: &Arc<RwLock<IndexCatalog>>, name: String, clients: Vec<RpcClient>) -> Result<(), Error> {
-        match catalog.write() {
-            Ok(ref mut cat) => cat.add_multi_remote_index(name, clients),
-            Err(e) => Err(Error::IOError(e.to_string())),
-        }
+        catalog.write()?.add_multi_remote_index(name, clients)
     }
 
     fn delete_term(catalog: &Arc<RwLock<IndexCatalog>>, body: DeleteDoc, index: String) -> Result<DocsAffected, Error> {
-        if let Ok(mut index_lock) = catalog.write() {
-            if index_lock.exists(&index) {
-                let index_handle = index_lock.get_mut_index(&index)?;
-                index_handle.delete_term(body)
-            } else {
-                Err(Error::IOError("Index does not exist".into()))
-            }
+        let mut index_lock = catalog.write()?;
+        if index_lock.exists(&index) {
+            let index_handle = index_lock.get_mut_index(&index)?;
+            index_handle.delete_term(body)
         } else {
-            Err(Error::IOError("Failed to obtain lock on catalog".into()))
+            Err(Error::IOError("Index does not exist".into()))
         }
     }
 
@@ -97,10 +89,10 @@ impl IndexHandler {
             let schema = schema.clone();
             c.and_then(move |mut client| {
                 let client_clone = client.clone();
-                let s = serde_json::to_vec(&schema).unwrap();
+                let schema_bytes = serde_json::to_vec(&schema).unwrap();
                 let request = Request::new(PlaceRequest {
                     index: index.clone(),
-                    schema: s,
+                    schema: schema_bytes,
                 });
                 client.place_index(request).map(move |_| vec![client_clone]).map_err(Into::into)
             })
@@ -122,22 +114,24 @@ impl IndexHandler {
                     let base_path = cat_clone.read().unwrap().base_path().clone();
                     let new_index: Index = match IndexCatalog::create_from_managed(base_path, &index, b.0.clone()) {
                         Ok(v) => v,
-                        Err(e) => return Either::A(future::ok(Response::from(e)))
+                        Err(e) => return future::Either::A(future::ok(Response::from(e))),
                     };
                     match IndexHandler::add_index(&cat_clone, index.clone(), new_index) {
                         Ok(_) => (),
-                        Err(e) => return Either::A(future::ok(Response::from(e)))
+                        Err(e) => return future::Either::A(future::ok(Response::from(e))),
                     };
                 }
 
-                Either::B(IndexHandler::create_remote_index(nodes, index, b.0)
-                    .concat2()
-                    .map(move |clients| {
-                        IndexHandler::add_remote_index(&cat_clone, idx_clone, clients)
-                            .map(|()| empty_with_code(StatusCode::CREATED))
-                            .unwrap()
-                    })
-                    .map_err(Into::into))
+                future::Either::B(
+                    IndexHandler::create_remote_index(nodes, index, b.0)
+                        .concat2()
+                        .map(move |clients| {
+                            IndexHandler::add_remote_index(&cat_clone, idx_clone, clients)
+                                .map(|()| empty_with_code(StatusCode::CREATED))
+                                .unwrap()
+                        })
+                        .map_err(Into::into),
+                )
             })
             .map_err(failure::Error::from);
         Box::new(task)
@@ -153,13 +147,13 @@ impl IndexHandler {
                 Ok(cat) => {
                     let location: bool = random();
                     if location && cat.remote_exists(&index) {
-                        Either::A(
+                        future::Either::A(
                             cat.add_remote_document(&index, b.clone())
                                 .map(|_| empty_with_code(StatusCode::CREATED))
                                 .map_err(Into::into),
                         )
                     } else {
-                        Either::B(
+                        future::Either::B(
                             cat.add_local_document(&index, b.clone())
                                 .map(|_| empty_with_code(StatusCode::CREATED))
                                 .map_err(Into::into),
@@ -182,6 +176,7 @@ mod tests {
     use crate::index::tests::*;
 
     use super::*;
+    use crate::results::SearchResults;
 
     #[test]
     fn test_create_index() -> ::std::io::Result<()> {
@@ -193,28 +188,31 @@ mod tests {
             { "name": "test_u64", "type": "u64", "options": { "indexed": true, "stored": true } }
          ]"#;
         let handler = IndexHandler::new(Arc::clone(&shared_cat));
-        let body: SchemaBody = serde_json::from_str(schema).unwrap();
-        //        handler.create(body, "new_index".into()).wait().unwrap();
-        let search = SearchHandler::new(Arc::clone(&shared_cat));
-        let docs = search.all_docs("new_index".into()).wait();
 
-        assert_eq!(docs.is_ok(), true);
-        //        assert_eq!(docs.unwrap().hits, 0);
+        handler.create_index(Body::from(schema), "new_index".into()).wait().unwrap();
+        let search = SearchHandler::new(Arc::clone(&shared_cat));
+        let docs = search
+            .all_docs("new_index".into())
+            .wait()
+            .unwrap()
+            .into_body()
+            .concat2()
+            .wait()
+            .unwrap();
+        let body: SearchResults = serde_json::from_slice(&docs).unwrap();
+
+        assert_eq!(body.hits, 0);
         remove_dir_all::remove_dir_all("new_index")
     }
 
     #[test]
     fn test_doc_create() {
         let shared_cat = create_test_catalog("test_index");
-        let body: AddDocument = serde_json::from_str(
-            r#" {"options": {"commit": true }, "document": {"test_text": "Babbaboo!", "test_u64": 10, "test_i64": -10} }"#,
-        )
-        .unwrap();
-
+        let body = r#" {"options": {"commit": true }, "document": {"test_text": "Babbaboo!", "test_u64": 10, "test_i64": -10} }"#;
         let handler = IndexHandler::new(Arc::clone(&shared_cat));
-        //        let req = handler.add(body, "test_index".into()).wait();
-        //
-        //        assert_eq!(req.is_ok(), true);
+        let req = handler.add_document(Body::from(body), "test_index".into()).wait();
+
+        assert_eq!(req.is_ok(), true);
     }
 
     #[test]
@@ -241,7 +239,7 @@ mod tests {
             document: bad_json,
             options: None,
         };
-        //        let req = handler.add(add_doc, "test_index".into()).wait();
-        //        assert_eq!(req.is_err(), true);
+        //                let req = handler.add_document(add_doc, "test_index".into()).wait();
+        //                assert_eq!(req.is_err(), true);
     }
 }

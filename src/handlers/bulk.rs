@@ -107,9 +107,10 @@ mod tests {
     use crate::index::tests::*;
 
     use super::*;
+    use crate::results::SearchResults;
 
     #[test]
-    fn test_bulk_index() {
+    fn test_bulk_index() -> Result<(), Error> {
         let mut runtime = Runtime::new().unwrap();
         let server = create_test_catalog("test_index");
         let handler = BulkHandler::new(Arc::clone(&server));
@@ -124,7 +125,9 @@ mod tests {
         sleep(Duration::from_secs(1));
 
         let search = SearchHandler::new(Arc::clone(&server));
-        let _check_docs = search.all_docs("test_index".into()).wait().unwrap();
-        //        assert_eq!(check_docs.hits, 8);
+        let check_docs = search.all_docs("test_index".into()).wait().expect("");
+        let body = check_docs.into_body().concat2().wait()?;
+        let docs: SearchResults = serde_json::from_slice(&body.into_bytes())?;
+        Ok(assert_eq!(docs.hits, 8))
     }
 }
