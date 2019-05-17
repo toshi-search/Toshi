@@ -5,8 +5,7 @@ use std::sync::{Arc, RwLock};
 use crate::error::Error;
 use crate::handlers::ResponseFuture;
 use crate::index::IndexCatalog;
-use http::StatusCode;
-use hyper::Body;
+use crate::router::with_body;
 
 #[derive(Clone, Serialize)]
 pub struct SummaryResponse {
@@ -30,12 +29,7 @@ impl SummaryHandler {
             let metas = index.get_index().load_metas().unwrap();
             let value = serde_json::to_value(&metas).unwrap();
             let summary = SummaryResponse { summaries: value };
-            let response = http::Response::builder()
-                .status(StatusCode::CREATED)
-                .body(Body::from(serde_json::to_vec(&summary).unwrap()))
-                .unwrap();
-
-            Box::new(future::ok(response))
+            Box::new(future::ok(with_body(summary)))
         } else {
             Box::new(future::err(Error::IOError(format!("Index {} does not exist", index)).into()))
         }
@@ -44,17 +38,17 @@ impl SummaryHandler {
 
 #[cfg(test)]
 mod tests {
-    use crate::index::tests::*;
-
     use super::*;
+    use crate::index::tests::*;
+    use futures::{Future, Stream};
 
     #[test]
     fn get_summary_data() {
         let cat = create_test_catalog("test_index");
         let handler = SummaryHandler::new(Arc::clone(&cat));
 
-        //        let resp = handler.handle("test_index".into());
-        //        assert_eq!(resp.is_ok(), true)
+        let resp = handler.summary("test_index".into()).wait().unwrap().into_body().concat2().wait();
+        assert_eq!(resp.is_ok(), true)
     }
 
 }

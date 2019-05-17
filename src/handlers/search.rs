@@ -1,8 +1,8 @@
 use std::sync::{Arc, RwLock};
 
+use futures::future::Either;
 use futures::stream::futures_unordered;
-use http::header::CONTENT_TYPE;
-use http::{Response, StatusCode};
+use http::StatusCode;
 use hyper::Body;
 use log::info;
 use tokio::prelude::*;
@@ -10,10 +10,8 @@ use tokio::prelude::*;
 use crate::handlers::ResponseFuture;
 use crate::index::IndexCatalog;
 use crate::query::Request;
-use crate::results::ScoredDoc;
-use crate::results::SearchResults;
-use crate::router::empty_with_code;
-use futures::future::Either;
+use crate::results::{ScoredDoc, SearchResults};
+use crate::router::{empty_with_code, with_body};
 
 #[derive(Clone)]
 pub struct SearchHandler {
@@ -55,12 +53,7 @@ impl SearchHandler {
                                 })
                                 .concat2()
                                 .map(SearchHandler::fold_results)
-                                .map(|results| {
-                                    Response::builder()
-                                        .header(CONTENT_TYPE, "application/json")
-                                        .body(Body::from(serde_json::to_vec(&results).unwrap()))
-                                        .unwrap()
-                                }),
+                                .map(with_body),
                         )
                     } else {
                         Either::B(future::ok(empty_with_code(StatusCode::NOT_FOUND)))

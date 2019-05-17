@@ -84,11 +84,10 @@ impl BulkHandler {
                 Ok(buf)
             })
             .and_then(move |left| {
-                let response = empty_with_code(StatusCode::CREATED);
                 if !left.is_empty() {
                     line_sender.send(left).unwrap();
                 }
-                future::ok(response)
+                future::ok(empty_with_code(StatusCode::CREATED))
             })
             .map_err(FailError::from);
 
