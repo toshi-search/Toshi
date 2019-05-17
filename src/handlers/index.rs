@@ -179,7 +179,7 @@ mod tests {
     use crate::results::SearchResults;
 
     #[test]
-    fn test_create_index() -> ::std::io::Result<()> {
+    fn test_create_index() {
         let shared_cat = create_test_catalog("test_index");
         let schema = r#"[
             { "name": "test_text", "type": "text", "options": { "indexing": { "record": "position", "tokenizer": "default" }, "stored": true } },
@@ -202,7 +202,8 @@ mod tests {
         let body: SearchResults = serde_json::from_slice(&docs).unwrap();
 
         assert_eq!(body.hits, 0);
-        remove_dir_all::remove_dir_all("new_index")
+        // This fails CI on windows for some reason
+        remove_dir_all::remove_dir_all("new_index");
     }
 
     #[test]
