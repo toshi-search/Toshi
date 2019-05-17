@@ -5,7 +5,7 @@ use rand::prelude::*;
 use tokio::prelude::*;
 use tower_grpc::{Request as TowerRequest, Response};
 
-use toshi_proto::cluster_rpc::{DocumentRequest, ResultReply, SearchReply, SearchRequest};
+use toshi_proto::cluster_rpc::{DeleteRequest, DocumentRequest, SearchReply, SearchRequest};
 
 use crate::cluster::rpc_server::RpcClient;
 use crate::cluster::RPCError;
@@ -49,7 +49,7 @@ impl RemoteIndex {
 
 impl IndexHandle for RemoteIndex {
     type SearchResponse = Box<Future<Item = Vec<SearchReply>, Error = RPCError> + Send>;
-    type DeleteResponse = Box<Future<Item = ResultReply, Error = RPCError> + Send>;
+    type DeleteResponse = Box<Future<Item = Vec<i32>, Error = RPCError> + Send>;
     type AddResponse = Box<Future<Item = Vec<i32>, Error = RPCError> + Send>;
 
     fn get_name(&self) -> String {
@@ -93,7 +93,7 @@ impl IndexHandle for RemoteIndex {
                 Err(_) => Vec::new(),
             };
             let req = TowerRequest::new(DocumentRequest {
-                index: name.clone(),
+                index: name,
                 document: bytes,
             });
             client
@@ -111,7 +111,30 @@ impl IndexHandle for RemoteIndex {
         Box::new(future::join_all(fut))
     }
 
-    fn delete_term(&mut self, _: DeleteDoc) -> Self::DeleteResponse {
-        unimplemented!()
+    fn delete_term(&self, delete: DeleteDoc) -> Self::DeleteResponse {
+        let name = self.name.clone();
+        let clients = self.remotes.clone();
+        let fut = clients.into_iter().map(move |mut client| {
+            let bytes = match serde_json::to_vec(&delete) {
+                Ok(v) => v,
+                Err(_) => Vec::new(),
+            };
+            let req = TowerRequest::new(DeleteRequest {
+                index: name.clone(),
+                terms: bytes,
+            });
+            client
+                .delete_document(req)
+                .map(|res| {
+                    info!("RESPONSE = {:?}", res);
+                    res.into_inner().code
+                })
+                .map_err(|e| {
+                    info!("ERR = {:?}", e);
+                    e.into()
+                })
+        });
+
+        Box::new(future::join_all(fut))
     }
 }

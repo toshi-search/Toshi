@@ -1,9 +1,12 @@
-use crate::cluster::RPCError;
 use failure::Fail;
+use hyper::Body;
 use serde::{Deserialize, Serialize};
 use tantivy::query::QueryParserError;
 use tantivy::schema::DocParsingError;
 use tantivy::TantivyError;
+
+use crate::cluster::RPCError;
+use crate::results::ErrorResponse;
 
 #[derive(Debug, Fail, Clone, Serialize, Deserialize)]
 pub enum Error {
@@ -17,6 +20,20 @@ pub enum Error {
     QueryError(String),
     #[fail(display = "Failed to find known executor")]
     SpawnError,
+    #[fail(display = "An unknown error occurred")]
+    UnknownError,
+}
+
+impl From<Error> for http::Response<Body> {
+    fn from(err: Error) -> Self {
+        ErrorResponse::from(err).into()
+    }
+}
+
+impl From<hyper::Error> for Error {
+    fn from(err: hyper::Error) -> Self {
+        Error::IOError(err.to_string())
+    }
 }
 
 impl From<TantivyError> for Error {
@@ -87,8 +104,8 @@ impl From<Box<::std::error::Error + Send + 'static>> for Error {
     }
 }
 
-impl<T> From<crossbeam::channel::SendError<T>> for Error {
-    fn from(err: crossbeam::channel::SendError<T>) -> Self {
+impl From<crossbeam::channel::SendError<bytes::Bytes>> for Error {
+    fn from(err: crossbeam::channel::SendError<bytes::Bytes>) -> Self {
         Error::IOError(err.to_string())
     }
 }

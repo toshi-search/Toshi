@@ -8,7 +8,6 @@ use serde::{Deserialize, Serialize};
 use tantivy::query::Query as TantivyQuery;
 use tantivy::schema::Schema;
 use tantivy::Term;
-use tower_web::Extract;
 
 pub use {
     self::aggregate::{SumCollector, SummaryDoc},
@@ -54,7 +53,7 @@ pub enum Metrics {
     SumAgg { field: String },
 }
 
-#[derive(Serialize, Extract, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Request {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub aggs: Option<Metrics>,

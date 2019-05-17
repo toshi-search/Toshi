@@ -3,17 +3,19 @@ use std::str::from_utf8;
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 
+use bytes::Bytes;
 use crossbeam::channel::{unbounded, Receiver, Sender};
-use futures::stream::iter_ok;
-use futures::{Future, Stream};
+use failure::Error as FailError;
+use http::StatusCode;
+use hyper::Body;
 use tantivy::schema::Schema;
-use tantivy::Document;
-use tantivy::IndexWriter;
-use tower_web::*;
+use tantivy::{Document, IndexWriter};
+use tokio::prelude::*;
 
 use crate::error::Error;
-use crate::handlers::CreatedResponse;
+use crate::handlers::ResponseFuture;
 use crate::index::IndexCatalog;
+use crate::router::empty_with_code;
 
 #[derive(Clone)]
 pub struct BulkHandler {
@@ -26,27 +28,20 @@ impl BulkHandler {
     }
 
     fn index_documents(index_writer: &Mutex<IndexWriter>, doc_receiver: Receiver<Document>) -> Result<u64, Error> {
-        match index_writer.lock() {
-            Ok(ref mut w) => {
-                for doc in doc_receiver {
-                    w.add_document(doc);
-                }
-                match w.commit() {
-                    Ok(c) => Ok(c),
-                    Err(e) => Err(e.into()),
-                }
-            }
-            Err(e) => Err(e.into()),
+        let mut w = index_writer.lock()?;
+        for doc in doc_receiver {
+            w.add_document(doc);
         }
+        Ok(w.commit()?)
     }
 
-    fn parsing_documents(schema: Schema, doc_sender: Sender<Document>, line_recv: Receiver<Vec<u8>>) -> Result<(), Error> {
+    fn parsing_documents(schema: Schema, doc_sender: Sender<Document>, line_recv: Receiver<Bytes>) -> Result<(), Error> {
         for line in line_recv {
             if !line.is_empty() {
                 if let Ok(text) = from_utf8(&line) {
                     if let Ok(doc) = schema.parse_document(text) {
                         log::debug!("Sending doc: {:?}", &doc);
-                        doc_sender.send(doc)?
+                        doc_sender.send(doc).unwrap()
                     }
                 }
             }
@@ -54,12 +49,12 @@ impl BulkHandler {
         Ok(())
     }
 
-    fn inner_handle(&self, body: Vec<u8>, index: String) -> impl Future<Item = CreatedResponse, Error = Error> + Send {
+    pub fn bulk_insert(&self, body: Body, index: String) -> ResponseFuture {
         let index_lock = self.catalog.read().unwrap();
         let index_handle = index_lock.get_index(&index).unwrap();
         let index = index_handle.get_index();
         let schema = index.schema();
-        let (line_sender, line_recv) = index_lock.settings.get_channel::<Vec<u8>>();
+        let (line_sender, line_recv) = index_lock.settings.get_channel::<Bytes>();
         let (doc_sender, doc_recv) = unbounded::<Document>();
 
         for _ in 0..index_lock.settings.json_parsing_threads {
@@ -68,46 +63,35 @@ impl BulkHandler {
             let line_recv_clone = line_recv.clone();
             thread::spawn(move || BulkHandler::parsing_documents(schema_clone, doc_sender, line_recv_clone));
         }
+
         let writer = index_handle.get_writer();
         thread::spawn(move || BulkHandler::index_documents(&writer, doc_recv));
 
         let line_sender_clone = line_sender.clone();
-        iter_ok(body.into_iter())
-            .fold(Vec::new(), move |mut buf, line| {
-                buf.push(line);
+        let fut = body
+            .map_err(|e: hyper::Error| -> Error { e.into() })
+            .fold(Bytes::new(), move |mut buf, line| -> Result<Bytes, Error> {
+                buf.extend(line);
+
                 let mut split = buf.split(|b| *b == b'\n').peekable();
                 while let Some(l) = split.next() {
                     if split.peek().is_none() {
-                        return Ok(l.to_vec());
+                        return Ok(Bytes::from(l));
                     }
-
                     log::debug!("Bytes in buf: {}", buf.len());
-                    match line_sender_clone.send(l.to_vec()) {
-                        Ok(_) => (),
-                        Err(e) => return Err(e),
-                    }
+                    line_sender_clone.send(Bytes::from(l))?;
                 }
-                Ok(buf.clone())
+                Ok(buf)
             })
             .and_then(move |left| {
-                log::debug!("Bytes left in buf: {}", left.len());
                 if !left.is_empty() {
-                    line_sender.send(left).map(|_| CreatedResponse)
-                } else {
-                    Ok(CreatedResponse)
+                    line_sender.send(left).unwrap();
                 }
+                future::ok(empty_with_code(StatusCode::CREATED))
             })
-            .map_err(|e| e.into())
-    }
-}
+            .map_err(FailError::from);
 
-impl_web! {
-    impl BulkHandler {
-        #[post("/:index/_bulk")]
-        #[content_type("application/json")]
-        pub fn handle(&self, body: Vec<u8>, index: String) -> impl Future<Item = CreatedResponse, Error = Error> + Send {
-            self.inner_handle(body, index)
-        }
+        Box::new(fut)
     }
 }
 
@@ -122,9 +106,10 @@ mod tests {
     use crate::index::tests::*;
 
     use super::*;
+    use crate::results::SearchResults;
 
     #[test]
-    fn test_bulk_index() {
+    fn test_bulk_index() -> Result<(), Error> {
         let mut runtime = Runtime::new().unwrap();
         let server = create_test_catalog("test_index");
         let handler = BulkHandler::new(Arc::clone(&server));
@@ -133,13 +118,15 @@ mod tests {
         {"test_text": "asdf5678", "test_i64": 456, "test_u64": 678, "test_unindex": "asdf"}
         {"test_text": "asdf9012", "test_i64": -12, "test_u64": 901, "test_unindex": "asdf"}"#;
 
-        let index_docs = handler.handle(body.as_bytes().to_vec(), "test_index".into());
+        let index_docs = handler.bulk_insert(Body::from(body), "test_index".into());
         let result = runtime.block_on(index_docs);
         assert_eq!(result.is_ok(), true);
         sleep(Duration::from_secs(1));
 
         let search = SearchHandler::new(Arc::clone(&server));
-        let check_docs = search.get_all_docs("test_index".into()).wait().unwrap();
-        assert_eq!(check_docs.hits, 8);
+        let check_docs = search.all_docs("test_index".into()).wait().expect("");
+        let body = check_docs.into_body().concat2().wait()?;
+        let docs: SearchResults = serde_json::from_slice(&body.into_bytes())?;
+        Ok(assert_eq!(docs.hits, 8))
     }
 }

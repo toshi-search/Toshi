@@ -1,43 +1,35 @@
-use serde::Serialize;
-use tower_web::*;
+use futures::future;
+use http::header::CONTENT_TYPE;
+use hyper::{Body, Response};
 
-#[derive(Clone, Debug)]
-pub struct RootHandler(ToshiInfo);
+use crate::handlers::ResponseFuture;
 
-#[derive(Debug, Clone, Response)]
-struct ToshiInfo {
-    name: String,
-    version: String,
+const TOSHI_INFO: &[u8] = b"{\"name\":\"Toshi Search\",\"version\":\"0.1.1\"}";
+
+pub fn root() -> ResponseFuture {
+    let resp = Response::builder()
+        .header(CONTENT_TYPE, "application/json")
+        .body(Body::from(TOSHI_INFO))
+        .map_err(Into::into);
+
+    Box::new(future::result(resp))
 }
-
-impl RootHandler {
-    pub fn new(version: &str) -> Self {
-        RootHandler(ToshiInfo {
-            version: version.into(),
-            name: "Toshi Search".into(),
-        })
-    }
-}
-
-impl_web!(
-    impl RootHandler {
-        #[get("/")]
-        #[content_type("application/json")]
-        fn root(&self) -> Result<ToshiInfo, ()> {
-            Ok(self.0.clone())
-        }
-    }
-);
 
 #[cfg(test)]
 mod tests {
 
     use super::*;
-    use crate::settings::VERSION;
+    use bytes::Buf;
+    use tokio::prelude::*;
 
     #[test]
-    fn test_root() {
-        let handler = RootHandler::new(VERSION);
-        assert_eq!(handler.root().unwrap().version, VERSION)
+    fn test_root() -> Result<(), hyper::Error> {
+        root()
+            .wait()
+            .unwrap()
+            .into_body()
+            .concat2()
+            .map(|v| assert_eq!(v.bytes(), TOSHI_INFO))
+            .wait()
     }
 }

@@ -128,11 +128,11 @@ fn run_master(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl F
                 let update = catalog.read().unwrap().update_remote_indexes();
                 tokio::spawn(update);
             }
-            router_with_catalog(&bind, &catalog)
+            router_with_catalog(&bind, Arc::clone(&catalog))
         });
         future::Either::A(run)
     } else {
-        let run = commit_watcher.and_then(move |_| router_with_catalog(&bind, &catalog));
+        let run = commit_watcher.and_then(move |_| router_with_catalog(&bind, Arc::clone(&catalog)));
         future::Either::B(run)
     }
 }

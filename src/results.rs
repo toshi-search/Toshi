@@ -3,12 +3,13 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use tantivy::schema::NamedFieldDocument;
 use tantivy::schema::Value;
-use tower_web::Response;
 
 use crate::error::Error;
 use crate::query::SummaryDoc;
+use http::Response;
+use hyper::Body;
 
-#[derive(Response, Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct SearchResults {
     pub hits: usize,
     #[serde(default = "Vec::new")]
@@ -58,5 +59,23 @@ pub struct ScoredDoc {
 impl ScoredDoc {
     pub fn new(score: Option<f32>, doc: NamedFieldDocument) -> Self {
         ScoredDoc { score, doc: doc.0 }
+    }
+}
+
+#[derive(Serialize)]
+pub struct ErrorResponse {
+    message: String,
+}
+
+impl From<Error> for ErrorResponse {
+    fn from(err: Error) -> Self {
+        Self { message: err.to_string() }
+    }
+}
+
+impl Into<Response<Body>> for ErrorResponse {
+    fn into(self) -> Response<Body> {
+        let body = Body::from(serde_json::to_vec(&self).unwrap());
+        Response::new(body)
     }
 }

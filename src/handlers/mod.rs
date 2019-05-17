@@ -4,30 +4,6 @@ pub mod root;
 pub mod search;
 pub mod summary;
 
-pub use self::{bulk::BulkHandler, index::IndexHandler, root::RootHandler, search::SearchHandler, summary::SummaryHandler};
+pub use self::{bulk::BulkHandler, index::IndexHandler, search::SearchHandler, summary::SummaryHandler};
 
-use serde::{Deserialize, Serialize};
-use tower_web::{Extract, Response};
-
-#[derive(Extract, Serialize)]
-pub struct QueryOptions {
-    #[allow(unused)]
-    pretty: Option<i32>,
-}
-
-#[derive(Serialize)]
-#[allow(dead_code)]
-pub struct ErrorResponse {
-    message: String,
-    uri: String,
-}
-
-impl ErrorResponse {
-    #[allow(dead_code)]
-    pub fn new(message: String, uri: String) -> Self {
-        Self { message, uri }
-    }
-}
-
-#[derive(Response, Debug)]
-pub struct CreatedResponse;
+pub type ResponseFuture = Box<futures::Future<Item = hyper::Response<hyper::Body>, Error = failure::Error> + Send>;

@@ -2,28 +2,28 @@ use std::io::Error;
 use std::net::SocketAddr;
 use std::sync::{Arc, RwLock};
 
+use futures::Future;
+use hyper::client::connect::HttpConnector;
 use log::{error, info};
 use tantivy::schema::Schema;
-use tokio::net::{TcpListener, TcpStream};
+use tokio::net::TcpListener;
 use tokio::prelude::*;
-use tokio_executor::DefaultExecutor;
 use tower::MakeService;
 use tower_buffer::Buffer;
 use tower_grpc::{BoxBody, Code, Request, Response, Status};
-use tower_h2::client::{Connect, ConnectError, Connection};
-use tower_h2::Server;
+use tower_hyper::client::{Connect, ConnectError, Connection};
+use tower_hyper::util::{Connector, Destination};
+use tower_hyper::Server;
 use tower_request_modifier::{Builder, RequestModifier};
 
 use toshi_proto::cluster_rpc::*;
 
-use crate::cluster::GrpcConn;
 use crate::handle::IndexHandle;
-use crate::handlers::index::AddDocument;
+use crate::handlers::index::{AddDocument, DeleteDoc};
 use crate::index::IndexCatalog;
-use crate::query;
-use crate::query::Query::All;
+use crate::{query, query::Query};
 
-pub type Buf = Buffer<RequestModifier<Connection<TcpStream, DefaultExecutor, BoxBody>, BoxBody>, http::Request<BoxBody>>;
+pub type Buf = Buffer<RequestModifier<Connection<BoxBody>, BoxBody>, http::Request<BoxBody>>;
 pub type RpcClient = client::IndexService<Buf>;
 
 /// RPC Services should "ideally" work on only local indexes, they shouldn't be responsible for
@@ -44,29 +44,30 @@ impl Clone for RpcServer {
 impl RpcServer {
     pub fn serve(addr: SocketAddr, catalog: Arc<RwLock<IndexCatalog>>) -> impl Future<Item = (), Error = ()> + Send {
         let service = server::IndexServiceServer::new(RpcServer { catalog });
-        let executor = DefaultExecutor::current();
         info!("Binding on port: {:?}", addr);
         let bind = TcpListener::bind(&addr).unwrap_or_else(|_| panic!("Failed to bind to host: {:?}", addr));
 
         info!("Bound to: {:?}", &bind.local_addr().unwrap());
-        let mut h2 = Server::new(service, Default::default(), executor);
+        let mut hyp = Server::new(service);
 
         bind.incoming()
             .for_each(move |sock| {
                 info!("Connection from: {:?}", sock.local_addr().unwrap());
-                let req = h2.serve(sock).map_err(|err| error!("h2 error: {:?}", err));
+                let req = hyp.serve(sock).map_err(|err| error!("hyper error: {:?}", err));
                 tokio::spawn(req);
                 Ok(())
             })
             .map_err(|err| error!("Server Error: {:?}", err))
     }
 
-    pub fn create_client(conn: GrpcConn, uri: http::Uri) -> impl Future<Item = RpcClient, Error = ConnectError<Error>> + Send {
+    //TODO: Make DNS Threads and Buffer Requests Configurable options
+    pub fn create_client(uri: http::Uri) -> impl Future<Item = RpcClient, Error = ConnectError<Error>> + Send {
         info!("Creating Client to: {:?}", uri);
-        let mut connect = Connect::new(conn, Default::default(), DefaultExecutor::current());
+        let dst = Destination::try_from_uri(uri.clone()).unwrap();
+        let connector = Connector::new(HttpConnector::new(num_cpus::get()));
+        let mut connect = Connect::new(connector);
 
-        connect.make_service(()).map(|c| {
-            let uri = uri;
+        connect.make_service(dst).map(move |c| {
             let connection = Builder::new().set_origin(uri).build(c).unwrap();
             let buffer = Buffer::new(connection, 128);
             client::IndexService::new(buffer)
@@ -97,6 +98,7 @@ impl server::IndexService for RpcServer {
     type PlaceDocumentFuture = Box<future::FutureResult<Response<ResultReply>, Status>>;
     type PlaceReplicaFuture = Box<future::FutureResult<Response<ResultReply>, Status>>;
     type SearchIndexFuture = Box<future::FutureResult<Response<SearchReply>, Status>>;
+    type DeleteDocumentFuture = Box<future::FutureResult<Response<ResultReply>, Status>>;
 
     fn list_indexes(&mut self, req: Request<ListRequest>) -> Self::ListIndexesFuture {
         if let Ok(ref cat) = self.catalog.read() {
@@ -120,7 +122,7 @@ impl server::IndexService for RpcServer {
                         query: None,
                         ref aggs,
                         limit,
-                    }) => query::Request::new(Some(All), aggs.clone(), limit),
+                    }) => query::Request::new(Some(Query::All), aggs.clone(), limit),
                     Ok(v) => v,
                     Err(e) => return Self::error_response(Code::Internal, e.to_string()),
                 };
@@ -197,68 +199,25 @@ impl server::IndexService for RpcServer {
     fn place_replica(&mut self, _request: Request<ReplicaRequest>) -> Self::PlaceReplicaFuture {
         unimplemented!()
     }
-}
 
-//impl<T> Service<http::Request<Body>> for server::IndexServiceServer<T> {
-//    type Response = http::Response<LiftBody<Body>>;
-//    type Error = h2::Error;
-//    type Future = Box<Future<Item = Self::Response, Error = Self::Error> + Send>;
-//
-//    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-//        unimplemented!()
-//    }
-//
-//    fn call(&mut self, req: http::Request<Body>) -> Self::Future {
-//        let fut = self.make_service(()).call(req);
-//        Box::new(fut)
-//    }
-//}
-//
-//#[cfg(test)]
-//mod tests {
-//    use futures::future::Future;
-//    use http::Uri;
-//
-//    use crate::index::tests::create_test_catalog;
-//    use crate::query::Query;
-//
-//    use super::*;
-//
-//    #[test]
-//    #[ignore]
-//    fn client_test() {
-//        let body = r#"test_text:"Duckiment""#;
-//        let _req = query::Request::new(Some(Query::Raw { raw: body.into() }), None, 10);
-//        let list = ListRequest {};
-//        let socket_addr: SocketAddr = "127.0.0.1:8081".parse().unwrap();
-//
-//        let host_uri = Uri::builder()
-//            .scheme("http")
-//            .authority(socket_addr.to_string().as_str())
-//            .path_and_query("")
-//            .build()
-//            .unwrap();
-//
-//        let tcp_stream = GrpcConn(socket_addr);
-//        let cat = create_test_catalog("test_index");
-//        let service = RpcServer::get_service(socket_addr, cat);
-//
-//        let client_fut = RpcServer::create_client(tcp_stream.clone(), host_uri)
-//            .and_then(|mut client| {
-//                future::ok(
-//                    client
-//                        .list_indexes(Request::new(list))
-//                        .map(|resp| resp.into_inner())
-//                        .map_err(|_| ()),
-//                )
-//            })
-//            .map_err(|_| ())
-//            .and_then(|x| x)
-//            .map(|x| println!("{:#?}", x))
-//            .map_err(|_| ());
-//
-//        let s = service.select(client_fut).map(|_| ()).map_err(|_| ());
-//
-//        tokio::run(s);
-//    }
-//}
+    fn delete_document(&mut self, request: Request<DeleteRequest>) -> Self::DeleteDocumentFuture {
+        let DeleteRequest { index, terms } = request.into_inner();
+        if let Ok(ref cat) = self.catalog.read() {
+            if let Ok(idx) = cat.get_index(&index) {
+                if let Ok(delete_docs) = serde_json::from_slice::<DeleteDoc>(&terms) {
+                    if idx.delete_term(delete_docs).is_ok() {
+                        Box::new(future::finished(Response::new(RpcServer::ok_result())))
+                    } else {
+                        Self::error_response(Code::Internal, format!("Add Document Failed: {}", index))
+                    }
+                } else {
+                    Self::error_response(Code::Internal, format!("Invalid Document request: {}", index))
+                }
+            } else {
+                Self::error_response(Code::NotFound, "Could not find index".into())
+            }
+        } else {
+            Self::error_response(Code::NotFound, format!("Cannot obtain lock on catalog for index: {}", index))
+        }
+    }
+}

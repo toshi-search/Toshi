@@ -1,5 +1,5 @@
 use std::hash::{Hash, Hasher};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use log::debug;
@@ -29,7 +29,7 @@ pub trait IndexHandle {
     fn index_location(&self) -> IndexLocation;
     fn search_index(&self, search: Request) -> Self::SearchResponse;
     fn add_document(&self, doc: AddDocument) -> Self::AddResponse;
-    fn delete_term(&mut self, term: DeleteDoc) -> Self::DeleteResponse;
+    fn delete_term(&self, term: DeleteDoc) -> Self::DeleteResponse;
 }
 
 /// Index handle that operates on an Index local to the node, a remote index handle
@@ -40,7 +40,7 @@ pub struct LocalIndex {
     writer: Arc<Mutex<IndexWriter>>,
     reader: IndexReader,
     current_opstamp: Arc<AtomicUsize>,
-    deleted_docs: u64,
+    deleted_docs: Arc<AtomicU64>,
     settings: Settings,
     name: String,
 }
@@ -52,7 +52,7 @@ impl Clone for LocalIndex {
             writer: Arc::clone(&self.writer),
             reader: self.reader.clone(),
             current_opstamp: Arc::clone(&self.current_opstamp),
-            deleted_docs: self.deleted_docs,
+            deleted_docs: Arc::clone(&self.deleted_docs),
             settings: self.settings.clone(),
             name: self.name.clone(),
         }
@@ -158,7 +158,7 @@ impl IndexHandle for LocalIndex {
         Ok(())
     }
 
-    fn delete_term(&mut self, term: DeleteDoc) -> Self::DeleteResponse {
+    fn delete_term(&self, term: DeleteDoc) -> Self::DeleteResponse {
         let index_schema = self.index.schema();
         let writer_lock = self.get_writer();
         let mut index_writer = writer_lock.lock()?;
@@ -171,12 +171,13 @@ impl IndexHandle for LocalIndex {
         }
         if let Some(opts) = term.options {
             if opts.commit {
-                index_writer.commit().unwrap();
+                index_writer.commit()?;
                 self.set_opstamp(0);
             }
         }
         let docs_affected = before - self.reader.searcher().num_docs();
-        self.deleted_docs += docs_affected;
+        let current = self.deleted_docs.load(Ordering::SeqCst);
+        self.deleted_docs.store(current + docs_affected, Ordering::SeqCst);
         Ok(DocsAffected { docs_affected })
     }
 }
@@ -193,7 +194,7 @@ impl LocalIndex {
             reader,
             writer,
             current_opstamp,
-            deleted_docs: 0,
+            deleted_docs: Arc::new(AtomicU64::new(0)),
             settings,
             name: name.into(),
         })
