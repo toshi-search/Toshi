@@ -20,7 +20,7 @@ use crate::cluster::rpc_server::{RpcClient, RpcServer};
 use crate::cluster::RPCError;
 use crate::error::Error;
 use crate::handle::{IndexHandle, LocalIndex};
-use crate::handlers::index::AddDocument;
+use crate::handlers::index::{AddDocument, DeleteDoc};
 use crate::query::Request;
 use crate::results::*;
 use crate::settings::Settings;
@@ -250,6 +250,13 @@ impl IndexCatalog {
         self.get_owned_index(index)
             .into_future()
             .and_then(move |hand| hand.add_document(doc))
+            .map(|_| ())
+    }
+
+    pub fn delete_local_term(&self, index: &str, term: DeleteDoc) -> impl Future<Item = (), Error = Error> + Send {
+        self.get_remote_index(index)
+            .into_future()
+            .and_then(move |handle| handle.delete_term(term).from_err())
             .map(|_| ())
     }
 

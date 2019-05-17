@@ -25,7 +25,7 @@ use crate::router::empty_with_code;
 #[derive(Deserialize, Clone)]
 pub struct SchemaBody(pub Schema);
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct DeleteDoc {
     pub options: Option<IndexOptions>,
     pub terms: HashMap<String, String>,
