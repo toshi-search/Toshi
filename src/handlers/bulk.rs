@@ -5,7 +5,6 @@ use std::thread;
 
 use bytes::Bytes;
 use crossbeam::channel::{unbounded, Receiver, Sender};
-use failure::Error as FailError;
 use http::StatusCode;
 use hyper::Body;
 use tantivy::schema::Schema;
@@ -69,8 +68,7 @@ impl BulkHandler {
 
         let line_sender_clone = line_sender.clone();
         let fut = body
-            .map_err(|e: hyper::Error| -> Error { e.into() })
-            .fold(Bytes::new(), move |mut buf, line| -> Result<Bytes, Error> {
+            .fold(Bytes::new(), move |mut buf, line| -> Result<Bytes, hyper::Error> {
                 buf.extend(line);
 
                 let mut split = buf.split(|b| *b == b'\n').peekable();
@@ -79,17 +77,16 @@ impl BulkHandler {
                         return Ok(Bytes::from(l));
                     }
                     log::debug!("Bytes in buf: {}", buf.len());
-                    line_sender_clone.send(Bytes::from(l))?;
+                    line_sender_clone.send(Bytes::from(l)).expect("Line sender failed.");
                 }
                 Ok(buf)
             })
             .and_then(move |left| {
                 if !left.is_empty() {
-                    line_sender.send(left).unwrap();
+                    line_sender.send(left).expect("Line sender failed #2");
                 }
                 future::ok(empty_with_code(StatusCode::CREATED))
-            })
-            .map_err(FailError::from);
+            });
 
         Box::new(fut)
     }

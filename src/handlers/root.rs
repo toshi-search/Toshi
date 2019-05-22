@@ -10,9 +10,9 @@ pub fn root() -> ResponseFuture {
     let resp = Response::builder()
         .header(CONTENT_TYPE, "application/json")
         .body(Body::from(TOSHI_INFO))
-        .map_err(Into::into);
+        .unwrap();
 
-    Box::new(future::result(resp))
+    Box::new(future::ok(resp))
 }
 
 #[cfg(test)]

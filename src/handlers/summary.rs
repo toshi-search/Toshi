@@ -1,10 +1,10 @@
 use futures::future;
+use http::Response;
 use serde::Serialize;
-use std::sync::{Arc, RwLock};
 
 use crate::error::Error;
 use crate::handlers::ResponseFuture;
-use crate::index::IndexCatalog;
+use crate::index::SharedCatalog;
 use crate::router::with_body;
 
 #[derive(Clone, Serialize)]
@@ -14,11 +14,11 @@ pub struct SummaryResponse {
 
 #[derive(Clone)]
 pub struct SummaryHandler {
-    catalog: Arc<RwLock<IndexCatalog>>,
+    catalog: SharedCatalog,
 }
 
 impl SummaryHandler {
-    pub fn new(catalog: Arc<RwLock<IndexCatalog>>) -> Self {
+    pub fn new(catalog: SharedCatalog) -> Self {
         SummaryHandler { catalog }
     }
 
@@ -31,16 +31,21 @@ impl SummaryHandler {
             let summary = SummaryResponse { summaries: value };
             Box::new(future::ok(with_body(summary)))
         } else {
-            Box::new(future::err(Error::IOError(format!("Index {} does not exist", index)).into()))
+            let err = Error::IOError(format!("Index {} does not exist", index));
+            let resp = Response::from(err);
+            Box::new(future::ok(resp))
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::index::tests::*;
+    use std::sync::Arc;
     use futures::{Future, Stream};
+
+    use crate::index::tests::*;
+
+    use super::*;
 
     #[test]
     fn get_summary_data() {

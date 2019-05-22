@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 use std::convert::Into;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use futures::stream::{futures_unordered, Stream};
-use futures::{future, Future};
+use futures::{future, future::Either, Future};
 use http::{Response, StatusCode};
 use hyper::Body;
 use rand::random;
@@ -19,7 +19,7 @@ use crate::cluster::RPCError;
 use crate::error::Error;
 use crate::handle::IndexHandle;
 use crate::handlers::ResponseFuture;
-use crate::index::IndexCatalog;
+use crate::index::{IndexCatalog, SharedCatalog};
 use crate::router::empty_with_code;
 
 #[derive(Deserialize, Clone)]
@@ -33,7 +33,7 @@ pub struct DeleteDoc {
 
 #[derive(Clone)]
 pub struct IndexHandler {
-    catalog: Arc<RwLock<IndexCatalog>>,
+    catalog: SharedCatalog,
 }
 
 #[derive(Debug, Deserialize)]
@@ -54,36 +54,32 @@ pub struct AddDocument {
 }
 
 impl IndexHandler {
-    pub fn new(catalog: Arc<RwLock<IndexCatalog>>) -> Self {
+    pub fn new(catalog: SharedCatalog) -> Self {
         IndexHandler { catalog }
     }
 
     #[inline]
-    fn add_index(catalog: &Arc<RwLock<IndexCatalog>>, name: String, index: Index) -> Result<(), Error> {
+    fn add_index(catalog: &SharedCatalog, name: String, index: Index) -> Result<(), Error> {
         catalog.write()?.add_index(name, index)
     }
 
     #[inline]
-    fn add_remote_index(catalog: &Arc<RwLock<IndexCatalog>>, name: String, clients: Vec<RpcClient>) -> Result<(), Error> {
+    fn add_remote_index(catalog: &SharedCatalog, name: String, clients: Vec<RpcClient>) -> Result<(), Error> {
         catalog.write()?.add_multi_remote_index(name, clients)
     }
 
-    fn delete_term(catalog: &Arc<RwLock<IndexCatalog>>, body: DeleteDoc, index: String) -> Result<DocsAffected, Error> {
-        let mut index_lock = catalog.write()?;
+    fn delete_term(catalog: &SharedCatalog, body: DeleteDoc, index: String) -> Result<DocsAffected, Error> {
+        let index_lock = catalog.read()?;
         if index_lock.exists(&index) {
-            let index_handle = index_lock.get_mut_index(&index)?;
+            let index_handle = index_lock.get_index(&index)?;
             index_handle.delete_term(body)
         } else {
             Err(Error::IOError("Index does not exist".into()))
         }
     }
 
-    fn create_remote_index(
-        nodes: Vec<String>,
-        index: String,
-        schema: Schema,
-    ) -> impl Stream<Item = Vec<RpcClient>, Error = RPCError> + Send {
-        let futs = nodes.into_iter().map(move |n| {
+    fn create_remote_index(nodes: &[String], index: String, schema: Schema) -> impl Stream<Item = Vec<RpcClient>, Error = RPCError> + Send {
+        let futs = nodes.iter().map(move |n| {
             let c = IndexCatalog::create_client(n.clone());
             let index = index.clone();
             let schema = schema.clone();
@@ -101,68 +97,62 @@ impl IndexHandler {
     }
 
     pub fn create_index(&self, body: Body, index: String) -> ResponseFuture {
-        let cat_clone = Arc::clone(&self.catalog);
-        let idx_clone = index.clone();
-        let nodes = cat_clone.read().unwrap().settings.experimental_features.nodes.clone();
+        let cat = Arc::clone(&self.catalog);
+        Box::new(body.concat2().and_then(move |b| {
+            let b = match serde_json::from_slice::<SchemaBody>(&b) {
+                Ok(v) => v,
+                Err(e) => return future::Either::A(future::ok(Response::from(Error::from(e)))),
+            };
 
-        let task = body
-            .concat2()
-            .map_err(|e: hyper::Error| -> Error { e.into() })
-            .map(|b| serde_json::from_slice::<SchemaBody>(&b).unwrap())
-            .and_then(move |b| {
-                {
-                    let base_path = cat_clone.read().unwrap().base_path().clone();
-                    let new_index: Index = match IndexCatalog::create_from_managed(base_path, &index, b.0.clone()) {
-                        Ok(v) => v,
-                        Err(e) => return future::Either::A(future::ok(Response::from(e))),
-                    };
-                    match IndexHandler::add_index(&cat_clone, index.clone(), new_index) {
-                        Ok(_) => (),
-                        Err(e) => return future::Either::A(future::ok(Response::from(e))),
-                    };
-                }
+            {
+                let base_path = cat.read().unwrap().base_path().clone();
+                let new_index: Index = match IndexCatalog::create_from_managed(base_path, &index, b.0.clone()) {
+                    Ok(v) => v,
+                    Err(e) => return future::Either::A(future::ok(Response::from(e))),
+                };
+                match IndexHandler::add_index(&cat, index.clone(), new_index) {
+                    Ok(_) => (),
+                    Err(e) => return future::Either::A(future::ok(Response::from(e))),
+                };
+            }
 
-                future::Either::B(
-                    IndexHandler::create_remote_index(nodes, index, b.0)
-                        .concat2()
-                        .map(move |clients| {
-                            IndexHandler::add_remote_index(&cat_clone, idx_clone, clients)
-                                .map(|()| empty_with_code(StatusCode::CREATED))
-                                .unwrap()
-                        })
-                        .map_err(Into::into),
-                )
-            })
-            .map_err(failure::Error::from);
-        Box::new(task)
+            let nodes = cat.read().unwrap().settings.get_nodes();
+            future::Either::B(
+                IndexHandler::create_remote_index(&nodes, index.clone(), b.0)
+                    .concat2()
+                    .map(move |clients| {
+                        IndexHandler::add_remote_index(&cat, index, clients)
+                            .map(|()| empty_with_code(StatusCode::CREATED))
+                            .unwrap()
+                    })
+                    .or_else(|_| future::ok(empty_with_code(StatusCode::INTERNAL_SERVER_ERROR))),
+            )
+        }))
     }
 
     pub fn add_document(&self, body: Body, index: String) -> ResponseFuture {
         let cat_clone = Arc::clone(&self.catalog);
-        let task = body
-            .concat2()
-            .map_err(|e: hyper::Error| -> Error { e.into() })
-            .map(|b| serde_json::from_slice::<AddDocument>(&b).unwrap())
-            .and_then(move |b| match cat_clone.read() {
-                Ok(cat) => {
-                    let location: bool = random();
-                    if location && cat.remote_exists(&index) {
-                        future::Either::A(
-                            cat.add_remote_document(&index, b.clone())
-                                .map(|_| empty_with_code(StatusCode::CREATED))
-                                .map_err(Into::into),
-                        )
-                    } else {
-                        future::Either::B(
-                            cat.add_local_document(&index, b.clone())
-                                .map(|_| empty_with_code(StatusCode::CREATED))
-                                .map_err(Into::into),
-                        )
-                    }
-                }
-                _ => panic!(":("),
-            })
-            .map_err(failure::Error::from);
+        let task = body.concat2().and_then(move |b| {
+            let b = serde_json::from_slice::<AddDocument>(&b).unwrap();
+            let cat = cat_clone.read().unwrap();
+            let location: bool = random();
+            if location && cat.remote_exists(&index) {
+                let t = cat
+                    .add_remote_document(&index, b.clone())
+                    .map(|_| empty_with_code(StatusCode::CREATED))
+                    .or_else(|_| future::ok(empty_with_code(StatusCode::INTERNAL_SERVER_ERROR)));
+
+                Either::A(t)
+            } else {
+                let t = cat
+                    .add_local_document(&index, b.clone())
+                    .map(|_| empty_with_code(StatusCode::CREATED))
+                    .or_else(|_| future::ok(empty_with_code(StatusCode::INTERNAL_SERVER_ERROR)));
+
+                Either::B(t)
+            }
+        });
+
         Box::new(task)
     }
 }
@@ -174,9 +164,9 @@ mod tests {
 
     use crate::handlers::SearchHandler;
     use crate::index::tests::*;
+    use crate::results::SearchResults;
 
     use super::*;
-    use crate::results::SearchResults;
 
     #[test]
     fn test_create_index() {
@@ -202,8 +192,10 @@ mod tests {
         let body: SearchResults = serde_json::from_slice(&docs).unwrap();
 
         assert_eq!(body.hits, 0);
+
         // This fails CI on windows for some reason
-        remove_dir_all::remove_dir_all("new_index");
+//        shared_cat.write().unwrap().clear();
+        remove_dir_all::remove_dir_all("new_index").unwrap();
     }
 
     #[test]

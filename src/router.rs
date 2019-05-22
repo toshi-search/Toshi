@@ -91,8 +91,6 @@ pub mod tests {
 
     #[test]
     pub fn test_create_router() {
-        std::env::set_var("RUST_LOG", "info");
-        pretty_env_logger::init();
         let catalog = create_test_catalog("test_index");
         let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
         router_with_catalog(&addr, Arc::clone(&catalog));

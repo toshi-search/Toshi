@@ -11,7 +11,7 @@ use crate::cluster::rpc_server::RpcClient;
 use crate::cluster::RPCError;
 use crate::handle::{IndexHandle, IndexLocation};
 use crate::handlers::index::{AddDocument, DeleteDoc};
-use crate::query::Request;
+use crate::query::Search;
 
 /// A reference to an index stored somewhere else on the cluster, this operates via calling
 /// the remote host and full filling the request via rpc, we need to figure out a better way
@@ -60,7 +60,7 @@ impl IndexHandle for RemoteIndex {
         IndexLocation::REMOTE
     }
 
-    fn search_index(&self, search: Request) -> Self::SearchResponse {
+    fn search_index(&self, search: Search) -> Self::SearchResponse {
         let name = self.name.clone();
         let clients = self.remotes.clone();
         info!("REQ = {:?}", search);

@@ -1,13 +1,13 @@
 use std::collections::BTreeMap;
 
+use http::Response;
+use hyper::Body;
 use serde::{Deserialize, Serialize};
 use tantivy::schema::NamedFieldDocument;
 use tantivy::schema::Value;
 
 use crate::error::Error;
 use crate::query::SummaryDoc;
-use http::Response;
-use hyper::Body;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SearchResults {
@@ -69,6 +69,12 @@ pub struct ErrorResponse {
 
 impl From<Error> for ErrorResponse {
     fn from(err: Error) -> Self {
+        Self { message: err.to_string() }
+    }
+}
+
+impl From<serde_json::Error> for ErrorResponse {
+    fn from(err: serde_json::Error) -> Self {
         Self { message: err.to_string() }
     }
 }

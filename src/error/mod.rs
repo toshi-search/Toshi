@@ -8,7 +8,7 @@ use tantivy::TantivyError;
 use crate::cluster::RPCError;
 use crate::results::ErrorResponse;
 
-#[derive(Debug, Fail, Clone, Serialize, Deserialize)]
+#[derive(Debug, Fail, Serialize, Deserialize)]
 pub enum Error {
     #[fail(display = "IO Error: {}", _0)]
     IOError(String),

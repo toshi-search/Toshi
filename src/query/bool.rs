@@ -66,7 +66,7 @@ mod tests {
         let _u_field = builder.add_i64_field("age", FAST);
         let _schema = builder.build();
 
-        let result = serde_json::from_str::<Request>(test_json).unwrap();
+        let result = serde_json::from_str::<Search>(test_json).unwrap();
         assert_eq!(result.query.is_some(), true);
 
         if let super::super::Query::Boolean { bool } = result.query.unwrap() {

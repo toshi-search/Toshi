@@ -54,7 +54,7 @@ pub enum Metrics {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Request {
+pub struct Search {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub aggs: Option<Metrics>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -63,9 +63,9 @@ pub struct Request {
     pub limit: usize,
 }
 
-impl Request {
+impl Search {
     pub fn new(query: Option<Query>, aggs: Option<Metrics>, limit: usize) -> Self {
-        Request { query, aggs, limit }
+        Search { query, aggs, limit }
     }
 
     pub fn all_docs() -> Self {
@@ -160,7 +160,6 @@ where
 
 #[cfg(test)]
 pub mod tests {
-
     use super::*;
 
     #[test]

@@ -239,6 +239,10 @@ impl Settings {
         }
     }
 
+    pub fn get_nodes(&self) -> Vec<String> {
+        self.experimental_features.nodes.clone()
+    }
+
     pub fn get_merge_policy(&self) -> Box<MergePolicy> {
         match self.merge_policy.get_kind() {
             MergePolicyType::Log => {

@@ -2,7 +2,7 @@ use std::clone::Clone;
 use std::fs;
 use std::net::SocketAddr;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 
 use futures::stream::Stream;
 use hashbrown::HashMap;
@@ -21,10 +21,12 @@ use crate::cluster::RPCError;
 use crate::error::Error;
 use crate::handle::{IndexHandle, LocalIndex};
 use crate::handlers::index::{AddDocument, DeleteDoc};
-use crate::query::Request;
+use crate::query::Search;
 use crate::results::*;
 use crate::settings::Settings;
 use crate::Result;
+
+pub type SharedCatalog = Arc<RwLock<IndexCatalog>>;
 
 pub struct IndexCatalog {
     pub settings: Settings,
@@ -219,13 +221,13 @@ impl IndexCatalog {
             .map(move |(x, r)| (x, r.indexes))
     }
 
-    pub fn search_local_index(&self, index: &str, search: Request) -> impl Future<Item = Vec<SearchResults>, Error = Error> + Send {
+    pub fn search_local_index(&self, index: &str, search: Search) -> impl Future<Item = Vec<SearchResults>, Error = Error> + Send {
         self.get_index(index)
             .and_then(move |hand| hand.search_index(search).map(|r| vec![r]))
             .into_future()
     }
 
-    pub fn search_remote_index(&self, index: &str, search: Request) -> impl Future<Item = Vec<SearchResults>, Error = Error> + Send {
+    pub fn search_remote_index(&self, index: &str, search: Search) -> impl Future<Item = Vec<SearchResults>, Error = Error> + Send {
         self.get_remote_index(index).into_future().and_then(move |hand| {
             hand.search_index(search)
                 .and_then(|sr| {
@@ -268,28 +270,18 @@ impl IndexCatalog {
 
 #[cfg(test)]
 pub mod tests {
+
     use std::sync::{Arc, RwLock};
 
-    use serde::{Deserialize, Serialize};
     use tantivy::doc;
     use tantivy::schema::*;
 
     use super::*;
 
-    pub fn create_test_catalog(name: &str) -> Arc<RwLock<IndexCatalog>> {
+    pub fn create_test_catalog(name: &str) -> SharedCatalog {
         let idx = create_test_index();
         let catalog = IndexCatalog::with_index(name.into(), idx).unwrap();
         Arc::new(RwLock::new(catalog))
-    }
-
-    #[derive(Debug, Deserialize, Serialize)]
-    struct Line {
-        index: u64,
-        song: String,
-        year: u64,
-        artist: String,
-        genre: String,
-        lyrics: String,
     }
 
     pub fn create_test_index() -> Index {

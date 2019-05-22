@@ -10,7 +10,7 @@ use tantivy::{Document, Index, IndexReader, IndexWriter, ReloadPolicy, Term};
 use tokio::prelude::*;
 
 use crate::handlers::index::{AddDocument, DeleteDoc, DocsAffected};
-use crate::query::{CreateQuery, Query, Request};
+use crate::query::{CreateQuery, Query, Search};
 use crate::results::{ScoredDoc, SearchResults};
 use crate::settings::Settings;
 use crate::{error::Error, Result};
@@ -27,7 +27,7 @@ pub trait IndexHandle {
 
     fn get_name(&self) -> String;
     fn index_location(&self) -> IndexLocation;
-    fn search_index(&self, search: Request) -> Self::SearchResponse;
+    fn search_index(&self, search: Search) -> Self::SearchResponse;
     fn add_document(&self, doc: AddDocument) -> Self::AddResponse;
     fn delete_term(&self, term: DeleteDoc) -> Self::DeleteResponse;
 }
@@ -86,7 +86,7 @@ impl IndexHandle for LocalIndex {
         IndexLocation::LOCAL
     }
 
-    fn search_index(&self, search: Request) -> Self::SearchResponse {
+    fn search_index(&self, search: Search) -> Self::SearchResponse {
         let searcher = self.reader.searcher();
         let schema = self.index.schema();
         let collector = TopDocs::with_limit(search.limit);
