@@ -13,6 +13,7 @@ service IndexService {
     rpc delete_document (DeleteRequest) returns (ResultReply);
     rpc place_replica (ReplicaRequest) returns (ResultReply);
     rpc search_index (SearchRequest) returns (SearchReply);
+    rpc get_summary (SummaryRequest) returns (SummaryReply);
 }
 
 enum ResultCode {
@@ -69,4 +70,12 @@ message ReplicaRequest {
     string index = 1;
     string from = 2;
     string to = 3;
+}
+
+message SummaryRequest {
+    string index = 1;
+}
+
+message SummaryReply {
+    bytes summary = 1;
 }

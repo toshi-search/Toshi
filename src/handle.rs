@@ -6,6 +6,7 @@ use log::debug;
 use tantivy::collector::TopDocs;
 use tantivy::query::{AllQuery, QueryParser};
 use tantivy::schema::*;
+use tantivy::space_usage::SearcherSpaceUsage;
 use tantivy::{Document, Index, IndexReader, IndexWriter, ReloadPolicy, Term};
 use tokio::prelude::*;
 
@@ -202,6 +203,10 @@ impl LocalIndex {
 
     fn parse_doc(schema: &Schema, bytes: &str) -> Result<Document> {
         schema.parse_document(bytes).map_err(Into::into)
+    }
+
+    pub fn get_space(&self) -> SearcherSpaceUsage {
+        self.reader.searcher().space_usage()
     }
 
     pub fn get_index(&self) -> &Index {

@@ -1,38 +1,19 @@
 use std::net::SocketAddr;
 use std::sync::{Arc, RwLock};
 
-use http::header::CONTENT_TYPE;
-use http::{Response, StatusCode};
 use hyper::service::service_fn;
 use hyper::{Body, Method, Request, Server};
-use serde::Serialize;
+use serde::Deserialize;
 use tokio::prelude::*;
 
 use crate::handlers::*;
 use crate::index::IndexCatalog;
+use crate::utils::{not_found, parse_path};
 
-pub fn with_body<T>(body: T) -> http::Response<Body>
-where
-    T: Serialize,
-{
-    let json = serde_json::to_vec::<T>(&body).unwrap();
-    Response::builder()
-        .header(CONTENT_TYPE, "application/json")
-        .body(Body::from(json))
-        .unwrap()
-}
-
-pub fn empty_with_code(code: StatusCode) -> http::Response<Body> {
-    Response::builder().status(code).body(Body::empty()).unwrap()
-}
-
-fn not_found() -> ResponseFuture {
-    let not_found = empty_with_code(StatusCode::NOT_FOUND);
-    Box::new(future::ok(not_found))
-}
-
-fn parse_path(path: &str) -> Vec<&str> {
-    path.trim_matches('/').split('/').filter(|s| !s.is_empty()).collect::<Vec<_>>()
+#[derive(Deserialize, Debug, Default)]
+pub struct QueryOptions {
+    pub pretty: Option<bool>,
+    pub include_sizes: Option<bool>,
 }
 
 pub fn router_with_catalog(addr: &SocketAddr, catalog: Arc<RwLock<IndexCatalog>>) -> impl Future<Item = (), Error = ()> + Send {
@@ -44,6 +25,12 @@ pub fn router_with_catalog(addr: &SocketAddr, catalog: Arc<RwLock<IndexCatalog>>
 
         service_fn(move |req: Request<Body>| {
             let raw_path = req.uri().clone();
+            let query_options: QueryOptions = if let Some(q) = raw_path.query() {
+                serde_urlencoded::from_str(q).unwrap()
+            } else {
+                QueryOptions::default()
+            };
+
             let path = parse_path(raw_path.path());
 
             log::info!("PATH = {:?}", &path);
@@ -54,7 +41,7 @@ pub fn router_with_catalog(addr: &SocketAddr, catalog: Arc<RwLock<IndexCatalog>>
                     _ => not_found(),
                 },
                 (&Method::GET, [idx, action]) => match *action {
-                    "_summary" => summary_handler.summary(idx.to_string()),
+                    "_summary" => summary_handler.summary(idx.to_string(), query_options),
                     _ => not_found(),
                 },
                 (&Method::POST, [idx, action]) => match *action {

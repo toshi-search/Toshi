@@ -14,7 +14,7 @@ use tokio::prelude::*;
 use crate::error::Error;
 use crate::handlers::ResponseFuture;
 use crate::index::IndexCatalog;
-use crate::router::empty_with_code;
+use crate::utils::empty_with_code;
 
 #[derive(Clone)]
 pub struct BulkHandler {

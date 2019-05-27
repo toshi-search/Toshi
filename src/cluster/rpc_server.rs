@@ -99,6 +99,7 @@ impl server::IndexService for RpcServer {
     type PlaceReplicaFuture = Box<future::FutureResult<Response<ResultReply>, Status>>;
     type SearchIndexFuture = Box<future::FutureResult<Response<SearchReply>, Status>>;
     type DeleteDocumentFuture = Box<future::FutureResult<Response<ResultReply>, Status>>;
+    type GetSummaryFuture = Box<future::FutureResult<Response<SummaryReply>, Status>>;
 
     fn list_indexes(&mut self, req: Request<ListRequest>) -> Self::ListIndexesFuture {
         if let Ok(ref cat) = self.catalog.read() {
@@ -219,5 +220,9 @@ impl server::IndexService for RpcServer {
         } else {
             Self::error_response(Code::NotFound, format!("Cannot obtain lock on catalog for index: {}", index))
         }
+    }
+
+    fn get_summary(&mut self, request: Request<SummaryRequest>) -> Self::GetSummaryFuture {
+        unimplemented!()
     }
 }

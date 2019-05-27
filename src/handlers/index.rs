@@ -20,7 +20,7 @@ use crate::error::Error;
 use crate::handle::IndexHandle;
 use crate::handlers::ResponseFuture;
 use crate::index::{IndexCatalog, SharedCatalog};
-use crate::router::empty_with_code;
+use crate::utils::empty_with_code;
 
 #[derive(Deserialize, Clone)]
 pub struct SchemaBody(pub Schema);
@@ -192,9 +192,6 @@ mod tests {
         let body: SearchResults = serde_json::from_slice(&docs).unwrap();
 
         assert_eq!(body.hits, 0);
-
-        // This fails CI on windows for some reason
-//        shared_cat.write().unwrap().clear();
         remove_dir_all::remove_dir_all("new_index").unwrap();
     }
 

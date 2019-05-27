@@ -11,7 +11,7 @@ use crate::handlers::ResponseFuture;
 use crate::index::SharedCatalog;
 use crate::query::Search;
 use crate::results::{ScoredDoc, SearchResults};
-use crate::router::{empty_with_code, with_body};
+use crate::utils::{empty_with_code, with_body};
 
 #[derive(Clone)]
 pub struct SearchHandler {
