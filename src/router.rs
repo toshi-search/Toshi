@@ -12,11 +12,24 @@ use crate::utils::{not_found, parse_path};
 
 #[derive(Deserialize, Debug, Default)]
 pub struct QueryOptions {
-    pub pretty: Option<bool>,
-    pub include_sizes: Option<bool>,
+    pretty: Option<bool>,
+    include_sizes: Option<bool>,
+}
+
+impl QueryOptions {
+    #[inline]
+    pub fn include_sizes(&self) -> bool {
+        self.include_sizes.unwrap_or(false)
+    }
+
+    #[inline]
+    pub fn pretty(&self) -> bool {
+        self.pretty.unwrap_or(false)
+    }
 }
 
 pub fn router_with_catalog(addr: &SocketAddr, catalog: Arc<RwLock<IndexCatalog>>) -> impl Future<Item = (), Error = ()> + Send {
+
     let routes = move || {
         let search_handler = SearchHandler::new(Arc::clone(&catalog));
         let index_handler = IndexHandler::new(Arc::clone(&catalog));
@@ -25,16 +38,18 @@ pub fn router_with_catalog(addr: &SocketAddr, catalog: Arc<RwLock<IndexCatalog>>
 
         service_fn(move |req: Request<Body>| {
             let raw_path = req.uri().clone();
-            let query_options: QueryOptions = if let Some(q) = raw_path.query() {
-                serde_urlencoded::from_str(q).unwrap()
-            } else {
-                QueryOptions::default()
-            };
+            let query_options: QueryOptions = raw_path.query()
+                .and_then(|q| serde_urlencoded::from_str(q).ok())
+                .unwrap_or_default();
 
             let path = parse_path(raw_path.path());
 
             log::info!("PATH = {:?}", &path);
             match (req.method(), &path[..]) {
+                (&Method::DELETE, [idx, action]) => match *action {
+                    "" => index_handler.delete_term(req.into_body(), idx.to_string()),
+                    _ => not_found(),
+                },
                 (&Method::PUT, [idx, action]) => match *action {
                     "_create" => index_handler.create_index(req.into_body(), idx.to_string()),
                     "" => index_handler.add_document(req.into_body(), idx.to_string()),

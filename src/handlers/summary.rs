@@ -3,6 +3,7 @@ use std::sync::Arc;
 use futures::future;
 use http::Response;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use tantivy::space_usage::SearcherSpaceUsage;
 
 use crate::error::Error;
@@ -13,9 +14,15 @@ use crate::utils::with_body;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SummaryResponse {
-    summaries: serde_json::Value,
+    summaries: Value,
     #[serde(skip_serializing_if = "Option::is_none")]
     segment_sizes: Option<SearcherSpaceUsage>,
+}
+
+impl SummaryResponse {
+    pub fn new(summaries: Value, segment_sizes: Option<SearcherSpaceUsage>) -> Self {
+        Self { summaries, segment_sizes }
+    }
 }
 
 #[derive(Clone)]
@@ -35,10 +42,12 @@ impl SummaryHandler {
             if index_lock.exists(&index) {
                 let index = index_lock.get_index(&index).unwrap();
                 let metas = index.get_index().load_metas().unwrap();
-                let segment_sizes = options.include_sizes.and_then(|b| if b { Some(index.get_space()) } else { None });
                 let summaries = serde_json::to_value(&metas).unwrap();
-
-                let summary = SummaryResponse { summaries, segment_sizes };
+                let summary = if options.include_sizes() {
+                    SummaryResponse::new(summaries, Some(index.get_space()))
+                } else {
+                    SummaryResponse::new(summaries, None)
+                };
                 future::ok(with_body(summary))
             } else {
                 let err = Error::IOError(format!("Index {} does not exist", index));

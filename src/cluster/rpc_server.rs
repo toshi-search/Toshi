@@ -10,7 +10,7 @@ use tokio::net::TcpListener;
 use tokio::prelude::*;
 use tower::MakeService;
 use tower_buffer::Buffer;
-use tower_grpc::{BoxBody, Code, Request, Response, Status};
+use tower_grpc::{BoxBody, Code, Request, Response, Status, Streaming};
 use tower_hyper::client::{Connect, ConnectError, Connection};
 use tower_hyper::util::{Connector, Destination};
 use tower_hyper::Server;
@@ -93,6 +93,7 @@ impl RpcServer {
 }
 
 impl server::IndexService for RpcServer {
+
     type ListIndexesFuture = Box<future::FutureResult<Response<ListReply>, Status>>;
     type PlaceIndexFuture = Box<future::FutureResult<Response<ResultReply>, Status>>;
     type PlaceDocumentFuture = Box<future::FutureResult<Response<ResultReply>, Status>>;
@@ -100,6 +101,7 @@ impl server::IndexService for RpcServer {
     type SearchIndexFuture = Box<future::FutureResult<Response<SearchReply>, Status>>;
     type DeleteDocumentFuture = Box<future::FutureResult<Response<ResultReply>, Status>>;
     type GetSummaryFuture = Box<future::FutureResult<Response<SummaryReply>, Status>>;
+    type BulkInsertFuture = Box<future::FutureResult<Response<ResultReply>, Status>>;
 
     fn list_indexes(&mut self, req: Request<ListRequest>) -> Self::ListIndexesFuture {
         if let Ok(ref cat) = self.catalog.read() {
@@ -222,7 +224,11 @@ impl server::IndexService for RpcServer {
         }
     }
 
-    fn get_summary(&mut self, request: Request<SummaryRequest>) -> Self::GetSummaryFuture {
+    fn get_summary(&mut self, _: Request<SummaryRequest>) -> Self::GetSummaryFuture {
+        unimplemented!()
+    }
+
+    fn bulk_insert(&mut self, _: Request<Streaming<BulkRequest>>) -> Self::BulkInsertFuture {
         unimplemented!()
     }
 }

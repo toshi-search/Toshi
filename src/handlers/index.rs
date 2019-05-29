@@ -20,7 +20,7 @@ use crate::error::Error;
 use crate::handle::IndexHandle;
 use crate::handlers::ResponseFuture;
 use crate::index::{IndexCatalog, SharedCatalog};
-use crate::utils::empty_with_code;
+use crate::utils::{error_response, empty_with_code, with_body};
 
 #[derive(Deserialize, Clone)]
 pub struct SchemaBody(pub Schema);
@@ -36,7 +36,7 @@ pub struct IndexHandler {
     catalog: SharedCatalog,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct DocsAffected {
     pub docs_affected: u64,
 }
@@ -59,23 +59,19 @@ impl IndexHandler {
     }
 
     #[inline]
-    fn add_index(catalog: &SharedCatalog, name: String, index: Index) -> Result<(), Error> {
+    fn add_index(catalog: SharedCatalog, name: String, index: Index) -> Result<(), Error> {
         catalog.write()?.add_index(name, index)
     }
 
     #[inline]
-    fn add_remote_index(catalog: &SharedCatalog, name: String, clients: Vec<RpcClient>) -> Result<(), Error> {
+    fn add_remote_index(catalog: SharedCatalog, name: String, clients: Vec<RpcClient>) -> Result<(), Error> {
         catalog.write()?.add_multi_remote_index(name, clients)
     }
 
-    fn delete_term(catalog: &SharedCatalog, body: DeleteDoc, index: String) -> Result<DocsAffected, Error> {
+    fn delete_terms(catalog: SharedCatalog, body: DeleteDoc, index: &str) -> Result<DocsAffected, Error> {
         let index_lock = catalog.read()?;
-        if index_lock.exists(&index) {
-            let index_handle = index_lock.get_index(&index)?;
-            index_handle.delete_term(body)
-        } else {
-            Err(Error::IOError("Index does not exist".into()))
-        }
+        let index_handle = index_lock.get_index(index)?;
+        index_handle.delete_term(body)
     }
 
     fn create_remote_index(nodes: &[String], index: String, schema: Schema) -> impl Stream<Item = Vec<RpcClient>, Error = RPCError> + Send {
@@ -96,6 +92,27 @@ impl IndexHandler {
         futures_unordered(futs)
     }
 
+    pub fn delete_term(&self, body: Body, index: String) -> ResponseFuture {
+        let cat = Arc::clone(&self.catalog);
+        let fut = body
+            .concat2()
+            .and_then(move |b| {
+                let b = match serde_json::from_slice::<DeleteDoc>(&b) {
+                    Ok(v) => v,
+                    Err(e) => return future::Either::A(future::ok(Response::from(Error::from(e)))),
+                };
+                let docs_affected = match IndexHandler::delete_terms(cat, b, &index) {
+                    Ok(v) => with_body(v),
+                    Err(e) => return future::Either::A(future::ok(Response::from(e))),
+                };
+
+                future::Either::B(future::ok(docs_affected))
+            })
+            .or_else(|_| future::ok(empty_with_code(StatusCode::INTERNAL_SERVER_ERROR)));
+
+        Box::new(fut)
+    }
+
     pub fn create_index(&self, body: Body, index: String) -> ResponseFuture {
         let cat = Arc::clone(&self.catalog);
         Box::new(body.concat2().and_then(move |b| {
@@ -104,24 +121,24 @@ impl IndexHandler {
                 Err(e) => return future::Either::A(future::ok(Response::from(Error::from(e)))),
             };
 
+            let nodes = &cat.read().unwrap().settings.get_nodes();
             {
                 let base_path = cat.read().unwrap().base_path().clone();
                 let new_index: Index = match IndexCatalog::create_from_managed(base_path, &index, b.0.clone()) {
                     Ok(v) => v,
                     Err(e) => return future::Either::A(future::ok(Response::from(e))),
                 };
-                match IndexHandler::add_index(&cat, index.clone(), new_index) {
+                match IndexHandler::add_index(Arc::clone(&cat), index.clone(), new_index) {
                     Ok(_) => (),
                     Err(e) => return future::Either::A(future::ok(Response::from(e))),
                 };
             }
 
-            let nodes = cat.read().unwrap().settings.get_nodes();
             future::Either::B(
                 IndexHandler::create_remote_index(&nodes, index.clone(), b.0)
                     .concat2()
                     .map(move |clients| {
-                        IndexHandler::add_remote_index(&cat, index, clients)
+                        IndexHandler::add_remote_index(cat, index, clients)
                             .map(|()| empty_with_code(StatusCode::CREATED))
                             .unwrap()
                     })
@@ -140,14 +157,14 @@ impl IndexHandler {
                 let t = cat
                     .add_remote_document(&index, b.clone())
                     .map(|_| empty_with_code(StatusCode::CREATED))
-                    .or_else(|_| future::ok(empty_with_code(StatusCode::INTERNAL_SERVER_ERROR)));
+                    .or_else(|e| future::ok(error_response(StatusCode::BAD_REQUEST, e)));
 
                 Either::A(t)
             } else {
                 let t = cat
                     .add_local_document(&index, b.clone())
                     .map(|_| empty_with_code(StatusCode::CREATED))
-                    .or_else(|_| future::ok(empty_with_code(StatusCode::INTERNAL_SERVER_ERROR)));
+                    .or_else(|e| future::ok(error_response(StatusCode::BAD_REQUEST, e)));
 
                 Either::B(t)
             }
@@ -167,6 +184,8 @@ mod tests {
     use crate::results::SearchResults;
 
     use super::*;
+
+    fn test_index() -> String { String::from("test_index") }
 
     #[test]
     fn test_create_index() {
@@ -200,7 +219,7 @@ mod tests {
         let shared_cat = create_test_catalog("test_index");
         let body = r#" {"options": {"commit": true }, "document": {"test_text": "Babbaboo!", "test_u64": 10, "test_i64": -10} }"#;
         let handler = IndexHandler::new(Arc::clone(&shared_cat));
-        let req = handler.add_document(Body::from(body), "test_index".into()).wait();
+        let req = handler.add_document(Body::from(body), test_index()).wait();
 
         assert_eq!(req.is_ok(), true);
     }
@@ -210,14 +229,14 @@ mod tests {
         let shared_cat = create_test_catalog("test_index");
         let handler = IndexHandler::new(Arc::clone(&shared_cat));
         let mut terms = HashMap::new();
-        terms.insert("test_text".to_string(), "document".to_string());
+        terms.insert(test_index(), "document".to_string());
         let delete = DeleteDoc {
             options: Some(IndexOptions { commit: true }),
             terms,
         };
-        //        let req = handler.delete(delete, "test_index".into());
-        //
-        //        assert_eq!(req.is_ok(), true);
+        let body_bytes = serde_json::to_vec(&delete).unwrap();
+        let req = handler.delete_term(Body::from(body_bytes), test_index()).wait();
+        assert_eq!(req.is_ok(), true);
     }
 
     #[test]
@@ -229,7 +248,8 @@ mod tests {
             document: bad_json,
             options: None,
         };
-        //                let req = handler.add_document(add_doc, "test_index".into()).wait();
-        //                assert_eq!(req.is_err(), true);
+        let body_bytes = serde_json::to_vec(&add_doc).unwrap();
+        let req = handler.add_document(Body::from(body_bytes), test_index()).wait().unwrap().into_body().concat2().wait().unwrap();
+        println!("{}", std::str::from_utf8(&req).unwrap());
     }
 }

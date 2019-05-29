@@ -166,9 +166,10 @@ impl IndexHandle for LocalIndex {
         let before = self.reader.searcher().num_docs();
 
         for (field, value) in term.terms {
-            let f = index_schema.get_field(&field).unwrap();
-            let term = Term::from_field_text(f, &value);
-            index_writer.delete_term(term);
+            if let Some(f) = index_schema.get_field(&field) {
+                let term = Term::from_field_text(f, &value);
+                index_writer.delete_term(term);
+            }
         }
         if let Some(opts) = term.options {
             if opts.commit {

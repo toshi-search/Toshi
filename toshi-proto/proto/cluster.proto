@@ -14,6 +14,7 @@ service IndexService {
     rpc place_replica (ReplicaRequest) returns (ResultReply);
     rpc search_index (SearchRequest) returns (SearchReply);
     rpc get_summary (SummaryRequest) returns (SummaryReply);
+    rpc bulk_insert (stream BulkRequest) returns (ResultReply);
 }
 
 enum ResultCode {
@@ -22,6 +23,10 @@ enum ResultCode {
     NO_RESULTS = 2;
     UNKNOWNNNNN = 3;
     MAGIC_UNICORN = 4;
+}
+
+message BulkRequest {
+    bytes doc = 1;
 }
 
 message ResultReply {
