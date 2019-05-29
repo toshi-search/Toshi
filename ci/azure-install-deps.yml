@@ -6,6 +6,7 @@ steps:
       rustup component add rustfmt
     displayName: Install rustfmt
   - script: |
+      sudo apt update
       sudo apt install zlib1g-dev libcurl4-openssl-dev libiberty-dev libdw-dev
     displayName: Install Packages
     condition: eq( variables['Agent.OS'], 'Linux' )
