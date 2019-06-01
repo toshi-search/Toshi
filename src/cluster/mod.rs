@@ -65,12 +65,6 @@ pub fn connect_to_consul(settings: &Settings) -> impl Future<Item = (), Error = 
     })
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub enum DiskType {
-    HDD,
-    SSD,
-}
-
 #[derive(Debug, Fail, Serialize, Deserialize)]
 pub enum ClusterError {
     #[fail(display = "Node has no ID")]

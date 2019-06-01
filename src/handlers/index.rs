@@ -20,7 +20,7 @@ use crate::error::Error;
 use crate::handle::IndexHandle;
 use crate::handlers::ResponseFuture;
 use crate::index::{IndexCatalog, SharedCatalog};
-use crate::utils::{error_response, empty_with_code, with_body};
+use crate::utils::{empty_with_code, error_response, with_body};
 
 #[derive(Deserialize, Clone)]
 pub struct SchemaBody(pub Schema);
@@ -185,7 +185,9 @@ mod tests {
 
     use super::*;
 
-    fn test_index() -> String { String::from("test_index") }
+    fn test_index() -> String {
+        String::from("test_index")
+    }
 
     #[test]
     fn test_create_index() {
@@ -249,7 +251,14 @@ mod tests {
             options: None,
         };
         let body_bytes = serde_json::to_vec(&add_doc).unwrap();
-        let req = handler.add_document(Body::from(body_bytes), test_index()).wait().unwrap().into_body().concat2().wait().unwrap();
+        let req = handler
+            .add_document(Body::from(body_bytes), test_index())
+            .wait()
+            .unwrap()
+            .into_body()
+            .concat2()
+            .wait()
+            .unwrap();
         println!("{}", std::str::from_utf8(&req).unwrap());
     }
 }

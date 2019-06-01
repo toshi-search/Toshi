@@ -2,11 +2,8 @@ syntax = "proto3";
 
 package cluster_rpc;
 
-service HealthService {
-    rpc ping (PingRequest) returns (PingReply);
-}
-
 service IndexService {
+    rpc ping (PingRequest) returns (PingReply);
     rpc place_index (PlaceRequest) returns (ResultReply);
     rpc list_indexes (ListRequest) returns (ListReply);
     rpc place_document (DocumentRequest) returns (ResultReply);
@@ -34,13 +31,15 @@ message ResultReply {
     string message = 2;
 }
 
-message ListRequest {}
+message ListRequest {
+}
 
 message ListReply {
     repeated string indexes = 1;
 }
 
 message PingReply {
+    string status = 1;
 }
 
 message PingRequest {

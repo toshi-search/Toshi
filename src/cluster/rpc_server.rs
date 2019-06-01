@@ -93,7 +93,7 @@ impl RpcServer {
 }
 
 impl server::IndexService for RpcServer {
-
+    type PingFuture = Box<future::FutureResult<Response<PingReply>, Status>>;
     type ListIndexesFuture = Box<future::FutureResult<Response<ListReply>, Status>>;
     type PlaceIndexFuture = Box<future::FutureResult<Response<ResultReply>, Status>>;
     type PlaceDocumentFuture = Box<future::FutureResult<Response<ResultReply>, Status>>;
@@ -230,5 +230,12 @@ impl server::IndexService for RpcServer {
 
     fn bulk_insert(&mut self, _: Request<Streaming<BulkRequest>>) -> Self::BulkInsertFuture {
         unimplemented!()
+        //        request.into_inner().for_each(|bi| {
+        //            bi
+        //        })
+    }
+
+    fn ping(&mut self, _: Request<PingRequest>) -> Self::PingFuture {
+        Box::new(future::ok(Response::new(PingReply { status: "OK".into() })))
     }
 }

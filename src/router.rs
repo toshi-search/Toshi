@@ -29,7 +29,6 @@ impl QueryOptions {
 }
 
 pub fn router_with_catalog(addr: &SocketAddr, catalog: Arc<RwLock<IndexCatalog>>) -> impl Future<Item = (), Error = ()> + Send {
-
     let routes = move || {
         let search_handler = SearchHandler::new(Arc::clone(&catalog));
         let index_handler = IndexHandler::new(Arc::clone(&catalog));
@@ -38,7 +37,8 @@ pub fn router_with_catalog(addr: &SocketAddr, catalog: Arc<RwLock<IndexCatalog>>
 
         service_fn(move |req: Request<Body>| {
             let raw_path = req.uri().clone();
-            let query_options: QueryOptions = raw_path.query()
+            let query_options: QueryOptions = raw_path
+                .query()
                 .and_then(|q| serde_urlencoded::from_str(q).ok())
                 .unwrap_or_default();
 

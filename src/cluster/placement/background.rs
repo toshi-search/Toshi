@@ -1,27 +1,29 @@
-use crate::cluster::{consul::Consul, ClusterError};
-use futures::{try_ready, Future, Poll};
-use futures_watch::{Store, Watch};
-use log::debug;
 use std::collections::HashSet;
 use std::net::SocketAddr;
 use std::time::{Duration, Instant};
+
+use futures::{try_ready, Future, Poll};
+use log::debug;
 use tokio::sync::mpsc;
+use tokio::sync::watch::{channel, Receiver, Sender};
 use tokio::timer::Delay;
 use tower_consul::ConsulService;
+
+use crate::cluster::{consul::Consul, ClusterError};
 
 pub struct Background {
     consul: Consul,
     // TODO: better D/S for this?
-    store: Store<HashSet<SocketAddr>>,
+    store: Sender<HashSet<SocketAddr>>,
     state: State,
     interval: Duration,
 }
 
 impl Background {
-    pub fn new(mut consul: Consul, interval: Duration) -> (Watch<HashSet<SocketAddr>>, Self) {
-        let (watch, mut store) = Watch::new(HashSet::new());
+    pub fn new(mut consul: Consul, interval: Duration) -> (Receiver<HashSet<SocketAddr>>, Self) {
+        let (mut store, watch) = channel(HashSet::new());
 
-        store.store(HashSet::new()).expect("Unable to store inital placement bg watch");
+        store.broadcast(HashSet::new()).expect("Unable to store inital placement bg watch");
 
         let state = State::Fetching(Box::new(consul.nodes()));
 
@@ -50,7 +52,7 @@ impl Future for Background {
 
                     let services = services.into_iter().map(|e| e.address.parse().unwrap()).collect::<HashSet<_>>();
 
-                    self.store.store(services).map_err(|_| ClusterError::UnableToStoreServices)?;
+                    self.store.broadcast(services).map_err(|_| ClusterError::UnableToStoreServices)?;
 
                     let deadline = Instant::now() + self.interval;
 
