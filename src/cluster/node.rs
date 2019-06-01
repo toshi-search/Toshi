@@ -5,7 +5,7 @@ use tokio::fs::File;
 use tokio::io::{read_to_end, write_all};
 use uuid::Uuid;
 
-use crate::cluster::{ClusterError};
+use crate::cluster::ClusterError;
 
 static NODE_ID_FILENAME: &'static str = ".node_id";
 
