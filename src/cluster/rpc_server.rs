@@ -230,9 +230,6 @@ impl server::IndexService for RpcServer {
 
     fn bulk_insert(&mut self, _: Request<Streaming<BulkRequest>>) -> Self::BulkInsertFuture {
         unimplemented!()
-        //        request.into_inner().for_each(|bi| {
-        //            bi
-        //        })
     }
 
     fn ping(&mut self, _: Request<PingRequest>) -> Self::PingFuture {

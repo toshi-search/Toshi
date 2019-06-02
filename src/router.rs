@@ -36,43 +36,45 @@ pub fn router_with_catalog(addr: &SocketAddr, catalog: Arc<RwLock<IndexCatalog>>
         let summary_handler = SummaryHandler::new(Arc::clone(&catalog));
 
         service_fn(move |req: Request<Body>| {
-            let raw_path = req.uri().clone();
-            let query_options: QueryOptions = raw_path
+            let (parts, body) = req.into_parts();
+
+            let query_options: QueryOptions = parts
+                .uri
                 .query()
                 .and_then(|q| serde_urlencoded::from_str(q).ok())
                 .unwrap_or_default();
 
-            let path = parse_path(raw_path.path());
+            let method = parts.method;
+            let path = parse_path(parts.uri.path());
 
-            log::info!("PATH = {:?}", &path);
-            match (req.method(), &path[..]) {
-                (&Method::DELETE, [idx, action]) => match *action {
-                    "" => index_handler.delete_term(req.into_body(), idx.to_string()),
+            match (method, &path[..]) {
+                (Method::DELETE, [idx, action]) => match *action {
+                    "" => index_handler.delete_term(body, idx.to_string()),
                     _ => not_found(),
                 },
-                (&Method::PUT, [idx, action]) => match *action {
-                    "_create" => index_handler.create_index(req.into_body(), idx.to_string()),
-                    "" => index_handler.add_document(req.into_body(), idx.to_string()),
+                (Method::PUT, [idx, action]) => match *action {
+                    "_create" => index_handler.create_index(body, idx.to_string()),
+                    "" => index_handler.add_document(body, idx.to_string()),
                     _ => not_found(),
                 },
-                (&Method::GET, [idx, action]) => match *action {
+                (Method::GET, [idx, action]) => match *action {
                     "_summary" => summary_handler.summary(idx.to_string(), query_options),
                     _ => not_found(),
                 },
-                (&Method::POST, [idx, action]) => match *action {
-                    "_bulk" => bulk_handler.bulk_insert(req.into_body(), idx.to_string()),
+                (Method::POST, [idx, action]) => match *action {
+                    "_bulk" => bulk_handler.bulk_insert(body, idx.to_string()),
                     "" => search_handler.all_docs(idx.to_string()),
                     _ => not_found(),
                 },
-                (&Method::POST, [idx]) => search_handler.doc_search(req.into_body(), idx.to_string()),
-                (&Method::GET, [idx]) => {
+                (Method::POST, [idx]) => search_handler.doc_search(body, idx.to_string()),
+                (Method::GET, [idx]) => {
                     if idx == &"favicon.ico" {
                         not_found()
                     } else {
                         search_handler.all_docs(idx.to_string())
                     }
                 }
-                (&Method::GET, []) => root::root(),
+                (Method::GET, []) => root::root(),
                 _ => not_found(),
             }
         })

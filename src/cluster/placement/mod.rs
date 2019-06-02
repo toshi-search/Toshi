@@ -6,6 +6,7 @@ use log::error;
 use tokio::net::TcpListener;
 use tokio::sync::watch::*;
 use tower_grpc::{Request, Response, Status};
+use tower_hyper::Server;
 
 use toshi_proto::placement_proto::{server, PlacementReply, PlacementRequest};
 
@@ -30,7 +31,7 @@ impl Place {
             let placer = Place { consul, nodes };
             let placement = server::PlacementServer::new(placer);
 
-            let mut hyp = tower_hyper::server::Server::new(placement);
+            let mut hyp = Server::new(placement);
 
             bind.incoming().for_each(move |stream| {
                 if let Err(e) = stream.set_nodelay(true) {

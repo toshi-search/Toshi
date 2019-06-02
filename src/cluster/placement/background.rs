@@ -22,9 +22,7 @@ pub struct Background {
 impl Background {
     pub fn new(mut consul: Consul, interval: Duration) -> (Receiver<HashSet<SocketAddr>>, Self) {
         let (mut store, watch) = channel(HashSet::new());
-
-        store.broadcast(HashSet::new()).expect("Unable to store inital placement bg watch");
-
+        store.broadcast(HashSet::new()).expect("Unable to store initial placement bg watch");
         let state = State::Fetching(Box::new(consul.nodes()));
 
         let bg = Background {
@@ -51,16 +49,14 @@ impl Future for Background {
                     debug!("Got {} services from consul", services.len());
 
                     let services = services.into_iter().map(|e| e.address.parse().unwrap()).collect::<HashSet<_>>();
-
                     self.store.broadcast(services).map_err(|_| ClusterError::UnableToStoreServices)?;
-
                     let deadline = Instant::now() + self.interval;
 
                     debug!("Waiting {:?} duration till next consul refresh", deadline);
 
                     let delay = Delay::new(deadline);
-
                     self.state = State::Waiting(delay);
+
                     continue;
                 }
                 State::Waiting(ref mut fut) => {

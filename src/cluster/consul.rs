@@ -1,4 +1,5 @@
 //! Provides an interface to a Consul cluster
+use std::fmt::Display;
 use std::str::from_utf8;
 
 use bytes::Bytes;
@@ -159,8 +160,8 @@ pub struct Builder {
 
 impl Builder {
     /// Sets the address of the consul service
-    pub fn with_address(mut self, address: String) -> Self {
-        self.address = Some(address);
+    pub fn with_address<S: Display>(mut self, address: S) -> Self {
+        self.address = Some(address.to_string());
         self
     }
 
@@ -171,22 +172,22 @@ impl Builder {
     }
 
     /// Sets the *Toshi* cluster name
-    pub fn with_cluster_name(mut self, cluster_name: String) -> Self {
-        self.cluster_name = Some(cluster_name);
+    pub fn with_cluster_name<S: Display>(mut self, cluster_name: S) -> Self {
+        self.cluster_name = Some(cluster_name.to_string());
         self
     }
 
     /// Sets the ID of this specific node in the Toshi cluster
-    pub fn with_node_id(mut self, node_id: String) -> Self {
-        self.node_id = Some(node_id);
+    pub fn with_node_id<S: Display>(mut self, node_id: S) -> Self {
+        self.node_id = Some(node_id.to_string());
         self
     }
 
     pub fn build(self) -> Result<Consul> {
-        let address = self.address.unwrap_or_else(|| "127.0.0.1:8500".parse().unwrap());
+        let address = self.address.unwrap_or_else(|| "127.0.0.1:8500".into());
         let scheme = self.scheme.unwrap_or(Scheme::HTTP);
 
-        let client = TowerConsul::new(HttpsService::new(), 100, scheme.to_string(), address.to_string()).map_err(|e| {
+        let client = TowerConsul::new(HttpsService::new(), 100, scheme.to_string(), address.clone()).map_err(|e| {
             dbg!(e);
             Error::SpawnError
         })?;
