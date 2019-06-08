@@ -9,10 +9,10 @@ edition = "2018"
 build = "build.rs"
 
 [build-dependencies]
-tower-grpc-build = { git = "https://github.com/tower-rs/tower-grpc", features = ["tower-hyper"] }
+tower-grpc-build   = { version = "^0.1", features = ["tower-hyper"] }
 
 [dependencies]
-tower-grpc = { git = "https://github.com/tower-rs/tower-grpc", features = ["tower-hyper"] }
+tower-grpc         = { version = "^0.1", features = ["tower-hyper"] }
 bytes              = "^0.4"
 prost              = "^0.5"
 prost-types        = "^0.5"

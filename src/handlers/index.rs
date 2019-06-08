@@ -121,7 +121,6 @@ impl IndexHandler {
                 Err(e) => return future::Either::A(future::ok(Response::from(Error::from(e)))),
             };
 
-            let nodes = &cat.read().unwrap().settings.get_nodes();
             {
                 let base_path = cat.read().unwrap().base_path().clone();
                 let new_index: Index = match IndexCatalog::create_from_managed(base_path, &index, b.0.clone()) {
@@ -134,16 +133,22 @@ impl IndexHandler {
                 };
             }
 
-            future::Either::B(
-                IndexHandler::create_remote_index(&nodes, index.clone(), b.0)
-                    .concat2()
-                    .map(move |clients| {
-                        IndexHandler::add_remote_index(cat, index, clients)
-                            .map(|()| empty_with_code(StatusCode::CREATED))
-                            .unwrap()
-                    })
-                    .or_else(|_| future::ok(empty_with_code(StatusCode::INTERNAL_SERVER_ERROR))),
-            )
+            let expir = cat.read().unwrap().settings.experimental;
+            if expir {
+                let nodes = &cat.read().unwrap().settings.get_nodes();
+                future::Either::B(
+                    IndexHandler::create_remote_index(&nodes, index.clone(), b.0)
+                        .concat2()
+                        .map(move |clients| {
+                            IndexHandler::add_remote_index(cat, index, clients)
+                                .map(|()| empty_with_code(StatusCode::CREATED))
+                                .unwrap()
+                        })
+                        .or_else(|_| future::ok(empty_with_code(StatusCode::INTERNAL_SERVER_ERROR))),
+                )
+            } else {
+                future::Either::A(future::ok(empty_with_code(StatusCode::CREATED)))
+            }
         }))
     }
 
