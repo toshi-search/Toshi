@@ -15,6 +15,7 @@ use crate::error::Error;
 use crate::handlers::ResponseFuture;
 use crate::index::IndexCatalog;
 use crate::utils::empty_with_code;
+use std::time::Instant;
 
 #[derive(Clone)]
 pub struct BulkHandler {
@@ -28,10 +29,16 @@ impl BulkHandler {
 
     fn index_documents(index_writer: &Mutex<IndexWriter>, doc_receiver: Receiver<Document>) -> Result<u64, Error> {
         let mut w = index_writer.lock()?;
+        let start = Instant::now();
         for doc in doc_receiver {
             w.add_document(doc);
         }
-        Ok(w.commit()?)
+
+        log::info!("Piping Documents took: {:?}", start.elapsed());
+        let commit = Instant::now();
+        let stamp = w.commit()?;
+        log::info!("Bulk Commit took: {:?}", commit.elapsed());
+        Ok(stamp)
     }
 
     fn parsing_documents(schema: Schema, doc_sender: Sender<Document>, line_recv: Receiver<Bytes>) -> Result<(), Error> {
