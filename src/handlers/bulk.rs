@@ -2,6 +2,7 @@ use std::iter::Iterator;
 use std::str::from_utf8;
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
+use std::time::Instant;
 
 use bytes::Bytes;
 use crossbeam::channel::{unbounded, Receiver, Sender};
@@ -15,7 +16,6 @@ use crate::error::Error;
 use crate::handlers::ResponseFuture;
 use crate::index::IndexCatalog;
 use crate::utils::empty_with_code;
-use std::time::Instant;
 
 #[derive(Clone)]
 pub struct BulkHandler {
@@ -108,9 +108,9 @@ mod tests {
 
     use crate::handlers::SearchHandler;
     use crate::index::tests::*;
+    use crate::results::SearchResults;
 
     use super::*;
-    use crate::results::SearchResults;
 
     #[test]
     fn test_bulk_index() -> Result<(), Error> {
