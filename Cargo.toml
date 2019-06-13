@@ -48,7 +48,7 @@ clap                   = { version = "^2.3", features = ["color"] }
 uuid                   = { version = "^0.7", features = ["v4"] }
 
 [dev-dependencies]
-remove_dir_all = "0.5.1"
+remove_dir_all = "0.5.2"
 pretty_assertions = "0.6.1"
 
 [profile.release]
