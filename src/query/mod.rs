@@ -12,6 +12,7 @@ use tantivy::Term;
 pub use {
     self::aggregate::{SumCollector, SummaryDoc},
     self::bool::BoolQuery,
+    self::facet::FacetQuery,
     self::fuzzy::{FuzzyQuery, FuzzyTerm},
     self::phrase::{PhraseQuery, TermPair},
     self::range::{RangeQuery, Ranges},
@@ -24,6 +25,7 @@ use crate::{error::Error, Result};
 
 mod aggregate;
 mod bool;
+mod facet;
 mod fuzzy;
 mod phrase;
 mod range;
@@ -59,19 +61,27 @@ pub struct Search {
     pub aggs: Option<Metrics>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub query: Option<Query>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub facets: Option<FacetQuery>,
     #[serde(default = "Settings::default_result_limit")]
     pub limit: usize,
 }
 
 impl Search {
-    pub fn new(query: Option<Query>, aggs: Option<Metrics>, limit: usize) -> Self {
-        Search { query, aggs, limit }
+    pub fn new(query: Option<Query>, aggs: Option<Metrics>, facets: Option<FacetQuery>, limit: usize) -> Self {
+        Search {
+            query,
+            aggs,
+            facets,
+            limit,
+        }
     }
 
     pub fn all_docs() -> Self {
         Self {
             aggs: None,
             query: Some(Query::All),
+            facets: None,
             limit: Settings::default_result_limit(),
         }
     }

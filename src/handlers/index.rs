@@ -60,16 +60,16 @@ impl IndexHandler {
 
     #[inline]
     fn add_index(catalog: SharedCatalog, name: String, index: Index) -> Result<(), Error> {
-        catalog.write()?.add_index(name, index)
+        catalog.write().add_index(name, index)
     }
 
     #[inline]
     fn add_remote_index(catalog: SharedCatalog, name: String, clients: Vec<RpcClient>) -> Result<(), Error> {
-        catalog.write()?.add_multi_remote_index(name, clients)
+        catalog.write().add_multi_remote_index(name, clients)
     }
 
     fn delete_terms(catalog: SharedCatalog, body: DeleteDoc, index: &str) -> Result<DocsAffected, Error> {
-        let index_lock = catalog.read()?;
+        let index_lock = catalog.read();
         let index_handle = index_lock.get_index(index)?;
         index_handle.delete_term(body)
     }
@@ -122,7 +122,7 @@ impl IndexHandler {
             };
 
             {
-                let base_path = cat.read().unwrap().base_path().clone();
+                let base_path = cat.read().base_path().clone();
                 let new_index: Index = match IndexCatalog::create_from_managed(base_path, &index, b.0.clone()) {
                     Ok(v) => v,
                     Err(e) => return future::Either::A(future::ok(Response::from(e))),
@@ -133,9 +133,9 @@ impl IndexHandler {
                 };
             }
 
-            let expir = cat.read().unwrap().settings.experimental;
+            let expir = cat.read().settings.experimental;
             if expir {
-                let nodes = &cat.read().unwrap().settings.get_nodes();
+                let nodes = &cat.read().settings.get_nodes();
                 future::Either::B(
                     IndexHandler::create_remote_index(&nodes, index.clone(), b.0)
                         .concat2()
@@ -156,7 +156,7 @@ impl IndexHandler {
         let cat_clone = Arc::clone(&self.catalog);
         let task = body.concat2().and_then(move |b| {
             let b = serde_json::from_slice::<AddDocument>(&b).unwrap();
-            let cat = cat_clone.read().unwrap();
+            let cat = cat_clone.read();
             let location: bool = random();
             if location && cat.remote_exists(&index) {
                 let t = cat

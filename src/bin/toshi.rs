@@ -1,14 +1,15 @@
+use std::error::Error;
 use std::fs::create_dir;
 use std::net::{IpAddr, SocketAddr};
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use futures::{future, Future};
 use log::{error, info};
+use parking_lot::RwLock;
 use tokio::runtime::Runtime;
 use tokio::sync::oneshot;
 
-use std::error::Error;
 use toshi::cluster::rpc_server::RpcServer;
 use toshi::commit::IndexWatcher;
 use toshi::index::IndexCatalog;
@@ -60,10 +61,7 @@ pub fn main() -> Result<(), ()> {
     shutdown_signal
         .map_err(|e| unreachable!("Shutdown signal channel should not error, This is a bug. \n {:?} ", e.description()))
         .and_then(move |_| {
-            index_catalog
-                .write()
-                .expect("Unable to acquire write lock on index catalog")
-                .clear();
+            index_catalog.write().clear();
             Ok(())
         })
         .and_then(move |_| rt.shutdown_now())
@@ -125,7 +123,7 @@ fn run_master(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl F
                 let place_addr = place_addr.parse().expect("Placement address must be a valid SocketAddr");
                 tokio::spawn(cluster::run(place_addr, consul).map_err(|e| error!("Error with running cluster: {}", e)));
             } else {
-                let update = catalog.read().unwrap().update_remote_indexes();
+                let update = catalog.read().update_remote_indexes();
                 tokio::spawn(update);
             }
             router_with_catalog(&bind, Arc::clone(&catalog))

@@ -1,6 +1,6 @@
 use std::iter::Iterator;
 use std::str::from_utf8;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::Arc;
 use std::thread;
 use std::time::Instant;
 
@@ -8,6 +8,7 @@ use bytes::Bytes;
 use crossbeam::channel::{unbounded, Receiver, Sender};
 use http::StatusCode;
 use hyper::Body;
+use parking_lot::{Mutex, RwLock};
 use tantivy::schema::Schema;
 use tantivy::{Document, IndexWriter};
 use tokio::prelude::*;
@@ -27,15 +28,16 @@ impl BulkHandler {
         BulkHandler { catalog }
     }
 
-    fn index_documents(index_writer: &Mutex<IndexWriter>, doc_receiver: Receiver<Document>) -> Result<u64, Error> {
-        let mut w = index_writer.lock()?;
+    fn index_documents(index_writer: Arc<Mutex<IndexWriter>>, doc_receiver: Receiver<Document>) -> Result<u64, Error> {
         let start = Instant::now();
         for doc in doc_receiver {
+            let mut w = index_writer.lock();
             w.add_document(doc);
         }
 
         log::info!("Piping Documents took: {:?}", start.elapsed());
         let commit = Instant::now();
+        let mut w = index_writer.lock();
         let stamp = w.commit()?;
         log::info!("Bulk Commit took: {:?}", commit.elapsed());
         Ok(stamp)
@@ -56,7 +58,7 @@ impl BulkHandler {
     }
 
     pub fn bulk_insert(&self, body: Body, index: String) -> ResponseFuture {
-        let index_lock = self.catalog.read().unwrap();
+        let index_lock = self.catalog.read();
         let index_handle = index_lock.get_index(&index).unwrap();
         let index = index_handle.get_index();
         let schema = index.schema();
@@ -71,7 +73,7 @@ impl BulkHandler {
         }
 
         let writer = index_handle.get_writer();
-        thread::spawn(move || BulkHandler::index_documents(&writer, doc_recv));
+        thread::spawn(|| BulkHandler::index_documents(writer, doc_recv));
 
         let line_sender_clone = line_sender.clone();
         let fut = body

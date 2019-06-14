@@ -38,7 +38,7 @@ impl SummaryHandler {
     pub fn summary(&self, index: String, options: QueryOptions) -> ResponseFuture {
         let index_lock = Arc::clone(&self.catalog);
         let fut = future::lazy(move || {
-            let index_lock = index_lock.read().unwrap();
+            let index_lock = index_lock.read();
             if index_lock.exists(&index) {
                 let index = index_lock.get_index(&index).unwrap();
                 let metas = index.get_index().load_metas().unwrap();

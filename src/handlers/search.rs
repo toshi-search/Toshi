@@ -10,7 +10,7 @@ use tokio::prelude::*;
 use crate::handlers::ResponseFuture;
 use crate::index::SharedCatalog;
 use crate::query::Search;
-use crate::results::{ScoredDoc, SearchResults};
+use crate::results::SearchResults;
 use crate::utils::{empty_with_code, with_body};
 
 #[derive(Clone)]
@@ -23,12 +23,9 @@ impl SearchHandler {
         SearchHandler { catalog }
     }
 
+    #[inline]
     fn fold_results(results: Vec<SearchResults>) -> SearchResults {
-        let docs: Vec<ScoredDoc> = results.into_iter().fold(Vec::new(), |mut r, d| {
-            r.extend(d.docs);
-            r
-        });
-        SearchResults::new(docs)
+        results.into_iter().sum()
     }
 
     pub fn doc_search(&self, body: Body, index: String) -> ResponseFuture {
@@ -37,7 +34,7 @@ impl SearchHandler {
             body.concat2()
                 .map(|b| serde_json::from_slice::<Search>(&b).unwrap())
                 .and_then(move |req| {
-                    let c = catalog.read().unwrap();
+                    let c = catalog.read();
                     let req = if req.query.is_none() { Search::all_docs() } else { req };
                     info!("Query: {:?}", req);
                     if c.exists(&index) {
@@ -88,7 +85,7 @@ pub mod tests {
     fn test_term_query() {
         let term = KeyValue::new("test_text".into(), "document".into());
         let term_query = Query::Exact(ExactTerm::new(term));
-        let search = Search::new(Some(term_query), None, 10);
+        let search = Search::new(Some(term_query), None, None, 10);
         run_query(search, "test_index")
             .map(|q| {
                 let body: SearchResults = serde_json::from_slice(&q.into_body().concat2().wait().unwrap()).unwrap();
@@ -103,7 +100,7 @@ pub mod tests {
         let terms = TermPair::new(vec!["test".into(), "document".into()], None);
         let phrase = KeyValue::new("test_text".into(), terms);
         let term_query = Query::Phrase(PhraseQuery::new(phrase));
-        let search = Search::new(Some(term_query), None, 10);
+        let search = Search::new(Some(term_query), None, None, 10);
         run_query(search, "test_index")
             .map(|q| {
                 let body: SearchResults = serde_json::from_slice(&q.into_body().concat2().wait().unwrap()).unwrap();
@@ -174,9 +171,26 @@ pub mod tests {
     }
 
     #[test]
+    fn test_facets() -> Result<(), serde_json::Error> {
+        let body = r#"{ "query" : { "term": { "test_text": "document" } }, "facets": { "test_facet": ["/cat"] } }"#;
+        let req: Search = serde_json::from_str(body)?;
+        let docs = run_query(req, "test_index")
+            .map(|q| {
+                let b: SearchResults = serde_json::from_slice(&q.into_body().concat2().wait().unwrap()).unwrap();
+                assert_eq!(b.facets[0].value, 1);
+                assert_eq!(b.facets[1].value, 1);
+                assert_eq!(b.facets[0].field, "/cat/cat2");
+            })
+            .map_err(|_| ());
+
+        tokio::run(docs);
+        Ok(())
+    }
+
+    #[test]
     fn test_raw_query() -> Result<(), serde_json::Error> {
         let body = r#"test_text:"Duckiment""#;
-        let req = Search::new(Some(Query::Raw { raw: body.into() }), None, 10);
+        let req = Search::new(Some(Query::Raw { raw: body.into() }), None, None, 10);
         let docs = run_query(req, "test_index")
             .map(|q| {
                 let body: SearchResults = serde_json::from_slice(&q.into_body().concat2().wait().unwrap()).unwrap();
@@ -193,7 +207,7 @@ pub mod tests {
     fn test_fuzzy_term_query() -> Result<(), serde_json::Error> {
         let fuzzy = KeyValue::new("test_text".into(), FuzzyTerm::new("document".into(), 0, false));
         let term_query = Query::Fuzzy(FuzzyQuery::new(fuzzy));
-        let search = Search::new(Some(term_query), None, 10);
+        let search = Search::new(Some(term_query), None, None, 10);
         let query = run_query(search, "test_index")
             .map(|q| {
                 let body: SearchResults = serde_json::from_slice(&q.into_body().concat2().wait().unwrap()).unwrap();
