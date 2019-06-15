@@ -111,26 +111,30 @@ impl IndexHandle for LocalIndex {
             let mut scored_docs = match query {
                 Query::Regex(regex) => {
                     let regex_query = regex.create_query(&schema)?;
+                    debug!("{:?}", regex_query);
                     searcher.search(&*regex_query, &multi_collector)?
                 }
                 Query::Phrase(phrase) => {
                     let phrase_query = phrase.create_query(&schema)?;
+                    debug!("{:?}", phrase_query);
                     searcher.search(&*phrase_query, &multi_collector)?
                 }
                 Query::Fuzzy(fuzzy) => {
                     let fuzzy_query = fuzzy.create_query(&schema)?;
+                    debug!("{:?}", fuzzy_query);
                     searcher.search(&*fuzzy_query, &multi_collector)?
                 }
                 Query::Exact(term) => {
                     let exact_query = term.create_query(&schema)?;
+                    debug!("{:?}", exact_query);
                     searcher.search(&*exact_query, &multi_collector)?
                 }
                 Query::Boolean { bool } => {
                     let bool_query = bool.create_query(&schema)?;
+                    debug!("{:?}", bool_query);
                     searcher.search(&*bool_query, &multi_collector)?
                 }
                 Query::Range(range) => {
-                    debug!("{:?}", range);
                     let range_query = range.create_query(&schema)?;
                     debug!("{:?}", range_query);
                     searcher.search(&*range_query, &multi_collector)?
@@ -156,13 +160,11 @@ impl IndexHandle for LocalIndex {
 
             if let Some(facets) = facet_handle {
                 if let Some(t) = search.facets.clone() {
-                    dbg!(&t.0.value);
                     let facet_counts = facets
                         .extract(&mut scored_docs)
                         .get(&t.0.value[0])
                         .map(|(f, c)| KeyValue::new(f.to_string(), c))
                         .collect();
-                    dbg!(&facet_counts);
                     return Ok(SearchResults::with_facets(docs, facet_counts));
                 }
             }
