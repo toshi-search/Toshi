@@ -2,12 +2,13 @@ use std::clone::Clone;
 use std::fs;
 use std::net::SocketAddr;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::Arc;
 
 use futures::stream::Stream;
 use hashbrown::HashMap;
 use http::uri::Scheme;
 use http::Uri;
+use parking_lot::{Mutex, RwLock};
 use tantivy::directory::MmapDirectory;
 use tantivy::schema::Schema;
 use tantivy::Index;
@@ -62,7 +63,7 @@ impl IndexCatalog {
                 let cat = &cat_clone;
                 for idx in indexes.1 {
                     let ri = RemoteIndex::new(idx.clone(), indexes.0.clone());
-                    cat.lock().unwrap().insert(idx.clone(), ri);
+                    cat.lock().insert(idx.clone(), ri);
                 }
                 future::ok(())
             })
@@ -118,13 +119,13 @@ impl IndexCatalog {
 
     pub fn add_remote_index(&mut self, name: String, remote: RpcClient) -> Result<()> {
         let ri = RemoteIndex::new(name.clone(), remote);
-        self.remote_handles.lock()?.entry(name).or_insert(ri);
+        self.remote_handles.lock().entry(name).or_insert(ri);
         Ok(())
     }
 
     pub fn add_multi_remote_index(&mut self, name: String, remote: Vec<RpcClient>) -> Result<()> {
         let ri = RemoteIndex::with_clients(name.clone(), remote);
-        self.remote_handles.lock()?.entry(name).or_insert(ri);
+        self.remote_handles.lock().entry(name).or_insert(ri);
         Ok(())
     }
 
@@ -145,7 +146,7 @@ impl IndexCatalog {
     }
 
     pub fn remote_exists(&self, index: &str) -> bool {
-        self.get_remote_collection().lock().unwrap().contains_key(index)
+        self.get_remote_collection().lock().contains_key(index)
     }
 
     pub fn get_mut_index(&mut self, name: &str) -> Result<&mut LocalIndex> {
@@ -165,7 +166,7 @@ impl IndexCatalog {
 
     pub fn get_remote_index(&self, name: &str) -> Result<RemoteIndex> {
         self.get_remote_collection()
-            .lock()?
+            .lock()
             .get(name)
             .cloned()
             .ok_or_else(|| Error::UnknownIndex(name.into()))
@@ -264,15 +265,15 @@ impl IndexCatalog {
 
     pub fn clear(&mut self) {
         self.local_handles.clear();
-        self.remote_handles.lock().unwrap().clear()
+        self.remote_handles.lock().clear()
     }
 }
 
 #[cfg(test)]
 pub mod tests {
+    use std::sync::Arc;
 
-    use std::sync::{Arc, RwLock};
-
+    use parking_lot::RwLock;
     use tantivy::doc;
     use tantivy::schema::*;
 
@@ -290,15 +291,17 @@ pub mod tests {
         let test_int = builder.add_i64_field("test_i64", STORED | INDEXED);
         let test_unsign = builder.add_u64_field("test_u64", STORED | INDEXED);
         let test_unindexed = builder.add_text_field("test_unindex", STORED);
+        let test_facet = builder.add_facet_field("test_facet");
 
         let schema = builder.build();
         let idx = Index::create_in_ram(schema);
         let mut writer = idx.writer(30_000_000).unwrap();
-        writer.add_document(doc! { test_text => "Test Document 1", test_int => 2014i64,  test_unsign => 10u64, test_unindexed => "no" });
-        writer.add_document(doc! { test_text => "Test Dockument 2", test_int => -2015i64, test_unsign => 11u64, test_unindexed => "yes" });
-        writer.add_document(doc! { test_text => "Test Duckiment 3", test_int => 2016i64,  test_unsign => 12u64, test_unindexed => "noo" });
-        writer.add_document(doc! { test_text => "Test Document 4", test_int => -2017i64, test_unsign => 13u64, test_unindexed => "yess" });
-        writer.add_document(doc! { test_text => "Test Document 5", test_int => 2018i64,  test_unsign => 14u64, test_unindexed => "nooo" });
+
+        writer.add_document(doc! { test_text => "Test Document 1", test_int => 2014i64,  test_unsign => 10u64, test_unindexed => "no", test_facet => Facet::from("/cat/cat2") });
+        writer.add_document(doc! { test_text => "Test Dockument 2", test_int => -2015i64, test_unsign => 11u64, test_unindexed => "yes", test_facet => Facet::from("/cat/cat2") });
+        writer.add_document(doc! { test_text => "Test Duckiment 3", test_int => 2016i64,  test_unsign => 12u64, test_unindexed => "noo", test_facet => Facet::from("/cat/cat3") });
+        writer.add_document(doc! { test_text => "Test Document 4", test_int => -2017i64, test_unsign => 13u64, test_unindexed => "yess", test_facet => Facet::from("/cat/cat4") });
+        writer.add_document(doc! { test_text => "Test Document 5", test_int => 2018i64,  test_unsign => 14u64, test_unindexed => "nooo", test_facet => Facet::from("/dog/cat2") });
         writer.commit().unwrap();
 
         idx

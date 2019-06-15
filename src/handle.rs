@@ -1,9 +1,10 @@
 use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use log::debug;
-use tantivy::collector::TopDocs;
+use parking_lot::Mutex;
+use tantivy::collector::{FacetCollector, MultiCollector, TopDocs};
 use tantivy::query::{AllQuery, QueryParser};
 use tantivy::schema::*;
 use tantivy::space_usage::SearcherSpaceUsage;
@@ -11,7 +12,7 @@ use tantivy::{Document, Index, IndexReader, IndexWriter, ReloadPolicy, Term};
 use tokio::prelude::*;
 
 use crate::handlers::index::{AddDocument, DeleteDoc, DocsAffected};
-use crate::query::{CreateQuery, Query, Search};
+use crate::query::{CreateQuery, KeyValue, Query, Search};
 use crate::results::{ScoredDoc, SearchResults};
 use crate::settings::Settings;
 use crate::{error::Error, Result};
@@ -70,7 +71,7 @@ impl Eq for LocalIndex {}
 
 impl Hash for LocalIndex {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        state.write(self.name.as_bytes())
+        state.write(self.name.as_bytes());
     }
 }
 
@@ -91,50 +92,83 @@ impl IndexHandle for LocalIndex {
         let searcher = self.reader.searcher();
         let schema = self.index.schema();
         let collector = TopDocs::with_limit(search.limit);
+        let mut multi_collector = MultiCollector::new();
+
+        let top_handle = multi_collector.add_collector(collector);
+        let facet_handle = search.facets.clone().and_then(|f| {
+            if let Some(field) = schema.get_field(&f.0.field) {
+                let mut col = FacetCollector::for_field(field);
+                for term in f.0.value {
+                    col.add_facet(&term);
+                }
+                Some(multi_collector.add_collector(col))
+            } else {
+                None
+            }
+        });
+
         if let Some(query) = search.query {
-            let scored_docs = match query {
+            let mut scored_docs = match query {
                 Query::Regex(regex) => {
                     let regex_query = regex.create_query(&schema)?;
-                    searcher.search(&*regex_query, &collector)?
+                    debug!("{:?}", regex_query);
+                    searcher.search(&*regex_query, &multi_collector)?
                 }
                 Query::Phrase(phrase) => {
                     let phrase_query = phrase.create_query(&schema)?;
-                    searcher.search(&*phrase_query, &collector)?
+                    debug!("{:?}", phrase_query);
+                    searcher.search(&*phrase_query, &multi_collector)?
                 }
                 Query::Fuzzy(fuzzy) => {
                     let fuzzy_query = fuzzy.create_query(&schema)?;
-                    searcher.search(&*fuzzy_query, &collector)?
+                    debug!("{:?}", fuzzy_query);
+                    searcher.search(&*fuzzy_query, &multi_collector)?
                 }
                 Query::Exact(term) => {
                     let exact_query = term.create_query(&schema)?;
-                    searcher.search(&*exact_query, &collector)?
+                    debug!("{:?}", exact_query);
+                    searcher.search(&*exact_query, &multi_collector)?
                 }
                 Query::Boolean { bool } => {
                     let bool_query = bool.create_query(&schema)?;
-                    searcher.search(&*bool_query, &collector)?
+                    debug!("{:?}", bool_query);
+                    searcher.search(&*bool_query, &multi_collector)?
                 }
                 Query::Range(range) => {
-                    debug!("{:?}", range);
                     let range_query = range.create_query(&schema)?;
                     debug!("{:?}", range_query);
-                    searcher.search(&*range_query, &collector)?
+                    searcher.search(&*range_query, &multi_collector)?
                 }
                 Query::Raw { raw } => {
                     let fields: Vec<Field> = schema.fields().iter().filter_map(|e| schema.get_field(e.name())).collect();
                     let query_parser = QueryParser::for_index(&self.index, fields);
                     let query = query_parser.parse_query(&raw)?;
                     debug!("{:?}", query);
-                    searcher.search(&*query, &collector)?
+                    searcher.search(&*query, &multi_collector)?
                 }
-                Query::All => searcher.search(&AllQuery, &collector)?,
+                Query::All => searcher.search(&AllQuery, &multi_collector)?,
+            };
+
+            let docs = top_handle
+                .extract(&mut scored_docs)
+                .into_iter()
+                .map(|(score, doc)| {
+                    let d = searcher.doc(doc).expect("Doc not found in segment");
+                    ScoredDoc::new(Some(score), schema.to_named_doc(&d))
+                })
+                .collect();
+
+            if let Some(facets) = facet_handle {
+                if let Some(t) = search.facets.clone() {
+                    let facet_counts = facets
+                        .extract(&mut scored_docs)
+                        .get(&t.0.value[0])
+                        .map(|(f, c)| KeyValue::new(f.to_string(), c))
+                        .collect();
+                    return Ok(SearchResults::with_facets(docs, facet_counts));
+                }
             }
-            .into_iter()
-            .map(|(score, doc)| {
-                let d = searcher.doc(doc).expect("Doc not found in segment");
-                ScoredDoc::new(Some(score), schema.to_named_doc(&d))
-            })
-            .collect();
-            Ok(SearchResults::new(scored_docs))
+            Ok(SearchResults::new(docs))
         } else {
             Err(Error::QueryError("Empty Query Provided".into()))
         }
@@ -143,7 +177,7 @@ impl IndexHandle for LocalIndex {
     fn add_document(&self, add_doc: AddDocument) -> Self::AddResponse {
         let index_schema = self.index.schema();
         let writer_lock = self.get_writer();
-        let mut index_writer = writer_lock.lock()?;
+        let mut index_writer = writer_lock.lock();
         let doc: Document = LocalIndex::parse_doc(&index_schema, &add_doc.document.to_string())?;
         index_writer.add_document(doc);
         if let Some(opts) = add_doc.options {
@@ -162,7 +196,7 @@ impl IndexHandle for LocalIndex {
     fn delete_term(&self, term: DeleteDoc) -> Self::DeleteResponse {
         let index_schema = self.index.schema();
         let writer_lock = self.get_writer();
-        let mut index_writer = writer_lock.lock()?;
+        let mut index_writer = writer_lock.lock();
         let before = self.reader.searcher().num_docs();
 
         for (field, value) in term.terms {

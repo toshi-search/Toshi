@@ -41,15 +41,16 @@ num_cpus               = "^1"
 hostname               = "^0.1"
 base64                 = "^0.10"
 crossbeam              = "^0.7"
-hashbrown              = "^0.4"
+hashbrown              = "^0.5"
+parking_lot            = "^0.8"
 rand                   = { version = "^0.6", features = ["log"] }
 serde                  = { version = "^1.0", features = ["derive"] }
 clap                   = { version = "^2.3", features = ["color"] }
 uuid                   = { version = "^0.7", features = ["v4"] }
 
 [dev-dependencies]
-remove_dir_all = "0.5.1"
-pretty_assertions = "0.6.1"
+remove_dir_all = "^0.5"
+pretty_assertions = "^0.6"
 
 [profile.release]
 opt-level = 3

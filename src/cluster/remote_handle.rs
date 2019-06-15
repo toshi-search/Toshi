@@ -33,7 +33,7 @@ impl Eq for RemoteIndex {}
 
 impl Hash for RemoteIndex {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        state.write(self.name.as_bytes())
+        state.write(self.name.as_bytes());
     }
 }
 

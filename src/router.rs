@@ -1,8 +1,9 @@
 use std::net::SocketAddr;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use hyper::service::service_fn;
 use hyper::{Body, Method, Request, Server};
+use parking_lot::RwLock;
 use serde::Deserialize;
 use tokio::prelude::*;
 
