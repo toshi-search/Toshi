@@ -8,7 +8,7 @@ use log::error;
 use serde::{Deserialize, Serialize};
 use tower_hyper::client::ConnectError;
 
-use crate::cluster::consul::Hosts;
+use crate::cluster::consul::{Hosts, ClusterOps};
 use crate::settings::Settings;
 
 pub use self::consul::Consul;

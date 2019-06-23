@@ -10,6 +10,7 @@ use tokio::timer::Delay;
 use tower_consul::ConsulService;
 
 use crate::cluster::{consul::Consul, ClusterError};
+use crate::cluster::consul::ClusterOps;
 
 pub struct Background {
     consul: Consul,
