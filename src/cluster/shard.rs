@@ -8,7 +8,7 @@ use crate::handle::LocalIndex;
 use crate::settings::Settings;
 
 /// Trait implemented by both Primary and Replica Shards
-pub trait Shard {
+pub trait Shard: Serialize {
     fn shard_id(&self) -> Uuid;
     fn primary_shard_id(&self) -> Option<Uuid>;
     fn is_primary(&self) -> bool;
@@ -84,6 +84,7 @@ impl Shard for PrimaryShard {
         }
     }
 }
+
 impl ReplicaShard {
     /// Creates and returns a new ReplicaShard that will be a read-only copy of a PrimaryShard
     pub fn new(primary_shard_id: Uuid) -> ReplicaShard {

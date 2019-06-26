@@ -8,16 +8,15 @@ use hyper::body::Body;
 use hyper::client::HttpConnector;
 use hyper::http::uri::Scheme;
 use hyper::{Client, Request, Response, Uri};
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use tower::Service;
 use tower_consul::{Consul as TowerConsul, ConsulService, KVValue};
 
-use crate::cluster::shard::PrimaryShard;
-use crate::cluster::shard::ReplicaShard;
-use crate::cluster::shard::Shard;
+use crate::cluster::shard::{PrimaryShard, ReplicaShard, Shard};
 use crate::cluster::ClusterError;
-use crate::{error::Error, Result};
-use serde::de::DeserializeOwned;
+use crate::error::Error;
+use crate::Result;
 
 pub const SERVICE_NAME: &str = "toshi/";
 
@@ -43,18 +42,17 @@ pub struct Consul {
     node_id: String,
 }
 
-pub trait ClusterOps<I, N>
-where
-    I: DeserializeOwned,
-    N: DeserializeOwned,
-{
+pub trait ClusterOps {
+    type Node: DeserializeOwned;
+    type Index: DeserializeOwned;
+
     fn node_path(&self) -> String;
     fn register_node(&mut self) -> Box<dyn Future<Item = (), Error = ClusterError> + Send>;
     fn place_node_descriptor(&mut self, host: Hosts) -> Box<dyn Future<Item = (), Error = ClusterError> + Send>;
     fn register_cluster(&mut self) -> Box<dyn Future<Item = (), Error = ClusterError> + Send>;
-    fn register_shard<T: Shard + Serialize>(&mut self, shard: &T) -> Box<dyn Future<Item = (), Error = ClusterError> + Send>;
-    fn get_index(&mut self, index: String, recurse: bool) -> Box<dyn Future<Item = Vec<I>, Error = ClusterError> + Send>;
-    fn nodes(&mut self) -> Box<dyn Future<Item = Vec<N>, Error = ClusterError> + Send>;
+    fn register_shard<S: Shard>(&mut self, shard: &S) -> Box<dyn Future<Item = (), Error = ClusterError> + Send>;
+    fn get_index(&mut self, index: String, recurse: bool) -> Box<dyn Future<Item = Vec<Self::Index>, Error = ClusterError> + Send>;
+    fn nodes(&mut self) -> Box<dyn Future<Item = Vec<Self::Node>, Error = ClusterError> + Send>;
 }
 
 impl Consul {
@@ -88,7 +86,10 @@ impl Consul {
     }
 }
 
-impl ClusterOps<KVValue, ConsulService> for Consul {
+impl ClusterOps for Consul {
+    type Node = ConsulService;
+    type Index = KVValue;
+
     #[inline]
     fn node_path(&self) -> String {
         SERVICE_NAME.to_string() + &self.cluster_name() + "/" + &self.node_id()
@@ -143,7 +144,7 @@ impl ClusterOps<KVValue, ConsulService> for Consul {
     }
 
     /// Registers a shard with the Consul cluster
-    fn register_shard<T: Shard + Serialize>(&mut self, shard: &T) -> Box<Future<Item = (), Error = ClusterError> + Send> {
+    fn register_shard<S: Shard>(&mut self, shard: &S) -> Box<Future<Item = (), Error = ClusterError> + Send> {
         let key = format!("toshi/{}/{}", self.cluster_name(), shard.shard_id().to_hyphenated_ref());
         let shard = serde_json::to_vec(&shard).unwrap();
 
@@ -156,7 +157,7 @@ impl ClusterOps<KVValue, ConsulService> for Consul {
     }
 
     /// Gets the specified index
-    fn get_index(&mut self, index: String, recurse: bool) -> Box<dyn Future<Item = Vec<KVValue>, Error = ClusterError> + Send> {
+    fn get_index(&mut self, index: String, recurse: bool) -> Box<dyn Future<Item = Vec<Self::Index>, Error = ClusterError> + Send> {
         let key = format!("toshi/{}/{}?recurse={}", &self.cluster_name(), &index, recurse);
         Box::new(
             self.client
@@ -165,7 +166,7 @@ impl ClusterOps<KVValue, ConsulService> for Consul {
         )
     }
 
-    fn nodes(&mut self) -> Box<dyn Future<Item = Vec<ConsulService>, Error = ClusterError> + Send> {
+    fn nodes(&mut self) -> Box<dyn Future<Item = Vec<Self::Node>, Error = ClusterError> + Send> {
         Box::new(
             self.client
                 .service_nodes("toshi")

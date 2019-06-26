@@ -9,12 +9,11 @@ use tokio::sync::watch::{channel, Receiver, Sender};
 use tokio::timer::Delay;
 use tower_consul::ConsulService;
 
-use crate::cluster::{consul::Consul, ClusterError};
 use crate::cluster::consul::ClusterOps;
+use crate::cluster::{consul::Consul, ClusterError};
 
 pub struct Background {
     consul: Consul,
-    // TODO: better D/S for this?
     store: Sender<HashSet<SocketAddr>>,
     state: State,
     interval: Duration,
