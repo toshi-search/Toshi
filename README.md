@@ -200,7 +200,7 @@ Now you can add documents to our index. The `options` field can be omitted if a 
 
 ```bash
 curl -X PUT \
-  http://localhost:8080/test_index/_create \
+  http://localhost:8080/test_index \
   -H 'Content-Type: application/json' \
   -d '{
         "options": { "commit": true },
