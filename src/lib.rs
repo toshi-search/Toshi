@@ -1,11 +1,12 @@
 pub mod cluster;
 pub mod commit;
 pub mod error;
-mod handle;
-mod handlers;
+pub mod handle;
+pub mod handlers;
 pub mod index;
-mod query;
-mod results;
+pub mod indexing;
+pub mod query;
+pub mod results;
 pub mod router;
 pub mod settings;
 pub mod shutdown;

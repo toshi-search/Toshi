@@ -8,15 +8,13 @@ use serde::{Deserialize, Serialize};
 use tantivy::schema::{NamedFieldDocument, Value};
 
 use crate::error::Error;
-use crate::query::{KeyValue, SummaryDoc};
+use crate::query::KeyValue;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SearchResults {
     pub hits: usize,
     #[serde(default = "Vec::new")]
     pub docs: Vec<ScoredDoc>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub aggregate: Option<Vec<SummaryDoc>>,
     #[serde(default = "Vec::new")]
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub facets: Vec<KeyValue<u64>>,
@@ -37,7 +35,6 @@ impl Add for SearchResults {
             hits: self.hits + rhs.hits,
             docs,
             facets,
-            aggregate: None,
             error: None,
         }
     }
@@ -62,7 +59,6 @@ impl SearchResults {
         Self {
             hits: docs.len(),
             docs,
-            aggregate: None,
             facets: Vec::new(),
             error: None,
         }
@@ -72,17 +68,6 @@ impl SearchResults {
         Self {
             hits: docs.len(),
             docs,
-            aggregate: None,
-            facets,
-            error: None,
-        }
-    }
-
-    pub fn with_aggregates(docs: Vec<ScoredDoc>, aggregate: Vec<SummaryDoc>, facets: Vec<KeyValue<u64>>) -> Self {
-        Self {
-            hits: docs.len(),
-            docs,
-            aggregate: Some(aggregate),
             facets,
             error: None,
         }
@@ -92,7 +77,6 @@ impl SearchResults {
         Self {
             hits: 0,
             docs: Vec::new(),
-            aggregate: None,
             facets: Vec::new(),
             error: Some(error),
         }

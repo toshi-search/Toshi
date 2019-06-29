@@ -85,7 +85,7 @@ pub mod tests {
     fn test_term_query() {
         let term = KeyValue::new("test_text".into(), "document".into());
         let term_query = Query::Exact(ExactTerm::new(term));
-        let search = Search::new(Some(term_query), None, None, 10);
+        let search = Search::new(Some(term_query), None, 10);
         run_query(search, "test_index")
             .map(|q| {
                 let body: SearchResults = serde_json::from_slice(&q.into_body().concat2().wait().unwrap()).unwrap();
@@ -100,7 +100,7 @@ pub mod tests {
         let terms = TermPair::new(vec!["test".into(), "document".into()], None);
         let phrase = KeyValue::new("test_text".into(), terms);
         let term_query = Query::Phrase(PhraseQuery::new(phrase));
-        let search = Search::new(Some(term_query), None, None, 10);
+        let search = Search::new(Some(term_query), None, 10);
         run_query(search, "test_index")
             .map(|q| {
                 let body: SearchResults = serde_json::from_slice(&q.into_body().concat2().wait().unwrap()).unwrap();
@@ -190,7 +190,7 @@ pub mod tests {
     #[test]
     fn test_raw_query() -> Result<(), serde_json::Error> {
         let body = r#"test_text:"Duckiment""#;
-        let req = Search::new(Some(Query::Raw { raw: body.into() }), None, None, 10);
+        let req = Search::new(Some(Query::Raw { raw: body.into() }), None, 10);
         let docs = run_query(req, "test_index")
             .map(|q| {
                 let body: SearchResults = serde_json::from_slice(&q.into_body().concat2().wait().unwrap()).unwrap();
@@ -207,7 +207,7 @@ pub mod tests {
     fn test_fuzzy_term_query() -> Result<(), serde_json::Error> {
         let fuzzy = KeyValue::new("test_text".into(), FuzzyTerm::new("document".into(), 0, false));
         let term_query = Query::Fuzzy(FuzzyQuery::new(fuzzy));
-        let search = Search::new(Some(term_query), None, None, 10);
+        let search = Search::new(Some(term_query), None, 10);
         let query = run_query(search, "test_index")
             .map(|q| {
                 let body: SearchResults = serde_json::from_slice(&q.into_body().concat2().wait().unwrap()).unwrap();
