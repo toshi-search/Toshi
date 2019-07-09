@@ -2122,7 +2122,7 @@ dependencies = [
 [[package]]
 name = "tower-request-modifier"
 version = "0.1.0"
-source = "git+https://github.com/tower-rs/tower-http#8c450c637430c4d589a07c46ba5ea2ce4b435aeb"
+source = "git+https://github.com/tower-rs/tower-http#cb393c933f5167f934abde9d4f902e44d9ea2d50"
 dependencies = [
  "futures 0.1.28 (registry+https://github.com/rust-lang/crates.io-index)",
  "http 0.1.17 (registry+https://github.com/rust-lang/crates.io-index)",
