@@ -75,6 +75,8 @@ pub mod tests {
 
     use super::*;
 
+    type ReturnUnit = Result<(), hyper::error::Error>;
+
     pub fn run_query(req: Search, index: &str) -> ResponseFuture {
         let cat = create_test_catalog(index);
         let handler = SearchHandler::new(Arc::clone(&cat));
@@ -111,48 +113,50 @@ pub mod tests {
     }
 
     #[test]
-    #[allow(unused_must_use)]
-    fn test_wrong_index_error() -> Result<(), serde_json::Error> {
+    fn test_wrong_index_error() -> ReturnUnit {
         let cat = create_test_catalog("test_index");
         let handler = SearchHandler::new(Arc::clone(&cat));
         let body = r#"{ "query" : { "raw": "test_text:\"document\"" } }"#;
-        let _req: Search = serde_json::from_str(body)?;
+
         handler
             .doc_search(Body::from(body), "asdf".into())
-            .map_err(|err| assert_eq!(err.to_string(), "Unknown Index: \'asdf\' does not exist"))
-            .wait();
-        Ok(())
+            .map(|_| ())
+            .map_err(|err| {
+                assert_eq!(err.to_string(), "Unknown Index: \'asdf\' does not exist");
+                err
+            })
+            .wait()
     }
 
     #[test]
-    #[allow(unused)]
-    fn test_bad_raw_query_syntax() -> Result<(), serde_json::Error> {
+    fn test_bad_raw_query_syntax() -> ReturnUnit {
         let cat = create_test_catalog("test_index");
         let handler = SearchHandler::new(Arc::clone(&cat));
         let body = r#"{ "query" : { "raw": "asd*(@sq__" } }"#;
-        let req: Search = serde_json::from_str(body)?;
+
         handler
             .doc_search(Body::from(body), "test_index".into())
+            .map(|_| ())
             .map_err(|err| {
                 assert_eq!(err.to_string(), "Query Parse Error: invalid digit found in string");
+                err
             })
-            .wait();
-        Ok(())
+            .wait()
     }
 
     #[test]
-    fn test_unindexed_field() -> Result<(), serde_json::Error> {
+    fn test_unindexed_field() -> ReturnUnit {
         let cat = create_test_catalog("test_index");
         let handler = SearchHandler::new(Arc::clone(&cat));
-        let body = r#"{ "query" : { "raw": "test_unindex:asdf" } }"#;
-        let _req: Search = serde_json::from_str(body)?;
-        let docs = handler
-            .doc_search(Body::from(body), "test_index".into())
-            .map(|_| ())
-            .map_err(|_| ());
+        let body = r#"{ "query" : { "raw": "test_unindex:yes" } }"#;
 
-        tokio::run(docs);
-        Ok(())
+        handler
+            .doc_search(Body::from(body), "test_index".into())
+            .map(|r| {
+                dbg!(r);
+            })
+            .map_err(|err| dbg!(err))
+            .wait()
     }
 
     #[test]
