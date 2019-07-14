@@ -1,27 +1,37 @@
-trigger:
-  - master
-pr:
-  - master
-jobs:
-  - job: run_tests
-    displayName: Run Tests
-    strategy:
-      matrix:
-        Linux-Stable:
-          imageName: ubuntu-16.04
-          rustup_toolchain: stable
-        MacOS-Stable:
-          imageName: macOS-10.13
-          rustup_toolchain: stable
-        Windows-Stable:
-          imageName: vs2017-win2016
-          rustup_toolchain: stable
-    pool:
-      vmImage: $(imageName)
-    steps:
-        - template: ci/azure-install-deps.yml
-        - script: |
-            cargo fmt --all -- --check
-            cargo test
-          displayName: cargo test
-        - template: ci/azure-run-kcov.yml
+#trigger:
+#  - master
+#pr:
+#  - master
+#jobs:
+#  - job: run_tests
+#    displayName: Run Tests
+#    strategy:
+#      matrix:
+#        Linux-Stable:
+#          imageName: ubuntu-16.04
+#          rustup_toolchain: stable
+#        MacOS-Stable:
+#          imageName: macOS-10.13
+#          rustup_toolchain: stable
+#        Windows-Stable:
+#          imageName: vs2017-win2016
+#          rustup_toolchain: stable
+#    pool:
+#      vmImage: $(imageName)
+#    steps:
+#        - template: ci/azure-install-deps.yml
+#        - script: |
+#            cargo fmt --all -- --check
+#            cargo test
+#          displayName: cargo test
+#        - template: ci/azure-run-kcov.yml
+
+stages:
+  - template: azure/stages.yml@templates
+
+resources:
+  repositories:
+    - repository: templates
+      type: github
+      name: crate-ci/azure-pipelines
+      endpoint: toshi-search
