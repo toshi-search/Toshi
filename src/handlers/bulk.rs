@@ -8,7 +8,7 @@ use bytes::Bytes;
 use crossbeam::channel::{unbounded, Receiver, Sender};
 use http::StatusCode;
 use hyper::Body;
-use parking_lot::{Mutex, RwLock};
+use parking_lot::RwLock;
 use tantivy::schema::Schema;
 use tantivy::{Document, IndexWriter};
 use tokio::prelude::*;
@@ -28,16 +28,16 @@ impl BulkHandler {
         BulkHandler { catalog }
     }
 
-    fn index_documents(index_writer: Arc<Mutex<IndexWriter>>, doc_receiver: Receiver<Document>) -> Result<u64, Error> {
+    fn index_documents(index_writer: Arc<RwLock<IndexWriter>>, doc_receiver: Receiver<Document>) -> Result<u64, Error> {
         let start = Instant::now();
         for doc in doc_receiver {
-            let mut w = index_writer.lock();
+            let w = index_writer.read();
             w.add_document(doc);
         }
 
         log::info!("Piping Documents took: {:?}", start.elapsed());
         let commit = Instant::now();
-        let mut w = index_writer.lock();
+        let mut w = index_writer.write();
         let stamp = w.commit()?;
         log::info!("Bulk Commit took: {:?}", commit.elapsed());
         Ok(stamp)

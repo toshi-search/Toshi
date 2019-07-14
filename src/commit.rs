@@ -28,7 +28,7 @@ impl IndexWatcher {
                     if current_ops == 0 {
                         log::debug!("No update to index={}, opstamp={}", key, current_ops);
                     } else {
-                        let mut w = writer.lock();
+                        let mut w = writer.write();
                         log::debug!("Committing {}...", key);
                         w.commit().unwrap();
                         index.set_opstamp(0);
