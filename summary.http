@@ -1,0 +1,4 @@
+GET localhost:8080/test_index/_summary?include_sizes=true
+Content-Type: application/json
+
+###

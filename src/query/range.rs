@@ -27,9 +27,25 @@ pub struct RangeQuery {
 }
 
 impl CreateQuery for RangeQuery {
-    fn create_query(self, schema: &Schema) -> Result<Box<Query>> {
+    fn create_query(self, schema: &Schema) -> Result<Box<dyn Query>> {
         let KeyValue { field, value } = self.range;
         create_range_query(schema, &field, &value)
+    }
+}
+
+#[inline]
+fn include_exclude<T>(r: &Option<Value>, r2: &Option<Value>) -> Result<Bound<T>>
+where
+    T: DeserializeOwned,
+{
+    if let Some(b) = r {
+        let value = serde_json::from_value(b.clone()).map_err(Error::from)?;
+        Ok(Bound::Excluded(value))
+    } else if let Some(b) = r2 {
+        let value = serde_json::from_value(b.clone()).map_err(Error::from)?;
+        Ok(Bound::Included(value))
+    } else {
+        Ok(Bound::Unbounded)
     }
 }
 
@@ -38,28 +54,12 @@ fn create_ranges<T>(gte: &Option<Value>, lte: &Option<Value>, lt: &Option<Value>
 where
     T: DeserializeOwned,
 {
-    let lower = if let Some(b) = gt {
-        let value = serde_json::from_value(b.clone()).map_err(Error::from)?;
-        Bound::Excluded(value)
-    } else if let Some(b) = gte {
-        let value = serde_json::from_value(b.clone()).map_err(Error::from)?;
-        Bound::Included(value)
-    } else {
-        Bound::Unbounded
-    };
-    let upper = if let Some(b) = lt {
-        let value = serde_json::from_value(b.clone()).map_err(Error::from)?;
-        Bound::Excluded(value)
-    } else if let Some(b) = lte {
-        let value = serde_json::from_value(b.clone()).map_err(Error::from)?;
-        Bound::Included(value)
-    } else {
-        Bound::Unbounded
-    };
+    let lower = include_exclude(gt, gte)?;
+    let upper = include_exclude(lt, lte)?;
     Ok((upper, lower))
 }
 
-pub fn create_range_query(schema: &Schema, field: &str, r: &Ranges) -> Result<Box<Query>> {
+pub fn create_range_query(schema: &Schema, field: &str, r: &Ranges) -> Result<Box<dyn Query>> {
     match r {
         Ranges::ValueRange { gte, lte, lt, gt, .. } => {
             let field = schema

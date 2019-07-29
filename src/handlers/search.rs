@@ -4,8 +4,8 @@ use futures::future::Either;
 use futures::stream::futures_unordered;
 use http::StatusCode;
 use hyper::Body;
-use log::info;
 use tokio::prelude::*;
+use tracing::*;
 
 use crate::handlers::ResponseFuture;
 use crate::index::SharedCatalog;
@@ -67,7 +67,9 @@ impl SearchHandler {
 
 #[cfg(test)]
 pub mod tests {
+    use hyper::Response;
     use pretty_assertions::assert_eq;
+    use serde::de::DeserializeOwned;
 
     use crate::handlers::ResponseFuture;
     use crate::index::tests::*;
@@ -76,6 +78,14 @@ pub mod tests {
     use super::*;
 
     type ReturnUnit = Result<(), hyper::error::Error>;
+
+    pub fn wait_json<T: DeserializeOwned>(r: Response<Body>) -> T {
+        r.into_body()
+            .concat2()
+            .map(|ref b| serde_json::from_slice::<T>(b).unwrap_or_else(|_| panic!("Could not deserialize JSON: {:?}", b)))
+            .wait()
+            .unwrap_or_else(|e| panic!(e))
+    }
 
     pub fn run_query(req: Search, index: &str) -> ResponseFuture {
         let cat = create_test_catalog(index);
@@ -90,7 +100,7 @@ pub mod tests {
         let search = Search::new(Some(term_query), None, 10);
         run_query(search, "test_index")
             .map(|q| {
-                let body: SearchResults = serde_json::from_slice(&q.into_body().concat2().wait().unwrap()).unwrap();
+                let body: SearchResults = wait_json(q);
                 assert_eq!(body.hits, 3);
             })
             .wait()
@@ -105,7 +115,7 @@ pub mod tests {
         let search = Search::new(Some(term_query), None, 10);
         run_query(search, "test_index")
             .map(|q| {
-                let body: SearchResults = serde_json::from_slice(&q.into_body().concat2().wait().unwrap()).unwrap();
+                let body: SearchResults = wait_json(q);
                 assert_eq!(body.hits, 3);
             })
             .wait()
@@ -153,7 +163,8 @@ pub mod tests {
         handler
             .doc_search(Body::from(body), "test_index".into())
             .map(|r| {
-                dbg!(r);
+                let docs: SearchResults = wait_json(r);
+                assert_eq!(docs.hits, 0);
             })
             .map_err(|err| dbg!(err))
             .wait()
@@ -180,7 +191,7 @@ pub mod tests {
         let req: Search = serde_json::from_str(body)?;
         let docs = run_query(req, "test_index")
             .map(|q| {
-                let b: SearchResults = serde_json::from_slice(&q.into_body().concat2().wait().unwrap()).unwrap();
+                let b: SearchResults = wait_json(q);
                 assert_eq!(b.facets[0].value, 1);
                 assert_eq!(b.facets[1].value, 1);
                 assert_eq!(b.facets[0].field, "/cat/cat2");
@@ -197,7 +208,7 @@ pub mod tests {
         let req = Search::new(Some(Query::Raw { raw: body.into() }), None, 10);
         let docs = run_query(req, "test_index")
             .map(|q| {
-                let body: SearchResults = serde_json::from_slice(&q.into_body().concat2().wait().unwrap()).unwrap();
+                let body: SearchResults = wait_json(q);
                 assert_eq!(body.hits as usize, body.docs.len());
                 assert_eq!(body.docs[0].doc["test_text"][0].text().unwrap(), "Test Duckiment 3")
             })
@@ -214,7 +225,7 @@ pub mod tests {
         let search = Search::new(Some(term_query), None, 10);
         let query = run_query(search, "test_index")
             .map(|q| {
-                let body: SearchResults = serde_json::from_slice(&q.into_body().concat2().wait().unwrap()).unwrap();
+                let body: SearchResults = wait_json(q);
 
                 assert_eq!(body.hits as usize, body.docs.len());
                 assert_eq!(body.hits, 3);
@@ -232,7 +243,7 @@ pub mod tests {
         let req: Search = serde_json::from_str(body)?;
         let docs = run_query(req, "test_index")
             .map(|q| {
-                let body: SearchResults = serde_json::from_slice(&q.into_body().concat2().wait().unwrap()).unwrap();
+                let body: SearchResults = wait_json(q);
 
                 assert_eq!(body.hits as usize, body.docs.len());
                 assert_eq!(body.docs[0].score.unwrap(), 1.0);
@@ -249,7 +260,7 @@ pub mod tests {
         let req: Search = serde_json::from_str(&body)?;
         let docs = run_query(req, "test_index")
             .map(|q| {
-                let body: SearchResults = serde_json::from_slice(&q.into_body().concat2().wait().unwrap()).unwrap();
+                let body: SearchResults = wait_json(q);
 
                 assert_eq!(body.hits as usize, body.docs.len());
                 assert_eq!(body.docs[0].score.unwrap(), 1.0);
@@ -266,7 +277,7 @@ pub mod tests {
         let req: Search = serde_json::from_str(&body)?;
         let docs = run_query(req, "test_index")
             .map(|q| {
-                let body: SearchResults = serde_json::from_slice(&q.into_body().concat2().wait().unwrap()).unwrap();
+                let body: SearchResults = wait_json(q);
                 assert_eq!(body.hits, 4)
             })
             .map_err(|_| ());
@@ -284,7 +295,7 @@ pub mod tests {
         let query = serde_json::from_str::<Search>(test_json)?;
         let docs = run_query(query, "test_index")
             .map(|q| {
-                let body: SearchResults = serde_json::from_slice(&q.into_body().concat2().wait().unwrap()).unwrap();
+                let body: SearchResults = wait_json(q);
                 assert_eq!(body.hits, 2)
             })
             .map_err(|_| ());

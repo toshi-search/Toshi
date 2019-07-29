@@ -96,7 +96,7 @@ impl ClusterOps for Consul {
     }
 
     /// Registers this node with Consul via HTTP API
-    fn register_node(&mut self) -> Box<Future<Item = (), Error = ClusterError> + Send> {
+    fn register_node(&mut self) -> Box<dyn Future<Item = (), Error = ClusterError> + Send> {
         let key = SERVICE_NAME.to_string() + &self.cluster_name() + "/" + &self.node_id();
         Box::new(
             self.client
@@ -106,7 +106,7 @@ impl ClusterOps for Consul {
         )
     }
 
-    fn place_node_descriptor(&mut self, hosts: Hosts) -> Box<Future<Item = (), Error = ClusterError> + Send> {
+    fn place_node_descriptor(&mut self, hosts: Hosts) -> Box<dyn Future<Item = (), Error = ClusterError> + Send> {
         let key = self.node_path();
         let mut client = self.client.clone();
         Box::new(
@@ -133,7 +133,7 @@ impl ClusterOps for Consul {
     }
 
     /// Registers a cluster with Consul via the HTTP API
-    fn register_cluster(&mut self) -> Box<Future<Item = (), Error = ClusterError> + Send> {
+    fn register_cluster(&mut self) -> Box<dyn Future<Item = (), Error = ClusterError> + Send> {
         let key = SERVICE_NAME.to_string() + &self.cluster_name();
         Box::new(
             self.client
@@ -144,7 +144,7 @@ impl ClusterOps for Consul {
     }
 
     /// Registers a shard with the Consul cluster
-    fn register_shard<S: Shard>(&mut self, shard: &S) -> Box<Future<Item = (), Error = ClusterError> + Send> {
+    fn register_shard<S: Shard>(&mut self, shard: &S) -> Box<dyn Future<Item = (), Error = ClusterError> + Send> {
         let key = format!("toshi/{}/{}", self.cluster_name(), shard.shard_id().to_hyphenated_ref());
         let shard = serde_json::to_vec(&shard).unwrap();
 
@@ -245,7 +245,7 @@ impl HttpsService {
 impl Service<Request<Bytes>> for HttpsService {
     type Response = Response<Bytes>;
     type Error = hyper::Error;
-    type Future = Box<Future<Item = Self::Response, Error = Self::Error> + Send>;
+    type Future = Box<dyn Future<Item = Self::Response, Error = Self::Error> + Send>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         Ok(Async::Ready(()))

@@ -2,7 +2,6 @@ use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
 
-use log::debug;
 use parking_lot::RwLock;
 use tantivy::collector::{FacetCollector, MultiCollector, TopDocs};
 use tantivy::query::{AllQuery, QueryParser};
@@ -10,6 +9,7 @@ use tantivy::schema::*;
 use tantivy::space_usage::SearcherSpaceUsage;
 use tantivy::{Document, Index, IndexReader, IndexWriter, ReloadPolicy, Term};
 use tokio::prelude::*;
+use tracing::*;
 
 use crate::handlers::index::{AddDocument, DeleteDoc, DocsAffected};
 use crate::query::{CreateQuery, KeyValue, Query, Search};
@@ -96,9 +96,9 @@ impl IndexHandle for LocalIndex {
 
         let top_handle = multi_collector.add_collector(collector);
         let facet_handle = search.facets.clone().and_then(|f| {
-            if let Some(field) = schema.get_field(&f.0.field) {
+            if let Some(field) = schema.get_field(&f.get_facets_fields()) {
                 let mut col = FacetCollector::for_field(field);
-                for term in f.0.value {
+                for term in f.get_facets_values() {
                     col.add_facet(&term);
                 }
                 Some(multi_collector.add_collector(col))
@@ -159,10 +159,10 @@ impl IndexHandle for LocalIndex {
                 .collect();
 
             if let Some(facets) = facet_handle {
-                if let Some(t) = search.facets.clone() {
+                if let Some(t) = &search.facets {
                     let facet_counts = facets
                         .extract(&mut scored_docs)
-                        .get(&t.0.value[0])
+                        .get(&t.get_facets_values()[0])
                         .map(|(f, c)| KeyValue::new(f.to_string(), c))
                         .collect();
                     return Ok(SearchResults::with_facets(docs, facet_counts));
@@ -264,12 +264,12 @@ impl LocalIndex {
     }
 
     pub fn get_opstamp(&self) -> usize {
-        log::trace!("Got the opstamp");
+        trace!("Got the opstamp");
         self.current_opstamp.load(Ordering::SeqCst)
     }
 
     pub fn set_opstamp(&self, opstamp: usize) {
-        log::trace!("Setting stamp to {}", opstamp);
+        trace!("Setting stamp to {}", opstamp);
         self.current_opstamp.store(opstamp, Ordering::SeqCst)
     }
 }

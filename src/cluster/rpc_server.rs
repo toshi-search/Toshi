@@ -4,7 +4,6 @@ use std::sync::Arc;
 
 use futures::Future;
 use hyper::client::connect::HttpConnector;
-use log::{error, info};
 use parking_lot::RwLock;
 use tantivy::schema::Schema;
 use tokio::net::TcpListener;
@@ -16,6 +15,7 @@ use tower_hyper::client::{Connect, ConnectError, Connection};
 use tower_hyper::util::{Connector, Destination};
 use tower_hyper::Server;
 use tower_request_modifier::{Builder, RequestModifier};
+use tracing::*;
 
 use toshi_proto::cluster_rpc::*;
 

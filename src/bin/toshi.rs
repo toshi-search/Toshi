@@ -5,10 +5,10 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use futures::{future, Future};
-use log::{error, info};
 use parking_lot::RwLock;
 use tokio::runtime::Runtime;
 use tokio::sync::oneshot;
+use tracing::*;
 
 use toshi::cluster::rpc_server::RpcServer;
 use toshi::commit::IndexWatcher;
@@ -17,12 +17,21 @@ use toshi::router::router_with_catalog;
 use toshi::settings::{Settings, HEADER, RPC_HEADER};
 use toshi::{cluster, shutdown, support};
 
+fn get_subscriber() -> impl Subscriber {
+    tracing_fmt::FmtSubscriber::builder()
+        .with_timer(tracing_fmt::time::SystemTime {})
+        .with_ansi(true)
+        .finish()
+}
+
 pub fn main() -> Result<(), ()> {
     let settings = support::settings();
 
     std::env::set_var("RUST_LOG", &settings.log_level);
-    pretty_env_logger::init();
-    info!("{:?}", &settings);
+    let sub = get_subscriber();
+    tracing::subscriber::set_global_default(sub).expect("Unable to set default Subscriber");
+
+    debug!("{:?}", &settings);
 
     let mut rt = Runtime::new().expect("failed to start new Runtime");
 

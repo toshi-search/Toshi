@@ -11,7 +11,7 @@ pub struct RegexQuery {
 }
 
 impl CreateQuery for RegexQuery {
-    fn create_query(self, schema: &Schema) -> Result<Box<Query>> {
+    fn create_query(self, schema: &Schema) -> Result<Box<dyn Query>> {
         let KeyValue { field, value } = self.regex;
         let field = schema
             .get_field(&field)

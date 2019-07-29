@@ -3,11 +3,11 @@ use std::net::SocketAddr;
 use std::time::{Duration, Instant};
 
 use futures::{try_ready, Future, Poll};
-use log::debug;
 use tokio::sync::mpsc;
 use tokio::sync::watch::{channel, Receiver, Sender};
 use tokio::timer::Delay;
 use tower_consul::ConsulService;
+use tracing::*;
 
 use crate::cluster::consul::ClusterOps;
 use crate::cluster::{consul::Consul, ClusterError};
@@ -70,7 +70,7 @@ impl Future for Background {
 }
 
 enum State {
-    Fetching(Box<Future<Item = Vec<ConsulService>, Error = ClusterError> + Send>),
+    Fetching(Box<dyn Future<Item = Vec<ConsulService>, Error = ClusterError> + Send>),
     Waiting(Delay),
 }
 

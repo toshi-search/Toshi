@@ -98,8 +98,8 @@ impl From<serde_json::Error> for Error {
     }
 }
 
-impl From<Box<::std::error::Error + Send + 'static>> for Error {
-    fn from(err: Box<::std::error::Error + Send + 'static>) -> Self {
+impl From<Box<dyn ::std::error::Error + Send + 'static>> for Error {
+    fn from(err: Box<dyn ::std::error::Error + Send + 'static>) -> Self {
         Error::IOError(err.description().to_owned())
     }
 }

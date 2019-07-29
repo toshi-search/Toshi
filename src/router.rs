@@ -13,8 +13,8 @@ use crate::utils::{not_found, parse_path};
 
 #[derive(Deserialize, Debug, Default)]
 pub struct QueryOptions {
-    pretty: Option<bool>,
-    include_sizes: Option<bool>,
+    pub pretty: Option<bool>,
+    pub include_sizes: Option<bool>,
 }
 
 impl QueryOptions {
@@ -34,9 +34,11 @@ pub fn router_with_catalog(addr: &SocketAddr, catalog: Arc<RwLock<IndexCatalog>>
         let search_handler = SearchHandler::new(Arc::clone(&catalog));
         let index_handler = IndexHandler::new(Arc::clone(&catalog));
         let bulk_handler = BulkHandler::new(Arc::clone(&catalog));
-        let summary_handler = SummaryHandler::new(Arc::clone(&catalog));
+        let summary_cat = Arc::clone(&catalog);
 
         service_fn(move |req: Request<Body>| {
+            let summary_cat = &summary_cat;
+
             let (parts, body) = req.into_parts();
 
             let query_options: QueryOptions = parts
@@ -48,7 +50,7 @@ pub fn router_with_catalog(addr: &SocketAddr, catalog: Arc<RwLock<IndexCatalog>>
             let method = parts.method;
             let path = parse_path(parts.uri.path());
 
-            log::info!("REQ = {:?}", path);
+            tracing::info!("REQ = {:?}", path);
 
             match (method, &path[..]) {
                 (Method::PUT, [idx, action]) => match *action {
@@ -56,7 +58,7 @@ pub fn router_with_catalog(addr: &SocketAddr, catalog: Arc<RwLock<IndexCatalog>>
                     _ => not_found(),
                 },
                 (Method::GET, [idx, action]) => match *action {
-                    "_summary" => summary_handler.summary(idx.to_string(), query_options),
+                    "_summary" => summary(Arc::clone(summary_cat), idx.to_string(), query_options),
                     _ => not_found(),
                 },
                 (Method::POST, [idx, action]) => match *action {
@@ -83,7 +85,7 @@ pub fn router_with_catalog(addr: &SocketAddr, catalog: Arc<RwLock<IndexCatalog>>
         .tcp_nodelay(true)
         .http1_half_close(false)
         .serve(routes)
-        .map_err(|e| eprintln!("HYPER ERROR = {:?}", e))
+        .map_err(|e| tracing::error!("HYPER ERROR = {:?}", e))
 }
 
 #[cfg(test)]
@@ -91,11 +93,30 @@ pub mod tests {
     use crate::index::tests::create_test_catalog;
 
     use super::*;
+    use http::StatusCode;
+    use lazy_static::lazy_static;
+    use toshi_test::{get_localhost, TestServer};
+
+    lazy_static! {
+        pub static ref TEST_SERVER: TestServer = {
+            let catalog = create_test_catalog("test_index");
+            let addr = get_localhost();
+            let router = router_with_catalog(&addr, Arc::clone(&catalog));
+            TestServer::new(router).expect("Can't start test server")
+        };
+    }
 
     #[test]
     pub fn test_create_router() {
-        let catalog = create_test_catalog("test_index");
-        let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-        router_with_catalog(&addr, Arc::clone(&catalog));
+        let addr = get_localhost();
+        let response = TEST_SERVER
+            .client_with_address(addr)
+            .get("http://localhost:8080")
+            .perform()
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let buf = String::from_utf8(response.into_body().concat2().wait().unwrap().to_vec()).unwrap();
+        assert_eq!(buf, "{\"name\":\"Toshi Search\",\"version\":\"0.1.1\"}");
     }
 }

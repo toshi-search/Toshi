@@ -18,8 +18,8 @@ pub struct BoolQuery {
 }
 
 impl CreateQuery for BoolQuery {
-    fn create_query(self, schema: &Schema) -> Result<Box<TQuery>> {
-        let mut all_queries: Vec<(Occur, Box<TQuery>)> = Vec::new();
+    fn create_query(self, schema: &Schema) -> Result<Box<dyn TQuery>> {
+        let mut all_queries: Vec<(Occur, Box<dyn TQuery>)> = Vec::new();
         all_queries.append(&mut parse_queries(schema, Occur::Must, &self.must)?);
         all_queries.append(&mut parse_queries(schema, Occur::MustNot, &self.must_not)?);
         all_queries.append(&mut parse_queries(schema, Occur::Should, &self.should)?);
@@ -27,7 +27,7 @@ impl CreateQuery for BoolQuery {
     }
 }
 
-fn parse_queries(schema: &Schema, occur: Occur, queries: &[Query]) -> Result<Vec<(Occur, Box<TQuery>)>> {
+fn parse_queries(schema: &Schema, occur: Occur, queries: &[Query]) -> Result<Vec<(Occur, Box<dyn TQuery>)>> {
     queries
         .iter()
         .map(|q| match q {
@@ -38,7 +38,7 @@ fn parse_queries(schema: &Schema, occur: Occur, queries: &[Query]) -> Result<Vec
             Query::Regex(r) => Ok((occur, r.clone().create_query(&schema)?)),
             _ => Err(Error::QueryError("Invalid type for boolean query".into())),
         })
-        .collect::<Result<Vec<(Occur, Box<TQuery>)>>>()
+        .collect::<Result<Vec<(Occur, Box<dyn TQuery>)>>>()
 }
 
 #[cfg(test)]

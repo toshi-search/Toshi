@@ -1,0 +1,16 @@
+[package]
+name    = "toshi-test"
+version = "0.1.0"
+authors = ["Stephen Carman <shcarman@gmail.com>"]
+description = "A full text search engine based on Tantivy"
+repository = "https://github.com/toshi-search/Toshi"
+license = "MIT"
+edition = "2018"
+
+[dependencies]
+hyper = "^0.12"
+http = "^0.1"
+futures = "^0.1"
+tokio = "^0.1"
+failure = "^0.1"
+tracing = "^0.1"

@@ -140,7 +140,7 @@ mod tests {
 
     #[test]
     fn test_create_primary_shard() {
-        let test_shard = PrimaryShard::new();
+        let test_shard = PrimaryShard::default();
         assert!(test_shard.is_primary());
     }
 

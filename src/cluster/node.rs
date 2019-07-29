@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use crate::cluster::ClusterError;
 
-static NODE_ID_FILENAME: &'static str = ".node_id";
+static NODE_ID_FILENAME: &str = ".node_id";
 
 /// Init the node id by reading the node id from path or writing a fresh one if not found
 pub fn init_node_id(path: String) -> impl Future<Item = String, Error = ClusterError> {
@@ -43,4 +43,27 @@ pub fn read_node_id(p: &str) -> impl Future<Item = String, Error = ClusterError>
         .and_then(|file| read_to_end(file, Vec::new()))
         .map_err(|e| ClusterError::FailedReadingNodeID(format!("{}", e)))
         .and_then(|(_, bytes)| String::from_utf8(bytes).map_err(|_| ClusterError::UnableToReadUTF8))
+}
+
+#[cfg(test)]
+pub mod tests {
+
+    use super::*;
+    use tokio::runtime::Runtime;
+
+    #[test]
+    pub fn test_node_id() -> Result<(), ClusterError> {
+        let mut rt = Runtime::new().unwrap();
+        let (s, mut recv) = tokio::sync::oneshot::channel::<String>();
+        let r = futures::future::lazy(|| init_node_id("./".to_string())).and_then(move |id| {
+            s.send(id).unwrap();
+            read_node_id("./")
+        });
+        let read_id = rt.block_on(r).unwrap();
+        let write_id = recv.try_recv().unwrap();
+        assert_eq!(read_id, write_id);
+
+        std::fs::remove_file(format!("./{}", NODE_ID_FILENAME)).unwrap();
+        Ok(())
+    }
 }

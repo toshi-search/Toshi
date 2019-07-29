@@ -1,9 +1,9 @@
 use std::hash::{Hash, Hasher};
 
-use log::info;
 use rand::prelude::*;
 use tokio::prelude::*;
 use tower_grpc::{Request as TowerRequest, Response};
+use tracing::*;
 
 use toshi_proto::cluster_rpc::{DeleteRequest, DocumentRequest, SearchReply, SearchRequest};
 
@@ -48,9 +48,9 @@ impl RemoteIndex {
 }
 
 impl IndexHandle for RemoteIndex {
-    type SearchResponse = Box<Future<Item = Vec<SearchReply>, Error = RPCError> + Send>;
-    type DeleteResponse = Box<Future<Item = Vec<i32>, Error = RPCError> + Send>;
-    type AddResponse = Box<Future<Item = Vec<i32>, Error = RPCError> + Send>;
+    type SearchResponse = Box<dyn Future<Item = Vec<SearchReply>, Error = RPCError> + Send>;
+    type DeleteResponse = Box<dyn Future<Item = Vec<i32>, Error = RPCError> + Send>;
+    type AddResponse = Box<dyn Future<Item = Vec<i32>, Error = RPCError> + Send>;
 
     fn get_name(&self) -> String {
         self.name.clone()

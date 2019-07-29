@@ -17,7 +17,7 @@ impl ExactTerm {
 }
 
 impl CreateQuery for ExactTerm {
-    fn create_query(self, schema: &Schema) -> Result<Box<Query>> {
+    fn create_query(self, schema: &Schema) -> Result<Box<dyn Query>> {
         let KeyValue { field, value } = self.term;
         let term = make_field_value(schema, &field, &value)?;
         Ok(Box::new(TermQuery::new(term, IndexRecordOption::Basic)))

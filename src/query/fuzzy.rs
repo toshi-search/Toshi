@@ -36,7 +36,7 @@ impl FuzzyQuery {
 }
 
 impl CreateQuery for FuzzyQuery {
-    fn create_query(self, schema: &Schema) -> Result<Box<Query>> {
+    fn create_query(self, schema: &Schema) -> Result<Box<dyn Query>> {
         let KeyValue { field, value } = self.fuzzy;
         let term = make_field_value(schema, &field, &value.value)?;
         Ok(Box::new(FuzzyTermQuery::new(term, value.distance, value.transposition)))

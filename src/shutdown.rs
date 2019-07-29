@@ -1,6 +1,6 @@
 use futures::{Future, Stream};
-use log::info;
 use tokio::sync::oneshot;
+use tracing::*;
 
 #[cfg(unix)]
 pub fn shutdown(signal: oneshot::Sender<()>) -> impl Future<Item = (), Error = ()> {

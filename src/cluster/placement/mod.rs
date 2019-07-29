@@ -2,11 +2,11 @@ use std::collections::HashSet;
 use std::net::SocketAddr;
 
 use futures::{future, Future, Stream};
-use log::error;
 use tokio::net::TcpListener;
 use tokio::sync::watch::*;
 use tower_grpc::{Request, Response, Status};
 use tower_hyper::Server;
+use tracing::*;
 
 use toshi_proto::placement_proto::{server, PlacementReply, PlacementRequest};
 
@@ -17,7 +17,7 @@ pub use self::background::Background;
 pub mod background;
 
 // TODO: replace this with an actual future
-type GrpcFuture<T> = Box<Future<Item = Response<T>, Error = Status> + Send + 'static>;
+type GrpcFuture<T> = Box<dyn Future<Item = Response<T>, Error = Status> + Send + 'static>;
 
 #[derive(Clone)]
 pub struct Place {

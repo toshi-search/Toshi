@@ -4,6 +4,7 @@ use std::time::Duration;
 use futures::{Future, Stream};
 use parking_lot::RwLock;
 use tokio::timer::Interval;
+use tracing::*;
 
 use crate::index::IndexCatalog;
 
@@ -26,10 +27,10 @@ impl IndexWatcher {
                     let writer = index.get_writer();
                     let current_ops = index.get_opstamp();
                     if current_ops == 0 {
-                        log::debug!("No update to index={}, opstamp={}", key, current_ops);
+                        debug!("No update to index={}, opstamp={}", key, current_ops);
                     } else {
                         let mut w = writer.write();
-                        log::debug!("Committing {}...", key);
+                        debug!("Committing {}...", key);
                         w.commit().unwrap();
                         index.set_opstamp(0);
                     }

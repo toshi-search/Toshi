@@ -31,7 +31,7 @@ mod regex;
 mod term;
 
 pub trait CreateQuery {
-    fn create_query(self, schema: &Schema) -> Result<Box<TantivyQuery>>;
+    fn create_query(self, schema: &Schema) -> Result<Box<dyn TantivyQuery>>;
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]

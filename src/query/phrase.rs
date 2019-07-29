@@ -1,10 +1,10 @@
-use crate::query::*;
-use crate::{error::Error, Result};
-
 use serde::{Deserialize, Serialize};
 use tantivy::query::{PhraseQuery as TantivyPhraseQuery, Query};
 use tantivy::schema::Schema;
 use tantivy::Term;
+
+use crate::query::{make_field_value, CreateQuery, KeyValue};
+use crate::{error::Error, Result};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct PhraseQuery {
@@ -30,7 +30,7 @@ impl PhraseQuery {
 }
 
 impl CreateQuery for PhraseQuery {
-    fn create_query(self, schema: &Schema) -> Result<Box<Query>> {
+    fn create_query(self, schema: &Schema) -> Result<Box<dyn Query>> {
         let KeyValue { field, value } = self.phrase;
         if value.terms.len() <= 1 {
             return Err(Error::QueryError("Phrase Query must have more than 1 term".into()));
@@ -66,9 +66,9 @@ impl CreateQuery for PhraseQuery {
 
 #[cfg(test)]
 pub mod tests {
+    use tantivy::schema::*;
 
     use super::*;
-    use tantivy::schema::*;
 
     #[test]
     pub fn test_no_terms() {

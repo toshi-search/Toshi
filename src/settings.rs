@@ -252,7 +252,7 @@ impl Settings {
         self.experimental_features.nodes.clone()
     }
 
-    pub fn get_merge_policy(&self) -> Box<MergePolicy> {
+    pub fn get_merge_policy(&self) -> Box<dyn MergePolicy> {
         match self.merge_policy.get_kind() {
             MergePolicyType::Log => {
                 let mut mp = LogMergePolicy::default();

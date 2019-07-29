@@ -1,10 +1,12 @@
+#![forbid(unsafe_code)]
+#![deny(future_incompatible)]
+
 pub mod cluster;
 pub mod commit;
 pub mod error;
 pub mod handle;
 pub mod handlers;
 pub mod index;
-//pub mod indexing;
 pub mod query;
 pub mod results;
 pub mod router;
