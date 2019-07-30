@@ -1553,7 +1553,7 @@ dependencies = [
 
 [[package]]
 name = "tantivy"
-version = "0.10.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "atomicwrites 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1884,7 +1884,7 @@ dependencies = [
  "serde 1.0.98 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.40 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_urlencoded 0.5.5 (registry+https://github.com/rust-lang/crates.io-index)",
- "tantivy 0.10.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tantivy 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-signal 0.2.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "toshi-proto 0.1.0",
@@ -2553,7 +2553,7 @@ dependencies = [
 "checksum strsim 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)" = "8ea5119cdb4c55b55d432abb513a0429384878c15dde60cc77b1c99de1a95a6a"
 "checksum syn 0.15.42 (registry+https://github.com/rust-lang/crates.io-index)" = "eadc09306ca51a40555dd6fc2b415538e9e18bc9f870e47b1a524a79fe2dcf5e"
 "checksum synstructure 0.10.2 (registry+https://github.com/rust-lang/crates.io-index)" = "02353edf96d6e4dc81aea2d8490a7e9db177bf8acb0e951c24940bf866cb313f"
-"checksum tantivy 0.10.0 (registry+https://github.com/rust-lang/crates.io-index)" = "2ad771e12c6ce0cc544ef2f16d9e3a748582be87abd3f5e895c26993ff987b6e"
+"checksum tantivy 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)" = "a336e43be781173cff6793242157791dcfc6d3d7a3c92c9fc0a9c8828e0822e5"
 "checksum tantivy-fst 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "16b22af5ff09b8897093287642a5aaee6f30eb496526ef83a8dd0f4c636ac367"
 "checksum tempdir 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)" = "15f2b5fb00ccdf689e0149d1b1b3c03fead81c2b37735d812fa8bddbbf41b6d8"
 "checksum tempfile 3.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "7a6e24d9338a0a5be79593e2fa15a648add6138caa803e2d5bc782c371732ca9"
