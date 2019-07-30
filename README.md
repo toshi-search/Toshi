@@ -247,7 +247,7 @@ curl -X GET http://localhost:8080/test_index -H 'Content-Type: application/json'
 ##### Usage
 To try any of the above queries you can use the above example
 ```bash
-curl -X GET http://localhost:8080/test_index -H 'Content-Type: application/json' -d '{ "query": {"term": {"test_text": "document" } }, "limit": 10 }'
+curl -X POST http://localhost:8080/test_index -H 'Content-Type: application/json' -d '{ "query": {"term": {"test_text": "document" } }, "limit": 10 }'
 ```
 Also, to note, limit is optional, 10 is the default value. It's only included here for completeness.
 
