@@ -160,7 +160,8 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
-        let buf = response.into_body().concat2().wait().unwrap();
+        let body = response.into_body().concat2().wait().unwrap();
+        let buf = std::str::from_utf8(&body).unwrap();
         assert_eq!(buf, "/echo");
 
         let response = test_server
@@ -170,7 +171,8 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
-        let buf = response.into_body().concat2().wait().unwrap();
+        let body = response.into_body().concat2().wait().unwrap();
+        let buf = std::str::from_utf8(&body).unwrap();
         assert_eq!(buf, "Response");
     }
 
