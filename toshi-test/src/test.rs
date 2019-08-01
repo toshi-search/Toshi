@@ -1,7 +1,7 @@
 use std::fmt;
 use std::ops::{Deref, DerefMut};
 
-use failure::{format_err, Error};
+use failure::format_err;
 use futures::{future, Future, Stream};
 use http::HttpTryFrom;
 use hyper::client::{connect::Connect, Client};

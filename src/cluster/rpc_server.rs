@@ -22,7 +22,7 @@ use toshi_proto::cluster_rpc::*;
 use crate::handle::IndexHandle;
 use crate::handlers::index::{AddDocument, DeleteDoc};
 use crate::index::IndexCatalog;
-use crate::query::{Query, Search};
+use crate::query::Search;
 
 pub type Buf = Buffer<RequestModifier<Connection<BoxBody>, BoxBody>, http::Request<BoxBody>>;
 pub type RpcClient = client::IndexService<Buf>;
@@ -118,15 +118,10 @@ impl server::IndexService for RpcServer {
         let inner = request.into_inner();
         let cat = self.catalog.read();
         if let Ok(index) = cat.get_index(&inner.index) {
-            let mut query: Search = match serde_json::from_slice(&inner.query) {
+            let query: Search = match serde_json::from_slice(&inner.query) {
                 Ok(v) => v,
                 Err(e) => return Self::error_response(Code::Internal, e.to_string()),
             };
-
-            if query.query.is_none() {
-                query.query = Some(Query::All);
-            }
-
             info!("QUERY = {:?}", query);
 
             match index.search_index(query) {

@@ -55,6 +55,7 @@ pub enum Metrics {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Search {
+    #[serde(default = "Search::all")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub query: Option<Query>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -66,6 +67,10 @@ pub struct Search {
 impl Search {
     pub fn new(query: Option<Query>, facets: Option<FacetQuery>, limit: usize) -> Self {
         Search { query, facets, limit }
+    }
+
+    pub fn all() -> Option<Query> {
+        Some(Query::All)
     }
 
     pub fn all_docs() -> Self {
