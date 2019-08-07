@@ -52,30 +52,30 @@ pub fn router_with_catalog(addr: &SocketAddr, catalog: Arc<RwLock<IndexCatalog>>
 
             tracing::info!("REQ = {:?}", path);
 
-            match (method, &path[..]) {
-                (Method::PUT, [idx, action]) => match *action {
+            match (&method, &path[..]) {
+                (m, [idx, action]) if m == Method::PUT => match *action {
                     "_create" => index_handler.create_index(body, idx.to_string()),
                     _ => not_found(),
                 },
-                (Method::GET, [idx, action]) => match *action {
+                (m, [idx, action]) if m == Method::GET => match *action {
                     "_summary" => summary(Arc::clone(summary_cat), idx.to_string(), query_options),
                     _ => not_found(),
                 },
-                (Method::POST, [idx, action]) => match *action {
+                (m, [idx, action]) if m == Method::POST => match *action {
                     "_bulk" => bulk_handler.bulk_insert(body, idx.to_string()),
                     _ => not_found(),
                 },
-                (Method::POST, [idx]) => search_handler.doc_search(body, idx.to_string()),
-                (Method::PUT, [idx]) => index_handler.add_document(body, idx.to_string()),
-                (Method::DELETE, [idx]) => index_handler.delete_term(body, idx.to_string()),
-                (Method::GET, [idx]) => {
+                (m, [idx]) if m == Method::POST => search_handler.doc_search(body, idx.to_string()),
+                (m, [idx]) if m == Method::PUT => index_handler.add_document(body, idx.to_string()),
+                (m, [idx]) if m == Method::DELETE => index_handler.delete_term(body, idx.to_string()),
+                (m, [idx]) if m == Method::GET=> {
                     if idx == &"favicon.ico" {
                         not_found()
                     } else {
                         search_handler.all_docs(idx.to_string())
                     }
                 }
-                (Method::GET, []) => root::root(),
+                (m, []) if m == Method::GET => root::root(),
                 _ => not_found(),
             }
         })
