@@ -1912,7 +1912,7 @@ dependencies = [
  "tower-buffer 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "tower-consul 0.1.0 (git+https://github.com/LucioFranco/tower-consul)",
  "tower-grpc 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "tower-hyper 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tower-hyper 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "tower-request-modifier 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "tracing 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "tracing-fmt 0.0.1-alpha.2 (git+https://github.com/tokio-rs/tracing)",
@@ -2013,7 +2013,7 @@ dependencies = [
  "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "percent-encoding 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "prost 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "tower-hyper 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tower-hyper 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "tower-service 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "tower-util 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -2044,7 +2044,7 @@ dependencies = [
 
 [[package]]
 name = "tower-hyper"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "futures 0.1.28 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2606,7 +2606,7 @@ dependencies = [
 "checksum tower-grpc 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "839c195fd6e4e87442e7a631ea62632799695a3f897949192325a4e509ff4328"
 "checksum tower-grpc-build 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "8862053a26bc7b901cf52bca8ae7d4c2e041222673e38f81a475aeb6c82481df"
 "checksum tower-http-util 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "442ba79e23bda499cdaa5ee52b3776bf08cb84a1d5ca6d3d82bfd4f12c1eefc3"
-"checksum tower-hyper 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "727d28cf51fc34a92c4201b08d53790608cb6edc0d285dfca260e043fa6529a5"
+"checksum tower-hyper 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "cff60538bc14baa9cc84fbe4c040d498163daf23bc9846a9aef0e2e40dcc1d51"
 "checksum tower-layer 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "0ddf07e10c07dcc8f41da6de036dc66def1a85b70eb8a385159e3908bb258328"
 "checksum tower-limit 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "09d3d0fe82c2373225025d50881794e0792e544df9752dec66288b644b40fbfe"
 "checksum tower-load-shed 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "04fbaf5bfb63d84204db87b9b2aeec61549613f2bbb8706dcc36f5f3ea8cd769"
