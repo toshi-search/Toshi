@@ -2164,7 +2164,7 @@ dependencies = [
 [[package]]
 name = "tracing-fmt"
 version = "0.0.1-alpha.2"
-source = "git+https://github.com/tokio-rs/tracing#acd7713cce2034090c20db8f063bcbad2af6b140"
+source = "git+https://github.com/tokio-rs/tracing#dcca24fee14aecb9df34a3d292f4f31f2a44e6b7"
 dependencies = [
  "ansi_term 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "chrono 0.4.7 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2180,7 +2180,7 @@ dependencies = [
 [[package]]
 name = "tracing-futures"
 version = "0.0.1-alpha.1"
-source = "git+https://github.com/tokio-rs/tracing#acd7713cce2034090c20db8f063bcbad2af6b140"
+source = "git+https://github.com/tokio-rs/tracing#dcca24fee14aecb9df34a3d292f4f31f2a44e6b7"
 dependencies = [
  "futures 0.1.28 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2190,7 +2190,7 @@ dependencies = [
 [[package]]
 name = "tracing-log"
 version = "0.0.1"
-source = "git+https://github.com/tokio-rs/tracing#acd7713cce2034090c20db8f063bcbad2af6b140"
+source = "git+https://github.com/tokio-rs/tracing#dcca24fee14aecb9df34a3d292f4f31f2a44e6b7"
 dependencies = [
  "lazy_static 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2201,7 +2201,7 @@ dependencies = [
 [[package]]
 name = "tracing-subscriber"
 version = "0.0.1-alpha.2"
-source = "git+https://github.com/tokio-rs/tracing#acd7713cce2034090c20db8f063bcbad2af6b140"
+source = "git+https://github.com/tokio-rs/tracing#dcca24fee14aecb9df34a3d292f4f31f2a44e6b7"
 dependencies = [
  "crossbeam-utils 0.6.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
