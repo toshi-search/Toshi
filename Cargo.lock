@@ -662,6 +662,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "lazy_static"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "spin 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+]
 
 [[package]]
 name = "lazycell"
@@ -1532,6 +1535,11 @@ dependencies = [
 ]
 
 [[package]]
+name = "spin"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
 name = "stable_deref_trait"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1914,7 +1922,7 @@ dependencies = [
  "tower-grpc 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "tower-hyper 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "tower-request-modifier 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "tracing 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tracing 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "tracing-fmt 0.0.1-alpha.2 (git+https://github.com/tokio-rs/tracing)",
  "tracing-futures 0.0.1-alpha.1 (git+https://github.com/tokio-rs/tracing)",
  "tracing-log 0.0.1 (git+https://github.com/tokio-rs/tracing)",
@@ -1942,7 +1950,7 @@ dependencies = [
  "http 0.1.18 (registry+https://github.com/rust-lang/crates.io-index)",
  "hyper 0.12.33 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)",
- "tracing 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tracing 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -1972,7 +1980,7 @@ dependencies = [
  "tokio-sync 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "tower-layer 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "tower-service 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "tracing 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tracing 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -2145,20 +2153,33 @@ dependencies = [
 
 [[package]]
 name = "tracing"
-version = "0.1.3"
+version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "cfg-if 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
- "tracing-core 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "spin 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tracing-attributes 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tracing-core 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "tracing-attributes"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "proc-macro2 0.4.30 (registry+https://github.com/rust-lang/crates.io-index)",
+ "quote 0.6.13 (registry+https://github.com/rust-lang/crates.io-index)",
+ "syn 0.15.43 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "tracing-core"
-version = "0.1.2"
+version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "lazy_static 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "spin 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -2173,7 +2194,7 @@ dependencies = [
  "owning_ref 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "parking_lot 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "regex 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "tracing-core 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tracing-core 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "tracing-log 0.0.1 (git+https://github.com/tokio-rs/tracing)",
 ]
 
@@ -2184,7 +2205,7 @@ source = "git+https://github.com/tokio-rs/tracing#acd7713cce2034090c20db8f063bcb
 dependencies = [
  "futures 0.1.28 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)",
- "tracing 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tracing 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -2194,7 +2215,7 @@ source = "git+https://github.com/tokio-rs/tracing#acd7713cce2034090c20db8f063bcb
 dependencies = [
  "lazy_static 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
- "tracing-core 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tracing-core 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "tracing-subscriber 0.0.1-alpha.2 (git+https://github.com/tokio-rs/tracing)",
 ]
 
@@ -2208,7 +2229,7 @@ dependencies = [
  "matchers 0.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "regex 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "smallvec 0.6.10 (registry+https://github.com/rust-lang/crates.io-index)",
- "tracing-core 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tracing-core 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -2571,6 +2592,7 @@ dependencies = [
 "checksum slab 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)" = "c111b5bd5695e56cffe5129854aa230b39c93a305372fdbb2668ca2394eea9f8"
 "checksum smallvec 0.6.10 (registry+https://github.com/rust-lang/crates.io-index)" = "ab606a9c5e214920bb66c458cd7be8ef094f813f20fe77a54cc7dbfff220d4b7"
 "checksum snap 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)" = "95d697d63d44ad8b78b8d235bf85b34022a78af292c8918527c5f0cffdde7f43"
+"checksum spin 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)" = "cbdb51a221842709c2dd65b62ad4b78289fc3e706a02c17a26104528b6aa7837"
 "checksum stable_deref_trait 1.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "dba1a27d3efae4351c8051072d619e3ade2820635c3958d826bfea39d59b54c8"
 "checksum string 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "d24114bfcceb867ca7f71a0d3fe45d45619ec47a6fbfa98cb14e14250bfa5d6d"
 "checksum strsim 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)" = "8ea5119cdb4c55b55d432abb513a0429384878c15dde60cc77b1c99de1a95a6a"
@@ -2615,8 +2637,9 @@ dependencies = [
 "checksum tower-service 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "2cc0c98637d23732f8de6dfd16494c9f1559c3b9e20b4a46462c8f9b9e827bfa"
 "checksum tower-timeout 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "5c06bbc2fbd056f810940a8c6f0cc194557d36da3c22999a755a7a6612447da9"
 "checksum tower-util 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "4792342fac093db5d2558655055a89a04ca909663467a4310c7739d9f8b64698"
-"checksum tracing 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)" = "9509c828e884d3289fb843055b1462be5f5b54e4b1f21d39e6cc465fe861f4fc"
-"checksum tracing-core 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "b15b1e1f124b19a23d87d54613077bf5249e5f13a5cd39e2f2a50afef938ca05"
+"checksum tracing 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)" = "e2b3dd549612b88fd19635628c1e6773f557ac419eece8deaefab1295928324d"
+"checksum tracing-attributes 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "af9da7f5256f2d11e322c9f10ba848a3eefae64f0272df5e7100dcda53892801"
+"checksum tracing-core 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)" = "a092e91612f25f6571c7bff934e1157b708f2b09e229fdc7760e791e1d2fd74f"
 "checksum tracing-fmt 0.0.1-alpha.2 (git+https://github.com/tokio-rs/tracing)" = "<none>"
 "checksum tracing-futures 0.0.1-alpha.1 (git+https://github.com/tokio-rs/tracing)" = "<none>"
 "checksum tracing-log 0.0.1 (git+https://github.com/tokio-rs/tracing)" = "<none>"
