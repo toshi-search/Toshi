@@ -38,3 +38,27 @@ pub fn not_found() -> ResponseFuture {
 pub fn parse_path(path: &str) -> Vec<&str> {
     path.trim_matches('/').split('/').filter(|s| !s.is_empty()).collect()
 }
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    use pretty_assertions::assert_eq;
+
+    #[test]
+    fn test_parse_path() {
+        let root = "/";
+        let one = "/path";
+        let two = "/path/two";
+
+        let parsed_root = parse_path(root);
+        let parsed_one = parse_path(one);
+        let parsed_two = parse_path(two);
+        assert_eq!(parsed_root.len(), 0);
+        assert_eq!(parsed_one.len(), 1);
+        assert_eq!(parsed_one[0], "path");
+        assert_eq!(parsed_two.len(), 2);
+        assert_eq!(parsed_two[0], "path");
+        assert_eq!(parsed_two[1], "two");
+    }
+}

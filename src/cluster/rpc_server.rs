@@ -201,8 +201,18 @@ impl server::IndexService for RpcServer {
         }
     }
 
-    fn get_summary(&mut self, _: Request<SummaryRequest>) -> Self::GetSummaryFuture {
-        unimplemented!()
+    fn get_summary(&mut self, request: Request<SummaryRequest>) -> Self::GetSummaryFuture {
+        let SummaryRequest { index } = request.into_inner();
+        if let Ok(idx) = self.catalog.read().get_index(&index) {
+            if let Ok(metas) = idx.get_index().load_metas() {
+                let meta_json = serde_json::to_vec(&metas).unwrap();
+                Box::new(future::ok(Response::new(SummaryReply { summary: meta_json })))
+            } else {
+                Self::error_response(Code::DataLoss, format!("Could not load metas for: {}", index))
+            }
+        } else {
+            Self::error_response(Code::NotFound, "Could not find index".into())
+        }
     }
 
     fn bulk_insert(&mut self, _: Request<Streaming<BulkRequest>>) -> Self::BulkInsertFuture {
