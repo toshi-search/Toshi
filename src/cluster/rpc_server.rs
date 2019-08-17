@@ -223,3 +223,47 @@ impl server::IndexService for RpcServer {
         Box::new(future::ok(Response::new(PingReply { status: "OK".into() })))
     }
 }
+
+//#[cfg(test)]
+//mod tests {
+//    use future::Future;
+//    use http::Uri;
+//    use tokio::prelude::*;
+//    use tokio::runtime::Runtime;
+//
+//    use toshi_test::get_localhost;
+//
+//    use crate::index::tests::create_test_catalog;
+//
+//    use super::*;
+//    use failure::_core::time::Duration;
+//
+//    #[ignore]
+//    fn rpc_test() {
+//        std::env::set_var("RUST_LOG", "trace");
+//        let sub = tracing_fmt::FmtSubscriber::builder()
+//            .with_timer(tracing_fmt::time::SystemTime {})
+//            .with_ansi(true)
+//            .finish();
+//        tracing::subscriber::set_global_default(sub).expect("Unable to set default Subscriber");
+//
+//        let catalog = create_test_catalog("test_index");
+//        let addr = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
+//        let router = RpcServer::serve(addr, Arc::clone(&catalog));
+//        tokio::run(router);
+//        //        let c = RpcServer::create_client("http://127.0.0.1:8081".parse::<Uri>().unwrap())
+//        //            .map_err(|_| tower_grpc::Status::new(Code::DataLoss, ""))
+//        //            .and_then(|mut client| {
+//        //                client
+//        //                    .list_indexes(tower_grpc::Request::new(ListRequest {}))
+//        //                    .map(|resp| resp.into_inner())
+//        //                    .inspect(|r: &ListReply| info!("{:?}aaaaaaaaaaaaaaaaaaaa", r))
+//        //                    .map_err(Into::into)
+//        //            })
+//        //            .map(|_| ())
+//        //            .map_err(|_| ());
+//        //
+//        //        tokio::run(router.join(c).map(|_| ()).map_err(|_| ()));
+//        //        std::thread::sleep(Duration::from_millis(3000));
+//    }
+//}
