@@ -14,7 +14,7 @@ name = "toshi"
 path = "src/lib.rs"
 
 [workspace]
-members = [ "./", "toshi-proto", "toshi-test" ]
+members = [ "./", "toshi-proto", "toshi-test", "toshi-client", "toshi-types" ]
 
 [dependencies]
 toshi-proto            = { path = "toshi-proto" }

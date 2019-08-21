@@ -162,7 +162,7 @@ Once Toshi is up and running we can create an index. Toshi uses Tantivy so creat
 ```bash
 curl -X PUT \
   http://localhost:8080/test_index/_create \
-  -H 'Content-Type: application/json' \
+  -H 'Content-Type: application/JSON' \
   -d '[
     {
       "name": "test_text",
@@ -201,7 +201,7 @@ Now you can add documents to our index. The `options` field can be omitted if a 
 ```bash
 curl -X PUT \
   http://localhost:8080/test_index \
-  -H 'Content-Type: application/json' \
+  -H 'Content-Type: application/JSON' \
   -d '{
         "options": { "commit": true },
         "document": {
@@ -215,39 +215,39 @@ curl -X PUT \
 Now we can retrieve all the documents in an index with a simple GET call:
 
 ```bash
-curl -X GET http://localhost:8080/test_index -H 'Content-Type: application/json'
+curl -X GET http://localhost:8080/test_index -H 'Content-Type: application/JSON'
 ```
 
 #### Example Queries
 ##### Term Query
-```json
+```JSON
 { "query": {"term": {"test_text": "document" } }, "limit": 10 }
 ```
 ##### Fuzzy Term Query
-```json
+```JSON
 { "query": {"fuzzy": {"test_text": {"value": "document", "distance": 0, "transposition": false } } }, "limit": 10 }
 ```
 ##### Phrase Query
-```json
+```JSON
 { "query": {"phrase": {"test_text": {"terms": ["test","document"] } } }, "limit": 10 }
 ```
 ##### Range Query
-```json
+```JSON
 { "query": {"range": { "test_i64": { "gte": 2012, "lte": 2015 } } }, "limit": 10 }
 ```
 ##### Regex Query
-```json
+```JSON
 { "query": {"regex": { "test_text": "d[ou]{1}c[k]?ument" } }, "limit": 10 }
 ```
 ##### Boolean Query
-```json
+```JSON
 { "query": {"bool": {"must": [ { "term": { "test_text": "document" } } ], "must_not": [ {"range": {"test_i64": { "gt": 2017 } } } ] } }, "limit": 10 }
 ```
 
 ##### Usage
 To try any of the above queries you can use the above example
 ```bash
-curl -X POST http://localhost:8080/test_index -H 'Content-Type: application/json' -d '{ "query": {"term": {"test_text": "document" } }, "limit": 10 }'
+curl -X POST http://localhost:8080/test_index -H 'Content-Type: application/JSON' -d '{ "query": {"term": {"test_text": "document" } }, "limit": 10 }'
 ```
 Also, to note, limit is optional, 10 is the default value. It's only included here for completeness.
 

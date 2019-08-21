@@ -1,0 +1,17 @@
+[package]
+name    = "toshi-client"
+version = "0.1.1"
+authors = ["Stephen Carman <shcarman@gmail.com>"]
+description = "A client for a full text search engine based on Tantivy"
+repository = "https://github.com/toshi-search/Toshi"
+license = "MIT"
+edition = "2018"
+
+[dependencies]
+toshi-types = { path = "../toshi-types" }
+http = "^0.1"
+failure = "^0.1"
+serde = "^1.0"
+serde_json = "^1.0"
+tantivy = "^0.10"
+isahc = { version = "^0.6", features = ["json"] }
