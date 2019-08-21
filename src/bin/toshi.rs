@@ -56,16 +56,17 @@ pub fn main() -> Result<(), ()> {
     };
 
     let toshi = {
-        let server = if settings.experimental_features.master {
-            future::Either::A(run_master(Arc::clone(&index_catalog), &settings))
+        let server = if !settings.experimental_features.master && settings.experimental {
+            future::Either::A(run_data(Arc::clone(&index_catalog), &settings))
         } else {
-            future::Either::B(run_data(Arc::clone(&index_catalog), &settings))
+            future::Either::B(run_master(Arc::clone(&index_catalog), &settings))
         };
         let shutdown = shutdown::shutdown(tx);
         server.select(shutdown)
     };
 
     rt.spawn(toshi.map(|_| ()).map_err(|_| ()));
+    info!("Toshi running on {}:{}", &settings.host, &settings.port);
 
     shutdown_signal
         .map_err(|e| unreachable!("Shutdown signal channel should not error, This is a bug. \n {:?} ", e.description()))

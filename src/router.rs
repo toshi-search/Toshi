@@ -68,7 +68,7 @@ pub fn router_with_catalog(addr: &SocketAddr, catalog: Arc<RwLock<IndexCatalog>>
                 (m, [idx]) if m == Method::POST => search_handler.doc_search(body, idx.to_string()),
                 (m, [idx]) if m == Method::PUT => index_handler.add_document(body, idx.to_string()),
                 (m, [idx]) if m == Method::DELETE => index_handler.delete_term(body, idx.to_string()),
-                (m, [idx]) if m == Method::GET=> {
+                (m, [idx]) if m == Method::GET => {
                     if idx == &"favicon.ico" {
                         not_found()
                     } else {
