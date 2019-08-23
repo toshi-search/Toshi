@@ -7,6 +7,7 @@ use parking_lot::RwLock;
 use serde::Deserialize;
 use tokio::prelude::*;
 
+use crate::commit::IndexWatcher;
 use crate::handlers::*;
 use crate::index::IndexCatalog;
 use crate::utils::{not_found, parse_path};
@@ -29,11 +30,15 @@ impl QueryOptions {
     }
 }
 
-pub fn router_with_catalog(addr: &SocketAddr, catalog: Arc<RwLock<IndexCatalog>>) -> impl Future<Item = (), Error = ()> + Send {
+pub fn router_with_catalog(
+    addr: &SocketAddr,
+    catalog: Arc<RwLock<IndexCatalog>>,
+    watcher: Arc<IndexWatcher>,
+) -> impl Future<Item = (), Error = ()> + Send {
     let routes = move || {
         let search_handler = SearchHandler::new(Arc::clone(&catalog));
         let index_handler = IndexHandler::new(Arc::clone(&catalog));
-        let bulk_handler = BulkHandler::new(Arc::clone(&catalog));
+        let bulk_handler = BulkHandler::new(Arc::clone(&catalog), Arc::clone(&watcher));
         let summary_cat = Arc::clone(&catalog);
 
         service_fn(move |req: Request<Body>| {
@@ -68,7 +73,7 @@ pub fn router_with_catalog(addr: &SocketAddr, catalog: Arc<RwLock<IndexCatalog>>
                 (m, [idx]) if m == Method::POST => search_handler.doc_search(body, idx.to_string()),
                 (m, [idx]) if m == Method::PUT => index_handler.add_document(body, idx.to_string()),
                 (m, [idx]) if m == Method::DELETE => index_handler.delete_term(body, idx.to_string()),
-                (m, [idx]) if m == Method::GET=> {
+                (m, [idx]) if m == Method::GET => {
                     if idx == &"favicon.ico" {
                         not_found()
                     } else {
@@ -101,7 +106,8 @@ pub mod tests {
         pub static ref TEST_SERVER: TestServer = {
             let catalog = create_test_catalog("test_index");
             let addr = get_localhost();
-            let router = router_with_catalog(&addr, Arc::clone(&catalog));
+            let watcher = Arc::new(IndexWatcher::new(Arc::clone(&catalog), 100));
+            let router = router_with_catalog(&addr, Arc::clone(&catalog), Arc::clone(&watcher));
             TestServer::new(router).expect("Can't start test server")
         };
     }

@@ -77,15 +77,18 @@ pub fn main() -> Result<(), ()> {
         .wait()
 }
 
-fn create_watcher(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Future<Item = (), Error = ()> {
+fn create_watcher(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> (Arc<IndexWatcher>, impl Future<Item = (), Error = ()>) {
+    let commit_watcher = Arc::new(IndexWatcher::new(Arc::clone(&catalog), settings.auto_commit_duration));
     if settings.auto_commit_duration > 0 {
-        let commit_watcher = IndexWatcher::new(catalog.clone(), settings.auto_commit_duration);
-        future::Either::A(future::lazy(move || {
-            commit_watcher.start();
-            future::ok::<(), ()>(())
-        }))
+        (
+            Arc::clone(&commit_watcher),
+            future::Either::A(future::lazy(move || {
+                Arc::clone(&commit_watcher).start();
+                future::ok::<(), ()>(())
+            })),
+        )
     } else {
-        future::Either::B(future::ok::<(), ()>(()))
+        (commit_watcher, future::Either::B(future::ok::<(), ()>(())))
     }
 }
 
@@ -100,11 +103,11 @@ fn run_data(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Fut
 
     println!("{}", RPC_HEADER);
     info!("I am a data node...Binding to: {}", addr);
-    commit_watcher.and_then(move |_| RpcServer::serve(bind, catalog))
+    commit_watcher.1.and_then(move |_| RpcServer::serve(bind, catalog))
 }
 
 fn run_master(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Future<Item = (), Error = ()> {
-    let commit_watcher = create_watcher(Arc::clone(&catalog), settings);
+    let (watcher, commit_watcher) = create_watcher(Arc::clone(&catalog), settings);
     let addr: IpAddr = settings
         .host
         .parse()
@@ -135,11 +138,11 @@ fn run_master(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl F
                 let update = catalog.read().update_remote_indexes();
                 tokio::spawn(update);
             }
-            router_with_catalog(&bind, Arc::clone(&catalog))
+            router_with_catalog(&bind, Arc::clone(&catalog), Arc::clone(&watcher))
         });
         future::Either::A(run)
     } else {
-        let run = commit_watcher.and_then(move |_| router_with_catalog(&bind, Arc::clone(&catalog)));
+        let run = commit_watcher.and_then(move |_| router_with_catalog(&bind, Arc::clone(&catalog), Arc::clone(&watcher)));
         future::Either::B(run)
     }
 }

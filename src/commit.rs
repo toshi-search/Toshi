@@ -1,3 +1,4 @@
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -6,21 +7,36 @@ use parking_lot::RwLock;
 use tokio::timer::Interval;
 use tracing::*;
 
-use crate::index::IndexCatalog;
+use crate::index::{IndexCatalog, SharedCatalog};
 
 pub struct IndexWatcher {
     commit_duration: u64,
-    catalog: Arc<RwLock<IndexCatalog>>,
+    catalog: SharedCatalog,
+    bulk: Arc<AtomicBool>,
 }
 
 impl IndexWatcher {
-    pub fn new(catalog: Arc<RwLock<IndexCatalog>>, commit_duration: u64) -> Self {
-        IndexWatcher { catalog, commit_duration }
+    pub fn new(catalog: SharedCatalog, commit_duration: u64) -> Self {
+        IndexWatcher {
+            catalog,
+            commit_duration,
+            bulk: Arc::new(AtomicBool::new(false)),
+        }
     }
 
-    pub fn start(self) {
+    pub fn bulk_lock(&self) {
+        self.bulk.store(true, Ordering::SeqCst);
+    }
+
+    pub fn bulk_unlock(&self) {
+        self.bulk.store(false, Ordering::SeqCst);
+    }
+
+    pub fn start(&self) -> impl Future<Item = (), Error = ()> + Send + Sync + 'static {
         let catalog = Arc::clone(&self.catalog);
-        let task = Interval::new_interval(Duration::from_secs(self.commit_duration))
+        //        let cat = catalog.read();
+
+        Interval::new_interval(Duration::from_secs(self.commit_duration))
             .for_each(move |_| {
                 let cat = catalog.read();
                 cat.get_collection().into_iter().for_each(|(key, index)| {
@@ -28,7 +44,7 @@ impl IndexWatcher {
                     let current_ops = index.get_opstamp();
                     if current_ops == 0 {
                         debug!("No update to index={}, opstamp={}", key, current_ops);
-                    } else {
+                    } else if !self.bulk.load(Ordering::SeqCst) {
                         let mut w = writer.write();
                         debug!("Committing {}...", key);
                         w.commit().unwrap();
@@ -38,9 +54,7 @@ impl IndexWatcher {
 
                 Ok(())
             })
-            .map_err(|e| panic!("Error in commit-watcher={:?}", e));
-
-        tokio::spawn(task);
+            .map_err(|e| panic!("Error in commit-watcher={:?}", e))
     }
 }
 
