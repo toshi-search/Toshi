@@ -2,6 +2,7 @@ use std::error::Error;
 use std::fs::create_dir;
 use std::net::{IpAddr, SocketAddr};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
 use futures::{future, Future};
@@ -11,7 +12,7 @@ use tokio::sync::oneshot;
 use tracing::*;
 
 use toshi::cluster::rpc_server::RpcServer;
-use toshi::commit::IndexWatcher;
+use toshi::commit::watcher;
 use toshi::index::IndexCatalog;
 use toshi::router::router_with_catalog;
 use toshi::settings::{Settings, HEADER, RPC_HEADER};
@@ -77,23 +78,9 @@ pub fn main() -> Result<(), ()> {
         .wait()
 }
 
-fn create_watcher(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> (Arc<IndexWatcher>, impl Future<Item = (), Error = ()>) {
-    let commit_watcher = Arc::new(IndexWatcher::new(Arc::clone(&catalog), settings.auto_commit_duration));
-    if settings.auto_commit_duration > 0 {
-        (
-            Arc::clone(&commit_watcher),
-            future::Either::A(future::lazy(move || {
-                Arc::clone(&commit_watcher).start();
-                future::ok::<(), ()>(())
-            })),
-        )
-    } else {
-        (commit_watcher, future::Either::B(future::ok::<(), ()>(())))
-    }
-}
-
 fn run_data(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Future<Item = (), Error = ()> {
-    let commit_watcher = create_watcher(Arc::clone(&catalog), settings);
+    let lock = Arc::new(AtomicBool::new(false));
+    let commit_watcher = watcher(Arc::clone(&catalog), settings.auto_commit_duration, Arc::clone(&lock));
     let addr: IpAddr = settings
         .host
         .parse()
@@ -103,11 +90,12 @@ fn run_data(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Fut
 
     println!("{}", RPC_HEADER);
     info!("I am a data node...Binding to: {}", addr);
-    commit_watcher.1.and_then(move |_| RpcServer::serve(bind, catalog))
+    commit_watcher.and_then(move |_| RpcServer::serve(bind, catalog))
 }
 
 fn run_master(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Future<Item = (), Error = ()> {
-    let (watcher, commit_watcher) = create_watcher(Arc::clone(&catalog), settings);
+    let bulk_lock = Arc::new(AtomicBool::new(false));
+    let commit_watcher = watcher(Arc::clone(&catalog), settings.auto_commit_duration, Arc::clone(&bulk_lock));
     let addr: IpAddr = settings
         .host
         .parse()
@@ -123,7 +111,8 @@ fn run_master(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl F
         let cluster_name = settings.experimental_features.cluster_name.clone();
         let nodes = settings.experimental_features.nodes.clone();
 
-        let run = commit_watcher.and_then(move |_| {
+        let run = future::lazy(move || {
+            tokio::spawn(commit_watcher);
             if nodes.is_empty() {
                 tokio::spawn(cluster::connect_to_consul(&settings));
                 let consul = cluster::Consul::builder()
@@ -138,11 +127,16 @@ fn run_master(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl F
                 let update = catalog.read().update_remote_indexes();
                 tokio::spawn(update);
             }
-            router_with_catalog(&bind, Arc::clone(&catalog), Arc::clone(&watcher))
+
+            router_with_catalog(&bind, Arc::clone(&catalog), Arc::clone(&bulk_lock))
         });
         future::Either::A(run)
     } else {
-        let run = commit_watcher.and_then(move |_| router_with_catalog(&bind, Arc::clone(&catalog), Arc::clone(&watcher)));
+        let watcher_clone = Arc::clone(&bulk_lock);
+        let run = future::lazy(move || {
+            tokio::spawn(commit_watcher);
+            router_with_catalog(&bind, Arc::clone(&catalog), watcher_clone)
+        });
         future::Either::B(run)
     }
 }

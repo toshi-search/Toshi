@@ -1,5 +1,6 @@
 use std::iter::Iterator;
 use std::str::from_utf8;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -13,7 +14,6 @@ use tantivy::{Document, IndexWriter};
 use tokio::prelude::*;
 use tracing::*;
 
-use crate::commit::IndexWatcher;
 use crate::handlers::ResponseFuture;
 use crate::index::IndexCatalog;
 use crate::utils::empty_with_code;
@@ -21,18 +21,18 @@ use crate::utils::empty_with_code;
 #[derive(Clone)]
 pub struct BulkHandler {
     catalog: Arc<RwLock<IndexCatalog>>,
-    watcher: Arc<IndexWatcher>,
+    watcher: Arc<AtomicBool>,
 }
 
 impl BulkHandler {
-    pub fn new(catalog: Arc<RwLock<IndexCatalog>>, watcher: Arc<IndexWatcher>) -> Self {
+    pub fn new(catalog: Arc<RwLock<IndexCatalog>>, watcher: Arc<AtomicBool>) -> Self {
         BulkHandler { catalog, watcher }
     }
 
     fn index_documents(
         index_writer: Arc<RwLock<IndexWriter>>,
         doc_receiver: Receiver<Document>,
-        watcher: Arc<IndexWatcher>,
+        watcher: Arc<AtomicBool>,
     ) -> impl Future<Item = (), Error = ()> {
         future::lazy(move || {
             let start = Instant::now();
@@ -43,7 +43,7 @@ impl BulkHandler {
 
             info!("Piping Documents took: {:?}", start.elapsed());
             info!("Unlocking watcher...");
-            Ok(watcher.bulk_unlock())
+            Ok(watcher.store(false, Ordering::SeqCst))
         })
     }
 
@@ -64,7 +64,7 @@ impl BulkHandler {
     }
 
     pub fn bulk_insert(&self, body: Body, index: String) -> ResponseFuture {
-        self.watcher.bulk_lock();
+        self.watcher.store(true, Ordering::SeqCst);
         let index_lock = self.catalog.read();
         let index_handle = index_lock.get_index(&index).unwrap();
         let index = index_handle.get_index();
@@ -119,6 +119,7 @@ mod tests {
     use tokio::runtime::Runtime;
 
     use crate::error::Error;
+    use crate::handlers::summary::flush;
     use crate::handlers::SearchHandler;
     use crate::index::tests::*;
     use crate::results::SearchResults;
@@ -129,8 +130,8 @@ mod tests {
     fn test_bulk_index() -> Result<(), Error> {
         let mut runtime = Runtime::new().unwrap();
         let server = create_test_catalog("test_index");
-        let watcher = Arc::new(IndexWatcher::new(Arc::clone(&server), 1));
-        let handler = BulkHandler::new(Arc::clone(&server), Arc::clone(&watcher));
+        let lock = Arc::new(AtomicBool::new(false));
+        let handler = BulkHandler::new(Arc::clone(&server), Arc::clone(&lock));
         let body = r#"
         {"test_text": "asdf1234", "test_i64": 123, "test_u64": 321, "test_unindex": "asdf"}
         {"test_text": "asdf5678", "test_i64": 456, "test_u64": 678, "test_unindex": "asdf"}
@@ -138,8 +139,11 @@ mod tests {
 
         let index_docs = handler.bulk_insert(Body::from(body), "test_index".into());
         let result = runtime.block_on(index_docs);
+
+        let flush = flush(Arc::clone(&server), "test_index".to_string());
+        runtime.block_on(flush)?;
         assert_eq!(result.is_ok(), true);
-        sleep(Duration::from_secs(1));
+        sleep(Duration::from_secs(3));
 
         let search = SearchHandler::new(Arc::clone(&server));
         let check_docs = search.all_docs("test_index".into()).wait().expect("");

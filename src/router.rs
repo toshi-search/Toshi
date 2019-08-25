@@ -1,15 +1,15 @@
 use std::net::SocketAddr;
+use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
 use hyper::service::service_fn;
 use hyper::{Body, Method, Request, Server};
-use parking_lot::RwLock;
 use serde::Deserialize;
 use tokio::prelude::*;
 
-use crate::commit::IndexWatcher;
+use crate::handlers::summary::flush;
 use crate::handlers::*;
-use crate::index::IndexCatalog;
+use crate::index::SharedCatalog;
 use crate::utils::{not_found, parse_path};
 
 #[derive(Deserialize, Debug, Default)]
@@ -32,8 +32,8 @@ impl QueryOptions {
 
 pub fn router_with_catalog(
     addr: &SocketAddr,
-    catalog: Arc<RwLock<IndexCatalog>>,
-    watcher: Arc<IndexWatcher>,
+    catalog: SharedCatalog,
+    watcher: Arc<AtomicBool>,
 ) -> impl Future<Item = (), Error = ()> + Send {
     let routes = move || {
         let search_handler = SearchHandler::new(Arc::clone(&catalog));
@@ -64,6 +64,7 @@ pub fn router_with_catalog(
                 },
                 (m, [idx, action]) if m == Method::GET => match *action {
                     "_summary" => summary(Arc::clone(summary_cat), idx.to_string(), query_options),
+                    "_flush" => flush(Arc::clone(summary_cat), idx.to_string()),
                     _ => not_found(),
                 },
                 (m, [idx, action]) if m == Method::POST => match *action {
@@ -95,19 +96,21 @@ pub fn router_with_catalog(
 
 #[cfg(test)]
 pub mod tests {
+    use http::StatusCode;
+
+    use lazy_static::lazy_static;
+    use toshi_test::{get_localhost, TestServer};
+
     use crate::index::tests::create_test_catalog;
 
     use super::*;
-    use http::StatusCode;
-    use lazy_static::lazy_static;
-    use toshi_test::{get_localhost, TestServer};
 
     lazy_static! {
         pub static ref TEST_SERVER: TestServer = {
             let catalog = create_test_catalog("test_index");
             let addr = get_localhost();
-            let watcher = Arc::new(IndexWatcher::new(Arc::clone(&catalog), 100));
-            let router = router_with_catalog(&addr, Arc::clone(&catalog), Arc::clone(&watcher));
+            let lock = Arc::new(AtomicBool::new(false));
+            let router = router_with_catalog(&addr, Arc::clone(&catalog), Arc::clone(&lock));
             TestServer::new(router).expect("Can't start test server")
         };
     }

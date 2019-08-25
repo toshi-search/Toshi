@@ -15,7 +15,7 @@ pub use self::consul::Consul;
 pub use self::node::*;
 use self::placement::{Background, Place};
 
-pub type BoxError = Box<dyn::std::error::Error + Send + Sync + 'static>;
+pub type BoxError = Box<dyn ::std::error::Error + Send + Sync + 'static>;
 pub type ConnectionError = ConnectError<io::Error>;
 pub type BufError = tower_buffer::error::ServiceError;
 pub type GrpcError = tower_grpc::Status;
@@ -122,7 +122,7 @@ pub enum RPCError {
     #[fail(display = "Error in RPC Connect: {}", _0)]
     ConnectError(ConnectionError),
     #[fail(display = "")]
-    BoxError(Box<dyn::std::error::Error + Send + Sync + 'static>),
+    BoxError(Box<dyn ::std::error::Error + Send + Sync + 'static>),
 }
 
 impl From<ConnectionError> for RPCError {
