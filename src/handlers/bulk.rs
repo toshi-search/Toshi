@@ -43,7 +43,8 @@ impl BulkHandler {
 
             info!("Piping Documents took: {:?}", start.elapsed());
             info!("Unlocking watcher...");
-            Ok(watcher.store(false, Ordering::SeqCst))
+            watcher.store(false, Ordering::SeqCst);
+            Ok(())
         })
     }
 
