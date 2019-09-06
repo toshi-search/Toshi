@@ -15,7 +15,7 @@ pub use self::consul::Consul;
 pub use self::node::*;
 use self::placement::{Background, Place};
 
-pub type BoxError = Box<dyn::std::error::Error + Send + Sync + 'static>;
+pub type BoxError = Box<dyn ::std::error::Error + Send + Sync + 'static>;
 pub type ConnectionError = ConnectError<io::Error>;
 pub type BufError = tower_buffer::error::ServiceError;
 pub type GrpcError = tower_grpc::Status;
@@ -58,7 +58,7 @@ pub fn connect_to_consul(settings: &Settings) -> impl Future<Item = (), Error = 
             .and_then(|_| init_node_id(settings_path))
             .and_then(move |id| {
                 consul_client.set_node_id(id);
-                consul_client.register_node();
+                tokio::spawn(consul_client.register_node().map_err(|_| ()));
                 consul_client.place_node_descriptor(hosts)
             })
             .map_err(|e| error!("Error: {}", e))
@@ -122,7 +122,7 @@ pub enum RPCError {
     #[fail(display = "Error in RPC Connect: {}", _0)]
     ConnectError(ConnectionError),
     #[fail(display = "")]
-    BoxError(Box<dyn::std::error::Error + Send + Sync + 'static>),
+    BoxError(Box<dyn ::std::error::Error + Send + Sync + 'static>),
 }
 
 impl From<ConnectionError> for RPCError {

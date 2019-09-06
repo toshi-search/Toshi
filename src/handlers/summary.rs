@@ -1,7 +1,9 @@
-use futures::future;
-use http::Response;
-use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use std::time::Instant;
+
+use futures::future;
+use http::{Response, StatusCode};
+use serde::{Deserialize, Serialize};
 use tantivy::space_usage::SearcherSpaceUsage;
 use tantivy::IndexMeta;
 use tracing::{span, Level};
@@ -11,8 +13,7 @@ use crate::error::Error;
 use crate::handlers::ResponseFuture;
 use crate::index::SharedCatalog;
 use crate::router::QueryOptions;
-use crate::utils::with_body;
-use std::sync::Arc;
+use crate::utils::{empty_with_code, with_body};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SummaryResponse {
@@ -54,12 +55,32 @@ pub fn summary(catalog: SharedCatalog, index: String, options: QueryOptions) -> 
     Box::new(fut)
 }
 
+pub fn flush(catalog: SharedCatalog, index: String) -> ResponseFuture {
+    let index_lock = Arc::clone(&catalog);
+    let fut = future::lazy(move || {
+        let index_lock = index_lock.read();
+        if index_lock.exists(&index) {
+            let index = index_lock.get_index(&index).unwrap();
+            let writer = index.get_writer();
+            let mut write = writer.write();
+            write.commit().unwrap();
+            future::ok(empty_with_code(StatusCode::OK))
+        } else {
+            future::ok(empty_with_code(StatusCode::NOT_FOUND))
+        }
+    });
+    Box::new(fut)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::router::tests::TEST_SERVER;
     use futures::{Future, Stream};
+
     use toshi_test::get_localhost;
+
+    use crate::router::tests::TEST_SERVER;
+
+    use super::*;
 
     #[test]
     fn get_summary_data() {
