@@ -1,14 +1,24 @@
 #%RAML 1.0
 title: Toshi Search
-version: 0.0.1
+version: 0.1.1
 baseUri: localhost:8080
 mediaType: application/json
 protocols: [HTTP, HTTPS]
 types:
+  Index:
+    type: object
+    properties:
+      name: string
+      version: string
+    example:
+      name: "Toshi Search"
+      version: "0.1.1"
   Options:
     type: object
     properties:
       commit?: boolean
+    example:
+      commit: true
   Document:
     type: object
     description: A Tantivy Document in a Key, Value format
@@ -17,7 +27,11 @@ types:
     properties:
       options?: Options
       document: Document
-
+    example:
+      options:
+        commit: true
+      document:
+        key: value
 /:
   displayName: Get Version
   description: Returns the current version of Toshi running.
@@ -26,11 +40,8 @@ types:
     responses:
       200:
         body:
-          application/json: |
-            {
-              "name": "Toshi Search",
-              "version": "Toshi Search, Version: 0.1.1"
-            }
+          application/json:
+            type: Index
 /{index}:
   displayName: Index Operations
   get:
@@ -38,24 +49,37 @@ types:
     displayName: Get All Docs for an Index
     responses:
       200:
+        body:
   post:
     protocols: [HTTP, HTTPS]
     displayName: Return Docs Matching a Query
+    body:
+      application/json:
+        properties:
+          query:
+            type: object
     responses:
       200:
-
   put:
     protocols: [HTTP, HTTPS]
-    displayName: Add A Document / Create An Index
-    description: If you provide a Tantivy schema it will create a new index. If you provide a document the document will be added to the defined Index
+    displayName: Add A Document
+    description: Provide a document that document will be added to the defined Index
+    body:
+      application/json:
+        type: AddDocument
     responses:
       201:
-
   delete:
     protocols: [HTTP, HTTPS]
     displayName: Delete Docs Containing Terms
     responses:
       200:
+  /_create:
+    displayName: Creates an index.
+    put:
+      protocols: [HTTP, HTTPS]
+      responses:
+        201:
   /_summary:
     displayName: Index Summary
     get:
@@ -65,6 +89,12 @@ types:
   /_bulk:
     displayName: Bulk Ingest
     post:
+      protocols: [HTTP, HTTPS]
+      responses:
+        200:
+  /_flush:
+    displayName: Force a commit to an index
+    get:
       protocols: [HTTP, HTTPS]
       responses:
         200:

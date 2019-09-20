@@ -22,6 +22,7 @@ pub use {
 use crate::settings::Settings;
 use crate::{error::Error, Result};
 
+mod agg;
 mod bool;
 mod facet;
 mod fuzzy;
@@ -49,7 +50,7 @@ pub enum Query {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(untagged)]
-pub enum Metrics {
+pub enum Aggregates {
     SumAgg { field: String },
 }
 
