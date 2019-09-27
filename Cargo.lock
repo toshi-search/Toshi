@@ -1987,7 +1987,7 @@ dependencies = [
  "tower 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "tower-buffer 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "tower-consul 0.1.0 (git+https://github.com/LucioFranco/tower-consul)",
- "tower-grpc 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tower-grpc 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "tower-hyper 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "tower-request-modifier 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "tracing 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2005,7 +2005,7 @@ dependencies = [
  "prost 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "prost-derive 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "prost-types 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "tower-grpc 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tower-grpc 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "tower-grpc-build 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -2077,7 +2077,7 @@ dependencies = [
 
 [[package]]
 name = "tower-grpc"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "base64 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2703,7 +2703,7 @@ dependencies = [
 "checksum tower-buffer 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "0c85c2bb3ca9acdb130fa879c2c7e052a7daa7dbd181f49ef246caf533c096df"
 "checksum tower-consul 0.1.0 (git+https://github.com/LucioFranco/tower-consul)" = "<none>"
 "checksum tower-discover 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "73a7632286f78164d65d18fd0e570307acde9362489aa5c8c53e6315cc2bde47"
-"checksum tower-grpc 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "839c195fd6e4e87442e7a631ea62632799695a3f897949192325a4e509ff4328"
+"checksum tower-grpc 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "ddd833a116f724984a09ff25c27ea5d0b9a65d301f48048e366f8f3c6081c2cb"
 "checksum tower-grpc-build 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "8862053a26bc7b901cf52bca8ae7d4c2e041222673e38f81a475aeb6c82481df"
 "checksum tower-http-util 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "442ba79e23bda499cdaa5ee52b3776bf08cb84a1d5ca6d3d82bfd4f12c1eefc3"
 "checksum tower-hyper 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "cff60538bc14baa9cc84fbe4c040d498163daf23bc9846a9aef0e2e40dcc1d51"
