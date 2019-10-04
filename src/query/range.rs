@@ -134,5 +134,4 @@ pub mod tests {
 
         assert_eq!(req.is_err(), false);
     }
-
 }

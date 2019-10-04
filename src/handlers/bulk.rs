@@ -129,10 +129,11 @@ mod tests {
 
     #[test]
     fn test_bulk_index() -> Result<(), Error> {
-        let mut runtime = Runtime::new().unwrap();
+        let mut runtime = Runtime::new()?;
         let server = create_test_catalog("test_index");
         let lock = Arc::new(AtomicBool::new(false));
         let handler = BulkHandler::new(Arc::clone(&server), Arc::clone(&lock));
+
         let body = r#"
         {"test_text": "asdf1234", "test_i64": 123, "test_u64": 321, "test_unindex": "asdf"}
         {"test_text": "asdf5678", "test_i64": 456, "test_u64": 678, "test_unindex": "asdf"}
@@ -144,11 +145,11 @@ mod tests {
         let flush = flush(Arc::clone(&server), "test_index".to_string());
         runtime.block_on(flush)?;
         assert_eq!(result.is_ok(), true);
-        sleep(Duration::from_secs(3));
+        sleep(Duration::from_secs(1));
 
         let search = SearchHandler::new(Arc::clone(&server));
-        let check_docs = search.all_docs("test_index".into()).wait().expect("");
-        let body = check_docs.into_body().concat2().wait()?;
+        let check_docs = runtime.block_on(search.all_docs("test_index".into()))?;
+        let body = runtime.block_on(check_docs.into_body().concat2())?;
         let docs: SearchResults = serde_json::from_slice(&body.into_bytes())?;
         Ok(assert_eq!(docs.hits, 8))
     }

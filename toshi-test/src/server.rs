@@ -175,5 +175,4 @@ mod tests {
         let buf = std::str::from_utf8(&body).unwrap();
         assert_eq!(buf, "Response");
     }
-
 }
