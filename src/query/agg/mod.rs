@@ -5,6 +5,7 @@ use tantivy::fastfield::{FastFieldReader, FastValue};
 use tantivy::schema::Field;
 use tantivy::{SegmentReader, TantivyError};
 
+#[allow(dead_code)]
 struct FnCollector<C, V>
 where
     C: SegmentCollector + Send + Sync,

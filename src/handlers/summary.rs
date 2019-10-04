@@ -3,7 +3,7 @@ use std::time::Instant;
 
 use futures::future;
 use http::{Response, StatusCode};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use tantivy::space_usage::SearcherSpaceUsage;
 use tantivy::IndexMeta;
 use tracing::{span, Level};
@@ -79,8 +79,6 @@ mod tests {
     use toshi_test::get_localhost;
 
     use crate::router::tests::TEST_SERVER;
-
-    use super::*;
 
     #[test]
     fn get_summary_data() {

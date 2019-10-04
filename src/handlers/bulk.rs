@@ -145,7 +145,7 @@ mod tests {
         let flush = flush(Arc::clone(&server), "test_index".to_string());
         runtime.block_on(flush)?;
         assert_eq!(result.is_ok(), true);
-        sleep(Duration::from_secs(1));
+        sleep(Duration::from_secs(2));
 
         let search = SearchHandler::new(Arc::clone(&server));
         let check_docs = runtime.block_on(search.all_docs("test_index".into()))?;
