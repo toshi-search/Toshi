@@ -25,7 +25,7 @@ zip -0 $COVERAGE_DIR/ccov.zip `find . \( -name "*toshi*.gc*" \) -print`;
 
 grcov $COVERAGE_DIR/ccov.zip -s . -t lcov --llvm -o $COVERAGE_DIR/lcov.info \
 	--ignore-not-existing \
-	--ignore-dir "/*"
+	--ignore "/*"
 
 
 if [[ "$OUTPUT" == "Html" ]]; then
