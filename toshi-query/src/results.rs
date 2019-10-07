@@ -2,8 +2,6 @@ use std::collections::BTreeMap;
 use std::iter::Sum;
 use std::ops::Add;
 
-use http::Response;
-use hyper::Body;
 use serde::{Deserialize, Serialize};
 use tantivy::schema::{NamedFieldDocument, Value};
 
@@ -110,12 +108,5 @@ impl From<Error> for ErrorResponse {
 impl From<serde_json::Error> for ErrorResponse {
     fn from(err: serde_json::Error) -> Self {
         Self { message: err.to_string() }
-    }
-}
-
-impl Into<Response<Body>> for ErrorResponse {
-    fn into(self) -> Response<Body> {
-        let body = Body::from(serde_json::to_vec(&self).unwrap());
-        Response::new(body)
     }
 }

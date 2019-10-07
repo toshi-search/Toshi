@@ -7,7 +7,7 @@ use tantivy::TantivyError;
 use toshi_query::Error as QueryError;
 
 use crate::cluster::RPCError;
-use crate::results::ErrorResponse;
+use http::Response;
 
 #[derive(Debug, Fail, Serialize, Deserialize)]
 pub enum Error {
@@ -28,6 +28,30 @@ pub enum Error {
 impl From<Error> for http::Response<Body> {
     fn from(err: Error) -> Self {
         ErrorResponse::from(err).into()
+    }
+}
+
+#[derive(Serialize)]
+pub struct ErrorResponse {
+    message: String,
+}
+
+impl From<Error> for ErrorResponse {
+    fn from(err: Error) -> Self {
+        Self { message: err.to_string() }
+    }
+}
+
+impl From<serde_json::Error> for ErrorResponse {
+    fn from(err: serde_json::Error) -> Self {
+        Self { message: err.to_string() }
+    }
+}
+
+impl Into<Response<Body>> for ErrorResponse {
+    fn into(self) -> Response<Body> {
+        let body = Body::from(serde_json::to_vec(&self).unwrap());
+        Response::new(body)
     }
 }
 

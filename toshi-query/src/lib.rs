@@ -1,7 +1,6 @@
 pub mod error;
 pub mod query;
-
-pub use query::*;
+pub mod results;
 
 pub use crate::error::Error;
 

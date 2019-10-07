@@ -5,8 +5,8 @@ use hyper::Body;
 use serde::Serialize;
 
 use crate::error::Error;
+use crate::error::ErrorResponse;
 use crate::handlers::ResponseFuture;
-use crate::results::ErrorResponse;
 
 pub fn with_body<T>(body: T) -> http::Response<Body>
 where
