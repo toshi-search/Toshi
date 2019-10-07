@@ -19,8 +19,14 @@ pub use {
     self::term::ExactTerm,
 };
 
-use crate::settings::Settings;
 use crate::{error::Error, Result};
+
+struct Settings {}
+impl Settings {
+    pub fn default_result_limit() -> usize {
+        100
+    }
+}
 
 mod agg;
 mod bool;

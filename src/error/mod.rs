@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use tantivy::query::QueryParserError;
 use tantivy::schema::DocParsingError;
 use tantivy::TantivyError;
+use toshi_query::Error as QueryError;
 
 use crate::cluster::RPCError;
 use crate::results::ErrorResponse;
@@ -27,6 +28,14 @@ pub enum Error {
 impl From<Error> for http::Response<Body> {
     fn from(err: Error) -> Self {
         ErrorResponse::from(err).into()
+    }
+}
+
+impl From<QueryError> for Error {
+    fn from(err: QueryError) -> Self {
+        match err {
+            QueryError::QueryError(e) => Error::QueryError(e),
+        }
     }
 }
 
@@ -99,8 +108,8 @@ impl From<serde_json::Error> for Error {
     }
 }
 
-impl From<Box<dyn ::std::error::Error + Send + 'static>> for Error {
-    fn from(err: Box<dyn ::std::error::Error + Send + 'static>) -> Self {
+impl From<Box<dyn::std::error::Error + Send + 'static>> for Error {
+    fn from(err: Box<dyn::std::error::Error + Send + 'static>) -> Self {
         Error::IOError(err.description().to_owned())
     }
 }

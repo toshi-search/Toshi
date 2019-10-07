@@ -14,10 +14,11 @@ name = "toshi"
 path = "src/lib.rs"
 
 [workspace]
-members = [ "./", "toshi-proto", "toshi-test" ]
+members = [ "./", "toshi-proto", "toshi-test", "toshi-query" ]
 
 [dependencies]
 toshi-proto            = { path = "toshi-proto" }
+toshi-query            = { path = "toshi-query" }
 tower                  = "^0.1"
 tower-buffer           = "^0.1"
 tower-hyper            = "^0.1"
