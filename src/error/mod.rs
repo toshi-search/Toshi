@@ -59,6 +59,8 @@ impl From<QueryError> for Error {
     fn from(err: QueryError) -> Self {
         match err {
             QueryError::QueryError(e) => Error::QueryError(e),
+            QueryError::UnknownIndexField(e) => Error::UnknownIndexField(e),
+            QueryError::IOError(e) => Error::IOError(e),
         }
     }
 }
@@ -72,27 +74,6 @@ impl From<hyper::Error> for Error {
 impl From<TantivyError> for Error {
     fn from(err: tantivy::Error) -> Self {
         Error::IOError(err.to_string())
-    }
-}
-
-impl From<QueryParserError> for Error {
-    fn from(qpe: QueryParserError) -> Self {
-        match qpe {
-            QueryParserError::SyntaxError => Error::QueryError("Syntax error in query".into()),
-            QueryParserError::FieldDoesNotExist(e) => Error::UnknownIndexField(e),
-            QueryParserError::FieldNotIndexed(e) => Error::QueryError(format!("Query on un-indexed field {}", e)),
-            QueryParserError::FieldDoesNotHavePositionsIndexed(e) => {
-                Error::QueryError(format!("Field {} does not have positions indexed", e))
-            }
-            QueryParserError::ExpectedInt(e) => Error::QueryError(e.to_string()),
-            QueryParserError::ExpectedFloat(e) => Error::QueryError(e.to_string()),
-            QueryParserError::NoDefaultFieldDeclared | QueryParserError::RangeMustNotHavePhrase => {
-                Error::QueryError("No default field declared for query".into())
-            }
-            QueryParserError::AllButQueryForbidden => Error::QueryError("Cannot have queries that only exclude documents".into()),
-            QueryParserError::UnknownTokenizer(field, tok) => Error::QueryError(format!("Unknown tokenizer {} for field {}", tok, field)),
-            QueryParserError::DateFormatError(p) => Error::QueryError(p.to_string()),
-        }
     }
 }
 
