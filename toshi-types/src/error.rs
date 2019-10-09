@@ -36,6 +36,7 @@ impl From<QueryParserError> for Error {
                 Error::QueryError(format!("Field {} does not have positions indexed", e))
             }
             QueryParserError::ExpectedInt(e) => Error::QueryError(e.to_string()),
+            QueryParserError::ExpectedFloat(e) => Error::QueryError(e.to_string()),
             QueryParserError::NoDefaultFieldDeclared | QueryParserError::RangeMustNotHavePhrase => {
                 Error::QueryError("No default field declared for query".into())
             }

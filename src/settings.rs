@@ -6,8 +6,6 @@ use crossbeam::channel::{bounded, unbounded, Receiver, Sender};
 use serde::Deserialize;
 use tantivy::merge_policy::*;
 
-use crate::cluster::Consul;
-
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub const HEADER: &str = r#"
@@ -239,13 +237,6 @@ impl Settings {
         } else {
             bounded::<T>(self.bulk_buffer_size)
         }
-    }
-
-    pub fn get_consul_client(&self) -> Consul {
-        Consul::builder()
-            .with_address(&self.experimental_features.consul_addr)
-            .build()
-            .expect("Unable to create consul client")
     }
 
     pub fn get_nodes(&self) -> Vec<String> {
