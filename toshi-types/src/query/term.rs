@@ -17,6 +17,7 @@ impl<'a> ExactTerm<'a> {
     pub fn new(term: KeyValue<Cow<'a, str>, Cow<'a, str>>) -> Self {
         Self { term }
     }
+    pub fn with_term(field: String, value: String) -> Self { Self { term: KeyValue::new(Cow::Owned(field), Cow::Owned(value)) } }
 }
 
 impl<'a> CreateQuery for ExactTerm<'a> {

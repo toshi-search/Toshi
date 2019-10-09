@@ -1,4 +1,4 @@
-#![forbid(unsafe_code)]
+#![forbid(unsafe_code, warnings)]
 #![deny(future_incompatible)]
 
 pub mod cluster;

@@ -16,15 +16,15 @@ use toshi::commit::watcher;
 use toshi::index::IndexCatalog;
 use toshi::router::router_with_catalog;
 use toshi::settings::{Settings, HEADER, RPC_HEADER};
-use toshi::{cluster, shutdown, support};
+use toshi::{shutdown, support};
 
 fn get_subscriber() -> impl Subscriber {
     tracing_fmt::FmtSubscriber::builder()
-        .with_timer(tracing_fmt::time::SystemTime {})
         .with_ansi(true)
         .finish()
 }
 
+//noinspection ALL
 pub fn main() -> Result<(), ()> {
     let settings = support::settings();
 
@@ -107,24 +107,10 @@ fn run_master(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl F
 
     if settings.experimental {
         let settings = settings.clone();
-        let place_addr = settings.place_addr.clone();
-        let consul_addr = settings.experimental_features.consul_addr.clone();
-        let cluster_name = settings.experimental_features.cluster_name.clone();
         let nodes = settings.experimental_features.nodes.clone();
 
-        let run = future::lazy(move || {
-            tokio::spawn(commit_watcher);
-            if nodes.is_empty() {
-                tokio::spawn(cluster::connect_to_consul(&settings));
-                let consul = cluster::Consul::builder()
-                    .with_cluster_name(cluster_name)
-                    .with_address(consul_addr)
-                    .build()
-                    .expect("Could not build Consul client.");
-
-                let place_addr = place_addr.parse().expect("Placement address must be a valid SocketAddr");
-                tokio::spawn(cluster::run(place_addr, consul).map_err(|e| error!("Error with running cluster: {}", e)));
-            } else {
+        let run = commit_watcher.and_then(move |_| {
+            if !nodes.is_empty() {
                 let update = catalog.read().update_remote_indexes();
                 tokio::spawn(update);
             }
