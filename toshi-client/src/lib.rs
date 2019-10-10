@@ -6,10 +6,13 @@ use tantivy::{schema::Schema};
 
 use toshi_types::{
     client::SearchResults,
-    error::ToshiClientError,
     query::*,
     server::{AddDocument, IndexOptions, SchemaBody},
 };
+
+pub mod error;
+
+use crate::error::ToshiClientError;
 
 pub type Result<T> = std::result::Result<T, ToshiClientError>;
 
@@ -47,7 +50,7 @@ impl ToshiClient {
 
     pub fn all_docs<D>(&self, index: String) -> Result<SearchResults<D>>
     where
-        D: DeserializeOwned,
+        D: DeserializeOwned + Clone,
     {
         let uri = self.uri(index);
         self.client.get(uri)?.json().map_err(Into::into)
@@ -55,7 +58,7 @@ impl ToshiClient {
 
     pub fn search<D>(&self, index: String, search: Search) -> Result<SearchResults<D>>
     where
-        D: DeserializeOwned,
+        D: DeserializeOwned + Clone,
     {
         let uri = self.uri(index);
         let body = serde_json::to_vec(&search)?;
@@ -90,7 +93,7 @@ mod tests {
 
     use super::*;
 
-    #[derive(Deserialize, Debug)]
+    #[derive(Deserialize, Debug, Clone)]
     struct Wiki {
         url: Vec<String>,
         body: Vec<String>,

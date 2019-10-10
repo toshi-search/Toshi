@@ -28,42 +28,39 @@ pub use crate::query::{
     regex::RegexQuery,
     term::ExactTerm,
 };
-use std::borrow::Cow;
 
 pub trait CreateQuery {
     fn create_query(self, schema: &Schema) -> crate::Result<Box<dyn TantivyQuery>>;
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(untagged)]
-pub enum Query<'a> {
+pub enum Query {
     Boolean {
-        bool: BoolQuery<'a>,
+        bool: BoolQuery,
     },
-    Fuzzy(FuzzyQuery<'a>),
-    Exact(ExactTerm<'a>),
-    Phrase(PhraseQuery<'a>),
-    Regex(RegexQuery<'a>),
-    Range(RangeQuery<'a>),
+    Fuzzy(FuzzyQuery),
+    Exact(ExactTerm),
+    Phrase(PhraseQuery),
+    Regex(RegexQuery),
+    Range(RangeQuery),
 
     Raw {
-        #[serde(borrow)]
-        raw: Cow<'a, str>,
+        raw: String
     },
     All,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Search<'a> {
-    #[serde(borrow = "'a")]
-    pub query: Option<Query<'a>>,
-
-    pub facets: Option<FacetQuery<'a>>,
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Search {
+    pub query: Option<Query>,
+    pub facets: Option<FacetQuery>,
+    #[serde(default = "Search::default_limit")]
     pub limit: usize,
 }
 
-impl<'a> Search<'a> {
-    pub fn new(query: Option<Query<'a>>, facets: Option<FacetQuery<'a>>, limit: usize) -> Self {
+impl Search {
+    pub fn new(query: Option<Query>, facets: Option<FacetQuery>, limit: usize) -> Self {
         Search { query, facets, limit }
     }
 
@@ -71,7 +68,7 @@ impl<'a> Search<'a> {
         100
     }
 
-    pub fn all_query() -> Option<Query<'a>> {
+    pub fn all_query() -> Option<Query> {
         Some(Query::All)
     }
 
@@ -91,7 +88,7 @@ fn make_field_value(schema: &Schema, k: &str, v: &str) -> crate::Result<Term> {
     Ok(Term::from_field_text(field, v))
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct KeyValue<K, V>
 where
     K: DeserializeOwned,

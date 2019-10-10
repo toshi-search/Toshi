@@ -1,21 +1,25 @@
+use std::collections::BTreeMap;
 use std::hash::{Hash, Hasher};
-use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 
 use parking_lot::RwLock;
+use tantivy::{Document, Index, IndexReader, IndexWriter, ReloadPolicy, Term};
 use tantivy::collector::{FacetCollector, MultiCollector, TopDocs};
 use tantivy::query::{AllQuery, QueryParser};
 use tantivy::schema::*;
 use tantivy::space_usage::SearcherSpaceUsage;
-use tantivy::{Document, Index, IndexReader, IndexWriter, ReloadPolicy, Term};
 use tokio::prelude::*;
 use tracing::*;
 
-use crate::handlers::index::{AddDocument, DeleteDoc, DocsAffected};
-use crate::query::{CreateQuery, KeyValue, Query, Search};
-use crate::results::{ScoredDoc, SearchResults};
+use toshi_types::client::ScoredDoc;
+use toshi_types::error::Error;
+use toshi_types::query::{CreateQuery, KeyValue, Query, Search};
+use toshi_types::server::{DeleteDoc, DocsAffected};
+
+use crate::{AddDocument, SearchResults};
+use crate::Result;
 use crate::settings::Settings;
-use crate::{error::Error, Result};
 
 pub enum IndexLocation {
     LOCAL,
@@ -149,12 +153,12 @@ impl IndexHandle for LocalIndex {
                 Query::All => searcher.search(&AllQuery, &multi_collector)?,
             };
 
-            let docs = top_handle
+            let docs: Vec<ScoredDoc<BTreeMap<_, _>>> = top_handle
                 .extract(&mut scored_docs)
                 .into_iter()
                 .map(|(score, doc)| {
                     let d = searcher.doc(doc).expect("Doc not found in segment");
-                    ScoredDoc::new(Some(score), schema.to_named_doc(&d))
+                    ScoredDoc::<BTreeMap<_, _>>::new(Some(score), schema.to_named_doc(&d).0)
                 })
                 .collect();
 

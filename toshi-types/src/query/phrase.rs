@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 
 use serde::{Deserialize, Serialize};
 use tantivy::query::{PhraseQuery as TantivyPhraseQuery, Query};
@@ -8,34 +7,33 @@ use tantivy::Term;
 use crate::query::{make_field_value, CreateQuery, KeyValue};
 use crate::{error::Error, Result};
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct PhraseQuery<'a> {
-    #[serde(borrow = "'a")]
-    phrase: KeyValue<Cow<'a, str>, TermPair<'a>>,
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct PhraseQuery {
+    phrase: KeyValue<String, TermPair>,
 }
-#[derive(Serialize, Deserialize, Debug)]
-pub struct TermPair<'a> {
-    terms: Vec<Cow<'a, str>>,
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TermPair {
+    terms: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     offsets: Option<Vec<usize>>,
 }
 
-impl<'a> TermPair<'a> {
-    pub fn new(terms: Vec<&'a str>, offsets: Option<Vec<usize>>) -> Self {
+impl TermPair {
+    pub fn new(terms: Vec<String>, offsets: Option<Vec<usize>>) -> Self {
         TermPair {
-            terms: terms.into_iter().map(|t| Cow::Borrowed(t)).collect(),
+            terms,
             offsets,
         }
     }
 }
 
-impl<'a> PhraseQuery<'a> {
-    pub fn new(phrase: KeyValue<Cow<'a, str>, TermPair<'a>>) -> Self {
+impl PhraseQuery {
+    pub fn new(phrase: KeyValue<String, TermPair>) -> Self {
         PhraseQuery { phrase }
     }
 }
 
-impl<'a> CreateQuery for PhraseQuery<'a> {
+impl CreateQuery for PhraseQuery {
     fn create_query(self, schema: &Schema) -> Result<Box<dyn Query>> {
         let KeyValue { field, value } = self.phrase;
         if value.terms.len() <= 1 {

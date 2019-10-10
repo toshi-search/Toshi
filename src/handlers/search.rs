@@ -9,9 +9,9 @@ use tracing::*;
 
 use crate::handlers::ResponseFuture;
 use crate::index::SharedCatalog;
-use crate::query::Search;
-use crate::results::SearchResults;
 use crate::utils::{empty_with_code, with_body};
+use toshi_types::query::Search;
+use crate::SearchResults;
 
 #[derive(Clone)]
 pub struct SearchHandler {
@@ -73,9 +73,10 @@ pub mod tests {
 
     use crate::handlers::ResponseFuture;
     use crate::index::tests::*;
-    use crate::query::*;
+    use toshi_types::query::*;
 
     use super::*;
+    use toshi_types::query::{KeyValue, Query};
 
     type ReturnUnit = Result<(), hyper::error::Error>;
 

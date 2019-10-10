@@ -6,22 +6,19 @@ use crate::error::Error;
 use crate::query::{CreateQuery, Query};
 use crate::Result;
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct BoolQuery<'a> {
-    #[serde(borrow = "'a")]
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct BoolQuery {
     #[serde(default = "Vec::new")]
-    must: Vec<Query<'a>>,
-    #[serde(borrow = "'a")]
+    must: Vec<Query>,
     #[serde(default = "Vec::new")]
-    must_not: Vec<Query<'a>>,
-    #[serde(borrow = "'a")]
+    must_not: Vec<Query>,
     #[serde(default = "Vec::new")]
-    should: Vec<Query<'a>>,
+    should: Vec<Query>,
     minimum_should_match: Option<u64>,
     boost: Option<f64>,
 }
 
-impl<'a> CreateQuery for BoolQuery<'a> {
+impl CreateQuery for BoolQuery {
     fn create_query(self, schema: &Schema) -> Result<Box<dyn TQuery>> {
         let mut all_queries: Vec<(Occur, Box<dyn TQuery>)> = Vec::new();
         if !self.must.is_empty() {

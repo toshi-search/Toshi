@@ -1,13 +1,13 @@
 use failure::Fail;
-use http::uri::InvalidUri;
 use serde::{Deserialize, Serialize};
 use tantivy::query::QueryParserError;
 use tantivy::schema::DocParsingError;
 use tantivy::TantivyError;
+use hyper::Body;
 
 #[derive(Serialize)]
 pub struct ErrorResponse {
-    message: String,
+    pub message: String,
 }
 
 #[derive(Debug, Fail, Serialize, Deserialize)]
@@ -59,6 +59,14 @@ impl From<DocParsingError> for Error {
     }
 }
 
+impl From<Error> for http::Response<Body> {
+    fn from(err: Error) -> Self {
+        let body = ErrorResponse { message: err.to_string() };
+        let bytes = serde_json::to_vec(&body).unwrap();
+        http::Response::new(Body::from(bytes))
+    }
+}
+
 impl<T> From<std::sync::PoisonError<T>> for Error {
     fn from(err: std::sync::PoisonError<T>) -> Self {
         Error::IOError(err.to_string())
@@ -89,36 +97,8 @@ impl From<Box<dyn::std::error::Error + Send + 'static>> for Error {
     }
 }
 
-#[derive(Fail, Debug)]
-pub enum ToshiClientError {
-    #[fail(display = "Serde deserialization error: {}", _0)]
-    JsonError(serde_json::Error),
-    #[fail(display = "Isahc error: {}", _0)]
-    IsahcError(String),
-    #[fail(display = "IO Error: {}", _0)]
-    UriError(InvalidUri),
-}
-
-impl From<InvalidUri> for ToshiClientError {
-    fn from(e: InvalidUri) -> Self {
-        ToshiClientError::UriError(e)
-    }
-}
-
-impl From<serde_json::Error> for ToshiClientError {
-    fn from(e: serde_json::Error) -> Self {
-        ToshiClientError::JsonError(e)
-    }
-}
-
 impl From<TantivyError> for Error {
     fn from(err: tantivy::Error) -> Self {
         Error::IOError(err.to_string())
-    }
-}
-
-impl From<isahc::Error> for ToshiClientError {
-    fn from(e: isahc::Error) -> Self {
-        ToshiClientError::IsahcError(e.to_string())
     }
 }

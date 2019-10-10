@@ -9,11 +9,11 @@ use tantivy::space_usage::SearcherSpaceUsage;
 use tracing::{Level, span};
 use tracing_futures::Instrument;
 
-use crate::error::Error;
 use crate::handlers::ResponseFuture;
 use crate::index::SharedCatalog;
 use crate::router::QueryOptions;
 use crate::utils::{empty_with_code, with_body};
+use toshi_types::error::Error;
 
 #[derive(Debug, Serialize)]
 pub struct SummaryResponse {

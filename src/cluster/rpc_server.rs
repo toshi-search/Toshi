@@ -12,17 +12,18 @@ use tower::MakeService;
 use tower_buffer::Buffer;
 use tower_grpc::{BoxBody, Code, Request, Response, Status, Streaming};
 use tower_hyper::client::{Connect, ConnectError, Connection};
-use tower_hyper::util::{Connector, Destination};
 use tower_hyper::Server;
+use tower_hyper::util::{Connector, Destination};
 use tower_request_modifier::{Builder, RequestModifier};
 use tracing::*;
 
 use toshi_proto::cluster_rpc::*;
+use toshi_types::query::Search;
 
 use crate::handle::IndexHandle;
-use crate::handlers::index::{AddDocument, DeleteDoc};
 use crate::index::IndexCatalog;
-use crate::query::Search;
+use crate::AddDocument;
+use toshi_types::server::DeleteDoc;
 
 pub type Buf = Buffer<RequestModifier<Connection<BoxBody>, BoxBody>, http::Request<BoxBody>>;
 pub type RpcClient = client::IndexService<Buf>;

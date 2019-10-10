@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use tower_hyper::client::ConnectError;
 
 pub use self::node::*;
+use toshi_types::error::Error;
 
 pub type BoxError = Box<dyn ::std::error::Error + Send + Sync + 'static>;
 pub type ConnectionError = ConnectError<io::Error>;
@@ -75,6 +76,8 @@ pub enum RPCError {
     ConnectError(ConnectionError),
     #[fail(display = "")]
     BoxError(Box<dyn ::std::error::Error + Send + Sync + 'static>),
+    #[fail(display = "Error in RPC Connect: {}", _0)]
+    ToshiError(Error),
 }
 
 impl From<ConnectionError> for RPCError {

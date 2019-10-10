@@ -119,16 +119,15 @@ mod tests {
 
     use tokio::runtime::Runtime;
 
-    use crate::error::Error;
     use crate::handlers::summary::flush;
     use crate::handlers::SearchHandler;
     use crate::index::tests::*;
-    use crate::results::SearchResults;
 
     use super::*;
+    use crate::SearchResults;
 
     #[test]
-    fn test_bulk_index() -> Result<(), Error> {
+    fn test_bulk_index() -> Result<(), Box<dyn std::error::Error>> {
         let mut runtime = Runtime::new()?;
         let server = create_test_catalog("test_index");
         let lock = Arc::new(AtomicBool::new(false));

@@ -1,5 +1,3 @@
-use std::borrow::Cow;
-
 use serde::{Deserialize, Serialize};
 use tantivy::query::{FuzzyTermQuery, Query};
 use tantivy::schema::Schema;
@@ -7,38 +5,37 @@ use tantivy::schema::Schema;
 use crate::query::{make_field_value, CreateQuery, KeyValue};
 use crate::Result;
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct FuzzyTerm<'a> {
-    value: Cow<'a, str>,
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct FuzzyTerm {
+    value: String,
     #[serde(default)]
     distance: u8,
     #[serde(default)]
     transposition: bool,
 }
 
-impl<'a> FuzzyTerm<'a> {
-    pub fn new(value: &'a str, distance: u8, transposition: bool) -> Self {
+impl FuzzyTerm {
+    pub fn new(value: String, distance: u8, transposition: bool) -> Self {
         Self {
-            value: Cow::Borrowed(value),
+            value,
             distance,
             transposition,
         }
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct FuzzyQuery<'a> {
-    #[serde(borrow = "'a")]
-    fuzzy: KeyValue<Cow<'a, str>, FuzzyTerm<'a>>,
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct FuzzyQuery {
+    fuzzy: KeyValue<String, FuzzyTerm>,
 }
 
-impl<'a> FuzzyQuery<'a> {
-    pub fn new(fuzzy: KeyValue<Cow<'a, str>, FuzzyTerm<'a>>) -> Self {
+impl FuzzyQuery {
+    pub fn new(fuzzy: KeyValue<String, FuzzyTerm>) -> Self {
         Self { fuzzy }
     }
 }
 
-impl<'a> CreateQuery for FuzzyQuery<'a> {
+impl CreateQuery for FuzzyQuery {
     fn create_query(self, schema: &Schema) -> Result<Box<dyn Query>> {
         let KeyValue { field, value } = self.fuzzy;
         let term = make_field_value(schema, &field, &value.value)?;

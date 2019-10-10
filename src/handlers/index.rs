@@ -1,56 +1,30 @@
-use std::collections::HashMap;
 use std::convert::Into;
 use std::sync::Arc;
 
+use futures::{future, Future, future::Either};
 use futures::stream::{futures_unordered, Stream};
-use futures::{future, future::Either, Future};
 use http::{Response, StatusCode};
 use hyper::Body;
 use rand::random;
-use serde::{Deserialize, Serialize};
-use tantivy::schema::*;
 use tantivy::Index;
+use tantivy::schema::*;
 use tower_grpc::Request;
 
 use toshi_proto::cluster_rpc::PlaceRequest;
+use toshi_types::error::Error;
+use toshi_types::server::{DeleteDoc, DocsAffected, SchemaBody};
 
+use crate::AddDocument;
 use crate::cluster::rpc_server::RpcClient;
 use crate::cluster::RPCError;
-use crate::error::Error;
 use crate::handle::IndexHandle;
 use crate::handlers::ResponseFuture;
 use crate::index::{IndexCatalog, SharedCatalog};
 use crate::utils::{empty_with_code, error_response, with_body};
 
-#[derive(Deserialize, Clone)]
-pub struct SchemaBody(pub Schema);
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct DeleteDoc {
-    pub options: Option<IndexOptions>,
-    pub terms: HashMap<String, String>,
-}
-
 #[derive(Clone)]
 pub struct IndexHandler {
     catalog: SharedCatalog,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct DocsAffected {
-    pub docs_affected: u64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IndexOptions {
-    #[serde(default)]
-    pub commit: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AddDocument {
-    pub options: Option<IndexOptions>,
-    pub document: serde_json::Value,
 }
 
 impl IndexHandler {
@@ -181,12 +155,16 @@ impl IndexHandler {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use pretty_assertions::assert_eq;
     use tokio::prelude::*;
 
+    use toshi_types::client::SearchResults;
+    use toshi_types::server::IndexOptions;
+
     use crate::handlers::SearchHandler;
     use crate::index::tests::*;
-    use crate::results::SearchResults;
 
     use super::*;
 
@@ -215,7 +193,7 @@ mod tests {
             .concat2()
             .wait()
             .unwrap();
-        let body: SearchResults = serde_json::from_slice(&docs).unwrap();
+        let body: SearchResults<Document> = serde_json::from_slice(&docs).unwrap();
 
         assert_eq!(body.hits, 0);
         remove_dir_all::remove_dir_all("new_index").unwrap();

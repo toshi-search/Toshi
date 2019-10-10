@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use std::ops::Bound;
 
 use serde::de::DeserializeOwned;
@@ -10,7 +9,7 @@ use tantivy::schema::{FieldType, Schema};
 use crate::query::{CreateQuery, KeyValue};
 use crate::{error::Error, Result};
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(untagged)]
 pub enum Ranges {
     ValueRange {
@@ -22,13 +21,12 @@ pub enum Ranges {
     },
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct RangeQuery<'a> {
-    #[serde(borrow = "'a")]
-    range: KeyValue<Cow<'a, str>, Ranges>,
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RangeQuery {
+    range: KeyValue<String, Ranges>,
 }
 
-impl<'a> CreateQuery for RangeQuery<'a> {
+impl CreateQuery for RangeQuery {
     fn create_query(self, schema: &Schema) -> Result<Box<dyn Query>> {
         let KeyValue { field, value, .. } = self.range;
         create_range_query(schema, &field, value)
@@ -125,12 +123,12 @@ pub mod tests {
     }
 
     #[test]
-    pub fn test_query_impossible_range<'a>() {
+    pub fn test_query_impossible_range() {
         let body = r#"{ "range" : { "test_u64" : { "gte" : 10, "lte" : 1 } } }"#;
         let mut schema = SchemaBuilder::new();
         schema.add_u64_field("test_u64", FAST);
         let built = schema.build();
-        let req = serde_json::from_str::<RangeQuery<'a>>(body).unwrap().create_query(&built);
+        let req = serde_json::from_str::<RangeQuery>(body).unwrap().create_query(&built);
 
         assert_eq!(req.is_err(), false);
     }
