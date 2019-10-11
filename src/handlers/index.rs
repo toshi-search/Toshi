@@ -1,26 +1,26 @@
 use std::convert::Into;
 use std::sync::Arc;
 
-use futures::{future, Future, future::Either};
 use futures::stream::{futures_unordered, Stream};
+use futures::{future, future::Either, Future};
 use http::{Response, StatusCode};
 use hyper::Body;
 use rand::random;
-use tantivy::Index;
 use tantivy::schema::*;
+use tantivy::Index;
 use tower_grpc::Request;
 
 use toshi_proto::cluster_rpc::PlaceRequest;
 use toshi_types::error::Error;
 use toshi_types::server::{DeleteDoc, DocsAffected, SchemaBody};
 
-use crate::AddDocument;
 use crate::cluster::rpc_server::RpcClient;
 use crate::cluster::RPCError;
 use crate::handle::IndexHandle;
 use crate::handlers::ResponseFuture;
 use crate::index::{IndexCatalog, SharedCatalog};
 use crate::utils::{empty_with_code, error_response, with_body};
+use crate::AddDocument;
 
 #[derive(Clone)]
 pub struct IndexHandler {

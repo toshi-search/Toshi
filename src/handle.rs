@@ -1,14 +1,14 @@
 use std::collections::BTreeMap;
 use std::hash::{Hash, Hasher};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::Arc;
 
 use parking_lot::RwLock;
-use tantivy::{Document, Index, IndexReader, IndexWriter, ReloadPolicy, Term};
 use tantivy::collector::{FacetCollector, MultiCollector, TopDocs};
 use tantivy::query::{AllQuery, QueryParser};
 use tantivy::schema::*;
 use tantivy::space_usage::SearcherSpaceUsage;
+use tantivy::{Document, Index, IndexReader, IndexWriter, ReloadPolicy, Term};
 use tokio::prelude::*;
 use tracing::*;
 
@@ -17,9 +17,9 @@ use toshi_types::error::Error;
 use toshi_types::query::{CreateQuery, KeyValue, Query, Search};
 use toshi_types::server::{DeleteDoc, DocsAffected};
 
-use crate::{AddDocument, SearchResults};
-use crate::Result;
 use crate::settings::Settings;
+use crate::Result;
+use crate::{AddDocument, SearchResults};
 
 pub enum IndexLocation {
     LOCAL,

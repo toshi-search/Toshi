@@ -6,24 +6,24 @@ use std::sync::Arc;
 
 use futures::stream::Stream;
 use hashbrown::HashMap;
-use http::Uri;
 use http::uri::Scheme;
+use http::Uri;
 use parking_lot::{Mutex, RwLock};
 use tantivy::directory::MmapDirectory;
-use tantivy::Index;
 use tantivy::schema::Schema;
+use tantivy::Index;
 use tokio::prelude::*;
 
 use toshi_proto::cluster_rpc::*;
 use toshi_types::error::Error;
 use toshi_types::query::Search;
 
-use crate::{Result, SearchResults, AddDocument};
 use crate::cluster::remote_handle::RemoteIndex;
 use crate::cluster::rpc_server::{RpcClient, RpcServer};
 use crate::cluster::RPCError;
+use crate::handle::{IndexHandle, LocalIndex};
 use crate::settings::Settings;
-use crate::handle::{LocalIndex, IndexHandle};
+use crate::{AddDocument, Result, SearchResults};
 use toshi_types::server::DeleteDoc;
 
 pub type SharedCatalog = Arc<RwLock<IndexCatalog>>;
@@ -55,7 +55,7 @@ impl IndexCatalog {
         Ok(index_cat)
     }
 
-    pub fn update_remote_indexes(&self) -> impl Future<Item=(), Error=()> {
+    pub fn update_remote_indexes(&self) -> impl Future<Item = (), Error = ()> {
         let cat_clone = Arc::clone(&self.remote_handles);
         IndexCatalog::refresh_multiple_nodes(self.settings.experimental_features.nodes.clone())
             .for_each(move |indexes| {
@@ -198,18 +198,18 @@ impl IndexCatalog {
             .map_err(|e| Error::IOError(e.to_string()))
     }
 
-    pub fn create_client(node: String) -> impl Future<Item=RpcClient, Error=RPCError> + Send {
+    pub fn create_client(node: String) -> impl Future<Item = RpcClient, Error = RPCError> + Send {
         let socket: SocketAddr = node.parse().unwrap();
         let host_uri = IndexCatalog::create_host_uri(socket).unwrap();
         RpcServer::create_client(host_uri).map_err(Into::into)
     }
 
-    pub fn refresh_multiple_nodes(nodes: Vec<String>) -> impl stream::Stream<Item=(RpcClient, Vec<String>), Error=RPCError> {
+    pub fn refresh_multiple_nodes(nodes: Vec<String>) -> impl stream::Stream<Item = (RpcClient, Vec<String>), Error = RPCError> {
         let n = nodes.iter().map(|n| IndexCatalog::refresh_remote_catalog(n.to_owned()));
         stream::futures_unordered(n)
     }
 
-    pub fn refresh_remote_catalog(node: String) -> impl Future<Item=(RpcClient, Vec<String>), Error=RPCError> + Send {
+    pub fn refresh_remote_catalog(node: String) -> impl Future<Item = (RpcClient, Vec<String>), Error = RPCError> + Send {
         IndexCatalog::create_client(node)
             .and_then(|mut client| {
                 let client_clone = client.clone();
@@ -221,13 +221,13 @@ impl IndexCatalog {
             .map(move |(x, r)| (x, r.indexes))
     }
 
-    pub fn search_local_index(&self, index: &str, search: Search) -> impl Future<Item=Vec<SearchResults>, Error=Error> + Send {
+    pub fn search_local_index(&self, index: &str, search: Search) -> impl Future<Item = Vec<SearchResults>, Error = Error> + Send {
         self.get_index(index)
             .and_then(move |hand| hand.search_index(search).map(|r| vec![r]))
             .into_future()
     }
 
-    pub fn search_remote_index(&self, index: &str, search: Search) -> impl Future<Item=Vec<SearchResults>, Error=Error> + Send {
+    pub fn search_remote_index(&self, index: &str, search: Search) -> impl Future<Item = Vec<SearchResults>, Error = Error> + Send {
         self.get_remote_index(index).into_future().and_then(move |hand| {
             hand.search_index(search)
                 .and_then(|sr| {
@@ -238,7 +238,7 @@ impl IndexCatalog {
         })
     }
 
-    pub fn add_remote_document(&self, index: &str, doc: AddDocument) -> impl Future<Item=(), Error=Error> + Send {
+    pub fn add_remote_document(&self, index: &str, doc: AddDocument) -> impl Future<Item = (), Error = Error> + Send {
         self.get_remote_index(index)
             .into_future()
             .and_then(move |hand| {
@@ -248,14 +248,14 @@ impl IndexCatalog {
             .map(|_| ())
     }
 
-    pub fn add_local_document(&self, index: &str, doc: AddDocument) -> impl Future<Item=(), Error=Error> + Send {
+    pub fn add_local_document(&self, index: &str, doc: AddDocument) -> impl Future<Item = (), Error = Error> + Send {
         self.get_owned_index(index)
             .into_future()
             .and_then(move |hand| hand.add_document(doc))
             .map(|_| ())
     }
 
-    pub fn delete_local_term(&self, index: &str, term: DeleteDoc) -> impl Future<Item=(), Error=Error> + Send {
+    pub fn delete_local_term(&self, index: &str, term: DeleteDoc) -> impl Future<Item = (), Error = Error> + Send {
         self.get_remote_index(index)
             .into_future()
             .and_then(move |handle| handle.delete_term(term).map_err(|e| Error::IOError(e.to_string())))

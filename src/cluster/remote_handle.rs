@@ -9,9 +9,9 @@ use toshi_proto::cluster_rpc::{DeleteRequest, DocumentRequest, SearchReply, Sear
 use toshi_types::query::Search;
 use toshi_types::server::DeleteDoc;
 
-use crate::AddDocument;
 use crate::cluster::rpc_server::RpcClient;
 use crate::handle::{IndexHandle, IndexLocation};
+use crate::AddDocument;
 
 /// A reference to an index stored somewhere else on the cluster, this operates via calling
 /// the remote host and full filling the request via rpc, we need to figure out a better way

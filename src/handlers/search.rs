@@ -10,8 +10,8 @@ use tracing::*;
 use crate::handlers::ResponseFuture;
 use crate::index::SharedCatalog;
 use crate::utils::{empty_with_code, with_body};
-use toshi_types::query::Search;
 use crate::SearchResults;
+use toshi_types::query::Search;
 
 #[derive(Clone)]
 pub struct SearchHandler {

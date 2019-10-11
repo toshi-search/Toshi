@@ -34,16 +34,12 @@ impl<D: Clone> Add for SearchResults<D> {
         facets.append(&mut rhs.facets);
         docs.append(&mut rhs.get_docs());
 
-        Self {
-            hits,
-            docs,
-            facets,
-        }
+        Self { hits, docs, facets }
     }
 }
 
 impl<D: Clone> Sum for SearchResults<D> {
-    fn sum<I: Iterator<Item=SearchResults<D>>>(iter: I) -> Self {
+    fn sum<I: Iterator<Item = SearchResults<D>>>(iter: I) -> Self {
         iter.fold(Self::new(Vec::new()), |r, sr| r + sr)
     }
 }
@@ -53,9 +49,9 @@ impl<D: Clone> SearchResults<D> {
         self.docs
     }
 
-//    pub fn get_facets(&mut self) -> Vec<KeyValue<u64>> {
-//        self.facets.to_owned()
-//    }
+    //    pub fn get_facets(&mut self) -> Vec<KeyValue<u64>> {
+    //        self.facets.to_owned()
+    //    }
 
     pub fn new(docs: Vec<ScoredDoc<D>>) -> Self {
         Self {
@@ -73,12 +69,12 @@ impl<D: Clone> SearchResults<D> {
         }
     }
 
-//    pub fn with_error(error: Error) -> Self {
-//        Self {
-//            hits: 0,
-//            docs: Vec::new(),
-//            facets: Vec::new(),
-//            error: Some(error),
-//        }
-//    }
+    //    pub fn with_error(error: Error) -> Self {
+    //        Self {
+    //            hits: 0,
+    //            docs: Vec::new(),
+    //            facets: Vec::new(),
+    //            error: Some(error),
+    //        }
+    //    }
 }

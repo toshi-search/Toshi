@@ -4,9 +4,9 @@ use std::time::Instant;
 use futures::future;
 use http::{Response, StatusCode};
 use serde::Serialize;
-use tantivy::IndexMeta;
 use tantivy::space_usage::SearcherSpaceUsage;
-use tracing::{Level, span};
+use tantivy::IndexMeta;
+use tracing::{span, Level};
 use tracing_futures::Instrument;
 
 use crate::handlers::ResponseFuture;
@@ -102,12 +102,12 @@ mod tests {
             .concat2()
             .wait();
 
-//        let summary: Result<SummaryResponse, serde_json::Error> = serde_json::from_slice(&resp);
-//        let summary2: Result<SummaryResponse, serde_json::Error> = serde_json::from_slice(&resp2);
+        //        let summary: Result<SummaryResponse, serde_json::Error> = serde_json::from_slice(&resp);
+        //        let summary2: Result<SummaryResponse, serde_json::Error> = serde_json::from_slice(&resp2);
 
-//        assert_eq!(summary.is_ok(), true);
-//        assert_eq!(summary.unwrap().segment_sizes.is_some(), true);
-//        assert_eq!(summary2.is_ok(), true);
-//        assert_eq!(summary2.unwrap().segment_sizes.is_none(), true);
+        //        assert_eq!(summary.is_ok(), true);
+        //        assert_eq!(summary.unwrap().segment_sizes.is_some(), true);
+        //        assert_eq!(summary2.is_ok(), true);
+        //        assert_eq!(summary2.unwrap().segment_sizes.is_none(), true);
     }
 }

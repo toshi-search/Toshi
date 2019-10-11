@@ -1,4 +1,3 @@
-
 use serde::{Deserialize, Serialize};
 use tantivy::query::{PhraseQuery as TantivyPhraseQuery, Query};
 use tantivy::schema::Schema;
@@ -20,10 +19,7 @@ pub struct TermPair {
 
 impl TermPair {
     pub fn new(terms: Vec<String>, offsets: Option<Vec<usize>>) -> Self {
-        TermPair {
-            terms,
-            offsets,
-        }
+        TermPair { terms, offsets }
     }
 }
 

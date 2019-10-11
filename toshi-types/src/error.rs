@@ -1,9 +1,9 @@
 use failure::Fail;
+use hyper::Body;
 use serde::{Deserialize, Serialize};
 use tantivy::query::QueryParserError;
 use tantivy::schema::DocParsingError;
 use tantivy::TantivyError;
-use hyper::Body;
 
 #[derive(Serialize)]
 pub struct ErrorResponse {
@@ -91,8 +91,8 @@ impl From<serde_json::Error> for Error {
     }
 }
 
-impl From<Box<dyn::std::error::Error + Send + 'static>> for Error {
-    fn from(err: Box<dyn::std::error::Error + Send + 'static>) -> Self {
+impl From<Box<dyn ::std::error::Error + Send + 'static>> for Error {
+    fn from(err: Box<dyn ::std::error::Error + Send + 'static>) -> Self {
         Error::IOError(err.description().to_owned())
     }
 }

@@ -36,18 +36,14 @@ pub trait CreateQuery {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(untagged)]
 pub enum Query {
-    Boolean {
-        bool: BoolQuery,
-    },
+    Boolean { bool: BoolQuery },
     Fuzzy(FuzzyQuery),
     Exact(ExactTerm),
     Phrase(PhraseQuery),
     Regex(RegexQuery),
     Range(RangeQuery),
 
-    Raw {
-        raw: String
-    },
+    Raw { raw: String },
     All,
 }
 

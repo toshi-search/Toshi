@@ -12,8 +12,8 @@ pub type ConnectionError = ConnectError<io::Error>;
 pub type BufError = tower_buffer::error::ServiceError;
 pub type GrpcError = tower_grpc::Status;
 
-pub mod ops;
 pub mod node;
+pub mod ops;
 pub mod remote_handle;
 pub mod rpc_server;
 pub mod shard;

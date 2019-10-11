@@ -1,5 +1,5 @@
-use http::uri::InvalidUri;
 use failure::Fail;
+use http::uri::InvalidUri;
 
 #[derive(Fail, Debug)]
 pub enum ToshiClientError {

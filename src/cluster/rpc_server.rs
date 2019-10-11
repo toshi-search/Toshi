@@ -12,8 +12,8 @@ use tower::MakeService;
 use tower_buffer::Buffer;
 use tower_grpc::{BoxBody, Code, Request, Response, Status, Streaming};
 use tower_hyper::client::{Connect, ConnectError, Connection};
-use tower_hyper::Server;
 use tower_hyper::util::{Connector, Destination};
+use tower_hyper::Server;
 use tower_request_modifier::{Builder, RequestModifier};
 use tracing::*;
 

@@ -19,9 +19,7 @@ use toshi::settings::{Settings, HEADER, RPC_HEADER};
 use toshi::{shutdown, support};
 
 fn get_subscriber() -> impl Subscriber {
-    tracing_fmt::FmtSubscriber::builder()
-        .with_ansi(true)
-        .finish()
+    tracing_fmt::FmtSubscriber::builder().with_ansi(true).finish()
 }
 
 //noinspection ALL
