@@ -10,6 +10,13 @@ use crate::{error::Error, Result};
 pub struct PhraseQuery {
     phrase: KeyValue<String, TermPair>,
 }
+
+impl PhraseQuery {
+    pub fn new(phrase: KeyValue<String, TermPair>) -> Self {
+        PhraseQuery { phrase }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TermPair {
     terms: Vec<String>,
@@ -20,12 +27,6 @@ pub struct TermPair {
 impl TermPair {
     pub fn new(terms: Vec<String>, offsets: Option<Vec<usize>>) -> Self {
         TermPair { terms, offsets }
-    }
-}
-
-impl PhraseQuery {
-    pub fn new(phrase: KeyValue<String, TermPair>) -> Self {
-        PhraseQuery { phrase }
     }
 }
 
@@ -46,7 +47,7 @@ impl CreateQuery for PhraseQuery {
             let paired_terms = value
                 .terms
                 .iter()
-                .zip(offsets.into_iter())
+                .zip(offsets)
                 .map(|(t, o)| match make_field_value(schema, &field, &t) {
                     Ok(f) => Ok((*o, f)),
                     Err(e) => Err(e),

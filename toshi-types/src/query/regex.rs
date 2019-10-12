@@ -10,6 +10,15 @@ pub struct RegexQuery {
     regex: KeyValue<String, String>,
 }
 
+impl RegexQuery {
+    pub fn new(regex: KeyValue<String, String>) -> Self {
+        Self { regex }
+    }
+    pub fn with_regex(field: String, regex: String) -> Self {
+        Self::new(KeyValue::new(field, regex))
+    }
+}
+
 impl CreateQuery for RegexQuery {
     fn create_query(self, schema: &Schema) -> Result<Box<dyn Query>> {
         let KeyValue { field, value, .. } = self.regex;

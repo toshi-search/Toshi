@@ -132,11 +132,7 @@ impl server::IndexService for RpcServer {
                     let result = Some(RpcServer::ok_result());
                     Box::new(future::finished(Response::new(RpcServer::create_search_reply(result, query_bytes))))
                 }
-                Err(e) => {
-                    info!("Query Response = {:?}", e);
-                    let result = Some(RpcServer::create_result(1, e.to_string()));
-                    Box::new(future::finished(Response::new(RpcServer::create_search_reply(result, vec![]))))
-                }
+                Err(e) => Self::error_response(Code::Internal, e.to_string()),
             }
         } else {
             Self::error_response(Code::NotFound, format!("Index: {} not found", inner.index))

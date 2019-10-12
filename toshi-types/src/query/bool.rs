@@ -14,8 +14,16 @@ pub struct BoolQuery {
     must_not: Vec<Query>,
     #[serde(default = "Vec::new")]
     should: Vec<Query>,
+    #[serde(default)]
     minimum_should_match: Option<u64>,
+    #[serde(default)]
     boost: Option<f64>,
+}
+
+impl BoolQuery {
+    pub fn new(must: Vec<Query>, must_not: Vec<Query>, should: Vec<Query>, minimum_should_match: Option<u64>, boost: Option<f64>) -> Self {
+        Self { must, must_not, should, minimum_should_match, boost }
+    }
 }
 
 impl CreateQuery for BoolQuery {
@@ -50,9 +58,10 @@ fn parse_queries(schema: &Schema, occur: Occur, queries: Vec<Query>) -> Result<V
 
 #[cfg(test)]
 mod tests {
-    use super::super::*;
     use serde_json;
     use tantivy::schema::*;
+
+    use crate::query::Search;
 
     #[test]
     fn test_bool_query() {

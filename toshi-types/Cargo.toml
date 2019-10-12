@@ -2,7 +2,7 @@
 name    = "toshi-types"
 version = "0.1.1"
 authors = ["Stephen Carman <shcarman@gmail.com>"]
-description = "A types for full text search engine based on Tantivy"
+description = "The types for a full text search engine based on Tantivy"
 repository = "https://github.com/toshi-search/Toshi"
 license = "MIT"
 edition = "2018"

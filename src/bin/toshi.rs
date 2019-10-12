@@ -9,64 +9,42 @@ use futures::{future, Future};
 use parking_lot::RwLock;
 use tokio::runtime::Runtime;
 use tokio::sync::oneshot;
+use tokio::sync::oneshot::{Receiver, Sender};
 use tracing::*;
 
 use toshi::cluster::rpc_server::RpcServer;
 use toshi::commit::watcher;
-use toshi::index::IndexCatalog;
+use toshi::index::{IndexCatalog, SharedCatalog};
 use toshi::router::router_with_catalog;
 use toshi::settings::{Settings, HEADER, RPC_HEADER};
 use toshi::{shutdown, support};
 
-fn get_subscriber() -> impl Subscriber {
-    tracing_fmt::FmtSubscriber::builder().with_ansi(true).finish()
-}
-
-//noinspection ALL
 pub fn main() -> Result<(), ()> {
     let settings = support::settings();
+    setup_logging(&settings.log_level);
 
-    std::env::set_var("RUST_LOG", &settings.log_level);
-    let sub = get_subscriber();
-    tracing::subscriber::set_global_default(sub).expect("Unable to set default Subscriber");
-
-    debug!("{:?}", &settings);
-
-    let mut rt = Runtime::new().expect("failed to start new Runtime");
-
+    let mut rt = Runtime::new().expect("Failed to start new Runtime");
     let (tx, shutdown_signal) = oneshot::channel();
-
     if !Path::new(&settings.path).exists() {
         info!("Base data path {} does not exist, creating it...", settings.path);
         create_dir(settings.path.clone()).expect("Unable to create data directory");
     }
 
-    let index_catalog = {
-        let path = PathBuf::from(settings.path.clone());
-        let index_catalog = match IndexCatalog::new(path, settings.clone()) {
-            Ok(v) => v,
-            Err(e) => {
-                eprintln!("Error creating IndexCatalog from path {} - {}", settings.path, e);
-                std::process::exit(1);
-            }
-        };
-
-        Arc::new(RwLock::new(index_catalog))
-    };
-
-    let toshi = {
-        let server = if !settings.experimental_features.master && settings.experimental {
-            future::Either::A(run_data(Arc::clone(&index_catalog), &settings))
-        } else {
-            future::Either::B(run_master(Arc::clone(&index_catalog), &settings))
-        };
-        let shutdown = shutdown::shutdown(tx);
-        server.select(shutdown)
-    };
-
-    rt.spawn(toshi.map(|_| ()).map_err(|_| ()));
+    let index_catalog = setup_catalog(&settings);
+    let toshi = setup_toshi(&settings, &index_catalog, tx);
+    rt.spawn(toshi);
     info!("Toshi running on {}:{}", &settings.host, &settings.port);
 
+    setup_shutdown(shutdown_signal, index_catalog, rt)
+}
+
+fn setup_logging(level: &str) {
+    std::env::set_var("RUST_LOG", level);
+    let sub = tracing_fmt::FmtSubscriber::builder().with_ansi(true).finish();
+    tracing::subscriber::set_global_default(sub).expect("Unable to set default Subscriber");
+}
+
+fn setup_shutdown(shutdown_signal: Receiver<()>, index_catalog: SharedCatalog, rt: Runtime) -> Result<(), ()> {
     shutdown_signal
         .map_err(|e| unreachable!("Shutdown signal channel should not error, This is a bug. \n {:?} ", e.description()))
         .and_then(move |_| {
@@ -75,6 +53,28 @@ pub fn main() -> Result<(), ()> {
         })
         .and_then(move |_| rt.shutdown_now())
         .wait()
+}
+
+fn setup_toshi(settings: &Settings, index_catalog: &SharedCatalog, tx: Sender<()>) -> impl Future<Item = (), Error = ()> {
+    let server = if !settings.experimental_features.master && settings.experimental {
+        future::Either::A(run_data(Arc::clone(index_catalog), &settings))
+    } else {
+        future::Either::B(run_master(Arc::clone(index_catalog), &settings))
+    };
+    let shutdown = shutdown::shutdown(tx);
+    server.select(shutdown).map(|_| ()).map_err(|_| ())
+}
+
+fn setup_catalog(settings: &Settings) -> SharedCatalog {
+    let path = PathBuf::from(settings.path.clone());
+    let index_catalog = match IndexCatalog::new(path, settings.clone()) {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("Error creating IndexCatalog from path {} - {}", settings.path, e);
+            std::process::exit(1);
+        }
+    };
+    Arc::new(RwLock::new(index_catalog))
 }
 
 fn run_data(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Future<Item = (), Error = ()> {

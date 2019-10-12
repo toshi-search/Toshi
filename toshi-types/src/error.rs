@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use failure::Fail;
 use hyper::Body;
 use serde::{Deserialize, Serialize};
@@ -8,6 +10,14 @@ use tantivy::TantivyError;
 #[derive(Serialize)]
 pub struct ErrorResponse {
     pub message: String,
+}
+
+impl ErrorResponse {
+    pub fn new<M: std::fmt::Display>(message: M) -> Self {
+        Self {
+            message: message.to_string(),
+        }
+    }
 }
 
 #[derive(Debug, Fail, Serialize, Deserialize)]
@@ -24,6 +34,8 @@ pub enum Error {
     SpawnError,
     #[fail(display = "An unknown error occurred")]
     UnknownError,
+    #[fail(display = "Thread pool is poisoned")]
+    PoisonedError,
 }
 
 impl From<QueryParserError> for Error {
@@ -59,46 +71,40 @@ impl From<DocParsingError> for Error {
     }
 }
 
-impl From<Error> for http::Response<Body> {
-    fn from(err: Error) -> Self {
-        let body = ErrorResponse { message: err.to_string() };
-        let bytes = serde_json::to_vec(&body).unwrap();
-        http::Response::new(Body::from(bytes))
-    }
-}
-
-impl<T> From<std::sync::PoisonError<T>> for Error {
-    fn from(err: std::sync::PoisonError<T>) -> Self {
-        Error::IOError(err.to_string())
+impl From<TantivyError> for Error {
+    fn from(e: TantivyError) -> Self {
+        match e {
+            TantivyError::IOError(e) => Error::IOError(e.to_string()),
+            TantivyError::DataCorruption(e) => Error::IOError(format!("Data corruption: {:?}", e)),
+            TantivyError::PathDoesNotExist(e) => Error::IOError(format!("{:?}", e)),
+            TantivyError::FileAlreadyExists(e) => Error::IOError(format!("{:?}", e)),
+            TantivyError::IndexAlreadyExists => Error::IOError(e.to_string()),
+            TantivyError::LockFailure(e, _) => Error::IOError(e.to_string()),
+            TantivyError::Poisoned => Error::PoisonedError,
+            TantivyError::InvalidArgument(e) => Error::IOError(e),
+            TantivyError::ErrorInThread(e) => Error::IOError(e),
+            TantivyError::SchemaError(e) => Error::QueryError(e),
+            TantivyError::SystemError(_) => Error::UnknownError,
+        }
     }
 }
 
 impl From<std::io::Error> for Error {
-    fn from(err: std::io::Error) -> Self {
-        Error::IOError(err.to_string())
+    fn from(e: std::io::Error) -> Self {
+        Error::IOError(e.to_string())
     }
 }
 
-impl From<std::str::Utf8Error> for Error {
-    fn from(err: std::str::Utf8Error) -> Self {
-        Error::IOError(err.to_string())
+impl From<Error> for http::Response<Body> {
+    fn from(err: Error) -> Self {
+        let body = ErrorResponse::new(err);
+        let bytes = serde_json::to_vec(&body).unwrap();
+        http::Response::new(Body::from(bytes))
     }
 }
 
 impl From<serde_json::Error> for Error {
     fn from(err: serde_json::Error) -> Self {
         Error::QueryError(err.to_string())
-    }
-}
-
-impl From<Box<dyn ::std::error::Error + Send + 'static>> for Error {
-    fn from(err: Box<dyn ::std::error::Error + Send + 'static>) -> Self {
-        Error::IOError(err.description().to_owned())
-    }
-}
-
-impl From<TantivyError> for Error {
-    fn from(err: tantivy::Error) -> Self {
-        Error::IOError(err.to_string())
     }
 }

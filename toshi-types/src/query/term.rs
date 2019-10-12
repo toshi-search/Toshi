@@ -14,6 +14,7 @@ impl ExactTerm {
     pub fn new(term: KeyValue<String, String>) -> Self {
         Self { term }
     }
+
     pub fn with_term(field: String, value: String) -> Self {
         Self {
             term: KeyValue::new(field, value),

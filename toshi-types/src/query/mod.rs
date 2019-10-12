@@ -10,15 +10,6 @@ use tantivy::schema::Schema;
 use tantivy::Term;
 
 use crate::error::Error;
-
-pub mod bool;
-pub mod facet;
-pub mod fuzzy;
-pub mod phrase;
-pub mod range;
-pub mod regex;
-pub mod term;
-
 pub use crate::query::{
     bool::BoolQuery,
     facet::FacetQuery,
@@ -29,6 +20,14 @@ pub use crate::query::{
     term::ExactTerm,
 };
 
+pub mod bool;
+pub mod facet;
+pub mod fuzzy;
+pub mod phrase;
+pub mod range;
+pub mod regex;
+pub mod term;
+
 pub trait CreateQuery {
     fn create_query(self, schema: &Schema) -> crate::Result<Box<dyn TantivyQuery>>;
 }
@@ -36,13 +35,12 @@ pub trait CreateQuery {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(untagged)]
 pub enum Query {
-    Boolean { bool: BoolQuery },
     Fuzzy(FuzzyQuery),
     Exact(ExactTerm),
     Phrase(PhraseQuery),
     Regex(RegexQuery),
     Range(RangeQuery),
-
+    Boolean { bool: BoolQuery },
     Raw { raw: String },
     All,
 }
@@ -64,15 +62,15 @@ impl Search {
         100
     }
 
-    pub fn all_query() -> Option<Query> {
+    pub(crate) fn all_query() -> Option<Query> {
         Some(Query::All)
     }
 
     pub fn all_docs() -> Self {
         Self {
-            query: Some(Query::All),
+            query: Self::all_query(),
             facets: None,
-            limit: 100,
+            limit: Self::default_limit(),
         }
     }
 }

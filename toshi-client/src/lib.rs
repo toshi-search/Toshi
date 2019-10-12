@@ -1,6 +1,7 @@
 use std::fmt;
 
 use isahc::prelude::*;
+use isahc::HttpClientBuilder;
 use serde::{de::DeserializeOwned, Serialize};
 use tantivy::schema::Schema;
 
@@ -10,33 +11,27 @@ use toshi_types::{
     server::{AddDocument, IndexOptions, SchemaBody},
 };
 
-pub mod error;
-
 use crate::error::ToshiClientError;
+
+pub mod error;
 
 pub type Result<T> = std::result::Result<T, ToshiClientError>;
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct ToshiClient {
     host: String,
     client: HttpClient,
 }
 
 impl ToshiClient {
-    pub fn new<H>(host: H) -> Self
-    where
-        H: fmt::Display,
-    {
+    pub fn new<H: fmt::Display>(host: H) -> Self {
         Self {
             host: host.to_string(),
-            client: HttpClient::default(),
+            client: HttpClientBuilder::default().build().unwrap(),
         }
     }
 
-    pub fn with_client<H>(host: H, client: HttpClient) -> Self
-    where
-        H: fmt::Display,
-    {
+    pub fn with_client<H: fmt::Display>(host: H, client: HttpClient) -> Self {
         Self {
             host: host.to_string(),
             client,
@@ -80,11 +75,10 @@ impl ToshiClient {
         self.client.put(uri, body).map_err(Into::into)
     }
 
-    //    pub fn index_summary(&self, index: String, include_sizes: bool) -> Result<IndexMeta> {
-    //        let uri = self.uri(format!("{}/_summary?include_sizes={}", index, include_sizes));
-    //
-    //        self.client.get(uri)?.json().map_err(Into::into)
-    //    }
+    pub fn index_summary(&self, index: String, include_sizes: bool) -> Result<Body> {
+        let uri = self.uri(format!("{}/_summary?include_sizes={}", index, include_sizes));
+        self.client.get(uri).map(|b| b.into_body()).map_err(Into::into)
+    }
 }
 
 #[cfg(test)]

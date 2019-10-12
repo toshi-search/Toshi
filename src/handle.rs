@@ -112,46 +112,23 @@ impl IndexHandle for LocalIndex {
         });
 
         if let Some(query) = search.query {
-            let mut scored_docs = match query {
-                Query::Regex(regex) => {
-                    let regex_query = regex.create_query(&schema)?;
-                    debug!("{:?}", regex_query);
-                    searcher.search(&*regex_query, &multi_collector)?
-                }
-                Query::Phrase(phrase) => {
-                    let phrase_query = phrase.create_query(&schema)?;
-                    debug!("{:?}", phrase_query);
-                    searcher.search(&*phrase_query, &multi_collector)?
-                }
-                Query::Fuzzy(fuzzy) => {
-                    let fuzzy_query = fuzzy.create_query(&schema)?;
-                    debug!("{:?}", fuzzy_query);
-                    searcher.search(&*fuzzy_query, &multi_collector)?
-                }
-                Query::Exact(term) => {
-                    let exact_query = term.create_query(&schema)?;
-                    debug!("{:?}", exact_query);
-                    searcher.search(&*exact_query, &multi_collector)?
-                }
-                Query::Boolean { bool } => {
-                    let bool_query = bool.create_query(&schema)?;
-                    debug!("{:?}", bool_query);
-                    searcher.search(&*bool_query, &multi_collector)?
-                }
-                Query::Range(range) => {
-                    let range_query = range.create_query(&schema)?;
-                    debug!("{:?}", range_query);
-                    searcher.search(&*range_query, &multi_collector)?
-                }
+            let gen_query = match query {
+                Query::Regex(regex) => regex.create_query(&schema)?,
+                Query::Phrase(phrase) => phrase.create_query(&schema)?,
+                Query::Fuzzy(fuzzy) => fuzzy.create_query(&schema)?,
+                Query::Exact(term) => term.create_query(&schema)?,
+                Query::Range(range) => range.create_query(&schema)?,
+                Query::Boolean { bool } => bool.create_query(&schema)?,
                 Query::Raw { raw } => {
                     let fields: Vec<Field> = schema.fields().iter().filter_map(|e| schema.get_field(e.name())).collect();
                     let query_parser = QueryParser::for_index(&self.index, fields);
-                    let query = query_parser.parse_query(&raw)?;
-                    debug!("{:?}", query);
-                    searcher.search(&*query, &multi_collector)?
+                    query_parser.parse_query(&raw)?
                 }
-                Query::All => searcher.search(&AllQuery, &multi_collector)?,
+                Query::All => Box::new(AllQuery),
             };
+
+            debug!("{:?}", gen_query);
+            let mut scored_docs = searcher.search(&*gen_query, &multi_collector)?;
 
             let docs: Vec<ScoredDoc<BTreeMap<_, _>>> = top_handle
                 .extract(&mut scored_docs)
