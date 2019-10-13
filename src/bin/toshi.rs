@@ -12,12 +12,12 @@ use tokio::sync::oneshot;
 use tokio::sync::oneshot::{Receiver, Sender};
 use tracing::*;
 
-use toshi::cluster::rpc_server::RpcServer;
-use toshi::commit::watcher;
-use toshi::index::{IndexCatalog, SharedCatalog};
-use toshi::router::router_with_catalog;
-use toshi::settings::{Settings, HEADER, RPC_HEADER};
-use toshi::{shutdown, support};
+use toshi_server::cluster::rpc_server::RpcServer;
+use toshi_server::commit::watcher;
+use toshi_server::index::{IndexCatalog, SharedCatalog};
+use toshi_server::router::router_with_catalog;
+use toshi_server::settings::{Settings, HEADER, RPC_HEADER};
+use toshi_server::{shutdown, support};
 
 pub fn main() -> Result<(), ()> {
     let settings = support::settings();

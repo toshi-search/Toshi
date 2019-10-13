@@ -10,6 +10,10 @@ impl FacetQuery {
         Self(facets)
     }
 
+    pub fn with_terms(field: String, terms: Vec<String>) -> Self {
+        Self(KeyValue::new(field, terms))
+    }
+
     pub fn get_facets_values(&self) -> &[String] {
         &self.0.value
     }

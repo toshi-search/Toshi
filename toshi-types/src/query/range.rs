@@ -2,11 +2,11 @@ use std::ops::Bound;
 
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
-use tantivy::query::{Query, RangeQuery as TantivyRangeQuery};
+use serde_json::{to_value, Value};
+use tantivy::query::{Query as TantivyQuery, RangeQuery as TantivyRangeQuery};
 use tantivy::schema::{FieldType, Schema};
 
-use crate::query::{CreateQuery, KeyValue};
+use crate::query::{CreateQuery, KeyValue, Query};
 use crate::{error::Error, Result};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -27,9 +27,86 @@ pub struct RangeQuery {
 }
 
 impl CreateQuery for RangeQuery {
-    fn create_query(self, schema: &Schema) -> Result<Box<dyn Query>> {
+    fn create_query(self, schema: &Schema) -> Result<Box<dyn TantivyQuery>> {
         let KeyValue { field, value, .. } = self.range;
         create_range_query(schema, &field, value)
+    }
+}
+
+impl RangeQuery {
+    pub fn new(field: String, ranges: Ranges) -> Self {
+        Self {
+            range: KeyValue::new(field, ranges),
+        }
+    }
+
+    pub fn builder<V>() -> RangeQueryBuilder<V>
+    where
+        V: Serialize + Default,
+    {
+        RangeQueryBuilder::default()
+    }
+}
+
+#[derive(Default)]
+pub struct RangeQueryBuilder<V>
+where
+    V: Serialize + Default,
+{
+    field: String,
+    gte: V,
+    lte: V,
+    lt: V,
+    gt: V,
+    boost: f32,
+}
+
+impl<V> RangeQueryBuilder<V>
+where
+    V: Serialize + Default,
+{
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn for_field<F: ToString>(mut self, field: F) -> Self {
+        self.field = field.to_string();
+        self
+    }
+
+    pub fn gte(mut self, gte: V) -> Self {
+        self.gte = gte;
+        self
+    }
+
+    pub fn lte(mut self, lte: V) -> Self {
+        self.lte = lte;
+        self
+    }
+    pub fn lt(mut self, lt: V) -> Self {
+        self.lt = lt;
+        self
+    }
+
+    pub fn gt(mut self, gt: V) -> Self {
+        self.gt = gt;
+        self
+    }
+
+    pub fn with_boost(mut self, boost: f32) -> Self {
+        self.boost = boost;
+        self
+    }
+
+    pub fn build(self) -> Query {
+        let range_q = Ranges::ValueRange {
+            gte: to_value(self.gte).ok(),
+            lte: to_value(self.lte).ok(),
+            lt: to_value(self.lt).ok(),
+            gt: to_value(self.gt).ok(),
+            boost: Some(self.boost),
+        };
+        Query::Range(RangeQuery::new(self.field, range_q))
     }
 }
 
@@ -57,7 +134,7 @@ where
     Ok((include_exclude(lt, lte)?, include_exclude(gt, gte)?))
 }
 
-pub fn create_range_query(schema: &Schema, field: &str, r: Ranges) -> Result<Box<dyn Query>> {
+pub fn create_range_query(schema: &Schema, field: &str, r: Ranges) -> Result<Box<dyn TantivyQuery>> {
     match r {
         Ranges::ValueRange { gte, lte, lt, gt, .. } => {
             let field = schema

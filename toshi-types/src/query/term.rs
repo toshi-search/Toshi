@@ -1,3 +1,5 @@
+use std::fmt;
+
 use serde::{Deserialize, Serialize};
 use tantivy::query::{Query, TermQuery};
 use tantivy::schema::{IndexRecordOption, Schema};
@@ -15,9 +17,13 @@ impl ExactTerm {
         Self { term }
     }
 
-    pub fn with_term(field: String, value: String) -> Self {
+    pub fn with_term<K, V>(field: K, value: V) -> Self
+    where
+        K: fmt::Display,
+        V: fmt::Display,
+    {
         Self {
-            term: KeyValue::new(field, value),
+            term: KeyValue::new(field.to_string(), value.to_string()),
         }
     }
 }

@@ -1,5 +1,5 @@
 [package]
-name    = "toshi-client"
+name    = "toshi"
 version = "0.1.1"
 authors = ["Stephen Carman <shcarman@gmail.com>"]
 description = "A client for a full text search engine based on Tantivy"

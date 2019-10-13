@@ -11,22 +11,22 @@ use tantivy::Term;
 
 use crate::error::Error;
 pub use crate::query::{
-    bool::BoolQuery,
+    boolean::{BoolQuery, BoolQueryBuilder},
     facet::FacetQuery,
-    fuzzy::{FuzzyQuery, FuzzyTerm},
+    fuzzy::{FuzzyQuery, FuzzyTerm, FuzzyTermBuilder},
     phrase::{PhraseQuery, TermPair},
-    range::{RangeQuery, Ranges},
+    range::{RangeQuery, RangeQueryBuilder, Ranges},
     regex::RegexQuery,
     term::ExactTerm,
 };
 
-pub mod bool;
-pub mod facet;
-pub mod fuzzy;
-pub mod phrase;
-pub mod range;
-pub mod regex;
-pub mod term;
+mod boolean;
+mod facet;
+mod fuzzy;
+mod phrase;
+mod range;
+mod regex;
+mod term;
 
 pub trait CreateQuery {
     fn create_query(self, schema: &Schema) -> crate::Result<Box<dyn TantivyQuery>>;
@@ -58,6 +58,14 @@ impl Search {
         Search { query, facets, limit }
     }
 
+    pub fn builder() -> SearchBuilder {
+        SearchBuilder::new()
+    }
+
+    pub fn with_query(query: Query) -> Self {
+        Self::new(Some(query), None, Self::default_limit())
+    }
+
     pub fn default_limit() -> usize {
         100
     }
@@ -72,6 +80,44 @@ impl Search {
             facets: None,
             limit: Self::default_limit(),
         }
+    }
+}
+
+pub struct SearchBuilder {
+    query: Query,
+    facets: Option<FacetQuery>,
+    limit: usize,
+}
+
+impl Default for SearchBuilder {
+    fn default() -> Self {
+        SearchBuilder::new()
+    }
+}
+
+impl SearchBuilder {
+    pub fn new() -> Self {
+        Self {
+            query: Query::All,
+            facets: None,
+            limit: 100,
+        }
+    }
+
+    pub fn with_query(mut self, query: Query) -> Self {
+        self.query = query;
+        self
+    }
+    pub fn with_facets(mut self, facets: FacetQuery) -> Self {
+        self.facets = Some(facets);
+        self
+    }
+    pub fn with_limit(mut self, limit: usize) -> Self {
+        self.limit = limit;
+        self
+    }
+    pub fn build(self) -> Search {
+        Search::new(Some(self.query), self.facets, self.limit)
     }
 }
 
