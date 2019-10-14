@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use tantivy::query::{FuzzyTermQuery, Query as TantivyQuery};
 use tantivy::schema::Schema;
 
-use crate::query::{make_field_value, CreateQuery, KeyValue};
+use crate::query::{make_field_value, CreateQuery, KeyValue, Query};
 use crate::Result;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -27,15 +27,16 @@ impl FuzzyTerm {
 }
 
 #[derive(Default)]
-pub struct FuzzyTermBuilder {
+pub struct FuzzyQueryBuilder {
+    field: String,
     value: String,
     distance: u8,
     transposition: bool,
 }
 
-impl FuzzyTermBuilder {
+impl FuzzyQueryBuilder {
     pub fn new() -> Self {
-        FuzzyTermBuilder::default()
+        FuzzyQueryBuilder::default()
     }
 
     pub fn with_value<V>(mut self, value: V) -> Self
@@ -43,6 +44,14 @@ impl FuzzyTermBuilder {
         V: fmt::Display,
     {
         self.value = value.to_string();
+        self
+    }
+
+    pub fn for_field<V>(mut self, field: V) -> Self
+    where
+        V: fmt::Display,
+    {
+        self.field = field.to_string();
         self
     }
 
@@ -56,8 +65,10 @@ impl FuzzyTermBuilder {
         self
     }
 
-    pub fn build(self) -> FuzzyTerm {
-        FuzzyTerm::new(self.value, self.distance, self.transposition)
+    pub fn build(self) -> Query {
+        let term = FuzzyTerm::new(self.value, self.distance, self.transposition);
+        let query = FuzzyQuery::new(KeyValue::new(self.field, term));
+        Query::Fuzzy(query)
     }
 }
 
@@ -69,6 +80,10 @@ pub struct FuzzyQuery {
 impl FuzzyQuery {
     pub fn new(fuzzy: KeyValue<String, FuzzyTerm>) -> Self {
         Self { fuzzy }
+    }
+
+    pub fn builder() -> FuzzyQueryBuilder {
+        FuzzyQueryBuilder::default()
     }
 }
 

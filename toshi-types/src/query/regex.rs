@@ -14,7 +14,7 @@ impl RegexQuery {
     pub fn new(regex: KeyValue<String, String>) -> Self {
         Self { regex }
     }
-    pub fn with_regex(field: String, regex: String) -> Self {
+    pub fn from_str(field: String, regex: String) -> Self {
         Self::new(KeyValue::new(field, regex))
     }
 }

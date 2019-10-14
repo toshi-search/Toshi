@@ -10,7 +10,8 @@ edition = "2018"
 [dependencies]
 toshi-types = { path = "../toshi-types" }
 http = "^0.1"
-failure = "^0.1"
+thiserror = "^1.0"
+anyhow = "^1.0"
 serde = "^1.0"
 serde_json = "^1.0"
 tantivy = "^0.10"

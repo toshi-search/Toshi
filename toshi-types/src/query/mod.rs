@@ -13,7 +13,7 @@ use crate::error::Error;
 pub use crate::query::{
     boolean::{BoolQuery, BoolQueryBuilder},
     facet::FacetQuery,
-    fuzzy::{FuzzyQuery, FuzzyTerm, FuzzyTermBuilder},
+    fuzzy::{FuzzyQuery, FuzzyQueryBuilder, FuzzyTerm},
     phrase::{PhraseQuery, TermPair},
     range::{RangeQuery, RangeQueryBuilder, Ranges},
     regex::RegexQuery,

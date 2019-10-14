@@ -1,11 +1,11 @@
 use std::fmt::Debug;
 
-use failure::Fail;
 use hyper::Body;
 use serde::{Deserialize, Serialize};
 use tantivy::query::QueryParserError;
 use tantivy::schema::DocParsingError;
 use tantivy::TantivyError;
+use thiserror::Error;
 
 #[derive(Serialize)]
 pub struct ErrorResponse {
@@ -20,21 +20,21 @@ impl ErrorResponse {
     }
 }
 
-#[derive(Debug, Fail, Serialize, Deserialize)]
+#[derive(Debug, Error, Serialize, Deserialize)]
 pub enum Error {
-    #[fail(display = "IO Error: {}", _0)]
+    #[error("IO Error: {0}")]
     IOError(String),
-    #[fail(display = "Unknown Field: '{}' queried", _0)]
+    #[error("Unknown Field: '{0}' queried")]
     UnknownIndexField(String),
-    #[fail(display = "Unknown Index: '{}' does not exist", _0)]
+    #[error("Unknown Index: '{0}' does not exist")]
     UnknownIndex(String),
-    #[fail(display = "Error in query execution: '{}'", _0)]
+    #[error("Error in query execution: '{0}'")]
     QueryError(String),
-    #[fail(display = "Failed to find known executor")]
+    #[error("Failed to find known executor")]
     SpawnError,
-    #[fail(display = "An unknown error occurred")]
+    #[error("An unknown error occurred")]
     UnknownError,
-    #[fail(display = "Thread pool is poisoned")]
+    #[error("Thread pool is poisoned")]
     PoisonedError,
 }
 

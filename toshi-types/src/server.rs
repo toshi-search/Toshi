@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use failure::_core::fmt::{Error, Formatter};
 use serde::{Deserialize, Serialize};
+use std::fmt::Formatter;
 use tantivy::schema::Schema;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -25,7 +25,7 @@ pub struct AddDocument<D> {
 pub struct SchemaBody(pub Schema);
 
 impl std::fmt::Debug for SchemaBody {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), std::fmt::Error> {
         f.write_str("Schema {\n")?;
         for field in self.0.fields() {
             f.write_fmt(format_args!("{:2}{:15}: {:?},\n", " ", field.name(), field.field_type()))?;

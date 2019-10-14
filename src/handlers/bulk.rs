@@ -117,7 +117,7 @@ mod tests {
     use std::thread::sleep;
     use std::time::Duration;
 
-    use tokio::runtime::Runtime;
+    use tokio::runtime::Builder;
 
     use crate::handlers::summary::flush;
     use crate::handlers::SearchHandler;
@@ -128,7 +128,7 @@ mod tests {
 
     #[test]
     fn test_bulk_index() -> Result<(), Box<dyn std::error::Error>> {
-        let mut runtime = Runtime::new()?;
+        let mut runtime = Builder::new().core_threads(1).blocking_threads(4).build()?;
         let server = create_test_catalog("test_index");
         let lock = Arc::new(AtomicBool::new(false));
         let handler = BulkHandler::new(Arc::clone(&server), Arc::clone(&lock));

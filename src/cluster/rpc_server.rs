@@ -66,7 +66,7 @@ impl RpcServer {
     pub fn create_client(uri: http::Uri) -> impl Future<Item = RpcClient, Error = ConnectError<Error>> {
         info!("Creating Client to: {:?}", uri);
         let dst = Destination::try_from_uri(uri.clone()).unwrap();
-        let connector = Connector::new(HttpConnector::new(num_cpus::get()));
+        let connector = Connector::new(HttpConnector::new(8));
         let mut connect = Connect::new(connector);
 
         connect.make_service(dst).map(move |c| {
