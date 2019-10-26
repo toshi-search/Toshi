@@ -130,6 +130,20 @@ is behind this flag, so if experimental is set to false then all these settings 
 
 
 #### Building and Running
+
+###### With Docker
+
+```
+docker run --rm -it --name="toshidaemon" -p 8080:8080 -v "/$(pwd)/config.toml:/home/Toshi/config/config.toml" -v "/$(pwd)/data:/home/Toshi/data" jonarod/toshi_search:slim
+```
+
+- `-it` run the docker in iteractive mode (see the logs). Otherwise, replace this by `-d` (=detached) to let it run in the background
+- `-p 8080` is the port to listen to
+- `/$(pwd)/config.toml` is the config file
+- `/$(pwd)/data` is the database (empty if you just started)
+
+
+###### From scratch
 Toshi can be built using `cargo build --release`. Once Toshi is built you can run `./target/release/toshi` from the top level directory to start Toshi according to the configuration in config/config.toml
 
 You should get a startup message like this.
