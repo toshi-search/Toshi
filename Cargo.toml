@@ -46,7 +46,7 @@ clap                   = { version = "^2.3", features = ["color"] }
 uuid                   = { version = "^0.7", features = ["v4"] }
 tower-grpc             = { version = "^0.1", features = ["tower-hyper"] }
 tower-consul           = { git = "https://github.com/LucioFranco/tower-consul" }
-tracing-futures        = "0.0.1-alpha.1"
+tracing-futures        = "0.1.0"
 tracing-log            = "^0.1"
 tracing-fmt            = "^0.1"
 
