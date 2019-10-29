@@ -82,7 +82,7 @@ The detail level to use for Toshi's logging.
 ##### Json Parsing
 `json_parsing_threads = 4`
 
-When Toshi does a bulk ingest of documents it will spin up a number of threads to parse the document's JSON as it's
+When Toshi does a bulk ingest of documents it will spin up a number of threads to parse the document's json as it's
 received. This controls the number of threads spawned to handle this job.
 
 ##### Bulk Buffer
@@ -162,7 +162,7 @@ Once Toshi is up and running we can create an index. Toshi uses Tantivy so creat
 ```bash
 curl -X PUT \
   http://localhost:8080/test_index/_create \
-  -H 'Content-Type: application/JSON' \
+  -H 'Content-Type: application/json' \
   -d '[
     {
       "name": "test_text",
@@ -201,7 +201,7 @@ Now you can add documents to our index. The `options` field can be omitted if a 
 ```bash
 curl -X PUT \
   http://localhost:8080/test_index \
-  -H 'Content-Type: application/JSON' \
+  -H 'Content-Type: application/json' \
   -d '{
         "options": { "commit": true },
         "document": {
@@ -215,39 +215,39 @@ curl -X PUT \
 Now we can retrieve all the documents in an index with a simple GET call:
 
 ```bash
-curl -X GET http://localhost:8080/test_index -H 'Content-Type: application/JSON'
+curl -X GET http://localhost:8080/test_index -H 'Content-Type: application/json'
 ```
 
 #### Example Queries
 ##### Term Query
-```JSON
+```json
 { "query": {"term": {"test_text": "document" } }, "limit": 10 }
 ```
 ##### Fuzzy Term Query
-```JSON
+```json
 { "query": {"fuzzy": {"test_text": {"value": "document", "distance": 0, "transposition": false } } }, "limit": 10 }
 ```
 ##### Phrase Query
-```JSON
+```json
 { "query": {"phrase": {"test_text": {"terms": ["test","document"] } } }, "limit": 10 }
 ```
 ##### Range Query
-```JSON
+```json
 { "query": {"range": { "test_i64": { "gte": 2012, "lte": 2015 } } }, "limit": 10 }
 ```
 ##### Regex Query
-```JSON
+```json
 { "query": {"regex": { "test_text": "d[ou]{1}c[k]?ument" } }, "limit": 10 }
 ```
 ##### Boolean Query
-```JSON
+```json
 { "query": {"bool": {"must": [ { "term": { "test_text": "document" } } ], "must_not": [ {"range": {"test_i64": { "gt": 2017 } } } ] } }, "limit": 10 }
 ```
 
 ##### Usage
 To try any of the above queries you can use the above example
 ```bash
-curl -X POST http://localhost:8080/test_index -H 'Content-Type: application/JSON' -d '{ "query": {"term": {"test_text": "document" } }, "limit": 10 }'
+curl -X POST http://localhost:8080/test_index -H 'Content-Type: application/json' -d '{ "query": {"term": {"test_text": "document" } }, "limit": 10 }'
 ```
 Also, to note, limit is optional, 10 is the default value. It's only included here for completeness.
 
