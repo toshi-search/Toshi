@@ -1,5 +1,5 @@
 [package]
-name    = "toshi"
+name    = "toshi-server"
 version = "0.1.1"
 authors = ["Stephen Carman <shcarman@gmail.com>"]
 description = "A full text search engine based on Tantivy"
@@ -14,10 +14,11 @@ name = "toshi"
 path = "src/lib.rs"
 
 [workspace]
-members = [ "./", "toshi-proto", "toshi-test" ]
+members = [ "./", "toshi-proto", "toshi-test", "toshi-client", "toshi-types" ]
 
 [dependencies]
 toshi-proto            = { path = "toshi-proto" }
+toshi-types            = { path = "toshi-types" }
 tower                  = "^0.1"
 tower-buffer           = "^0.1"
 tower-hyper            = "^0.1"
@@ -32,8 +33,8 @@ tantivy                = "^0.10"
 tokio                  = "^0.1"
 tokio-signal           = "^0.2"
 config                 = "^0.9"
-failure                = "^0.1"
-num_cpus               = "^1"
+thiserror              = "^1.0"
+anyhow                 = "^1.0"
 hostname               = "^0.1"
 base64                 = "^0.10"
 crossbeam              = "^0.7"
@@ -45,8 +46,7 @@ serde                  = { version = "^1.0", features = ["derive"] }
 clap                   = { version = "^2.3", features = ["color"] }
 uuid                   = { version = "^0.7", features = ["v4"] }
 tower-grpc             = { version = "^0.1", features = ["tower-hyper"] }
-tower-consul           = { git = "https://github.com/LucioFranco/tower-consul" }
-tracing-futures        = "0.0.1-alpha.1"
+tracing-futures        = "^0.1"
 tracing-log            = "^0.1"
 tracing-fmt            = "^0.1"
 

@@ -6,11 +6,18 @@ use tantivy::Term;
 use crate::query::{make_field_value, CreateQuery, KeyValue};
 use crate::{error::Error, Result};
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PhraseQuery {
-    phrase: KeyValue<TermPair>,
+    phrase: KeyValue<String, TermPair>,
 }
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+
+impl PhraseQuery {
+    pub fn new(phrase: KeyValue<String, TermPair>) -> Self {
+        PhraseQuery { phrase }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TermPair {
     terms: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -23,19 +30,13 @@ impl TermPair {
     }
 }
 
-impl PhraseQuery {
-    pub fn new(phrase: KeyValue<TermPair>) -> Self {
-        PhraseQuery { phrase }
-    }
-}
-
 impl CreateQuery for PhraseQuery {
     fn create_query(self, schema: &Schema) -> Result<Box<dyn Query>> {
         let KeyValue { field, value } = self.phrase;
         if value.terms.len() <= 1 {
             return Err(Error::QueryError("Phrase Query must have more than 1 term".into()));
         }
-        if let Some(offsets) = value.offsets {
+        if let Some(offsets) = &value.offsets {
             if value.terms.len() != offsets.len() {
                 return Err(Error::QueryError(format!(
                     "Differing numbers of offsets and query terms ({} and {})",
@@ -45,10 +46,10 @@ impl CreateQuery for PhraseQuery {
             }
             let paired_terms = value
                 .terms
-                .into_iter()
-                .zip(offsets.into_iter())
+                .iter()
+                .zip(offsets)
                 .map(|(t, o)| match make_field_value(schema, &field, &t) {
-                    Ok(f) => Ok((o, f)),
+                    Ok(f) => Ok((*o, f)),
                     Err(e) => Err(e),
                 })
                 .collect::<Result<Vec<(usize, Term)>>>()?;
@@ -91,7 +92,8 @@ pub mod tests {
         let mut schema = SchemaBuilder::new();
         schema.add_u64_field("test_u64", FAST);
         let built = schema.build();
-        let query = serde_json::from_str::<PhraseQuery>(body).unwrap().create_query(&built);
+        let phrase: PhraseQuery = serde_json::from_str(body).unwrap();
+        let query = phrase.create_query(&built);
 
         assert_eq!(query.is_err(), true);
         assert_eq!(

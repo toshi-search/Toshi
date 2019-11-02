@@ -18,11 +18,12 @@ use tower_request_modifier::{Builder, RequestModifier};
 use tracing::*;
 
 use toshi_proto::cluster_rpc::*;
+use toshi_types::query::Search;
 
 use crate::handle::IndexHandle;
-use crate::handlers::index::{AddDocument, DeleteDoc};
 use crate::index::IndexCatalog;
-use crate::query::Search;
+use crate::AddDocument;
+use toshi_types::server::DeleteDoc;
 
 pub type Buf = Buffer<RequestModifier<Connection<BoxBody>, BoxBody>, http::Request<BoxBody>>;
 pub type RpcClient = client::IndexService<Buf>;
@@ -65,7 +66,7 @@ impl RpcServer {
     pub fn create_client(uri: http::Uri) -> impl Future<Item = RpcClient, Error = ConnectError<Error>> {
         info!("Creating Client to: {:?}", uri);
         let dst = Destination::try_from_uri(uri.clone()).unwrap();
-        let connector = Connector::new(HttpConnector::new(num_cpus::get()));
+        let connector = Connector::new(HttpConnector::new(8));
         let mut connect = Connect::new(connector);
 
         connect.make_service(dst).map(move |c| {
@@ -131,11 +132,7 @@ impl server::IndexService for RpcServer {
                     let result = Some(RpcServer::ok_result());
                     Box::new(future::finished(Response::new(RpcServer::create_search_reply(result, query_bytes))))
                 }
-                Err(e) => {
-                    info!("Query Response = {:?}", e);
-                    let result = Some(RpcServer::create_result(1, e.to_string()));
-                    Box::new(future::finished(Response::new(RpcServer::create_search_reply(result, vec![]))))
-                }
+                Err(e) => Self::error_response(Code::Internal, e.to_string()),
             }
         } else {
             Self::error_response(Code::NotFound, format!("Index: {} not found", inner.index))

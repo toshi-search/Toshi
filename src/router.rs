@@ -96,6 +96,7 @@ pub fn router_with_catalog(
 
 #[cfg(test)]
 pub mod tests {
+
     use http::StatusCode;
 
     use lazy_static::lazy_static;

@@ -4,9 +4,8 @@ use http::{Response, StatusCode};
 use hyper::Body;
 use serde::Serialize;
 
-use crate::error::Error;
 use crate::handlers::ResponseFuture;
-use crate::results::ErrorResponse;
+use toshi_types::error::{Error, ErrorResponse};
 
 pub fn with_body<T>(body: T) -> http::Response<Body>
 where
@@ -21,7 +20,7 @@ where
 }
 
 pub fn error_response(code: StatusCode, e: Error) -> http::Response<Body> {
-    let mut resp = with_body(ErrorResponse::from(e));
+    let mut resp = with_body(ErrorResponse { message: e.to_string() });
     *resp.status_mut() = code;
     resp
 }

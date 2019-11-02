@@ -117,19 +117,18 @@ mod tests {
     use std::thread::sleep;
     use std::time::Duration;
 
-    use tokio::runtime::Runtime;
+    use tokio::runtime::Builder;
 
-    use crate::error::Error;
     use crate::handlers::summary::flush;
     use crate::handlers::SearchHandler;
     use crate::index::tests::*;
-    use crate::results::SearchResults;
 
     use super::*;
+    use crate::SearchResults;
 
     #[test]
-    fn test_bulk_index() -> Result<(), Error> {
-        let mut runtime = Runtime::new()?;
+    fn test_bulk_index() -> Result<(), Box<dyn std::error::Error>> {
+        let mut runtime = Builder::new().core_threads(1).blocking_threads(4).build()?;
         let server = create_test_catalog("test_index");
         let lock = Arc::new(AtomicBool::new(false));
         let handler = BulkHandler::new(Arc::clone(&server), Arc::clone(&lock));
@@ -145,7 +144,7 @@ mod tests {
         let flush = flush(Arc::clone(&server), "test_index".to_string());
         runtime.block_on(flush)?;
         assert_eq!(result.is_ok(), true);
-        sleep(Duration::from_secs(2));
+        sleep(Duration::from_secs(3));
 
         let search = SearchHandler::new(Arc::clone(&server));
         let check_docs = runtime.block_on(search.all_docs("test_index".into()))?;

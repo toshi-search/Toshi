@@ -3,11 +3,15 @@ use serde::{Deserialize, Serialize};
 use crate::query::KeyValue;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct FacetQuery(KeyValue<Vec<String>>);
+pub struct FacetQuery(KeyValue<String, Vec<String>>);
 
 impl FacetQuery {
-    pub fn new(facets: KeyValue<Vec<String>>) -> Self {
+    pub fn new(facets: KeyValue<String, Vec<String>>) -> Self {
         Self(facets)
+    }
+
+    pub fn with_terms(field: String, terms: Vec<String>) -> Self {
+        Self(KeyValue::new(field, terms))
     }
 
     pub fn get_facets_values(&self) -> &[String] {

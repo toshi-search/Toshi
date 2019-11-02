@@ -1,45 +1,41 @@
-use failure::Fail;
+use std::fmt::Debug;
+
 use hyper::Body;
 use serde::{Deserialize, Serialize};
 use tantivy::query::QueryParserError;
 use tantivy::schema::DocParsingError;
 use tantivy::TantivyError;
+use thiserror::Error;
 
-use crate::cluster::RPCError;
-use crate::results::ErrorResponse;
+#[derive(Serialize)]
+pub struct ErrorResponse {
+    pub message: String,
+}
 
-#[derive(Debug, Fail, Serialize, Deserialize)]
+impl ErrorResponse {
+    pub fn new<M: std::fmt::Display>(message: M) -> Self {
+        Self {
+            message: message.to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Error, Serialize, Deserialize)]
 pub enum Error {
-    #[fail(display = "IO Error: {}", _0)]
+    #[error("IO Error: {0}")]
     IOError(String),
-    #[fail(display = "Unknown Field: '{}' queried", _0)]
+    #[error("Unknown Field: '{0}' queried")]
     UnknownIndexField(String),
-    #[fail(display = "Unknown Index: '{}' does not exist", _0)]
+    #[error("Unknown Index: '{0}' does not exist")]
     UnknownIndex(String),
-    #[fail(display = "Error in query execution: '{}'", _0)]
+    #[error("Error in query execution: '{0}'")]
     QueryError(String),
-    #[fail(display = "Failed to find known executor")]
+    #[error("Failed to find known executor")]
     SpawnError,
-    #[fail(display = "An unknown error occurred")]
+    #[error("An unknown error occurred")]
     UnknownError,
-}
-
-impl From<Error> for http::Response<Body> {
-    fn from(err: Error) -> Self {
-        ErrorResponse::from(err).into()
-    }
-}
-
-impl From<hyper::Error> for Error {
-    fn from(err: hyper::Error) -> Self {
-        Error::IOError(err.to_string())
-    }
-}
-
-impl From<TantivyError> for Error {
-    fn from(err: tantivy::Error) -> Self {
-        Error::IOError(err.to_string())
-    }
+    #[error("Thread pool is poisoned")]
+    PoisonedError,
 }
 
 impl From<QueryParserError> for Error {
@@ -75,44 +71,40 @@ impl From<DocParsingError> for Error {
     }
 }
 
-impl<T> From<std::sync::PoisonError<T>> for Error {
-    fn from(err: std::sync::PoisonError<T>) -> Self {
-        Error::IOError(err.to_string())
+impl From<TantivyError> for Error {
+    fn from(e: TantivyError) -> Self {
+        match e {
+            TantivyError::IOError(e) => Error::IOError(e.to_string()),
+            TantivyError::DataCorruption(e) => Error::IOError(format!("Data corruption: {:?}", e)),
+            TantivyError::PathDoesNotExist(e) => Error::IOError(format!("{:?}", e)),
+            TantivyError::FileAlreadyExists(e) => Error::IOError(format!("{:?}", e)),
+            TantivyError::IndexAlreadyExists => Error::IOError(e.to_string()),
+            TantivyError::LockFailure(e, _) => Error::IOError(e.to_string()),
+            TantivyError::Poisoned => Error::PoisonedError,
+            TantivyError::InvalidArgument(e) => Error::IOError(e),
+            TantivyError::ErrorInThread(e) => Error::IOError(e),
+            TantivyError::SchemaError(e) => Error::QueryError(e),
+            TantivyError::SystemError(_) => Error::UnknownError,
+        }
     }
 }
 
 impl From<std::io::Error> for Error {
-    fn from(err: std::io::Error) -> Self {
-        Error::IOError(err.to_string())
+    fn from(e: std::io::Error) -> Self {
+        Error::IOError(e.to_string())
     }
 }
 
-impl From<std::str::Utf8Error> for Error {
-    fn from(err: std::str::Utf8Error) -> Self {
-        Error::IOError(err.to_string())
+impl From<Error> for http::Response<Body> {
+    fn from(err: Error) -> Self {
+        let body = ErrorResponse::new(err);
+        let bytes = serde_json::to_vec(&body).unwrap();
+        http::Response::new(Body::from(bytes))
     }
 }
 
 impl From<serde_json::Error> for Error {
     fn from(err: serde_json::Error) -> Self {
         Error::QueryError(err.to_string())
-    }
-}
-
-impl From<Box<dyn ::std::error::Error + Send + 'static>> for Error {
-    fn from(err: Box<dyn ::std::error::Error + Send + 'static>) -> Self {
-        Error::IOError(err.description().to_owned())
-    }
-}
-
-impl From<crossbeam::channel::SendError<bytes::Bytes>> for Error {
-    fn from(err: crossbeam::channel::SendError<bytes::Bytes>) -> Self {
-        Error::IOError(err.to_string())
-    }
-}
-
-impl From<RPCError> for Error {
-    fn from(err: RPCError) -> Self {
-        Error::IOError(err.to_string())
     }
 }

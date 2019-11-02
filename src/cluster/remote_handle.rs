@@ -2,16 +2,16 @@ use std::hash::{Hash, Hasher};
 
 use rand::prelude::*;
 use tokio::prelude::*;
-use tower_grpc::{Request as TowerRequest, Response};
+use tower_grpc::{Request as TowerRequest, Response, Status};
 use tracing::*;
 
 use toshi_proto::cluster_rpc::{DeleteRequest, DocumentRequest, SearchReply, SearchRequest};
+use toshi_types::query::Search;
+use toshi_types::server::DeleteDoc;
 
 use crate::cluster::rpc_server::RpcClient;
-use crate::cluster::RPCError;
 use crate::handle::{IndexHandle, IndexLocation};
-use crate::handlers::index::{AddDocument, DeleteDoc};
-use crate::query::Search;
+use crate::AddDocument;
 
 /// A reference to an index stored somewhere else on the cluster, this operates via calling
 /// the remote host and full filling the request via rpc, we need to figure out a better way
@@ -48,9 +48,9 @@ impl RemoteIndex {
 }
 
 impl IndexHandle for RemoteIndex {
-    type SearchResponse = Box<dyn Future<Item = Vec<SearchReply>, Error = RPCError> + Send>;
-    type DeleteResponse = Box<dyn Future<Item = Vec<i32>, Error = RPCError> + Send>;
-    type AddResponse = Box<dyn Future<Item = Vec<i32>, Error = RPCError> + Send>;
+    type SearchResponse = Box<dyn Future<Item = Vec<SearchReply>, Error = Status> + Send>;
+    type DeleteResponse = Box<dyn Future<Item = Vec<i32>, Error = Status> + Send>;
+    type AddResponse = Box<dyn Future<Item = Vec<i32>, Error = Status> + Send>;
 
     fn get_name(&self) -> String {
         self.name.clone()
@@ -75,7 +75,7 @@ impl IndexHandle for RemoteIndex {
             });
             client.search_index(req).map(Response::into_inner).map_err(|e| {
                 info!("ERR = {:?}", e);
-                e.into()
+                e
             })
         });
 
@@ -104,7 +104,7 @@ impl IndexHandle for RemoteIndex {
                 })
                 .map_err(|e| {
                     info!("ERR = {:?}", e);
-                    e.into()
+                    e
                 })
         });
 
@@ -131,7 +131,7 @@ impl IndexHandle for RemoteIndex {
                 })
                 .map_err(|e| {
                     info!("ERR = {:?}", e);
-                    e.into()
+                    e
                 })
         });
 

@@ -36,9 +36,9 @@ pub mod tests {
 
     use crate::handlers::{IndexHandler, SearchHandler};
     use crate::index::tests::*;
-    use crate::results::SearchResults;
 
     use super::*;
+    use crate::SearchResults;
 
     #[test]
     pub fn test_auto_commit() {

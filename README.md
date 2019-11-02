@@ -82,7 +82,7 @@ The detail level to use for Toshi's logging.
 ##### Json Parsing
 `json_parsing_threads = 4`
 
-When Toshi does a bulk ingest of documents it will spin up a number of threads to parse the document's JSON as it's
+When Toshi does a bulk ingest of documents it will spin up a number of threads to parse the document's json as it's
 received. This controls the number of threads spawned to handle this job.
 
 ##### Bulk Buffer

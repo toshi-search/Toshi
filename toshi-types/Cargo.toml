@@ -1,0 +1,17 @@
+[package]
+name    = "toshi-types"
+version = "0.1.1"
+authors = ["Stephen Carman <shcarman@gmail.com>"]
+description = "The types for a full text search engine based on Tantivy"
+repository = "https://github.com/toshi-search/Toshi"
+license = "MIT"
+edition = "2018"
+
+[dependencies]
+http = "^0.1"
+thiserror = "^1.0"
+anyhow = "^1.0"
+serde = "^1.0"
+serde_json = "^1.0"
+tantivy = "^0.10"
+hyper = "^0.12"

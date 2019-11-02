@@ -1,144 +1,81 @@
 use std::io;
-use std::net::SocketAddr;
-use std::time::Duration;
 
-use failure::Fail;
-use futures::{future, Future};
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 use tower_hyper::client::ConnectError;
-use tracing::*;
 
-use crate::cluster::consul::{ClusterOps, Hosts};
-use crate::settings::Settings;
-
-pub use self::consul::Consul;
 pub use self::node::*;
-use self::placement::{Background, Place};
+use toshi_types::error::Error;
 
 pub type BoxError = Box<dyn ::std::error::Error + Send + Sync + 'static>;
 pub type ConnectionError = ConnectError<io::Error>;
 pub type BufError = tower_buffer::error::ServiceError;
 pub type GrpcError = tower_grpc::Status;
 
-pub mod consul;
 pub mod node;
-pub mod placement;
+pub mod ops;
 pub mod remote_handle;
 pub mod rpc_server;
 pub mod shard;
 
-/// Run the services associated with the cluster
-pub fn run(place_addr: SocketAddr, consul: Consul) -> impl Future<Item = (), Error = std::io::Error> {
-    future::lazy(move || {
-        let (nodes, bg) = Background::new(consul.clone(), Duration::from_secs(2));
-        tokio::spawn(bg.map_err(|e| error!("Error in background placement sync: {:?}", e)));
-        Place::serve(consul, nodes, place_addr)
-    })
-}
-
-pub fn connect_to_consul(settings: &Settings) -> impl Future<Item = (), Error = ()> {
-    let consul_address = settings.experimental_features.consul_addr.clone();
-    let cluster_name = settings.experimental_features.cluster_name.clone();
-    let settings_path = settings.path.clone();
-
-    let hostname = hostname::get_hostname().unwrap();
-    let hosts = Hosts(vec![format!("{}:{}", hostname, settings.port)]);
-    dbg!(serde_json::to_string_pretty(&hosts).unwrap());
-
-    future::lazy(move || {
-        let mut consul_client = Consul::builder()
-            .with_cluster_name(cluster_name)
-            .with_address(consul_address)
-            .build()
-            .expect("Could not build Consul client.");
-
-        // Build future that will connect to Consul and register the node_id
-        consul_client
-            .register_cluster()
-            .and_then(|_| init_node_id(settings_path))
-            .and_then(move |id| {
-                consul_client.set_node_id(id);
-                tokio::spawn(consul_client.register_node().map_err(|_| ()));
-                consul_client.place_node_descriptor(hosts)
-            })
-            .map_err(|e| error!("Error: {}", e))
-    })
-}
-
-#[derive(Debug, Fail, Serialize, Deserialize)]
+#[derive(Debug, Error, Serialize, Deserialize)]
 pub enum ClusterError {
-    #[fail(display = "Node has no ID")]
+    #[error("Node has no ID")]
     MissingNodeID,
-    #[fail(display = "Unable to determine cluster ID")]
+    #[error("Unable to determine cluster ID")]
     MissingClusterID,
-    #[fail(display = "Unable to write node ID: {}", _0)]
+    #[error("Unable to write node ID: {0}")]
     FailedWritingNodeID(String),
-    #[fail(display = "Failed registering cluster: {}", _0)]
+    #[error("Failed registering cluster: {0}")]
     FailedRegisteringCluster(String),
-    #[fail(display = "Failed registering Node: {}", _0)]
+    #[error("Failed registering Node: {0}")]
     FailedRegisteringNode(String),
-    #[fail(display = "Failed reading NodeID: {}", _0)]
+    #[error("Failed reading NodeID: {0}")]
     FailedReadingNodeID(String),
-    #[fail(display = "Unable to retrieve disk metadata: {}", _0)]
+    #[error("Unable to retrieve disk metadata: {0}")]
     FailedGettingDirectoryMetadata(String),
-    #[fail(display = "Unable to retrieve block device metadata: {}", _0)]
+    #[error("Unable to retrieve block device metadata: {0}")]
     FailedGettingBlockDeviceMetadata(String),
-    #[fail(display = "Unable to find that directory: {}", _0)]
+    #[error("Unable to find that directory: {0}")]
     NoMatchingDirectoryFound(String),
-    #[fail(display = "Unable to find that block device: {}", _0)]
+    #[error("Unable to find that block device: {0}")]
     NoMatchingBlockDeviceFound(String),
-    #[fail(display = "Unable to read device RAM information: {}", _0)]
+    #[error("Unable to read device RAM information: {0}")]
     FailedGettingRAMMetadata(String),
-    #[fail(display = "Unable to get CPU metadata: {}", _0)]
+    #[error("Unable to get CPU metadata: {0}")]
     FailedGettingCPUMetadata(String),
-    #[fail(display = "Unable to read content as UTF-8")]
+    #[error("Unable to read content as UTF-8")]
     UnableToReadUTF8,
-    #[fail(display = "Unable to create PrimaryShard: {}", _0)]
+    #[error("Unable to create PrimaryShard: {0}")]
     FailedCreatingPrimaryShard(String),
-    #[fail(display = "Unable to get index: {}", _0)]
+    #[error("Unable to get index: {0}")]
     FailedGettingIndex(String),
-    #[fail(display = "Unable to create ReplicaShard: {}", _0)]
+    #[error("Unable to create ReplicaShard: {0}")]
     FailedCreatingReplicaShard(String),
-    #[fail(display = "Failed to fetch nodes: {}", _0)]
+    #[error("Failed to fetch nodes: {0}")]
     FailedFetchingNodes(String),
-    #[fail(display = "Unable to get index name: {}", _0)]
+    #[error("Unable to get index name: {0}")]
     UnableToGetIndexName(String),
-    #[fail(display = "Error parsing response from Consul: {}", _0)]
+    #[error("Error parsing response from Consul: {0}")]
     ErrorParsingConsulJSON(String),
-    #[fail(display = "Request from Consul returned an error: {}", _0)]
+    #[error("Request from Consul returned an error: {0}")]
     ErrorInConsulResponse(String),
-    #[fail(display = "Unable to get index handle")]
+    #[error("Unable to get index handle")]
     UnableToGetIndexHandle,
-    #[fail(display = "Unable to store services")]
+    #[error("Unable to store services")]
     UnableToStoreServices,
 }
 
-#[derive(Debug, Fail)]
+#[derive(Debug, Error)]
 pub enum RPCError {
-    #[fail(display = "Error in RPC: {}", _0)]
-    RPCError(tower_grpc::Status),
-    #[fail(display = "Error in RPC Buffer: {}", _0)]
-    BufError(BufError),
-    #[fail(display = "Error in RPC Connect: {}", _0)]
-    ConnectError(ConnectionError),
-    #[fail(display = "")]
+    #[error("Error in RPC: {0}")]
+    RPCError(#[from] tower_grpc::Status),
+    #[error("Error in RPC Buffer: {0}")]
+    BufError(#[from] BufError),
+    #[error("Error in RPC Connect: {0}")]
+    ConnectError(#[from] ConnectionError),
+    #[error("")]
     BoxError(Box<dyn ::std::error::Error + Send + Sync + 'static>),
-}
-
-impl From<ConnectionError> for RPCError {
-    fn from(err: ConnectError<io::Error>) -> Self {
-        RPCError::ConnectError(err)
-    }
-}
-
-impl From<BoxError> for RPCError {
-    fn from(err: BoxError) -> Self {
-        RPCError::BoxError(err)
-    }
-}
-
-impl From<tower_grpc::Status> for RPCError {
-    fn from(err: tower_grpc::Status) -> Self {
-        RPCError::RPCError(err)
-    }
+    #[error("Error in RPC Connect: {0}")]
+    ToshiError(Error),
 }
