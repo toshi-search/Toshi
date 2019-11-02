@@ -36,7 +36,7 @@ config                 = "^0.9"
 thiserror              = "^1.0"
 anyhow                 = "^1.0"
 hostname               = "^0.1"
-base64                 = "^0.10"
+base64                 = "^0.11"
 crossbeam              = "^0.7"
 hashbrown              = "^0.6"
 parking_lot            = "^0.9"
@@ -44,7 +44,7 @@ tracing                = "^0.1"
 rand                   = { version = "^0.7", features = ["log"] }
 serde                  = { version = "^1.0", features = ["derive"] }
 clap                   = { version = "^2.3", features = ["color"] }
-uuid                   = { version = "^0.7", features = ["v4"] }
+uuid                   = { version = "^0.8", features = ["serde", "v4"] }
 tower-grpc             = { version = "^0.1", features = ["tower-hyper"] }
 tracing-futures        = "^0.1"
 tracing-log            = "^0.1"

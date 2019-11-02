@@ -1,5 +1,3 @@
-use std::fmt;
-
 use isahc::prelude::*;
 use isahc::HttpClientBuilder;
 use serde::{de::DeserializeOwned, Serialize};
@@ -24,14 +22,17 @@ pub struct ToshiClient {
 }
 
 impl ToshiClient {
-    pub fn new<H: fmt::Display>(host: H) -> Result<Self> {
+    pub fn new<H>(host: H) -> Result<Self>
+    where
+        H: ToString,
+    {
         Ok(Self {
             host: host.to_string(),
             client: HttpClientBuilder::default().build()?,
         })
     }
 
-    pub fn with_client<H: fmt::Display>(host: H, client: HttpClient) -> Self {
+    pub fn with_client<H: ToString>(host: H, client: HttpClient) -> Self {
         Self {
             host: host.to_string(),
             client,
@@ -41,14 +42,14 @@ impl ToshiClient {
     #[inline]
     fn uri<I>(&self, index: I) -> String
     where
-        I: fmt::Display,
+        I: ToString,
     {
-        format!("{}/{}", self.host, index)
+        format!("{}/{}", self.host, index.to_string())
     }
 
     pub fn all_docs<I, D>(&self, index: I) -> Result<SearchResults<D>>
     where
-        I: fmt::Display,
+        I: ToString,
         D: DeserializeOwned + Clone,
     {
         let uri = self.uri(index);
@@ -57,7 +58,7 @@ impl ToshiClient {
 
     pub fn search<I, D>(&self, index: I, search: Search) -> Result<SearchResults<D>>
     where
-        I: fmt::Display,
+        I: ToString,
         D: DeserializeOwned + Clone,
     {
         let uri = self.uri(index);
@@ -67,7 +68,7 @@ impl ToshiClient {
 
     pub fn add_document<I, D>(&self, index: String, options: Option<IndexOptions>, document: D) -> Result<Response<Body>>
     where
-        I: fmt::Display,
+        I: ToString,
         D: Serialize,
     {
         let uri = self.uri(index);
@@ -77,18 +78,18 @@ impl ToshiClient {
 
     pub fn create_index<I>(&self, name: I, schema: Schema) -> Result<Response<Body>>
     where
-        I: fmt::Display,
+        I: ToString,
     {
-        let uri = self.uri(format!("{}/_create", name));
+        let uri = self.uri(format!("{}/_create", name.to_string()));
         let body = serde_json::to_vec(&SchemaBody(schema))?;
         self.client.put(uri, body).map_err(Into::into)
     }
 
     pub fn index_summary<I>(&self, index: I, include_sizes: bool) -> Result<Response<Body>>
     where
-        I: fmt::Display,
+        I: ToString,
     {
-        let uri = self.uri(format!("{}/_summary?include_sizes={}", index, include_sizes));
+        let uri = self.uri(format!("{}/_summary?include_sizes={}", index.to_string(), include_sizes));
         self.client.get(uri).map_err(Into::into)
     }
 }
@@ -97,8 +98,6 @@ impl ToshiClient {
 mod tests {
     use serde::Deserialize;
 
-    use super::*;
-
     #[derive(Deserialize, Debug, Clone)]
     struct Wiki {
         url: Vec<String>,
@@ -106,11 +105,11 @@ mod tests {
         title: Vec<String>,
     }
 
-    #[ignore]
-    fn test_client() {
-        let c = ToshiClient::new("http://localhost:8080").unwrap();
-        let query = Query::Exact(ExactTerm::with_term("body", "born"));
-        let search = Search::with_query(query);
-        let _docs: SearchResults<Wiki> = c.search("wiki", search).unwrap();
-    }
+    //    #[ignore]
+    //    fn test_client() {
+    //        let c = ToshiClient::new("http://localhost:8080").unwrap();
+    //        let query = Query::Exact(ExactTerm::with_term("body", "born"));
+    //        let search = Search::with_query(query);
+    //        let _docs: SearchResults<Wiki> = c.search("wiki", search).unwrap();
+    //    }
 }

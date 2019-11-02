@@ -40,7 +40,7 @@ impl SearchHandler {
                     if c.exists(&index) {
                         let mut tasks = vec![future::Either::A(c.search_local_index(&index, req.clone()))];
                         if c.remote_exists(&index) {
-                            tasks.push(future::Either::B(c.search_remote_index(&index, req.clone())));
+                            tasks.push(future::Either::B(c.search_remote_index(&index, req)));
                         }
                         Either::A(
                             futures_unordered(tasks)

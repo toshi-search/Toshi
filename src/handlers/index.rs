@@ -57,7 +57,7 @@ impl IndexHandler {
                 let client_clone = client.clone();
                 let schema_bytes = serde_json::to_vec(&schema).unwrap();
                 let request = Request::new(PlaceRequest {
-                    index: index.clone(),
+                    index,
                     schema: schema_bytes,
                 });
                 client.place_index(request).map(move |_| vec![client_clone]).map_err(Into::into)
@@ -134,14 +134,14 @@ impl IndexHandler {
             let location: bool = random();
             if location && cat.remote_exists(&index) {
                 let t = cat
-                    .add_remote_document(&index, b.clone())
+                    .add_remote_document(&index, b)
                     .map(|_| empty_with_code(StatusCode::CREATED))
                     .or_else(|e| future::ok(error_response(StatusCode::BAD_REQUEST, e)));
 
                 Either::A(t)
             } else {
                 let t = cat
-                    .add_local_document(&index, b.clone())
+                    .add_local_document(&index, b)
                     .map(|_| empty_with_code(StatusCode::CREATED))
                     .or_else(|e| future::ok(error_response(StatusCode::BAD_REQUEST, e)));
 

@@ -148,10 +148,10 @@ impl server::IndexService for RpcServer {
                 if cat.add_index(index.clone(), new_index).is_ok() {
                     Box::new(future::finished(Response::new(RpcServer::ok_result())))
                 } else {
-                    Self::error_response(Code::Internal, format!("Insert: {} failed", index.clone()))
+                    Self::error_response(Code::Internal, format!("Insert: {} failed", index))
                 }
             } else {
-                Self::error_response(Code::Internal, format!("Could not create index: {}", index.clone()))
+                Self::error_response(Code::Internal, format!("Could not create index: {}", index))
             }
         } else {
             Self::error_response(Code::NotFound, "Invalid schema in request".into())

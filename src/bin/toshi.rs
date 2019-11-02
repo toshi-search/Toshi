@@ -105,7 +105,7 @@ fn run_master(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl F
 
     if settings.experimental {
         let settings = settings.clone();
-        let nodes = settings.experimental_features.nodes.clone();
+        let nodes = settings.experimental_features.nodes;
 
         let run = commit_watcher.and_then(move |_| {
             if !nodes.is_empty() {

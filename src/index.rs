@@ -112,7 +112,7 @@ impl IndexCatalog {
 
     pub fn add_index(&mut self, name: String, index: Index) -> Result<()> {
         let handle = LocalIndex::new(index, self.settings.clone(), &name)?;
-        self.local_handles.insert(name.clone(), handle);
+        self.local_handles.insert(name, handle);
         Ok(())
     }
 
