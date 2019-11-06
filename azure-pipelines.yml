@@ -1,7 +1,7 @@
 stages:
   - template: azure/stages.yml@templates
     parameters:
-      minrust: 1.35.0
+      minrust: 1.36.0
       codecov_token: $(CODECOV_TOKEN_SECRET)
 
 resources:
