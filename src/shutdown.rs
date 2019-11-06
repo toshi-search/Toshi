@@ -2,6 +2,7 @@ use futures::{Future, Stream};
 use tokio::sync::oneshot;
 use tracing::*;
 
+#[cfg_attr(tarpaulin, skip)]
 #[cfg(unix)]
 pub fn shutdown(signal: oneshot::Sender<()>) -> impl Future<Item = (), Error = ()> {
     use tokio_signal::unix::{Signal, SIGINT, SIGTERM};
@@ -12,12 +13,14 @@ pub fn shutdown(signal: oneshot::Sender<()>) -> impl Future<Item = (), Error = (
     handle_shutdown(signal, sigint.select(sigterm))
 }
 
+#[cfg_attr(tarpaulin, skip)]
 #[cfg(not(unix))]
 pub fn shutdown(signal: oneshot::Sender<()>) -> impl Future<Item = (), Error = ()> {
     let stream = tokio_signal::ctrl_c().flatten_stream().map(|_| String::from("ctrl-c"));
     handle_shutdown(signal, stream)
 }
 
+#[cfg_attr(tarpaulin, skip)]
 pub fn handle_shutdown<S>(signal: oneshot::Sender<()>, stream: S) -> impl Future<Item = (), Error = ()>
 where
     S: Stream<Item = String, Error = std::io::Error>,

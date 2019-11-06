@@ -2,6 +2,7 @@ use clap::{crate_authors, crate_description, crate_version, App, Arg, ArgMatches
 
 use crate::settings::Settings;
 
+#[cfg_attr(tarpaulin, skip)]
 pub fn settings() -> Settings {
     let options: ArgMatches = App::new("Toshi Search")
         .version(crate_version!())

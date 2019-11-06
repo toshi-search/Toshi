@@ -19,6 +19,7 @@ use toshi_server::router::router_with_catalog;
 use toshi_server::settings::{Settings, HEADER, RPC_HEADER};
 use toshi_server::{shutdown, support};
 
+#[cfg_attr(tarpaulin, skip)]
 pub fn main() -> Result<(), ()> {
     let settings = support::settings();
     setup_logging(&settings.log_level);
@@ -38,12 +39,14 @@ pub fn main() -> Result<(), ()> {
     setup_shutdown(shutdown_signal, index_catalog, rt)
 }
 
+#[cfg_attr(tarpaulin, skip)]
 fn setup_logging(level: &str) {
     std::env::set_var("RUST_LOG", level);
     let sub = tracing_fmt::FmtSubscriber::builder().with_ansi(true).finish();
     tracing::subscriber::set_global_default(sub).expect("Unable to set default Subscriber");
 }
 
+#[cfg_attr(tarpaulin, skip)]
 fn setup_shutdown(shutdown_signal: Receiver<()>, index_catalog: SharedCatalog, rt: Runtime) -> Result<(), ()> {
     shutdown_signal
         .map_err(|e| unreachable!("Shutdown signal channel should not error, This is a bug. \n {:?} ", e.description()))
@@ -55,6 +58,7 @@ fn setup_shutdown(shutdown_signal: Receiver<()>, index_catalog: SharedCatalog, r
         .wait()
 }
 
+#[cfg_attr(tarpaulin, skip)]
 fn setup_toshi(settings: &Settings, index_catalog: &SharedCatalog, tx: Sender<()>) -> impl Future<Item = (), Error = ()> {
     let server = if !settings.experimental_features.master && settings.experimental {
         future::Either::A(run_data(Arc::clone(index_catalog), &settings))
@@ -65,6 +69,7 @@ fn setup_toshi(settings: &Settings, index_catalog: &SharedCatalog, tx: Sender<()
     server.select(shutdown).map(|_| ()).map_err(|_| ())
 }
 
+#[cfg_attr(tarpaulin, skip)]
 fn setup_catalog(settings: &Settings) -> SharedCatalog {
     let path = PathBuf::from(settings.path.clone());
     let index_catalog = match IndexCatalog::new(path, settings.clone()) {
@@ -77,6 +82,7 @@ fn setup_catalog(settings: &Settings) -> SharedCatalog {
     Arc::new(RwLock::new(index_catalog))
 }
 
+#[cfg_attr(tarpaulin, skip)]
 fn run_data(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Future<Item = (), Error = ()> {
     let lock = Arc::new(AtomicBool::new(false));
     let commit_watcher = watcher(Arc::clone(&catalog), settings.auto_commit_duration, Arc::clone(&lock));
@@ -92,6 +98,7 @@ fn run_data(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Fut
     commit_watcher.and_then(move |_| RpcServer::serve(bind, catalog))
 }
 
+#[cfg_attr(tarpaulin, skip)]
 fn run_master(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Future<Item = (), Error = ()> {
     let bulk_lock = Arc::new(AtomicBool::new(false));
     let commit_watcher = watcher(Arc::clone(&catalog), settings.auto_commit_duration, Arc::clone(&bulk_lock));
