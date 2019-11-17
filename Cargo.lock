@@ -26,7 +26,7 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.19"
+version = "1.0.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
@@ -2126,7 +2126,7 @@ dependencies = [
 name = "toshi"
 version = "0.1.1"
 dependencies = [
- "anyhow 1.0.19 (registry+https://github.com/rust-lang/crates.io-index)",
+ "anyhow 1.0.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "http 0.1.19 (registry+https://github.com/rust-lang/crates.io-index)",
  "isahc 0.7.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.102 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2153,7 +2153,7 @@ dependencies = [
 name = "toshi-server"
 version = "0.1.1"
 dependencies = [
- "anyhow 1.0.19 (registry+https://github.com/rust-lang/crates.io-index)",
+ "anyhow 1.0.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "base64 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "bytes 0.4.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap 2.33.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2208,7 +2208,7 @@ dependencies = [
 name = "toshi-types"
 version = "0.1.1"
 dependencies = [
- "anyhow 1.0.19 (registry+https://github.com/rust-lang/crates.io-index)",
+ "anyhow 1.0.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "http 0.1.19 (registry+https://github.com/rust-lang/crates.io-index)",
  "hyper 0.12.35 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.102 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2682,7 +2682,7 @@ dependencies = [
 "checksum ahash 0.2.17 (registry+https://github.com/rust-lang/crates.io-index)" = "2f00e10d4814aa20900e7948174384f79f1317f24f0ba7494e735111653fc330"
 "checksum aho-corasick 0.7.6 (registry+https://github.com/rust-lang/crates.io-index)" = "58fb5e95d83b38284460a5fda7d6470aa0b8844d283a0b614b8535e880800d2d"
 "checksum ansi_term 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)" = "ee49baf6cb617b853aa8d93bf420db2383fab46d314482ca2803b40d5fde979b"
-"checksum anyhow 1.0.19 (registry+https://github.com/rust-lang/crates.io-index)" = "57114fc2a6cc374bce195d3482057c846e706d252ff3604363449695684d7a0d"
+"checksum anyhow 1.0.21 (registry+https://github.com/rust-lang/crates.io-index)" = "73232834f4ba605439f8ab8e134569bc52e29d19e7ec2d910c73fd6e8af46557"
 "checksum arc-swap 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)" = "f1a1eca3195b729bbd64e292ef2f5fff6b1c28504fed762ce2b1013dde4d8e92"
 "checksum arrayvec 0.4.12 (registry+https://github.com/rust-lang/crates.io-index)" = "cd9fd44efafa8690358b7408d253adf110036b88f55672a933f01d616ad9b1b9"
 "checksum ascii 0.9.3 (registry+https://github.com/rust-lang/crates.io-index)" = "eab1c04a571841102f5345a8fc0f6bb3d31c315dec879b5c6e42e40ce7ffa34e"
