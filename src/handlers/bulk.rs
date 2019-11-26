@@ -1,4 +1,3 @@
-use std::iter::Iterator;
 use std::str::from_utf8;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -88,7 +87,6 @@ impl BulkHandler {
                 }
 
                 buf.extend(line);
-
                 let mut split = buf.split(|b| *b == b'\n').peekable();
                 while let Some(l) = split.next() {
                     if split.peek().is_none() {
@@ -122,9 +120,9 @@ mod tests {
     use crate::handlers::summary::flush;
     use crate::handlers::SearchHandler;
     use crate::index::tests::*;
+    use crate::SearchResults;
 
     use super::*;
-    use crate::SearchResults;
 
     #[test]
     fn test_bulk_index() -> Result<(), Box<dyn std::error::Error>> {
@@ -150,6 +148,7 @@ mod tests {
         let check_docs = runtime.block_on(search.all_docs("test_index".into()))?;
         let body = runtime.block_on(check_docs.into_body().concat2())?;
         let docs: SearchResults = serde_json::from_slice(&body.into_bytes())?;
-        Ok(assert_eq!(docs.hits, 8))
+        assert_eq!(docs.hits, 8);
+        Ok(())
     }
 }
