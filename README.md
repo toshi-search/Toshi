@@ -257,4 +257,4 @@ Also, to note, limit is optional, 10 is the default value. It's only included he
 
 #### What is a Toshi?
 
-Toshi is a three year old Shiba Inu. He is a very good boy and is the official mascot of this project. Toshi personally reviews all code before it is commited to this repository and is dedicated to only accepting the highest quality contributions from his human. He will, though, accept treats for easier code reviews. 
+Toshi is a three year old Shiba Inu. He is a very good boy and is the official mascot of this project. Toshi personally reviews all code before it is committed to this repository and is dedicated to only accepting the highest quality contributions from his human. He will, though, accept treats for easier code reviews. 
