@@ -23,7 +23,7 @@ meant to be a library, I'm perfectly fine with having this requirement because p
 take it off the shelf and not modify it. My motivation was to cater to that use case when building Toshi.
 
 #### Build Requirements
-At this current time Toshi should build and work fine on Windows, Mac OS X, and Linux. From dependency requirements you are going to need 1.34.0 and Cargo installed in order to build. You can get rust easily from
+At this current time Toshi should build and work fine on Windows, Mac OS X, and Linux. From dependency requirements you are going to need 1.39.0 and Cargo installed in order to build. You can get rust easily from
 [rustup](https://rustup.rs).
 
 #### Configuration
