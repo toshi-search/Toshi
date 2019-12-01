@@ -51,11 +51,18 @@ pub struct Search {
     pub facets: Option<FacetQuery>,
     #[serde(default = "Search::default_limit")]
     pub limit: usize,
+    #[serde(default)]
+    pub sort_by: Option<String>,
 }
 
 impl Search {
     pub fn new(query: Option<Query>, facets: Option<FacetQuery>, limit: usize) -> Self {
-        Search { query, facets, limit }
+        Search {
+            query,
+            facets,
+            limit,
+            sort_by: None,
+        }
     }
 
     pub fn builder() -> SearchBuilder {
@@ -79,6 +86,7 @@ impl Search {
             query: Self::all_query(),
             facets: None,
             limit: Self::default_limit(),
+            sort_by: None,
         }
     }
 }

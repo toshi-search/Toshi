@@ -95,10 +95,21 @@ impl IndexHandle for LocalIndex {
     fn search_index(&self, search: Search) -> Self::SearchResponse {
         let searcher = self.reader.searcher();
         let schema = self.index.schema();
-        let collector = TopDocs::with_limit(search.limit);
         let mut multi_collector = MultiCollector::new();
 
-        let top_handle = multi_collector.add_collector(collector);
+        let sorted_top_handle = search.sort_by.clone().and_then(|sort_by| {
+            info!("Sorting with: {}", sort_by);
+            if let Some(f) = schema.get_field(&sort_by) {
+                let entry = schema.get_field_entry(f);
+                if entry.is_int_fast() && entry.is_stored() {
+                    let c = TopDocs::with_limit(search.limit).order_by_u64_field(f);
+                    return Some(multi_collector.add_collector(c));
+                }
+            }
+            None
+        });
+
+        let top_handle = multi_collector.add_collector(TopDocs::with_limit(search.limit));
         let facet_handle = search.facets.clone().and_then(|f| {
             if let Some(field) = schema.get_field(&f.get_facets_fields()) {
                 let mut col = FacetCollector::for_field(field);
@@ -130,14 +141,25 @@ impl IndexHandle for LocalIndex {
             debug!("{:?}", gen_query);
             let mut scored_docs = searcher.search(&*gen_query, &multi_collector)?;
 
-            let docs: Vec<ScoredDoc<BTreeMap<_, _>>> = top_handle
-                .extract(&mut scored_docs)
-                .into_iter()
-                .map(|(score, doc)| {
-                    let d = searcher.doc(doc).expect("Doc not found in segment");
-                    ScoredDoc::<BTreeMap<_, _>>::new(Some(score), schema.to_named_doc(&d).0)
-                })
-                .collect();
+            // FruitHandle isn't a public type which leads to some duplicate code like this.
+            let docs: Vec<ScoredDoc<BTreeMap<_, _>>> = if let Some(h) = sorted_top_handle {
+                h.extract(&mut scored_docs)
+                    .into_iter()
+                    .map(|(score, doc)| {
+                        let d = searcher.doc(doc).expect("Doc not found in segment");
+                        ScoredDoc::<BTreeMap<_, _>>::new(Some(score as f32), schema.to_named_doc(&d).0)
+                    })
+                    .collect()
+            } else {
+                top_handle
+                    .extract(&mut scored_docs)
+                    .into_iter()
+                    .map(|(score, doc)| {
+                        let d = searcher.doc(doc).expect("Doc not found in segment");
+                        ScoredDoc::<BTreeMap<_, _>>::new(Some(score), schema.to_named_doc(&d).0)
+                    })
+                    .collect()
+            };
 
             if let Some(facets) = facet_handle {
                 if let Some(t) = &search.facets {

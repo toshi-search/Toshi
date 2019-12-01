@@ -4,12 +4,15 @@ use hyper::{Body, Response};
 
 use crate::handlers::ResponseFuture;
 
-const TOSHI_INFO: &[u8] = b"{\"name\":\"Toshi Search\",\"version\":\"0.1.1\"}";
+#[inline]
+fn toshi_info() -> String {
+    format!("{{\"name\":\"Toshi Search\",\"version\":\"{}\"}}", clap::crate_version!())
+}
 
 pub fn root() -> ResponseFuture {
     let resp = Response::builder()
         .header(CONTENT_TYPE, "application/json")
-        .body(Body::from(TOSHI_INFO))
+        .body(Body::from(toshi_info()))
         .unwrap();
 
     Box::new(future::ok(resp))
@@ -19,8 +22,7 @@ pub fn root() -> ResponseFuture {
 mod tests {
 
     use super::*;
-    use bytes::Buf;
-    use tokio::prelude::*;
+    use futures::{Future, Stream};
 
     #[test]
     fn test_root() -> Result<(), hyper::Error> {
@@ -29,7 +31,7 @@ mod tests {
             .unwrap()
             .into_body()
             .concat2()
-            .map(|v| assert_eq!(v.bytes(), TOSHI_INFO))
+            .map(|v| assert_eq!(String::from_utf8(v.to_vec()).unwrap(), toshi_info()))
             .wait()
     }
 }
