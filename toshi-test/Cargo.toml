@@ -9,7 +9,7 @@ edition = "2018"
 
 [dependencies]
 hyper = "^0.12"
-http = "^0.1"
+http = "^0.2"
 futures = "^0.1"
 tokio = "^0.1"
 failure = "^0.1"
