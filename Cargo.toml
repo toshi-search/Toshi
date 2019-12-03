@@ -46,7 +46,7 @@ serde                  = { version = "^1.0", features = ["derive"] }
 clap                   = { version = "^2.3", features = ["color"] }
 uuid                   = { version = "^0.8", features = ["serde", "v4"] }
 tower-grpc             = { version = "^0.1", features = ["tower-hyper"] }
-tracing-futures        = "^0.1"
+tracing-futures        = "^0.2"
 tracing-log            = "^0.1"
 tracing-fmt            = "^0.1"
 
