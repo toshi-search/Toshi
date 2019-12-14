@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package cluster_rpc;
+package clusterrpc;
 
 service IndexService {
     rpc ping (PingRequest) returns (PingReply);

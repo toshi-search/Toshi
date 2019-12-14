@@ -1,10 +1,10 @@
-use futures::{Future, Stream};
+use futures::{Future, FutureExt};
 use tokio::sync::oneshot;
 use tracing::*;
 
 #[cfg_attr(tarpaulin, skip)]
 #[cfg(unix)]
-pub fn shutdown(signal: oneshot::Sender<()>) -> impl Future<Item = (), Error = ()> {
+pub async fn shutdown(signal: oneshot::Sender<()>) -> Result<(), ()> {
     use tokio_signal::unix::{Signal, SIGINT, SIGTERM};
 
     let sigint = Signal::new(SIGINT).flatten_stream().map(|_| String::from("SIGINT"));
@@ -15,26 +15,19 @@ pub fn shutdown(signal: oneshot::Sender<()>) -> impl Future<Item = (), Error = (
 
 #[cfg_attr(tarpaulin, skip)]
 #[cfg(not(unix))]
-pub fn shutdown(signal: oneshot::Sender<()>) -> impl Future<Item = (), Error = ()> {
-    let stream = tokio_signal::ctrl_c().flatten_stream().map(|_| String::from("ctrl-c"));
-    handle_shutdown(signal, stream)
+pub async fn shutdown(signal: oneshot::Sender<()>) -> Result<(), ()> {
+    let stream = tokio::signal::ctrl_c().map(|_| String::from("ctrl-c"));
+    handle_shutdown(signal, stream).await
 }
 
 #[cfg_attr(tarpaulin, skip)]
-pub fn handle_shutdown<S>(signal: oneshot::Sender<()>, stream: S) -> impl Future<Item = (), Error = ()>
+pub async fn handle_shutdown<S>(signal: oneshot::Sender<()>, stream: S) -> Result<(), ()>
 where
-    S: Stream<Item = String, Error = std::io::Error>,
+    S: Future<Output = String>,
 {
-    stream
-        .take(1)
-        .into_future()
-        .and_then(move |(sig, _)| {
-            if let Some(s) = sig {
-                info!("Received signal: {}", s);
-            }
-            info!("Gracefully shutting down...");
-            Ok(signal.send(()))
-        })
-        .map(|_| ())
-        .map_err(|_| unreachable!("Signal handling should never error out"))
+    let s = stream.await;
+    info!("Received signal: {}", s);
+
+    info!("Gracefully shutting down...");
+    signal.send(())
 }

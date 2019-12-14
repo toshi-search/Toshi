@@ -1,4 +1,3 @@
-use futures::Future;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
@@ -16,15 +15,16 @@ pub struct NodeData {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Hosts(pub Vec<String>);
 
+#[async_trait::async_trait]
 pub trait ClusterOps {
     type Node: DeserializeOwned;
     type Index: DeserializeOwned;
 
     fn node_path(&self) -> String;
-    fn register_node(&mut self) -> Box<dyn Future<Item = (), Error = ClusterError> + Send>;
-    fn place_node_descriptor(&mut self, host: Hosts) -> Box<dyn Future<Item = (), Error = ClusterError> + Send>;
-    fn register_cluster(&mut self) -> Box<dyn Future<Item = (), Error = ClusterError> + Send>;
-    fn register_shard<S: Shard>(&mut self, shard: &S) -> Box<dyn Future<Item = (), Error = ClusterError> + Send>;
-    fn get_index(&mut self, index: String, recurse: bool) -> Box<dyn Future<Item = Vec<Self::Index>, Error = ClusterError> + Send>;
-    fn nodes(&mut self) -> Box<dyn Future<Item = Vec<Self::Node>, Error = ClusterError> + Send>;
+    async fn register_node(&mut self) -> Result<(), ClusterError>;
+    async fn place_node_descriptor(&mut self, host: Hosts) -> Result<(), ClusterError>;
+    async fn register_cluster(&mut self) -> Result<(), ClusterError>;
+    async fn register_shard<S: Shard>(&mut self, shard: &S) -> Result<(), ClusterError>;
+    async fn get_index(&mut self, index: String, recurse: bool) -> Result<Vec<Self::Index>, ClusterError>;
+    async fn nodes(&mut self) -> Result<Vec<Self::Node>, ClusterError>;
 }

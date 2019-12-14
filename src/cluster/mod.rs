@@ -1,16 +1,12 @@
-use std::io;
-
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tower_hyper::client::ConnectError;
 
 pub use self::node::*;
 use toshi_types::error::Error;
 
 pub type BoxError = Box<dyn ::std::error::Error + Send + Sync + 'static>;
-pub type ConnectionError = ConnectError<io::Error>;
-pub type BufError = tower_buffer::error::ServiceError;
-pub type GrpcError = tower_grpc::Status;
+
+pub type ConnectionError = tonic::transport::Error;
 
 pub mod node;
 pub mod ops;
@@ -69,9 +65,8 @@ pub enum ClusterError {
 #[derive(Debug, Error)]
 pub enum RPCError {
     #[error("Error in RPC: {0}")]
-    RPCError(#[from] tower_grpc::Status),
-    #[error("Error in RPC Buffer: {0}")]
-    BufError(#[from] BufError),
+    RPCError(#[from] tonic::Status),
+
     #[error("Error in RPC Connect: {0}")]
     ConnectError(#[from] ConnectionError),
     #[error("")]

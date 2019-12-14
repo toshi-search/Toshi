@@ -1,30 +1,24 @@
-use std::error::Error;
 use std::fs::create_dir;
 use std::net::{IpAddr, SocketAddr};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::AtomicBool;
-use std::sync::Arc;
+use std::sync::{atomic::AtomicBool, Arc};
 
-use futures::{future, Future};
-use parking_lot::RwLock;
-use tokio::runtime::Runtime;
-use tokio::sync::oneshot;
-use tokio::sync::oneshot::{Receiver, Sender};
+use tokio::sync::oneshot::{self, Receiver, Sender};
+use tokio::sync::Mutex;
 use tracing::*;
 
-use toshi_server::cluster::rpc_server::RpcServer;
 use toshi_server::commit::watcher;
 use toshi_server::index::{IndexCatalog, SharedCatalog};
-use toshi_server::router::router_with_catalog;
+use toshi_server::router::Router;
 use toshi_server::settings::{Settings, HEADER, RPC_HEADER};
 use toshi_server::{shutdown, support};
 
 #[cfg_attr(tarpaulin, skip)]
-pub fn main() -> Result<(), ()> {
+#[tokio::main]
+pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let settings = support::settings();
     setup_logging(&settings.log_level);
 
-    let mut rt = Runtime::new().expect("Failed to start new Runtime");
     let (tx, shutdown_signal) = oneshot::channel();
     if !Path::new(&settings.path).exists() {
         info!("Base data path {} does not exist, creating it...", settings.path);
@@ -32,11 +26,13 @@ pub fn main() -> Result<(), ()> {
     }
 
     let index_catalog = setup_catalog(&settings);
-    let toshi = setup_toshi(&settings, &index_catalog, tx);
-    rt.spawn(toshi);
+    let s_clone = settings.clone();
+    let toshi = setup_toshi(&s_clone, Arc::clone(&index_catalog), tx).await;
+    //    tokio::spawn(toshi);
     info!("Toshi running on {}:{}", &settings.host, &settings.port);
 
-    setup_shutdown(shutdown_signal, index_catalog, rt)
+    setup_shutdown(shutdown_signal, index_catalog).await?;
+    Ok(())
 }
 
 #[cfg_attr(tarpaulin, skip)]
@@ -47,26 +43,22 @@ fn setup_logging(level: &str) {
 }
 
 #[cfg_attr(tarpaulin, skip)]
-fn setup_shutdown(shutdown_signal: Receiver<()>, index_catalog: SharedCatalog, rt: Runtime) -> Result<(), ()> {
-    shutdown_signal
-        .map_err(|e| unreachable!("Shutdown signal channel should not error, This is a bug. \n {:?} ", e.description()))
-        .and_then(move |_| {
-            index_catalog.write().clear();
-            Ok(())
-        })
-        .and_then(move |_| rt.shutdown_now())
-        .wait()
+async fn setup_shutdown(shutdown_signal: Receiver<()>, index_catalog: SharedCatalog) -> Result<(), tokio::sync::oneshot::error::RecvError> {
+    index_catalog.lock().await.clear();
+    shutdown_signal.await?;
+    Ok(())
+    //        .and_then(move |_| rt.shutdown_now())
+    //        .wait()
 }
 
 #[cfg_attr(tarpaulin, skip)]
-fn setup_toshi(settings: &Settings, index_catalog: &SharedCatalog, tx: Sender<()>) -> impl Future<Item = (), Error = ()> {
-    let server = if !settings.experimental_features.master && settings.experimental {
-        future::Either::A(run_data(Arc::clone(index_catalog), &settings))
-    } else {
-        future::Either::B(run_master(Arc::clone(index_catalog), &settings))
-    };
+async fn setup_toshi(settings: &Settings, index_catalog: SharedCatalog, tx: Sender<()>) -> Result<(), hyper::Error> {
     let shutdown = shutdown::shutdown(tx);
-    server.select(shutdown).map(|_| ()).map_err(|_| ())
+    if !settings.experimental_features.master && settings.experimental {
+        run_data(Arc::clone(&index_catalog), settings).await
+    } else {
+        run_master(Arc::clone(&index_catalog), settings).await
+    }
 }
 
 #[cfg_attr(tarpaulin, skip)]
@@ -79,11 +71,11 @@ fn setup_catalog(settings: &Settings) -> SharedCatalog {
             std::process::exit(1);
         }
     };
-    Arc::new(RwLock::new(index_catalog))
+    Arc::new(Mutex::new(index_catalog))
 }
 
 #[cfg_attr(tarpaulin, skip)]
-fn run_data(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Future<Item = (), Error = ()> {
+async fn run_data(catalog: Arc<Mutex<IndexCatalog>>, settings: &Settings) -> Result<(), hyper::Error> {
     let lock = Arc::new(AtomicBool::new(false));
     let commit_watcher = watcher(Arc::clone(&catalog), settings.auto_commit_duration, Arc::clone(&lock));
     let addr: IpAddr = settings
@@ -95,11 +87,11 @@ fn run_data(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Fut
 
     println!("{}", RPC_HEADER);
     info!("I am a data node...Binding to: {}", addr);
-    commit_watcher.and_then(move |_| RpcServer::serve(bind, catalog))
+    Ok(())
 }
 
 #[cfg_attr(tarpaulin, skip)]
-fn run_master(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl Future<Item = (), Error = ()> {
+async fn run_master(catalog: Arc<Mutex<IndexCatalog>>, settings: &Settings) -> Result<(), hyper::Error> {
     let bulk_lock = Arc::new(AtomicBool::new(false));
     let commit_watcher = watcher(Arc::clone(&catalog), settings.auto_commit_duration, Arc::clone(&bulk_lock));
     let addr: IpAddr = settings
@@ -114,21 +106,20 @@ fn run_master(catalog: Arc<RwLock<IndexCatalog>>, settings: &Settings) -> impl F
         let settings = settings.clone();
         let nodes = settings.experimental_features.nodes;
 
-        let run = commit_watcher.and_then(move |_| {
-            if !nodes.is_empty() {
-                let update = catalog.read().update_remote_indexes();
-                tokio::spawn(update);
-            }
-
-            router_with_catalog(&bind, Arc::clone(&catalog), Arc::clone(&bulk_lock))
-        });
-        future::Either::A(run)
+    //        if !nodes.is_empty() {
+    //            tokio::spawn(async {
+    //                let update = catalog.lock().await;
+    //                update.update_remote_indexes().await;
+    //            });
+    //        }
     } else {
         let watcher_clone = Arc::clone(&bulk_lock);
-        let run = future::lazy(move || {
-            tokio::spawn(commit_watcher);
-            router_with_catalog(&bind, Arc::clone(&catalog), watcher_clone)
-        });
-        future::Either::B(run)
+        tokio::spawn(commit_watcher);
     }
+    let bulk = Arc::clone(&bulk_lock);
+    let router = Router {
+        cat: catalog,
+        watcher: bulk,
+    };
+    router.router_with_catalog(bind.clone()).await
 }

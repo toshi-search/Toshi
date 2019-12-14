@@ -1,22 +1,21 @@
 use std::hash::{Hash, Hasher};
 
 use rand::prelude::*;
-use tokio::prelude::*;
-use tower_grpc::{Request as TowerRequest, Response, Status};
 use tracing::*;
 
-use toshi_proto::cluster_rpc::{DeleteRequest, DocumentRequest, SearchReply, SearchRequest};
+use toshi_proto::cluster_rpc::{DocumentRequest, SearchRequest};
 use toshi_types::query::Search;
-use toshi_types::server::DeleteDoc;
+use toshi_types::server::{DeleteDoc, DocsAffected};
 
 use crate::cluster::rpc_server::RpcClient;
 use crate::handle::{IndexHandle, IndexLocation};
 use crate::AddDocument;
+use crate::SearchResults;
+use toshi_types::error::Error;
 
 /// A reference to an index stored somewhere else on the cluster, this operates via calling
 /// the remote host and full filling the request via rpc, we need to figure out a better way
 /// (tower-buffer) on how to keep these clients.
-
 #[derive(Clone)]
 pub struct RemoteIndex {
     name: String,
@@ -47,11 +46,8 @@ impl RemoteIndex {
     }
 }
 
+#[async_trait::async_trait]
 impl IndexHandle for RemoteIndex {
-    type SearchResponse = Box<dyn Future<Item = Vec<SearchReply>, Error = Status> + Send>;
-    type DeleteResponse = Box<dyn Future<Item = Vec<i32>, Error = Status> + Send>;
-    type AddResponse = Box<dyn Future<Item = Vec<i32>, Error = Status> + Send>;
-
     fn get_name(&self) -> String {
         self.name.clone()
     }
@@ -60,81 +56,76 @@ impl IndexHandle for RemoteIndex {
         IndexLocation::REMOTE
     }
 
-    fn search_index(&self, search: Search) -> Self::SearchResponse {
+    async fn search_index(&self, search: Search) -> Result<SearchResults, Error> {
         let name = self.name.clone();
         let clients = self.remotes.clone();
         info!("REQ = {:?}", search);
-        let fut = clients.into_iter().map(move |mut client| {
-            let bytes = match serde_json::to_vec(&search) {
-                Ok(v) => v,
-                Err(_) => Vec::new(),
-            };
-            let req = TowerRequest::new(SearchRequest {
-                index: name.clone(),
-                query: bytes,
-            });
-            client.search_index(req).map(Response::into_inner).map_err(|e| {
-                info!("ERR = {:?}", e);
-                e
-            })
-        });
+        //        let client_result = clients
+        //            .into_iter()
+        //            .map(|mut client| {
+        //                let bytes = match serde_json::to_vec(&search) {
+        //                    Ok(v) => v,
+        //                    Err(_) => Vec::new(),
+        //                };
+        //                let req = tonic::Request::new(SearchRequest {
+        //                    index: name.clone(),
+        //                    query: bytes,
+        //                });
+        ////                client.search_index(req)
+        //            })
+        //            .collect::<FuturesUnordered<_>>();
 
-        Box::new(future::join_all(fut))
+        Ok(SearchResults::new(vec![]))
     }
 
-    fn add_document(&self, add: AddDocument) -> Self::AddResponse {
+    async fn add_document(&self, add: AddDocument) -> Result<(), Error> {
         let name = self.name.clone();
         let clients = self.remotes.clone();
         info!("REQ = {:?}", add);
-        let mut random = thread_rng();
-        let fut = clients.into_iter().choose(&mut random).map(move |mut client| {
+        let mut random = rand::rngs::SmallRng::from_entropy();
+        let fut = clients.into_iter().choose(&mut random).map(|client| {
             let bytes = match serde_json::to_vec(&add) {
                 Ok(v) => v,
                 Err(_) => Vec::new(),
             };
-            let req = TowerRequest::new(DocumentRequest {
+            let req = tonic::Request::new(DocumentRequest {
                 index: name,
                 document: bytes,
             });
-            client
-                .place_document(req)
-                .map(|res| {
-                    info!("RESPONSE = {:?}", res);
-                    res.into_inner().code
-                })
-                .map_err(|e| {
-                    info!("ERR = {:?}", e);
-                    e
-                })
+            //            client.place_document(req)
+            async {}
         });
 
-        Box::new(future::join_all(fut))
+        fut.unwrap().await;
+        Ok(())
     }
 
-    fn delete_term(&self, delete: DeleteDoc) -> Self::DeleteResponse {
+    async fn delete_term(&self, _delete: DeleteDoc) -> Result<DocsAffected, Error> {
         let name = self.name.clone();
         let clients = self.remotes.clone();
-        let fut = clients.into_iter().map(move |mut client| {
-            let bytes = match serde_json::to_vec(&delete) {
-                Ok(v) => v,
-                Err(_) => Vec::new(),
-            };
-            let req = TowerRequest::new(DeleteRequest {
-                index: name.clone(),
-                terms: bytes,
-            });
-            client
-                .delete_document(req)
-                .map(|res| {
-                    info!("RESPONSE = {:?}", res);
-                    res.into_inner().code
-                })
-                .map_err(|e| {
-                    info!("ERR = {:?}", e);
-                    e
-                })
-        });
+        //        let fut = clients
+        //            .into_iter()
+        //            .map(move |mut client| {
+        //                let bytes = match serde_json::to_vec(&delete) {
+        //                    Ok(v) => v,
+        //                    Err(_) => Vec::new(),
+        //                };
+        //                let req = tonic::Request::new(DeleteRequest {
+        //                    index: name.clone(),
+        //                    terms: bytes,
+        //                });
+        //                client.delete_document(req)
+        //                //                .map(|res| {
+        //                //                    info!("RESPONSE = {:?}", res);
+        //                //                    res.into_inner().code
+        //                //                })
+        //                //                .map_err(|e| {
+        //                //                    info!("ERR = {:?}", e);
+        //                //                    e
+        //                //                })
+        //            })
+        //            .collect::<FuturesUnordered<_>>();
 
-        Box::new(future::join_all(fut))
+        Ok(DocsAffected { docs_affected: 0 })
     }
 }

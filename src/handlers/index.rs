@@ -1,155 +1,127 @@
-use std::convert::Into;
 use std::sync::Arc;
 
-use futures::stream::{futures_unordered, Stream};
-use futures::{future, future::Either, Future};
-use http::{Response, StatusCode};
-use hyper::Body;
+use bytes::Buf;
+use futures::StreamExt;
+use hyper::body::aggregate;
+use hyper::{Body, Response, StatusCode};
 use rand::random;
 use tantivy::schema::*;
 use tantivy::Index;
-use tower_grpc::Request;
 
-use toshi_proto::cluster_rpc::PlaceRequest;
 use toshi_types::error::Error;
 use toshi_types::server::{DeleteDoc, DocsAffected, SchemaBody};
 
 use crate::cluster::rpc_server::RpcClient;
-use crate::cluster::RPCError;
 use crate::handle::IndexHandle;
 use crate::handlers::ResponseFuture;
 use crate::index::{IndexCatalog, SharedCatalog};
 use crate::utils::{empty_with_code, error_response, with_body};
 use crate::AddDocument;
 
-#[derive(Clone)]
-pub struct IndexHandler {
-    catalog: SharedCatalog,
+#[inline]
+async fn add_index(catalog: SharedCatalog, name: String, index: Index) -> Result<(), Error> {
+    catalog.lock().await.add_index(name, index)
 }
 
-impl IndexHandler {
-    pub fn new(catalog: SharedCatalog) -> Self {
-        IndexHandler { catalog }
+#[inline]
+async fn add_remote_index(catalog: SharedCatalog, name: String, clients: Vec<RpcClient>) -> Result<(), Error> {
+    catalog.lock().await.add_multi_remote_index(name, clients)
+}
+
+async fn delete_terms(catalog: SharedCatalog, body: DeleteDoc, index: &str) -> Result<DocsAffected, Error> {
+    let index_lock = catalog.lock().await;
+    let index_handle = index_lock.get_index(index)?;
+    index_handle.delete_term(body).await
+}
+
+async fn create_remote_index(_nodes: &[String], _index: String, _schema: Schema) -> Result<Vec<RpcClient>, tonic::transport::Error> {
+    //    let futs = nodes
+    //        .iter()
+    //        .map(move |n| {
+    //            async {
+    //                let mut client = IndexCatalog::create_client(n.clone()).await.expect("Cannot creat client.");
+    //                let index = index.clone();
+    //                let schema = schema.clone();
+    //
+    //                let client_clone = client.clone();
+    //                let schema_bytes = serde_json::to_vec(&schema).unwrap();
+    //                let request = tonic::Request::new(PlaceRequest {
+    //                    index,
+    //                    schema: schema_bytes,
+    //                });
+    //                client.place_index(request).map(move |_| vec![client_clone]).await
+    //            }
+    //        })
+    //        .collect::<FuturesUnordered<_>>();
+    //    Ok(futs.concat().await)
+    Ok(vec![])
+}
+
+pub async fn delete_term(catalog: SharedCatalog, body: Body, index: String) -> ResponseFuture {
+    let cat = catalog;
+    let agg_body = aggregate(body).await?;
+    let b = agg_body.bytes();
+    let req = match serde_json::from_slice::<DeleteDoc>(&b) {
+        Ok(v) => v,
+        Err(_e) => return Ok(empty_with_code(hyper::StatusCode::BAD_REQUEST)),
+    };
+    let docs_affected = match delete_terms(cat, req, &index).await {
+        Ok(v) => with_body(v),
+        Err(e) => return Ok(Response::from(e)),
+    };
+
+    Ok(docs_affected)
+}
+
+pub async fn create_index(catalog: SharedCatalog, mut body: Body, index: String) -> ResponseFuture {
+    let cat = catalog;
+    let mut b = vec![];
+    while let Some(Ok(chunk)) = body.next().await {
+        b.extend(chunk);
+    }
+    let req = serde_json::from_slice::<SchemaBody>(&b).unwrap();
+    {
+        let base_path = cat.lock().await.base_path().clone();
+        let new_index: Index = match IndexCatalog::create_from_managed(base_path, &index, req.0.clone()) {
+            Ok(v) => v,
+            Err(e) => return Ok(Response::from(e)),
+        };
+        match add_index(Arc::clone(&cat), index.clone(), new_index).await {
+            Ok(_) => (),
+            Err(e) => return Ok(Response::from(e)),
+        };
     }
 
-    #[inline]
-    fn add_index(catalog: SharedCatalog, name: String, index: Index) -> Result<(), Error> {
-        catalog.write().add_index(name, index)
+    let expir = cat.lock().await.settings.experimental;
+    if expir {
+        let nodes = &cat.lock().await.settings.get_nodes();
+        let clients = create_remote_index(&nodes, index.clone(), req.0).await.unwrap();
+        add_remote_index(cat, index, clients).await.expect("Could not create index.");
+        Ok(empty_with_code(StatusCode::CREATED))
+    } else {
+        Ok(empty_with_code(StatusCode::CREATED))
     }
+}
 
-    #[inline]
-    fn add_remote_index(catalog: SharedCatalog, name: String, clients: Vec<RpcClient>) -> Result<(), Error> {
-        catalog.write().add_multi_remote_index(name, clients)
+pub async fn add_document(catalog: SharedCatalog, mut body: Body, index: String) -> ResponseFuture {
+    let cat_clone = catalog;
+    let mut b = vec![];
+    while let Some(Ok(chunk)) = body.next().await {
+        b.extend(chunk);
     }
+    let req = serde_json::from_slice::<AddDocument>(&b).unwrap();
+    let cat = cat_clone.lock().await;
+    let location: bool = random();
+    if location && cat.remote_exists(&index) {
+        let add = cat.add_remote_document(&index, req).await;
 
-    fn delete_terms(catalog: SharedCatalog, body: DeleteDoc, index: &str) -> Result<DocsAffected, Error> {
-        let index_lock = catalog.read();
-        let index_handle = index_lock.get_index(index)?;
-        index_handle.delete_term(body)
-    }
+        add.map(|_| empty_with_code(StatusCode::CREATED))
+            .or_else(|e| Ok(error_response(StatusCode::BAD_REQUEST, e)))
+    } else {
+        let add = cat.add_local_document(&index, req).await;
 
-    fn create_remote_index(nodes: &[String], index: String, schema: Schema) -> impl Stream<Item = Vec<RpcClient>, Error = RPCError> + Send {
-        let futs = nodes.iter().map(move |n| {
-            let c = IndexCatalog::create_client(n.clone());
-            let index = index.clone();
-            let schema = schema.clone();
-            c.and_then(move |mut client| {
-                let client_clone = client.clone();
-                let schema_bytes = serde_json::to_vec(&schema).unwrap();
-                let request = Request::new(PlaceRequest {
-                    index,
-                    schema: schema_bytes,
-                });
-                client.place_index(request).map(move |_| vec![client_clone]).map_err(Into::into)
-            })
-        });
-        futures_unordered(futs)
-    }
-
-    pub fn delete_term(&self, body: Body, index: String) -> ResponseFuture {
-        let cat = Arc::clone(&self.catalog);
-        let fut = body
-            .concat2()
-            .and_then(move |b| {
-                let b = match serde_json::from_slice::<DeleteDoc>(&b) {
-                    Ok(v) => v,
-                    Err(e) => return future::Either::A(future::ok(Response::from(Error::from(e)))),
-                };
-                let docs_affected = match IndexHandler::delete_terms(cat, b, &index) {
-                    Ok(v) => with_body(v),
-                    Err(e) => return future::Either::A(future::ok(Response::from(e))),
-                };
-
-                future::Either::B(future::ok(docs_affected))
-            })
-            .or_else(|_| future::ok(empty_with_code(StatusCode::INTERNAL_SERVER_ERROR)));
-
-        Box::new(fut)
-    }
-
-    pub fn create_index(&self, body: Body, index: String) -> ResponseFuture {
-        let cat = Arc::clone(&self.catalog);
-        Box::new(body.concat2().and_then(move |b| {
-            let b = match serde_json::from_slice::<SchemaBody>(&b) {
-                Ok(v) => v,
-                Err(e) => return future::Either::A(future::ok(Response::from(Error::from(e)))),
-            };
-
-            {
-                let base_path = cat.read().base_path().clone();
-                let new_index: Index = match IndexCatalog::create_from_managed(base_path, &index, b.0.clone()) {
-                    Ok(v) => v,
-                    Err(e) => return future::Either::A(future::ok(Response::from(e))),
-                };
-                match IndexHandler::add_index(Arc::clone(&cat), index.clone(), new_index) {
-                    Ok(_) => (),
-                    Err(e) => return future::Either::A(future::ok(Response::from(e))),
-                };
-            }
-
-            let expir = cat.read().settings.experimental;
-            if expir {
-                let nodes = &cat.read().settings.get_nodes();
-                future::Either::B(
-                    IndexHandler::create_remote_index(&nodes, index.clone(), b.0)
-                        .concat2()
-                        .map(move |clients| {
-                            IndexHandler::add_remote_index(cat, index, clients)
-                                .map(|()| empty_with_code(StatusCode::CREATED))
-                                .unwrap()
-                        })
-                        .or_else(|_| future::ok(empty_with_code(StatusCode::INTERNAL_SERVER_ERROR))),
-                )
-            } else {
-                future::Either::A(future::ok(empty_with_code(StatusCode::CREATED)))
-            }
-        }))
-    }
-
-    pub fn add_document(&self, body: Body, index: String) -> ResponseFuture {
-        let cat_clone = Arc::clone(&self.catalog);
-        let task = body.concat2().and_then(move |b| {
-            let b = serde_json::from_slice::<AddDocument>(&b).unwrap();
-            let cat = cat_clone.read();
-            let location: bool = random();
-            if location && cat.remote_exists(&index) {
-                let t = cat
-                    .add_remote_document(&index, b)
-                    .map(|_| empty_with_code(StatusCode::CREATED))
-                    .or_else(|e| future::ok(error_response(StatusCode::BAD_REQUEST, e)));
-
-                Either::A(t)
-            } else {
-                let t = cat
-                    .add_local_document(&index, b)
-                    .map(|_| empty_with_code(StatusCode::CREATED))
-                    .or_else(|e| future::ok(error_response(StatusCode::BAD_REQUEST, e)));
-
-                Either::B(t)
-            }
-        });
-
-        Box::new(task)
+        add.map(|_| empty_with_code(StatusCode::CREATED))
+            .or_else(|e| Ok(error_response(StatusCode::BAD_REQUEST, e)))
     }
 }
 
@@ -157,16 +129,16 @@ impl IndexHandler {
 mod tests {
     use std::collections::HashMap;
 
+    use bytes::Buf;
     use pretty_assertions::assert_eq;
-    use tokio::prelude::*;
 
-    use toshi_types::client::SearchResults;
     use toshi_types::server::IndexOptions;
 
-    use crate::handlers::SearchHandler;
-    use crate::index::tests::*;
-
     use super::*;
+    use crate::handlers::all_docs;
+    use crate::handlers::search::tests::wait_json;
+    use crate::index::tests::*;
+    use tokio::runtime::Runtime;
 
     fn test_index() -> String {
         String::from("test_index")
@@ -181,67 +153,71 @@ mod tests {
             { "name": "test_i64", "type": "i64", "options": { "indexed": true, "stored": true } },
             { "name": "test_u64", "type": "u64", "options": { "indexed": true, "stored": true } }
          ]"#;
-        let handler = IndexHandler::new(Arc::clone(&shared_cat));
+        let mut rt: Runtime = tokio::runtime::Runtime::new().unwrap();
 
-        handler.create_index(Body::from(schema), "new_index".into()).wait().unwrap();
-        let search = SearchHandler::new(Arc::clone(&shared_cat));
-        let docs = search
-            .all_docs("new_index".into())
-            .wait()
-            .unwrap()
-            .into_body()
-            .concat2()
-            .wait()
+        rt.block_on(create_index(Arc::clone(&shared_cat), Body::from(schema), "new_index".into()))
             .unwrap();
-        let body: SearchResults<Document> = serde_json::from_slice(&docs).unwrap();
 
-        assert_eq!(body.hits, 0);
+        let docs = async {
+            let resp = all_docs(Arc::clone(&shared_cat), "new_index".into()).await.unwrap();
+            let b = wait_json::<crate::SearchResults>(resp).await;
+            assert_eq!(b.hits, 0);
+            Ok::<_, !>(())
+        };
+        rt.block_on(docs).unwrap();
         remove_dir_all::remove_dir_all("new_index").unwrap();
     }
 
     #[test]
     fn test_doc_create() {
         let shared_cat = create_test_catalog("test_index");
-        let body = r#" {"options": {"commit": true }, "document": {"test_text": "Babbaboo!", "test_u64": 10, "test_i64": -10} }"#;
-        let handler = IndexHandler::new(Arc::clone(&shared_cat));
-        let req = handler.add_document(Body::from(body), test_index()).wait();
+        let body = async {
+            let q = r#" {"options": {"commit": true }, "document": {"test_text": "Babbaboo!", "test_u64": 10, "test_i64": -10} }"#;
+            let req = add_document(Arc::clone(&shared_cat), Body::from(q), test_index()).await;
 
-        assert_eq!(req.is_ok(), true);
+            assert_eq!(req.is_ok(), true);
+        };
+        let mut rt: Runtime = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(body);
     }
 
     #[test]
     fn test_doc_delete() {
         let shared_cat = create_test_catalog("test_index");
-        let handler = IndexHandler::new(Arc::clone(&shared_cat));
-        let mut terms = HashMap::new();
-        terms.insert(test_index(), "document".to_string());
-        let delete = DeleteDoc {
-            options: Some(IndexOptions { commit: true }),
-            terms,
+        let req = async {
+            let mut terms = HashMap::new();
+            terms.insert(test_index(), "document".to_string());
+            let delete = DeleteDoc {
+                options: Some(IndexOptions { commit: true }),
+                terms,
+            };
+            let body_bytes = serde_json::to_vec(&delete).unwrap();
+            let del = delete_term(Arc::clone(&shared_cat), Body::from(body_bytes), test_index()).await;
+            assert_eq!(del.is_ok(), true);
         };
-        let body_bytes = serde_json::to_vec(&delete).unwrap();
-        let req = handler.delete_term(Body::from(body_bytes), test_index()).wait();
-        assert_eq!(req.is_ok(), true);
+        let mut rt: Runtime = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(req);
     }
 
     #[test]
     fn test_bad_json() {
         let shared_cat = create_test_catalog("test_index");
-        let handler = IndexHandler::new(Arc::clone(&shared_cat));
-        let bad_json: serde_json::Value = serde_json::Value::String("".into());
-        let add_doc = AddDocument {
-            document: bad_json,
-            options: None,
+        let bad = async {
+            let bad_json: serde_json::Value = serde_json::Value::String("".into());
+            let add_doc = AddDocument {
+                document: bad_json,
+                options: None,
+            };
+            let body_bytes = serde_json::to_vec(&add_doc).unwrap();
+            let req = add_document(Arc::clone(&shared_cat), Body::from(body_bytes), test_index())
+                .await
+                .unwrap()
+                .into_body();
+            let req_body = hyper::body::aggregate(req).await.unwrap();
+            let buf = req_body.bytes();
+            println!("{}", std::str::from_utf8(&buf).unwrap());
         };
-        let body_bytes = serde_json::to_vec(&add_doc).unwrap();
-        let req = handler
-            .add_document(Body::from(body_bytes), test_index())
-            .wait()
-            .unwrap()
-            .into_body()
-            .concat2()
-            .wait()
-            .unwrap();
-        println!("{}", std::str::from_utf8(&req).unwrap());
+        let mut rt: Runtime = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(bad);
     }
 }

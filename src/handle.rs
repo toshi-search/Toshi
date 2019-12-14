@@ -9,7 +9,6 @@ use tantivy::query::{AllQuery, QueryParser};
 use tantivy::schema::*;
 use tantivy::space_usage::SearcherSpaceUsage;
 use tantivy::{Document, Index, IndexReader, IndexWriter, ReloadPolicy, Term};
-use tokio::prelude::*;
 use tracing::*;
 
 use toshi_types::client::ScoredDoc;
@@ -26,16 +25,13 @@ pub enum IndexLocation {
     REMOTE,
 }
 
+#[async_trait::async_trait]
 pub trait IndexHandle {
-    type SearchResponse: IntoFuture;
-    type DeleteResponse: IntoFuture;
-    type AddResponse: IntoFuture;
-
     fn get_name(&self) -> String;
     fn index_location(&self) -> IndexLocation;
-    fn search_index(&self, search: Search) -> Self::SearchResponse;
-    fn add_document(&self, doc: AddDocument) -> Self::AddResponse;
-    fn delete_term(&self, term: DeleteDoc) -> Self::DeleteResponse;
+    async fn search_index(&'_ self, search: Search) -> Result<SearchResults>;
+    async fn add_document(&self, doc: AddDocument) -> Result<()>;
+    async fn delete_term(&self, term: DeleteDoc) -> Result<DocsAffected>;
 }
 
 /// Index handle that operates on an Index local to the node, a remote index handle
@@ -79,11 +75,8 @@ impl Hash for LocalIndex {
     }
 }
 
+#[async_trait::async_trait]
 impl IndexHandle for LocalIndex {
-    type SearchResponse = Result<SearchResults>;
-    type DeleteResponse = Result<DocsAffected>;
-    type AddResponse = Result<()>;
-
     fn get_name(&self) -> String {
         self.name.clone()
     }
@@ -92,7 +85,7 @@ impl IndexHandle for LocalIndex {
         IndexLocation::LOCAL
     }
 
-    fn search_index(&self, search: Search) -> Self::SearchResponse {
+    async fn search_index(&'_ self, search: Search) -> Result<SearchResults> {
         let searcher = self.reader.searcher();
         let schema = self.index.schema();
         let mut multi_collector = MultiCollector::new();
@@ -177,7 +170,7 @@ impl IndexHandle for LocalIndex {
         }
     }
 
-    fn add_document(&self, add_doc: AddDocument) -> Self::AddResponse {
+    async fn add_document(&self, add_doc: AddDocument) -> Result<()> {
         let index_schema = self.index.schema();
         let writer_lock = self.get_writer();
         {
@@ -199,7 +192,7 @@ impl IndexHandle for LocalIndex {
         Ok(())
     }
 
-    fn delete_term(&self, term: DeleteDoc) -> Self::DeleteResponse {
+    async fn delete_term(&self, term: DeleteDoc) -> Result<DocsAffected> {
         let index_schema = self.index.schema();
         let writer_lock = self.get_writer();
         let before: u64;

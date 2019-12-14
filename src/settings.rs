@@ -295,8 +295,8 @@ mod tests {
             min_merge_size = 30"#;
 
         let config = Settings::from_str(cfg).unwrap();
-
-        assert_eq!(config.merge_policy.level_log_size.unwrap(), 10.5);
+        use crate::handlers::search::tests::cmp_float;
+        assert_eq!(cmp_float(config.merge_policy.level_log_size.unwrap() as f32, 10.5), true);
         assert_eq!(config.merge_policy.min_layer_size.unwrap(), 20);
         assert_eq!(config.merge_policy.min_merge_size.unwrap(), 30);
     }

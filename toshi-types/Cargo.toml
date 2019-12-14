@@ -8,10 +8,10 @@ license = "MIT"
 edition = "2018"
 
 [dependencies]
-http = "^0.1"
-thiserror = "^1.0"
-anyhow = "^1.0"
-serde = "^1.0"
+http       = "^0.2"
+thiserror  = "^1.0"
+anyhow     = "^1.0"
+serde      = "^1.0"
 serde_json = "^1.0"
-tantivy = "^0.10"
-hyper = "^0.12"
+tantivy    = "^0.10"
+hyper      = { version = "^0.13", features = ["stream"] }

@@ -95,11 +95,11 @@ impl From<std::io::Error> for Error {
     }
 }
 
-impl From<Error> for http::Response<Body> {
+impl From<Error> for hyper::Response<Body> {
     fn from(err: Error) -> Self {
         let body = ErrorResponse::new(err);
         let bytes = serde_json::to_vec(&body).unwrap();
-        http::Response::new(Body::from(bytes))
+        hyper::Response::new(Body::from(bytes))
     }
 }
 

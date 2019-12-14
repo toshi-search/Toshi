@@ -1,13 +1,5 @@
-pub mod placement_proto {
-    #[cfg(target_family = "unix")]
-    include!(concat!(env!("OUT_DIR"), "/placement.rs"));
-    #[cfg(target_family = "windows")]
-    include!(concat!(env!("OUT_DIR"), "\\placement.rs"));
-}
-
 pub mod cluster_rpc {
-    #[cfg(target_family = "unix")]
-    include!(concat!(env!("OUT_DIR"), "/cluster_rpc.rs"));
-    #[cfg(target_family = "windows")]
-    include!(concat!(env!("OUT_DIR"), "\\cluster_rpc.rs"));
+    tonic::include_proto!("clusterrpc");
+    pub use index_service_client as client;
+    pub use index_service_server as server;
 }
