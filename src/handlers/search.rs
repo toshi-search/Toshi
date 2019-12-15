@@ -20,27 +20,27 @@ pub fn fold_results(results: Vec<SearchResults>) -> SearchResults {
 pub async fn doc_search(catalog: SharedCatalog, body: Body, index: String) -> ResponseFuture {
     let b = aggregate(body).await?;
     let req = serde_json::from_slice::<Search>(b.bytes()).unwrap();
-
     let c = catalog.lock().await;
     let req = if req.query.is_none() { Search::all_docs() } else { req };
-    info!("Query: {:?}", req);
-    if c.exists(&index) {
-        let mut tasks = FuturesUnordered::new();
-        tasks.push(future::Either::Left(c.search_local_index(&index, req.clone())));
-        if c.remote_exists(&index) {
-            tasks.push(future::Either::Right(c.search_remote_index(&index, req)));
-        }
-        let mut results = vec![];
-        while let Some(Ok(r)) = tasks.next().await {
-            results.extend(r);
-        }
 
-        let response = fold_results(results);
-
-        Ok(with_body(response))
-    } else {
-        Ok(empty_with_code(hyper::StatusCode::NOT_FOUND))
-    }
+//    if c.exists(&index) {
+        info!("Query: {:?}", req);
+//        let mut tasks = FuturesUnordered::new();
+//        tasks.push(future::Either::Left(c.search_local_index(&index, req.clone())));
+//        if c.remote_exists(&index) {
+//            tasks.push(future::Either::Right(c.search_remote_index(&index, req)));
+//        }
+//        let mut results = vec![];
+//        while let Some(Ok(r)) = tasks.next().await {
+//            results.extend(r);
+//        }
+//
+//        let response = fold_results(results);
+        let result = c.search_local_index(&index, req.clone()).await.unwrap();
+        Ok(with_body(result))
+//    } else {
+//        Ok(empty_with_code(hyper::StatusCode::NOT_FOUND))
+//    }
 }
 
 pub async fn all_docs(catalog: SharedCatalog, index: String) -> ResponseFuture {

@@ -3,8 +3,8 @@ use std::time::Instant;
 
 use hyper::{Body, Response, StatusCode};
 use serde::Serialize;
-use tantivy::space_usage::SearcherSpaceUsage;
 use tantivy::IndexMeta;
+use tantivy::space_usage::SearcherSpaceUsage;
 use tracing::*;
 use tracing_futures::Instrument;
 
@@ -31,28 +31,26 @@ impl SummaryResponse {
 pub async fn index_summary(catalog: SharedCatalog, index: String, options: QueryOptions) -> ResponseFuture {
     let start = Instant::now();
     let span = span!(Level::INFO, "summary_handler", ?index, ?options);
+    let _enter = span.enter();
     let index_lock = Arc::clone(&catalog);
-    let fut = async {
-        let index_lock = index_lock.lock().await;
-        if index_lock.exists(&index) {
-            let index = index_lock.get_index(&index).unwrap();
-            let metas = index.get_index().load_metas().unwrap();
-            let summary = if options.include_sizes() {
-                SummaryResponse::new(metas, Some(index.get_space()))
-            } else {
-                SummaryResponse::new(metas, None)
-            };
-            tracing::info!("Took: {:?}", start.elapsed());
-            Ok(with_body(summary))
+
+    let index_lock = index_lock.lock().await;
+    if index_lock.exists(&index) {
+        let index = index_lock.get_index(&index).unwrap();
+        let metas = index.get_index().load_metas().unwrap();
+        let summary = if options.include_sizes() {
+            SummaryResponse::new(metas, Some(index.get_space()))
         } else {
-            let err = Error::IOError(format!("Index {} does not exist", index));
-            let resp: Response<Body> = Response::from(err);
-            tracing::info!("Took: {:?}", start.elapsed());
-            Ok(resp)
-        }
+            SummaryResponse::new(metas, None)
+        };
+        tracing::info!("Took: {:?}", start.elapsed());
+        Ok(with_body(summary))
+    } else {
+        let err = Error::IOError(format!("Index {} does not exist", index));
+        let resp: Response<Body> = Response::from(err);
+        tracing::info!("Took: {:?}", start.elapsed());
+        Ok(resp)
     }
-    .instrument(span);
-    fut.await
 }
 
 pub async fn flush(catalog: SharedCatalog, index: String) -> ResponseFuture {
@@ -75,7 +73,6 @@ pub async fn flush(catalog: SharedCatalog, index: String) -> ResponseFuture {
 
 #[cfg(test)]
 mod tests {
-
     #[test]
     fn get_summary_data() {}
 }

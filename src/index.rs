@@ -218,9 +218,9 @@ impl IndexCatalog {
         Ok((client, r.indexes))
     }
 
-    pub async fn search_local_index(&self, index: &str, search: Search) -> Result<Vec<SearchResults>> {
+    pub async fn search_local_index(&self, index: &str, search: Search) -> Result<SearchResults> {
         let hand = self.get_index(index)?;
-        hand.search_index(search).await.map(|r| vec![r])
+        hand.search_index(search).await
     }
 
     pub async fn search_remote_index(&self, index: &str, search: Search) -> Result<Vec<SearchResults>> {

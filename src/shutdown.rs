@@ -4,30 +4,29 @@ use tracing::*;
 
 #[cfg_attr(tarpaulin, skip)]
 #[cfg(unix)]
-pub async fn shutdown(signal: oneshot::Sender<()>) -> Result<(), ()> {
-    use tokio_signal::unix::{Signal, SIGINT, SIGTERM};
+pub async fn shutdown(s: oneshot::Sender<()>) -> Result<(), ()> {
+    use tokio::signal::unix::{signal, SignalKind};
 
-    let sigint = Signal::new(SIGINT).flatten_stream().map(|_| String::from("SIGINT"));
-    let sigterm = Signal::new(SIGTERM).flatten_stream().map(|_| String::from("SIGTERM"));
+    let sigint = signal(SignalKind::interrupt()).map(|_| String::from("SIGINT"));
+    let sigterm = signal(SignalKind::terminate()).map(|_| String::from("SIGTERM"));
 
-    handle_shutdown(signal, sigint.select(sigterm))
+    handle_shutdown(s, sigint.select(sigterm)).await
 }
 
 #[cfg_attr(tarpaulin, skip)]
 #[cfg(not(unix))]
-pub async fn shutdown(signal: oneshot::Sender<()>) -> Result<(), ()> {
+pub fn shutdown(signal: oneshot::Sender<()>) -> impl Future<Output = Result<(), ()>> + Unpin + Send {
     let stream = tokio::signal::ctrl_c().map(|_| String::from("ctrl-c"));
-    handle_shutdown(signal, stream).await
+    Box::pin(handle_shutdown(signal, Box::pin(stream)))
 }
 
 #[cfg_attr(tarpaulin, skip)]
 pub async fn handle_shutdown<S>(signal: oneshot::Sender<()>, stream: S) -> Result<(), ()>
 where
-    S: Future<Output = String>,
+    S: Future<Output = String> + Unpin,
 {
     let s = stream.await;
     info!("Received signal: {}", s);
-
     info!("Gracefully shutting down...");
     signal.send(())
 }
