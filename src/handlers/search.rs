@@ -1,6 +1,5 @@
 use bytes::Buf;
-use futures::stream::FuturesUnordered;
-use futures::{future, StreamExt};
+
 use hyper::body::aggregate;
 use hyper::Body;
 use hyper::Response;
@@ -19,6 +18,8 @@ pub fn fold_results(results: Vec<SearchResults>) -> SearchResults {
 }
 
 pub async fn doc_search(catalog: SharedCatalog, body: Body, index: String) -> ResponseFuture {
+    let span = span!(Level::INFO, "search_handler", ?index);
+    let _enter = span.enter();
     let b = aggregate(body).await?;
     let req = serde_json::from_slice::<Search>(b.bytes()).unwrap();
     let c = catalog.lock().await;
@@ -53,7 +54,6 @@ pub async fn all_docs(catalog: SharedCatalog, index: String) -> ResponseFuture {
 
 #[cfg(test)]
 pub mod tests {
-    use std::io::Read;
     use std::sync::Arc;
 
     use bytes::Buf;

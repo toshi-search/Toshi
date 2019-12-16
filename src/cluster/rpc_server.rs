@@ -1,8 +1,6 @@
-use std::net::SocketAddr;
 use std::sync::Arc;
 
 use parking_lot::RwLock;
-use tonic::transport::Server;
 use tonic::{Code, Response, Status};
 use tracing::*;
 

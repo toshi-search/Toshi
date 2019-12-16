@@ -6,7 +6,6 @@ use serde::Serialize;
 use tantivy::space_usage::SearcherSpaceUsage;
 use tantivy::IndexMeta;
 use tracing::*;
-use tracing_futures::Instrument;
 
 use toshi_types::error::Error;
 
@@ -32,9 +31,8 @@ pub async fn index_summary(catalog: SharedCatalog, index: String, options: Query
     let start = Instant::now();
     let span = span!(Level::INFO, "summary_handler", ?index, ?options);
     let _enter = span.enter();
-    let index_lock = Arc::clone(&catalog);
 
-    let index_lock = index_lock.lock().await;
+    let index_lock = catalog.lock().await;
     if index_lock.exists(&index) {
         let index = index_lock.get_index(&index).unwrap();
         let metas = index.get_index().load_metas().unwrap();
@@ -54,10 +52,9 @@ pub async fn index_summary(catalog: SharedCatalog, index: String, options: Query
 }
 
 pub async fn flush(catalog: SharedCatalog, index: String) -> ResponseFuture {
-    let span = Span::current();
+    let span = span!(Level::INFO, "flush_handler", ?index);
     let _enter = span.enter();
-    let index_lock = Arc::clone(&catalog);
-    let index_lock = index_lock.lock().await;
+    let index_lock = catalog.lock().await;
     if index_lock.exists(&index) {
         let local_index = index_lock.get_index(&index).unwrap();
         let writer = local_index.get_writer();
