@@ -3,8 +3,8 @@ use std::time::Instant;
 
 use hyper::{Body, Response, StatusCode};
 use serde::Serialize;
-use tantivy::IndexMeta;
 use tantivy::space_usage::SearcherSpaceUsage;
+use tantivy::IndexMeta;
 use tracing::*;
 use tracing_futures::Instrument;
 

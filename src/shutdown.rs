@@ -1,16 +1,22 @@
-use futures::{Future, FutureExt};
+use futures::{future, Future, FutureExt, TryFuture, TryFutureExt};
 use tokio::sync::oneshot;
 use tracing::*;
 
 #[cfg_attr(tarpaulin, skip)]
 #[cfg(unix)]
-pub async fn shutdown(s: oneshot::Sender<()>) -> Result<(), ()> {
+pub fn shutdown(s: oneshot::Sender<()>) -> impl Future<Output = Result<(), ()>> + Unpin + Send {
     use tokio::signal::unix::{signal, SignalKind};
 
-    let sigint = signal(SignalKind::interrupt()).map(|_| String::from("SIGINT"));
-    let sigterm = signal(SignalKind::terminate()).map(|_| String::from("SIGTERM"));
-
-    handle_shutdown(s, sigint.select(sigterm)).await
+    let sigint = async {
+        signal(SignalKind::interrupt()).unwrap().recv().await;
+        String::from("sigint")
+    };
+    let sigterm = async {
+        signal(SignalKind::terminate()).unwrap().recv().await;
+        String::from("sigterm")
+    };
+    let sig = future::select(Box::pin(sigint), Box::pin(sigterm)).map(|_| String::from("Signal"));
+    Box::pin(handle_shutdown(s, Box::pin(sig)))
 }
 
 #[cfg_attr(tarpaulin, skip)]

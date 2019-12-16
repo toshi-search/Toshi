@@ -138,6 +138,7 @@ mod tests {
     use crate::handlers::all_docs;
     use crate::handlers::search::tests::wait_json;
     use crate::index::tests::*;
+    use std::convert::Infallible;
     use tokio::runtime::Runtime;
 
     fn test_index() -> String {
@@ -162,7 +163,7 @@ mod tests {
             let resp = all_docs(Arc::clone(&shared_cat), "new_index".into()).await.unwrap();
             let b = wait_json::<crate::SearchResults>(resp).await;
             assert_eq!(b.hits, 0);
-            Ok::<_, !>(())
+            Ok::<_, Infallible>(())
         };
         rt.block_on(docs).unwrap();
         remove_dir_all::remove_dir_all("new_index").unwrap();

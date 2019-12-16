@@ -25,7 +25,7 @@ hyper                  = { version = "^0.13", features = ["stream"] }
 serde_json             = "^1.0"
 serde_urlencoded       = "^0.6"
 futures                = "^0.3"
-tower-util = { git = "https://github.com/tower-rs/tower" }
+tower-util             = { git = "https://github.com/tower-rs/tower" }
 tonic                  = { git = "https://github.com/hyperium/tonic", optional = true }
 tantivy                = "^0.10"
 tokio                  = { version = "0.2.4", default-features = false, features = ["default", "sync", "fs", "signal", "macros", "rt-threaded"] }

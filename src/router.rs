@@ -10,6 +10,7 @@ use tower_util::BoxService;
 use crate::handlers::*;
 use crate::index::SharedCatalog;
 use crate::utils::{not_found, parse_path};
+use std::convert::Infallible;
 
 #[derive(Deserialize, Debug, Default)]
 pub struct QueryOptions {
@@ -38,6 +39,11 @@ pub struct Router {
 }
 
 impl Router {
+
+    pub fn new(cat: SharedCatalog, watcher: Arc<AtomicBool>) -> Self {
+        Self { cat, watcher }
+    }
+
     pub async fn route(catalog: SharedCatalog, watcher: Arc<AtomicBool>, req: Request<Body>) -> Result<Response<Body>, hyper::Error> {
         let (parts, body) = req.into_parts();
         let query_options: QueryOptions = parts
@@ -79,7 +85,7 @@ impl Router {
         }
     }
 
-    pub async fn service_call(catalog: SharedCatalog, watcher: Arc<AtomicBool>) -> Result<BoxedFn, !> {
+    pub async fn service_call(catalog: SharedCatalog, watcher: Arc<AtomicBool>) -> Result<BoxedFn, Infallible> {
         Ok(BoxService::new(service_fn(move |req| {
             Self::route(Arc::clone(&catalog), Arc::clone(&watcher), req)
         })))

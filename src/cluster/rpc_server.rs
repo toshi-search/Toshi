@@ -2,8 +2,8 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use parking_lot::RwLock;
-use tonic::{Code, Response, Status};
 use tonic::transport::Server;
+use tonic::{Code, Response, Status};
 use tracing::*;
 
 use toshi_proto::cluster_rpc::*;
@@ -30,10 +30,10 @@ impl Clone for RpcServer {
 }
 
 impl RpcServer {
-//    pub async fn serve(addr: SocketAddr, catalog: Arc<RwLock<IndexCatalog>>) -> Result<(), tonic::transport::Error> {
-//        let service = server::IndexServiceServer::new(RpcServer { catalog });
-//        Server::builder().add_service(service).serve(addr).await
-//    }
+    //    pub async fn serve(addr: SocketAddr, catalog: Arc<RwLock<IndexCatalog>>) -> Result<(), tonic::transport::Error> {
+    //        let service = server::IndexServiceServer::new(RpcServer { catalog });
+    //        Server::builder().add_service(service).serve(addr).await
+    //    }
 
     //TODO: Make DNS Threads and Buffer Requests Configurable options
     pub async fn create_client(uri: http::Uri) -> Result<RpcClient, ConnectionError> {

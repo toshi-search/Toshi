@@ -3,6 +3,7 @@ use futures::stream::FuturesUnordered;
 use futures::{future, StreamExt};
 use hyper::body::aggregate;
 use hyper::Body;
+use hyper::Response;
 use tracing::*;
 
 use toshi_types::query::Search;
@@ -23,24 +24,26 @@ pub async fn doc_search(catalog: SharedCatalog, body: Body, index: String) -> Re
     let c = catalog.lock().await;
     let req = if req.query.is_none() { Search::all_docs() } else { req };
 
-//    if c.exists(&index) {
+    if c.exists(&index) {
         info!("Query: {:?}", req);
-//        let mut tasks = FuturesUnordered::new();
-//        tasks.push(future::Either::Left(c.search_local_index(&index, req.clone())));
-//        if c.remote_exists(&index) {
-//            tasks.push(future::Either::Right(c.search_remote_index(&index, req)));
-//        }
-//        let mut results = vec![];
-//        while let Some(Ok(r)) = tasks.next().await {
-//            results.extend(r);
-//        }
-//
-//        let response = fold_results(results);
-        let result = c.search_local_index(&index, req.clone()).await.unwrap();
-        Ok(with_body(result))
-//    } else {
-//        Ok(empty_with_code(hyper::StatusCode::NOT_FOUND))
-//    }
+        //        let mut tasks = FuturesUnordered::new();
+        //        tasks.push(future::Either::Left(c.search_local_index(&index, req.clone())));
+        //        if c.remote_exists(&index) {
+        //            tasks.push(future::Either::Right(c.search_remote_index(&index, req)));
+        //        }
+        //        let mut results = vec![];
+        //        while let Some(Ok(r)) = tasks.next().await {
+        //            results.extend(r);
+        //        }
+        //
+        //        let response = fold_results(results);
+        match c.search_local_index(&index, req.clone()).await {
+            Ok(v) => Ok(with_body(v)),
+            Err(e) => Ok(Response::from(e)),
+        }
+    } else {
+        Ok(empty_with_code(hyper::StatusCode::NOT_FOUND))
+    }
 }
 
 pub async fn all_docs(catalog: SharedCatalog, index: String) -> ResponseFuture {
@@ -50,6 +53,7 @@ pub async fn all_docs(catalog: SharedCatalog, index: String) -> ResponseFuture {
 
 #[cfg(test)]
 pub mod tests {
+    use std::io::Read;
     use std::sync::Arc;
 
     use bytes::Buf;
@@ -105,7 +109,7 @@ pub mod tests {
                 Ok(())
             }
         }))
-        .unwrap();
+            .unwrap();
     }
 
     #[test]
@@ -122,7 +126,7 @@ pub mod tests {
                 Ok(())
             }
         }))
-        .unwrap();
+            .unwrap();
     }
 
     #[test]
@@ -162,17 +166,17 @@ pub mod tests {
         let body = r#"{ "query" : { "raw": "test_unindex:yes" } }"#;
 
         let mut rt: Runtime = tokio::runtime::Runtime::new().unwrap();
-        rt.block_on(
-            doc_search(Arc::clone(&cat), Body::from(body), "test_index".into())
-                .and_then(|r| {
-                    async {
-                        let docs: SearchResults = wait_json(r).await;
-                        assert_eq!(docs.hits, 0);
-                        Ok(())
-                    }
-                })
-                .map_err(|err| dbg!(err)),
-        )
+        rt.block_on(doc_search(Arc::clone(&cat), Body::from(body), "test_index".into()).and_then(|r| {
+            async {
+                let b = aggregate(r.into_body()).await?;
+                let expected = "{\"message\":\"Error in query execution: 'Query on un-indexed field test_unindex'\"}";
+                let body = std::str::from_utf8(b.bytes()).unwrap();
+                assert_eq!(body, expected);
+                Ok(())
+            }
+        }))
+            .unwrap();
+        Ok(())
     }
 
     #[test]
@@ -183,10 +187,7 @@ pub mod tests {
         let mut rt: Runtime = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(
             doc_search(Arc::clone(&cat), Body::from(body), "test_index".into())
-                .and_then(|_| async { Ok(()) })
-                .map_err(|_| ()),
-        )
-        .unwrap();
+                .and_then(|_| async { Ok(()) })).unwrap();
         Ok(())
     }
 
@@ -205,10 +206,7 @@ pub mod tests {
                         assert_eq!(b.facets[0].field, "/cat/cat2");
                         Ok(())
                     }
-                })
-                .map_err(|_| ()),
-        )
-        .unwrap();
+                })).unwrap();
         Ok(())
     }
 
@@ -226,10 +224,7 @@ pub mod tests {
                         assert_eq!(body.docs[0].doc["test_text"][0].text().unwrap(), "Test Duckiment 3");
                         Ok(())
                     }
-                })
-                .map_err(|_| ()),
-        )
-        .unwrap();
+                })).unwrap();
         Ok(())
     }
 
@@ -250,10 +245,8 @@ pub mod tests {
                         assert_eq!(body.docs.len(), 3);
                         Ok(())
                     }
-                })
-                .map_err(|_| ()),
-        )
-        .unwrap();
+                }))
+            .unwrap();
         Ok(())
     }
 
@@ -265,13 +258,12 @@ pub mod tests {
         rt.block_on(run_query(req, "test_index").and_then(|q| {
             async {
                 let body: SearchResults = wait_json(q).await;
-
                 assert_eq!(body.hits as usize, body.docs.len());
                 assert_eq!(cmp_float(body.docs[0].score.unwrap(), 1.0), true);
                 Ok(())
             }
         }))
-        .unwrap();
+            .unwrap();
         Ok(())
     }
 
@@ -285,15 +277,12 @@ pub mod tests {
                 .and_then(|q| {
                     async {
                         let body: SearchResults = wait_json(q).await;
-
                         assert_eq!(body.hits as usize, body.docs.len());
                         assert_eq!(cmp_float(body.docs[0].score.unwrap(), 1.0), true);
                         Ok(())
                     }
-                })
-                .map_err(|_| ()),
-        )
-        .unwrap();
+                }))
+            .unwrap();
         Ok(())
     }
 
@@ -310,10 +299,7 @@ pub mod tests {
                         assert_eq!(body.hits, 4);
                         Ok(())
                     }
-                })
-                .map_err(|_| ()),
-        )
-        .unwrap();
+                })).unwrap();
         Ok(())
     }
 
@@ -333,10 +319,7 @@ pub mod tests {
                         assert_eq!(body.hits, 2);
                         Ok(())
                     }
-                })
-                .map_err(|_| ()),
-        )
-        .unwrap();
+                })).unwrap();
         Ok(())
     }
 }

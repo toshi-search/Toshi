@@ -1,19 +1,19 @@
 use std::fs::create_dir;
 use std::net::{IpAddr, SocketAddr};
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, atomic::AtomicBool};
+use std::sync::{atomic::AtomicBool, Arc};
 
 use futures::prelude::*;
 
-use tokio::sync::Mutex;
 use tokio::sync::oneshot::{self, Receiver, Sender};
+use tokio::sync::Mutex;
 use tracing::*;
 
-use toshi_server::{shutdown, support};
 use toshi_server::commit::watcher;
 use toshi_server::index::{IndexCatalog, SharedCatalog};
 use toshi_server::router::Router;
-use toshi_server::settings::{HEADER, RPC_HEADER, Settings};
+use toshi_server::settings::{Settings, HEADER, RPC_HEADER};
+use toshi_server::{shutdown, support};
 
 #[cfg_attr(tarpaulin, skip)]
 #[tokio::main]
@@ -49,23 +49,20 @@ async fn setup_shutdown(shutdown_signal: Receiver<()>, index_catalog: SharedCata
     shutdown_signal.await?;
     info!("Shutting down...");
     index_catalog.lock().await.clear();
-
     Ok(())
-    //        .and_then(move |_| rt.shutdown_now())
-    //        .wait()
 }
 
 #[cfg_attr(tarpaulin, skip)]
 async fn setup_toshi(settings: Settings, index_catalog: SharedCatalog, tx: Sender<()>) -> Result<(), ()> {
     let shutdown = shutdown::shutdown(tx);
-//    if !settings.experimental_features.master && settings.experimental {
-//        select(run_data(Arc::clone(&index_catalog), settings), shutdown).then(|_| {
-//            Ok(())
-//        }).await
-//    } else {
-        let master = run_master(Arc::clone(&index_catalog), settings);
-        future::try_select(shutdown, master).map(|_| Ok(())).await
-//    }
+    //    if !settings.experimental_features.master && settings.experimental {
+    //        select(run_data(Arc::clone(&index_catalog), settings), shutdown).then(|_| {
+    //            Ok(())
+    //        }).await
+    //    } else {
+    let master = run_master(Arc::clone(&index_catalog), settings);
+    future::try_select(shutdown, master).map(|_| Ok(())).await
+    //    }
 }
 
 #[cfg_attr(tarpaulin, skip)]
@@ -99,7 +96,7 @@ async fn run_data(catalog: Arc<Mutex<IndexCatalog>>, settings: &Settings) -> Res
 }
 
 #[cfg_attr(tarpaulin, skip)]
-fn run_master(catalog: Arc<Mutex<IndexCatalog>>, settings: Settings) -> impl Future<Output = Result<(), hyper::Error>> + Unpin + Send {
+fn run_master(catalog: Arc<Mutex<IndexCatalog>>, settings: Settings) -> impl Future<Output=Result<(), hyper::Error>> + Unpin + Send {
     let bulk_lock = Arc::new(AtomicBool::new(false));
     let commit_watcher = watcher(Arc::clone(&catalog), settings.auto_commit_duration, Arc::clone(&bulk_lock));
     let addr: IpAddr = settings
@@ -110,24 +107,8 @@ fn run_master(catalog: Arc<Mutex<IndexCatalog>>, settings: Settings) -> impl Fut
 
     println!("{}", HEADER);
 
-    if settings.experimental {
-        let settings = settings.clone();
-        let nodes = settings.experimental_features.nodes;
-
-        //        if !nodes.is_empty() {
-        //            tokio::spawn(async {
-        //                let update = catalog.lock().await;
-        //                update.update_remote_indexes().await;
-        //            });
-        //        }
-    } else {
-        let watcher_clone = Arc::clone(&bulk_lock);
-        tokio::spawn(commit_watcher);
-    }
-    let bulk = Arc::clone(&bulk_lock);
-    let router = Router {
-        cat: catalog,
-        watcher: bulk,
-    };
+    tokio::spawn(commit_watcher);
+    let watcher_clone = Arc::clone(&bulk_lock);
+    let router = Router::new(catalog, watcher_clone);
     Box::pin(router.router_with_catalog(bind.clone()))
 }
