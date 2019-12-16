@@ -8,7 +8,7 @@ license = "MIT"
 edition = "2018"
 
 [dependencies]
-hyper = "^0.12"
+hyper = "^0.13"
 http = "^0.1"
 futures = "^0.1"
 tokio = "^0.1"
