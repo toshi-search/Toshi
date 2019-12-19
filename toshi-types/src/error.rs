@@ -79,6 +79,7 @@ impl From<TantivyError> for Error {
             TantivyError::PathDoesNotExist(e) => Error::IOError(format!("{:?}", e)),
             TantivyError::FileAlreadyExists(e) => Error::IOError(format!("{:?}", e)),
             TantivyError::IndexAlreadyExists => Error::IOError(e.to_string()),
+            TantivyError::IncompatibleIndex(e) => Error::IOError(format!("{:?}", e)),
             TantivyError::LockFailure(e, _) => Error::IOError(e.to_string()),
             TantivyError::Poisoned => Error::PoisonedError,
             TantivyError::InvalidArgument(e) => Error::IOError(e),
