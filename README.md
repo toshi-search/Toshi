@@ -10,6 +10,8 @@
 
 > *Please note that this is far from production ready*
 
+#### ***There currently is a working branch for async/await in the `async-await` branch, this will be merged shortly***
+
 #### Description
 Toshi is meant to be a full-text search engine similar to Elasticsearch. Toshi strives
 to be to Elasticsearch what [Tantivy](https://github.com/tantivy-search/tantivy) is to Lucene. 
