@@ -1,8 +1,8 @@
 use bytes::Buf;
 
 use hyper::body::aggregate;
-use hyper::Body;
 use hyper::Response;
+use hyper::{Body, StatusCode};
 use tracing::*;
 
 use toshi_types::query::Search;
@@ -43,7 +43,7 @@ pub async fn doc_search(catalog: SharedCatalog, body: Body, index: String) -> Re
             Err(e) => Ok(Response::from(e)),
         }
     } else {
-        Ok(empty_with_code(hyper::StatusCode::NOT_FOUND))
+        Ok(empty_with_code(StatusCode::NOT_FOUND))
     }
 }
 
@@ -109,7 +109,7 @@ pub mod tests {
                 Ok(())
             }
         }))
-            .unwrap();
+        .unwrap();
     }
 
     #[test]
@@ -126,7 +126,7 @@ pub mod tests {
                 Ok(())
             }
         }))
-            .unwrap();
+        .unwrap();
     }
 
     #[test]
@@ -175,7 +175,7 @@ pub mod tests {
                 Ok(())
             }
         }))
-            .unwrap();
+        .unwrap();
         Ok(())
     }
 
@@ -185,9 +185,8 @@ pub mod tests {
         let body = r#"{ "query" : { "term": { "asdf": "Document" } } }"#;
         let _req: Search = serde_json::from_str(body)?;
         let mut rt: Runtime = tokio::runtime::Runtime::new().unwrap();
-        rt.block_on(
-            doc_search(Arc::clone(&cat), Body::from(body), "test_index".into())
-                .and_then(|_| async { Ok(()) })).unwrap();
+        rt.block_on(doc_search(Arc::clone(&cat), Body::from(body), "test_index".into()).and_then(|_| async { Ok(()) }))
+            .unwrap();
         Ok(())
     }
 
@@ -196,17 +195,16 @@ pub mod tests {
         let body = r#"{ "query" : { "term": { "test_text": "document" } }, "facets": { "test_facet": ["/cat"] } }"#;
         let req: Search = serde_json::from_str(body)?;
         let mut rt: Runtime = tokio::runtime::Runtime::new().unwrap();
-        rt.block_on(
-            run_query(req, "test_index")
-                .and_then(|q| {
-                    async {
-                        let b: SearchResults = wait_json(q).await;
-                        assert_eq!(b.facets[0].value, 1);
-                        assert_eq!(b.facets[1].value, 1);
-                        assert_eq!(b.facets[0].field, "/cat/cat2");
-                        Ok(())
-                    }
-                })).unwrap();
+        rt.block_on(run_query(req, "test_index").and_then(|q| {
+            async {
+                let b: SearchResults = wait_json(q).await;
+                assert_eq!(b.facets[0].value, 1);
+                assert_eq!(b.facets[1].value, 1);
+                assert_eq!(b.facets[0].field, "/cat/cat2");
+                Ok(())
+            }
+        }))
+        .unwrap();
         Ok(())
     }
 
@@ -215,16 +213,15 @@ pub mod tests {
         let body = r#"test_text:"Duckiment""#;
         let req = Search::new(Some(Query::Raw { raw: body.into() }), None, 10);
         let mut rt: Runtime = tokio::runtime::Runtime::new().unwrap();
-        rt.block_on(
-            run_query(req, "test_index")
-                .and_then(|q| {
-                    async {
-                        let body: SearchResults = wait_json(q).await;
-                        assert_eq!(body.hits as usize, body.docs.len());
-                        assert_eq!(body.docs[0].doc["test_text"][0].text().unwrap(), "Test Duckiment 3");
-                        Ok(())
-                    }
-                })).unwrap();
+        rt.block_on(run_query(req, "test_index").and_then(|q| {
+            async {
+                let body: SearchResults = wait_json(q).await;
+                assert_eq!(body.hits as usize, body.docs.len());
+                assert_eq!(body.docs[0].doc["test_text"][0].text().unwrap(), "Test Duckiment 3");
+                Ok(())
+            }
+        }))
+        .unwrap();
         Ok(())
     }
 
@@ -234,19 +231,17 @@ pub mod tests {
         let term_query = Query::Fuzzy(FuzzyQuery::new(fuzzy));
         let search = Search::new(Some(term_query), None, 10);
         let mut rt: Runtime = tokio::runtime::Runtime::new().unwrap();
-        rt.block_on(
-            run_query(search, "test_index")
-                .and_then(|q| {
-                    async {
-                        let body: SearchResults = wait_json(q).await;
+        rt.block_on(run_query(search, "test_index").and_then(|q| {
+            async {
+                let body: SearchResults = wait_json(q).await;
 
-                        assert_eq!(body.hits as usize, body.docs.len());
-                        assert_eq!(body.hits, 3);
-                        assert_eq!(body.docs.len(), 3);
-                        Ok(())
-                    }
-                }))
-            .unwrap();
+                assert_eq!(body.hits as usize, body.docs.len());
+                assert_eq!(body.hits, 3);
+                assert_eq!(body.docs.len(), 3);
+                Ok(())
+            }
+        }))
+        .unwrap();
         Ok(())
     }
 
@@ -263,7 +258,7 @@ pub mod tests {
                 Ok(())
             }
         }))
-            .unwrap();
+        .unwrap();
         Ok(())
     }
 
@@ -272,17 +267,15 @@ pub mod tests {
         let body = r#"{ "query" : { "range" : { "test_i64" : { "gt" : 2012, "lt" : 2015 } } } }"#;
         let req: Search = serde_json::from_str(&body)?;
         let mut rt: Runtime = tokio::runtime::Runtime::new().unwrap();
-        rt.block_on(
-            run_query(req, "test_index")
-                .and_then(|q| {
-                    async {
-                        let body: SearchResults = wait_json(q).await;
-                        assert_eq!(body.hits as usize, body.docs.len());
-                        assert_eq!(cmp_float(body.docs[0].score.unwrap(), 1.0), true);
-                        Ok(())
-                    }
-                }))
-            .unwrap();
+        rt.block_on(run_query(req, "test_index").and_then(|q| {
+            async {
+                let body: SearchResults = wait_json(q).await;
+                assert_eq!(body.hits as usize, body.docs.len());
+                assert_eq!(cmp_float(body.docs[0].score.unwrap(), 1.0), true);
+                Ok(())
+            }
+        }))
+        .unwrap();
         Ok(())
     }
 
@@ -291,15 +284,14 @@ pub mod tests {
         let body = r#"{ "query" : { "regex" : { "test_text" : "d[ou]{1}c[k]?ument" } } }"#;
         let req: Search = serde_json::from_str(&body)?;
         let mut rt: Runtime = tokio::runtime::Runtime::new().unwrap();
-        rt.block_on(
-            run_query(req, "test_index")
-                .and_then(|q| {
-                    async {
-                        let body: SearchResults = wait_json(q).await;
-                        assert_eq!(body.hits, 4);
-                        Ok(())
-                    }
-                })).unwrap();
+        rt.block_on(run_query(req, "test_index").and_then(|q| {
+            async {
+                let body: SearchResults = wait_json(q).await;
+                assert_eq!(body.hits, 4);
+                Ok(())
+            }
+        }))
+        .unwrap();
         Ok(())
     }
 
@@ -311,15 +303,14 @@ pub mod tests {
 
         let query = serde_json::from_str::<Search>(test_json)?;
         let mut rt: Runtime = tokio::runtime::Runtime::new().unwrap();
-        rt.block_on(
-            run_query(query, "test_index")
-                .and_then(|q| {
-                    async {
-                        let body: SearchResults = wait_json(q).await;
-                        assert_eq!(body.hits, 2);
-                        Ok(())
-                    }
-                })).unwrap();
+        rt.block_on(run_query(query, "test_index").and_then(|q| {
+            async {
+                let body: SearchResults = wait_json(q).await;
+                assert_eq!(body.hits, 2);
+                Ok(())
+            }
+        }))
+        .unwrap();
         Ok(())
     }
 }

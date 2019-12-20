@@ -25,7 +25,7 @@ async fn add_index(catalog: SharedCatalog, name: String, index: Index) -> Result
 
 #[inline]
 async fn add_remote_index(catalog: SharedCatalog, name: String, clients: Vec<RpcClient>) -> Result<(), Error> {
-    catalog.lock().await.add_multi_remote_index(name, clients)
+    catalog.lock().await.add_multi_remote_index(name, clients).await
 }
 
 async fn delete_terms(catalog: SharedCatalog, body: DeleteDoc, index: &str) -> Result<DocsAffected, Error> {
@@ -73,30 +73,26 @@ pub async fn delete_term(catalog: SharedCatalog, body: Body, index: String) -> R
     Ok(docs_affected)
 }
 
-pub async fn create_index(catalog: SharedCatalog, mut body: Body, index: String) -> ResponseFuture {
-    let cat = catalog;
-    let mut b = vec![];
-    while let Some(Ok(chunk)) = body.next().await {
-        b.extend(chunk);
-    }
-    let req = serde_json::from_slice::<SchemaBody>(&b).unwrap();
+pub async fn create_index(catalog: SharedCatalog, body: Body, index: String) -> ResponseFuture {
+    let b = aggregate(body).await?;
+    let req = serde_json::from_slice::<SchemaBody>(&b.bytes()).unwrap();
     {
-        let base_path = cat.lock().await.base_path().clone();
+        let base_path = catalog.lock().await.base_path().clone();
         let new_index: Index = match IndexCatalog::create_from_managed(base_path, &index, req.0.clone()) {
             Ok(v) => v,
             Err(e) => return Ok(Response::from(e)),
         };
-        match add_index(Arc::clone(&cat), index.clone(), new_index).await {
+        match add_index(Arc::clone(&catalog), index.clone(), new_index).await {
             Ok(_) => (),
             Err(e) => return Ok(Response::from(e)),
         };
     }
 
-    let expir = cat.lock().await.settings.experimental;
+    let expir = catalog.lock().await.settings.experimental;
     if expir {
-        let nodes = &cat.lock().await.settings.get_nodes();
+        let nodes = &catalog.lock().await.settings.get_nodes();
         let clients = create_remote_index(&nodes, index.clone(), req.0).await.unwrap();
-        add_remote_index(cat, index, clients).await.expect("Could not create index.");
+        add_remote_index(catalog, index, clients).await.expect("Could not create index.");
         Ok(empty_with_code(StatusCode::CREATED))
     } else {
         Ok(empty_with_code(StatusCode::CREATED))
@@ -112,7 +108,7 @@ pub async fn add_document(catalog: SharedCatalog, mut body: Body, index: String)
     let req = serde_json::from_slice::<AddDocument>(&b).unwrap();
     let cat = cat_clone.lock().await;
     let location: bool = random();
-    if location && cat.remote_exists(&index) {
+    if location && cat.remote_exists(&index).await {
         let add = cat.add_remote_document(&index, req).await;
 
         add.map(|_| empty_with_code(StatusCode::CREATED))

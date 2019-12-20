@@ -3,12 +3,12 @@ use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
 
-use parking_lot::RwLock;
 use tantivy::collector::{FacetCollector, MultiCollector, TopDocs};
 use tantivy::query::{AllQuery, QueryParser};
 use tantivy::schema::*;
 use tantivy::space_usage::SearcherSpaceUsage;
 use tantivy::{Document, Index, IndexReader, IndexWriter, ReloadPolicy, Term};
+use tokio::sync::Mutex;
 use tracing::*;
 
 use toshi_types::client::ScoredDoc;
@@ -39,7 +39,7 @@ pub trait IndexHandle {
 /// local handle will always get called through rpc
 pub struct LocalIndex {
     index: Index,
-    writer: Arc<RwLock<IndexWriter>>,
+    writer: Arc<Mutex<IndexWriter>>,
     reader: IndexReader,
     current_opstamp: Arc<AtomicUsize>,
     deleted_docs: Arc<AtomicU64>,
@@ -124,7 +124,7 @@ impl IndexHandle for LocalIndex {
                 Query::Range(range) => range.create_query(&schema)?,
                 Query::Boolean { bool } => bool.create_query(&schema)?,
                 Query::Raw { raw } => {
-                    let fields: Vec<Field> = schema.fields().iter().filter_map(|e| schema.get_field(e.name())).collect();
+                    let fields: Vec<Field> = schema.fields().filter_map(|f| schema.get_field(f.1.name())).collect();
                     let query_parser = QueryParser::for_index(&self.index, fields);
                     query_parser.parse_query(&raw)?
                 }
@@ -174,13 +174,13 @@ impl IndexHandle for LocalIndex {
         let index_schema = self.index.schema();
         let writer_lock = self.get_writer();
         {
-            let index_writer = writer_lock.read();
+            let index_writer = writer_lock.lock().await;
             let doc: Document = LocalIndex::parse_doc(&index_schema, &add_doc.document.to_string())?;
             index_writer.add_document(doc);
         }
         if let Some(opts) = add_doc.options {
             if opts.commit {
-                let mut commit_writer = writer_lock.write();
+                let mut commit_writer = writer_lock.lock().await;
                 commit_writer.commit()?;
                 self.set_opstamp(0);
             } else {
@@ -197,7 +197,7 @@ impl IndexHandle for LocalIndex {
         let writer_lock = self.get_writer();
         let before: u64;
         {
-            let index_writer = writer_lock.read();
+            let index_writer = writer_lock.lock().await;
             before = self.reader.searcher().num_docs();
 
             for (field, value) in term.terms {
@@ -209,7 +209,7 @@ impl IndexHandle for LocalIndex {
         }
         if let Some(opts) = term.options {
             if opts.commit {
-                let mut commit_writer = writer_lock.write();
+                let mut commit_writer = writer_lock.lock().await;
                 commit_writer.commit()?;
                 self.set_opstamp(0);
             }
@@ -226,7 +226,7 @@ impl LocalIndex {
         let i = index.writer(settings.writer_memory)?;
         i.set_merge_policy(settings.get_merge_policy());
         let current_opstamp = Arc::new(AtomicUsize::new(0));
-        let writer = Arc::new(RwLock::new(i));
+        let writer = Arc::new(Mutex::new(i));
         let reader = index.reader_builder().reload_policy(ReloadPolicy::OnCommit).try_into()?;
         Ok(Self {
             index,
@@ -255,7 +255,7 @@ impl LocalIndex {
         LocalIndex::new(self.index, self.settings.clone(), &self.name)
     }
 
-    pub fn get_writer(&self) -> Arc<RwLock<IndexWriter>> {
+    pub fn get_writer(&self) -> Arc<Mutex<IndexWriter>> {
         Arc::clone(&self.writer)
     }
 

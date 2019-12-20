@@ -48,7 +48,7 @@ fn setup_logging(level: &str) {
 async fn setup_shutdown(shutdown_signal: Receiver<()>, index_catalog: SharedCatalog) -> Result<(), oneshot::error::RecvError> {
     shutdown_signal.await?;
     info!("Shutting down...");
-    index_catalog.lock().await.clear();
+    index_catalog.lock().await.clear().await;
     Ok(())
 }
 
@@ -96,7 +96,7 @@ async fn run_data(catalog: Arc<Mutex<IndexCatalog>>, settings: &Settings) -> Res
 }
 
 #[cfg_attr(tarpaulin, skip)]
-fn run_master(catalog: Arc<Mutex<IndexCatalog>>, settings: Settings) -> impl Future<Output=Result<(), hyper::Error>> + Unpin + Send {
+fn run_master(catalog: Arc<Mutex<IndexCatalog>>, settings: Settings) -> impl Future<Output = Result<(), hyper::Error>> + Unpin + Send {
     let bulk_lock = Arc::new(AtomicBool::new(false));
     let commit_watcher = watcher(Arc::clone(&catalog), settings.auto_commit_duration, Arc::clone(&bulk_lock));
     let addr: IpAddr = settings

@@ -7,10 +7,10 @@ use std::sync::Arc;
 use hashbrown::HashMap;
 use http::uri::Scheme;
 use http::Uri;
-use parking_lot::Mutex;
 use tantivy::directory::MmapDirectory;
 use tantivy::schema::Schema;
 use tantivy::Index;
+use tokio::sync::Mutex;
 
 use toshi_proto::cluster_rpc::*;
 use toshi_types::error::Error;
@@ -53,14 +53,11 @@ impl IndexCatalog {
     }
 
     pub async fn update_remote_indexes(&self) -> Result<()> {
-        let cat_clone = Arc::clone(&self.remote_handles);
         let hosts = IndexCatalog::refresh_multiple_nodes(self.settings.experimental_features.nodes.clone()).await?;
-        let cat = &cat_clone;
-
         for host in hosts {
             for idx in host.1 {
                 let ri = RemoteIndex::new(idx.clone(), host.0.clone());
-                cat.lock().insert(idx.clone(), ri);
+                self.remote_handles.lock().await.insert(idx, ri);
             }
         }
         Ok(())
@@ -113,15 +110,15 @@ impl IndexCatalog {
         Ok(())
     }
 
-    pub fn add_remote_index(&mut self, name: String, remote: RpcClient) -> Result<()> {
+    pub async fn add_remote_index(&mut self, name: String, remote: RpcClient) -> Result<()> {
         let ri = RemoteIndex::new(name.clone(), remote);
-        self.remote_handles.lock().entry(name).or_insert(ri);
+        self.remote_handles.lock().await.entry(name).or_insert(ri);
         Ok(())
     }
 
-    pub fn add_multi_remote_index(&mut self, name: String, remote: Vec<RpcClient>) -> Result<()> {
+    pub async fn add_multi_remote_index(&mut self, name: String, remote: Vec<RpcClient>) -> Result<()> {
         let ri = RemoteIndex::with_clients(name.clone(), remote);
-        self.remote_handles.lock().entry(name).or_insert(ri);
+        self.remote_handles.lock().await.entry(name).or_insert(ri);
         Ok(())
     }
 
@@ -141,8 +138,8 @@ impl IndexCatalog {
         self.get_collection().contains_key(index)
     }
 
-    pub fn remote_exists(&self, index: &str) -> bool {
-        self.get_remote_collection().lock().contains_key(index)
+    pub async fn remote_exists(&self, index: &str) -> bool {
+        self.get_remote_collection().lock().await.contains_key(index)
     }
 
     pub fn get_mut_index(&mut self, name: &str) -> Result<&mut LocalIndex> {
@@ -160,9 +157,10 @@ impl IndexCatalog {
             .ok_or_else(|| Error::UnknownIndex(name.into()))
     }
 
-    pub fn get_remote_index(&self, name: &str) -> Result<RemoteIndex> {
+    pub async fn get_remote_index(&self, name: &str) -> Result<RemoteIndex> {
         self.get_remote_collection()
             .lock()
+            .await
             .get(name)
             .cloned()
             .ok_or_else(|| Error::UnknownIndex(name.into()))
@@ -224,7 +222,7 @@ impl IndexCatalog {
     }
 
     pub async fn search_remote_index(&self, index: &str, search: Search) -> Result<Vec<SearchResults>> {
-        let hand = self.get_remote_index(index)?;
+        let hand = self.get_remote_index(index).await?;
         hand.search_index(search).await.map(|r| vec![r])
         //            .and_then(|sr| {
         //
@@ -235,7 +233,7 @@ impl IndexCatalog {
     }
 
     pub async fn add_remote_document(&self, index: &str, doc: AddDocument) -> Result<()> {
-        let handle = self.get_remote_index(index).map_err(|e| Error::IOError(e.to_string()))?;
+        let handle = self.get_remote_index(index).await.map_err(|e| Error::IOError(e.to_string()))?;
         handle.add_document(doc).await
     }
 
@@ -245,21 +243,23 @@ impl IndexCatalog {
     }
 
     pub async fn delete_local_term(&self, index: &str, term: DeleteDoc) -> Result<DocsAffected> {
-        let handle = self.get_remote_index(index).map_err(|e| Error::IOError(e.to_string()))?;
+        let handle = self.get_remote_index(index).await.map_err(|e| Error::IOError(e.to_string()))?;
         handle.delete_term(term).await
     }
 
-    pub fn clear(&mut self) {
+    pub async fn clear(&mut self) {
         self.local_handles.clear();
-        self.remote_handles.lock().clear()
+        self.remote_handles.lock().await.clear()
     }
 }
 
 #[cfg(test)]
 pub mod tests {
-    use super::*;
     use std::sync::Arc;
+
     use tokio::sync::Mutex;
+
+    use super::*;
 
     pub fn create_test_catalog(name: &str) -> SharedCatalog {
         let idx = toshi_test::create_test_index();

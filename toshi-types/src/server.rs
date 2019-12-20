@@ -28,7 +28,7 @@ impl std::fmt::Debug for SchemaBody {
     fn fmt(&self, f: &mut Formatter) -> Result<(), std::fmt::Error> {
         f.write_str("Schema {\n")?;
         for field in self.0.fields() {
-            f.write_fmt(format_args!("{:2}{:15}: {:?},\n", " ", field.name(), field.field_type()))?;
+            f.write_fmt(format_args!("{:2}{:15}: {:?},\n", " ", field.1.name(), field.1.field_type()))?;
         }
         f.write_str("};")?;
         Ok(())

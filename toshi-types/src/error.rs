@@ -73,11 +73,28 @@ impl From<DocParsingError> for Error {
 
 impl From<TantivyError> for Error {
     fn from(e: TantivyError) -> Self {
+        use tantivy::directory::error::Incompatibility;
         match e {
             TantivyError::IOError(e) => Error::IOError(e.to_string()),
+            TantivyError::IncompatibleIndex(ie) => match ie {
+                Incompatibility::IndexMismatch {
+                    library_version,
+                    index_version,
+                } => Error::IOError(format!(
+                    "Index incompatible with version of Tantivy, library: {:?}, index: {:?}",
+                    library_version, index_version
+                )),
+                Incompatibility::CompressionMismatch {
+                    library_compression_format,
+                    index_compression_format,
+                } => Error::IOError(format!(
+                    "Incompatible compression format, library: {}, index: {}",
+                    library_compression_format, index_compression_format
+                )),
+            },
             TantivyError::DataCorruption(e) => Error::IOError(format!("Data corruption: {:?}", e)),
-            TantivyError::PathDoesNotExist(e) => Error::IOError(format!("{:?}", e)),
-            TantivyError::FileAlreadyExists(e) => Error::IOError(format!("{:?}", e)),
+            TantivyError::PathDoesNotExist(e) => Error::IOError(format!("Path does not exist: {:?}", e)),
+            TantivyError::FileAlreadyExists(e) => Error::IOError(format!("File already exists: {:?}", e)),
             TantivyError::IndexAlreadyExists => Error::IOError(e.to_string()),
             TantivyError::LockFailure(e, _) => Error::IOError(e.to_string()),
             TantivyError::Poisoned => Error::PoisonedError,

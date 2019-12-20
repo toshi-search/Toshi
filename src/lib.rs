@@ -1,5 +1,5 @@
-//#![forbid(warnings)]
-//#![deny(future_incompatible)]
+#![forbid(unsafe_code)]
+#![deny(future_incompatible)]
 
 use std::collections::BTreeMap;
 
@@ -8,7 +8,6 @@ use tantivy::schema::Value;
 use toshi_types::client::SearchResults as SD;
 use toshi_types::server::AddDocument as AD;
 
-#[cfg(feature = "rpc")]
 pub mod cluster;
 pub mod commit;
 pub mod handle;

@@ -1,17 +1,20 @@
 use std::hash::{Hash, Hasher};
 
 use rand::prelude::*;
+use tonic::Response;
 use tracing::*;
 
+use toshi_proto::cluster_rpc::*;
 use toshi_proto::cluster_rpc::{DocumentRequest, SearchRequest};
+use toshi_types::error::Error;
 use toshi_types::query::Search;
 use toshi_types::server::{DeleteDoc, DocsAffected};
 
 use crate::cluster::rpc_server::RpcClient;
 use crate::handle::{IndexHandle, IndexLocation};
+use crate::handlers::fold_results;
 use crate::AddDocument;
 use crate::SearchResults;
-use toshi_types::error::Error;
 
 /// A reference to an index stored somewhere else on the cluster, this operates via calling
 /// the remote host and full filling the request via rpc, we need to figure out a better way
@@ -57,25 +60,25 @@ impl IndexHandle for RemoteIndex {
     }
 
     async fn search_index(&self, search: Search) -> Result<SearchResults, Error> {
-        let name = self.name.clone();
+        let name = self.get_name();
         let clients = self.remotes.clone();
         info!("REQ = {:?}", search);
-        //        let client_result = clients
-        //            .into_iter()
-        //            .map(|mut client| {
-        //                let bytes = match serde_json::to_vec(&search) {
-        //                    Ok(v) => v,
-        //                    Err(_) => Vec::new(),
-        //                };
-        //                let req = tonic::Request::new(SearchRequest {
-        //                    index: name.clone(),
-        //                    query: bytes,
-        //                });
-        ////                client.search_index(req)
-        //            })
-        //            .collect::<FuturesUnordered<_>>();
-
-        Ok(SearchResults::new(vec![]))
+        let mut results = vec![];
+        for mut client in clients {
+            let bytes = match serde_json::to_vec(&search) {
+                Ok(v) => v,
+                Err(_) => Vec::new(),
+            };
+            let req = tonic::Request::new(SearchRequest {
+                index: name.clone(),
+                query: bytes,
+            });
+            let search: Response<SearchReply> = client.search_index(req).await.unwrap();
+            let reply: SearchReply = search.into_inner();
+            let search_results: SearchResults = serde_json::from_slice(&reply.doc)?;
+            results.push(search_results);
+        }
+        Ok(fold_results(results))
     }
 
     async fn add_document(&self, add: AddDocument) -> Result<(), Error> {

@@ -39,7 +39,6 @@ pub struct Router {
 }
 
 impl Router {
-
     pub fn new(cat: SharedCatalog, watcher: Arc<AtomicBool>) -> Self {
         Self { cat, watcher }
     }

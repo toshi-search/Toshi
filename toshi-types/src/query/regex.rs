@@ -25,6 +25,6 @@ impl CreateQuery for RegexQuery {
         let field = schema
             .get_field(&field)
             .ok_or_else(|| Error::QueryError(format!("Field: {} does not exist", field)))?;
-        Ok(Box::new(TantivyRegexQuery::new(value, field)))
+        Ok(Box::new(TantivyRegexQuery::from_pattern(&value, field)?))
     }
 }

@@ -9,12 +9,9 @@ edition = "2018"
 build = "build.rs"
 
 [build-dependencies]
-#tonic-build = "0.1.0-alpha.6"
 tonic-build = { git = "https://github.com/hyperium/tonic" }
 
 [dependencies]
-#tonic = "0.1.0-alpha.6"
-
 tonic        = { git = "https://github.com/hyperium/tonic" }
 bytes        = "^0.4"
 prost        = "^0.5"

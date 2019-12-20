@@ -8,10 +8,10 @@ license = "MIT"
 edition = "2018"
 
 [dependencies]
-hyper   = { git = "https://github.com/hyperium/hyper", features = ["stream"] }
+hyper   = { version = "^0.13", features = ["stream"] }
 http = "^0.2"
 futures = "^0.3"
 tokio = "^0.2"
 failure = "^0.1"
 tracing = "^0.1"
-tantivy = "^0.10"
+tantivy = "^0.11"

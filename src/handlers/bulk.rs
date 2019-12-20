@@ -7,9 +7,9 @@ use crossbeam::channel::{unbounded, Receiver, Sender};
 use futures::StreamExt;
 use hyper::Body;
 use hyper::StatusCode;
-use parking_lot::RwLock;
 use tantivy::schema::Schema;
 use tantivy::{Document, IndexWriter};
+use tokio::sync::Mutex;
 use tracing::*;
 use tracing_futures::Instrument;
 
@@ -18,20 +18,19 @@ use crate::index::SharedCatalog;
 use crate::utils::empty_with_code;
 
 async fn index_documents(
-    index_writer: Arc<RwLock<IndexWriter>>,
+    index_writer: Arc<Mutex<IndexWriter>>,
     doc_receiver: Receiver<Document>,
     watcher: Arc<AtomicBool>,
 ) -> Result<(), ()> {
     let parsing_span = info_span!("PipingDocuments");
     let _enter = parsing_span.enter();
     let start = Instant::now();
+    let w = index_writer.lock().await;
     for doc in doc_receiver {
-        let w = index_writer.read();
         w.add_document(doc);
     }
 
     info!("Piping Documents took: {:?}", start.elapsed());
-    info!("Unlocking watcher...");
     watcher.store(false, Ordering::SeqCst);
     Ok(())
 }
@@ -66,9 +65,8 @@ pub async fn bulk_insert(catalog: SharedCatalog, watcher: Arc<AtomicBool>, mut b
     let writer = index_handle.get_writer();
     let num_threads = index_lock.settings.json_parsing_threads;
     let line_sender_clone = line_sender.clone();
-
     let watcher_clone = Arc::clone(&watcher);
-    let mut buf = Vec::new();
+
     for _ in 0..num_threads {
         let schema = schema.clone();
         let doc_sender = doc_sender.clone();
@@ -76,6 +74,8 @@ pub async fn bulk_insert(catalog: SharedCatalog, watcher: Arc<AtomicBool>, mut b
 
         tokio::spawn(parsing_documents(schema.clone(), doc_sender.clone(), line_recv.clone()).in_current_span());
     }
+
+    let mut buf = Vec::new();
     let mut remaining = vec![];
     while let Some(Ok(line)) = body.next().await {
         buf.extend(line);
@@ -119,7 +119,7 @@ mod tests {
         let sub = tracing_fmt::FmtSubscriber::builder().with_ansi(true).finish();
         tracing::subscriber::set_global_default(sub).expect("Unable to set default Subscriber");
 
-        let mut runtime = Builder::new().num_threads(4).enable_all().threaded_scheduler().build().unwrap();
+        let mut runtime = Builder::new().core_threads(4).enable_all().threaded_scheduler().build().unwrap();
         let server = create_test_catalog("test_index");
         let lock = Arc::new(AtomicBool::new(false));
 
@@ -132,10 +132,10 @@ mod tests {
         let result = runtime.block_on(index_docs);
         assert_eq!(result.is_ok(), true);
         let _ = result.unwrap();
-        sleep(Duration::from_secs(5));
+        sleep(Duration::from_secs(1));
         let flush = flush(Arc::clone(&server), "test_index".to_string());
         runtime.block_on(flush)?;
-        sleep(Duration::from_secs(5));
+        sleep(Duration::from_secs(1));
 
         let check_docs = runtime.block_on(all_docs(server, "test_index".into()))?;
         let body = runtime.block_on(hyper::body::aggregate(check_docs.into_body()))?;

@@ -11,18 +11,18 @@ use crate::index::SharedCatalog;
 pub async fn watcher(cat: SharedCatalog, commit_duration: u64, lock: Arc<AtomicBool>) -> Result<(), ()> {
     while let _ = time::interval(Duration::from_secs(commit_duration)).tick().await {
         let cat = cat.lock().await;
-        cat.get_collection().into_iter().for_each(|(key, index)| {
+        for (key, index) in cat.get_collection().into_iter() {
             let writer = index.get_writer();
             let current_ops = index.get_opstamp();
             if current_ops == 0 {
                 debug!("No update to index={}, opstamp={}", key, current_ops);
             } else if !lock.load(Ordering::SeqCst) {
-                let mut w = writer.write();
+                let mut w = writer.lock().await;
                 debug!("Committing {}...", key);
                 w.commit().unwrap();
                 index.set_opstamp(0);
             }
-        });
+        }
     }
     Ok(())
 }
@@ -41,7 +41,7 @@ pub mod tests {
 
     #[test]
     pub fn test_auto_commit() {
-        let mut rt = Builder::new().threaded_scheduler().num_threads(4).enable_all().build().unwrap();
+        let mut rt = Builder::new().threaded_scheduler().core_threads(4).enable_all().build().unwrap();
         let catalog = create_test_catalog("test_index");
         let lock = Arc::new(AtomicBool::new(false));
         let watcher = watcher(Arc::clone(&catalog), 1, Arc::clone(&lock));
