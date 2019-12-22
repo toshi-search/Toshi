@@ -7,7 +7,7 @@ service IndexService {
     rpc place_index (PlaceRequest) returns (ResultReply);
     rpc list_indexes (ListRequest) returns (ListReply);
     rpc place_document (DocumentRequest) returns (ResultReply);
-    rpc delete_document (DeleteRequest) returns (ResultReply);
+    rpc delete_document (DeleteRequest) returns (DeleteReply);
     rpc place_replica (ReplicaRequest) returns (ResultReply);
     rpc search_index (SearchRequest) returns (SearchReply);
     rpc get_summary (SummaryRequest) returns (SummaryReply);
@@ -82,4 +82,9 @@ message SummaryRequest {
 
 message SummaryReply {
     bytes summary = 1;
+}
+
+message DeleteReply {
+    string index = 1;
+    uint64 docs_affected = 2;
 }

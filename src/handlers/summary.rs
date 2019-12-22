@@ -6,7 +6,7 @@ use tantivy::space_usage::SearcherSpaceUsage;
 use tantivy::IndexMeta;
 use tracing::*;
 
-use toshi_types::error::Error;
+use toshi_types::Error;
 
 use crate::handlers::ResponseFuture;
 use crate::index::SharedCatalog;

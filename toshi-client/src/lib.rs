@@ -3,11 +3,7 @@ use isahc::HttpClientBuilder;
 use serde::{de::DeserializeOwned, Serialize};
 use tantivy::schema::Schema;
 
-pub use toshi_types::{
-    client::{ScoredDoc, SearchResults},
-    query::*,
-    server::{AddDocument, IndexOptions, SchemaBody},
-};
+pub use toshi_types::*;
 
 pub use crate::error::ToshiClientError;
 

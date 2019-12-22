@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use toshi_types::Error;
+
 pub use self::node::*;
-use toshi_types::error::Error;
 
 pub type BoxError = Box<dyn ::std::error::Error + Send + Sync + 'static>;
 

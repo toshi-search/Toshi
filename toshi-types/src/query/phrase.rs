@@ -6,17 +6,27 @@ use tantivy::Term;
 use crate::query::{make_field_value, CreateQuery, KeyValue};
 use crate::{error::Error, Result};
 
+/// A query for a phrase of terms, see [`tantivy::query::PhraseQuery`] for more info on what
+/// can be included here
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PhraseQuery {
     phrase: KeyValue<String, TermPair>,
 }
 
 impl PhraseQuery {
+    /// Constructor to create a phrase query from a known key value
     pub fn new(phrase: KeyValue<String, TermPair>) -> Self {
         PhraseQuery { phrase }
     }
+    /// Constructor to create the key value for the user
+    pub fn with_phrase(key: String, value: TermPair) -> Self {
+        PhraseQuery {
+            phrase: KeyValue::new(key, value),
+        }
+    }
 }
 
+/// The tokens used in the phrase query
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TermPair {
     terms: Vec<String>,
@@ -25,6 +35,7 @@ pub struct TermPair {
 }
 
 impl TermPair {
+    /// Constructor for creating a term pair
     pub fn new(terms: Vec<String>, offsets: Option<Vec<usize>>) -> Self {
         TermPair { terms, offsets }
     }
@@ -66,13 +77,13 @@ impl CreateQuery for PhraseQuery {
 }
 
 #[cfg(test)]
-pub mod tests {
+mod tests {
     use tantivy::schema::*;
 
     use super::*;
 
     #[test]
-    pub fn test_no_terms() {
+    fn test_no_terms() {
         let body = r#"{ "phrase": { "test_u64": { "terms": [ ] } } }"#;
         let mut schema = SchemaBuilder::new();
         schema.add_u64_field("test_u64", FAST);
@@ -87,7 +98,7 @@ pub mod tests {
     }
 
     #[test]
-    pub fn test_diff_terms_offsets() {
+    fn test_diff_terms_offsets() {
         let body = r#"{ "phrase": { "test_u64": { "terms": ["asdf", "asdf2"], "offsets": [1] } } }"#;
         let mut schema = SchemaBuilder::new();
         schema.add_u64_field("test_u64", FAST);

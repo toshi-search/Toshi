@@ -7,6 +7,32 @@ use tantivy::schema::Schema;
 use crate::query::{make_field_value, CreateQuery, KeyValue, Query};
 use crate::Result;
 
+/// A query where terms can have distance between them, but still be a match
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct FuzzyQuery {
+    fuzzy: KeyValue<String, FuzzyTerm>,
+}
+
+impl FuzzyQuery {
+    /// Constructor to create a fuzzy query from a known key value
+    pub fn new(fuzzy: KeyValue<String, FuzzyTerm>) -> Self {
+        Self { fuzzy }
+    }
+    /// Creates a builder for a fuzzy query
+    pub fn builder() -> FuzzyQueryBuilder {
+        FuzzyQueryBuilder::default()
+    }
+}
+
+impl CreateQuery for FuzzyQuery {
+    fn create_query(self, schema: &Schema) -> Result<Box<dyn TantivyQuery>> {
+        let KeyValue { field, value } = self.fuzzy;
+        let term = make_field_value(schema, &field, &value.value)?;
+        Ok(Box::new(FuzzyTermQuery::new(term, value.distance, value.transposition)))
+    }
+}
+
+/// A term to be considered in the query
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FuzzyTerm {
     value: String,
@@ -17,6 +43,7 @@ pub struct FuzzyTerm {
 }
 
 impl FuzzyTerm {
+    /// Constructor to create a fuzzy query
     pub fn new(value: String, distance: u8, transposition: bool) -> Self {
         Self {
             value,
@@ -26,7 +53,7 @@ impl FuzzyTerm {
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct FuzzyQueryBuilder {
     field: String,
     value: String,
@@ -69,28 +96,5 @@ impl FuzzyQueryBuilder {
         let term = FuzzyTerm::new(self.value, self.distance, self.transposition);
         let query = FuzzyQuery::new(KeyValue::new(self.field, term));
         Query::Fuzzy(query)
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct FuzzyQuery {
-    fuzzy: KeyValue<String, FuzzyTerm>,
-}
-
-impl FuzzyQuery {
-    pub fn new(fuzzy: KeyValue<String, FuzzyTerm>) -> Self {
-        Self { fuzzy }
-    }
-
-    pub fn builder() -> FuzzyQueryBuilder {
-        FuzzyQueryBuilder::default()
-    }
-}
-
-impl CreateQuery for FuzzyQuery {
-    fn create_query(self, schema: &Schema) -> Result<Box<dyn TantivyQuery>> {
-        let KeyValue { field, value } = self.fuzzy;
-        let term = make_field_value(schema, &field, &value.value)?;
-        Ok(Box::new(FuzzyTermQuery::new(term, value.distance, value.transposition)))
     }
 }

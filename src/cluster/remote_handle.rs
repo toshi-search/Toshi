@@ -1,14 +1,11 @@
 use std::hash::{Hash, Hasher};
 
 use rand::prelude::*;
-use tonic::Response;
 use tracing::*;
 
 use toshi_proto::cluster_rpc::*;
 use toshi_proto::cluster_rpc::{DocumentRequest, SearchRequest};
-use toshi_types::error::Error;
-use toshi_types::query::Search;
-use toshi_types::server::{DeleteDoc, DocsAffected};
+use toshi_types::{DeleteDoc, DocsAffected, Error, Search};
 
 use crate::cluster::rpc_server::RpcClient;
 use crate::handle::{IndexHandle, IndexLocation};
@@ -16,9 +13,6 @@ use crate::handlers::fold_results;
 use crate::AddDocument;
 use crate::SearchResults;
 
-/// A reference to an index stored somewhere else on the cluster, this operates via calling
-/// the remote host and full filling the request via rpc, we need to figure out a better way
-/// (tower-buffer) on how to keep these clients.
 #[derive(Clone)]
 pub struct RemoteIndex {
     name: String,
@@ -65,17 +59,13 @@ impl IndexHandle for RemoteIndex {
         info!("REQ = {:?}", search);
         let mut results = vec![];
         for mut client in clients {
-            let bytes = match serde_json::to_vec(&search) {
-                Ok(v) => v,
-                Err(_) => Vec::new(),
-            };
+            let bytes = serde_json::to_vec(&search)?;
             let req = tonic::Request::new(SearchRequest {
                 index: name.clone(),
                 query: bytes,
             });
-            let search: Response<SearchReply> = client.search_index(req).await.unwrap();
-            let reply: SearchReply = search.into_inner();
-            let search_results: SearchResults = serde_json::from_slice(&reply.doc)?;
+            let search: SearchReply = client.search_index(req).await?.into_inner();
+            let search_results: SearchResults = serde_json::from_slice(&search.doc)?;
             results.push(search_results);
         }
         Ok(fold_results(results))
@@ -86,49 +76,31 @@ impl IndexHandle for RemoteIndex {
         let clients = self.remotes.clone();
         info!("REQ = {:?}", add);
         let mut random = rand::rngs::SmallRng::from_entropy();
-        let fut = clients.into_iter().choose(&mut random).map(|client| {
-            let bytes = match serde_json::to_vec(&add) {
-                Ok(v) => v,
-                Err(_) => Vec::new(),
-            };
+        if let Some(mut client) = clients.choose(&mut random).cloned() {
+            let bytes = serde_json::to_vec(&add)?;
             let req = tonic::Request::new(DocumentRequest {
                 index: name,
                 document: bytes,
             });
-            //            client.place_document(req)
-            async {}
-        });
-
-        fut.unwrap().await;
+            client.place_document(req).await?;
+        }
         Ok(())
     }
 
-    async fn delete_term(&self, _delete: DeleteDoc) -> Result<DocsAffected, Error> {
+    async fn delete_term(&self, delete: DeleteDoc) -> Result<DocsAffected, Error> {
         let name = self.name.clone();
         let clients = self.remotes.clone();
-        //        let fut = clients
-        //            .into_iter()
-        //            .map(move |mut client| {
-        //                let bytes = match serde_json::to_vec(&delete) {
-        //                    Ok(v) => v,
-        //                    Err(_) => Vec::new(),
-        //                };
-        //                let req = tonic::Request::new(DeleteRequest {
-        //                    index: name.clone(),
-        //                    terms: bytes,
-        //                });
-        //                client.delete_document(req)
-        //                //                .map(|res| {
-        //                //                    info!("RESPONSE = {:?}", res);
-        //                //                    res.into_inner().code
-        //                //                })
-        //                //                .map_err(|e| {
-        //                //                    info!("ERR = {:?}", e);
-        //                //                    e
-        //                //                })
-        //            })
-        //            .collect::<FuturesUnordered<_>>();
+        let mut total = 0u64;
+        for mut client in clients {
+            let bytes = serde_json::to_vec(&delete)?;
+            let req = tonic::Request::new(DeleteRequest {
+                index: name.clone(),
+                terms: bytes,
+            });
+            let response = client.delete_document(req).await?.into_inner();
+            total += response.docs_affected;
+        }
 
-        Ok(DocsAffected { docs_affected: 0 })
+        Ok(DocsAffected { docs_affected: total })
     }
 }

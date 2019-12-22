@@ -10,52 +10,69 @@ use tantivy::schema::Schema;
 use tantivy::Term;
 
 use crate::error::Error;
-pub use crate::query::{
-    boolean::{BoolQuery, BoolQueryBuilder},
-    facet::FacetQuery,
-    fuzzy::{FuzzyQuery, FuzzyQueryBuilder, FuzzyTerm},
-    phrase::{PhraseQuery, TermPair},
-    range::{RangeQuery, RangeQueryBuilder, Ranges},
-    regex::RegexQuery,
-    term::ExactTerm,
+use crate::query::{
+    boolean::BoolQuery, facet::FacetQuery, fuzzy::FuzzyQuery, phrase::PhraseQuery, range::RangeQuery, regex::RegexQuery, term::ExactTerm,
 };
 
-mod boolean;
-mod facet;
-mod fuzzy;
-mod phrase;
-mod range;
-mod regex;
-mod term;
+pub(crate) mod boolean;
+pub(crate) mod facet;
+pub(crate) mod fuzzy;
+pub(crate) mod phrase;
+pub(crate) mod range;
+pub(crate) mod regex;
+pub(crate) mod term;
 
+/// Trait that generically represents Tantivy queries
 pub trait CreateQuery {
+    /// Consume the implementing struct to generate a Tantivy query
     fn create_query(self, schema: &Schema) -> crate::Result<Box<dyn TantivyQuery>>;
 }
 
+/// The possible Tantivy Queries to issue
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(untagged)]
 pub enum Query {
+    /// [`tantivy::query::FuzzyQuery`]: FuzzyQuery
     Fuzzy(FuzzyQuery),
+    /// [`tantivy::query::TermQuery`]: TermQuery
     Exact(ExactTerm),
+    /// [`tantivy::query::PhraseQuery`]: PhraseQuery
     Phrase(PhraseQuery),
+    /// [`tantivy::query::RegexQuery`]: RegexQuery
     Regex(RegexQuery),
+    /// [`tantivy::query::RangeQuery`]: RangeQuery
     Range(RangeQuery),
-    Boolean { bool: BoolQuery },
-    Raw { raw: String },
+    /// [`tantivy::query::BooleanQuery`]: BooleanQuery
+    Boolean {
+        /// Collection of boolean clauses
+        bool: BoolQuery,
+    },
+    /// Raw is a query that passes by the query parser and is just executed directly against the index
+    Raw {
+        /// The actual query to be ran
+        raw: String,
+    },
+    /// [`tantivy::query::AllQuery`]: AllQuery
     All,
 }
 
+/// The request body of a search POST in Toshi
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Search {
+    /// Optional query
     pub query: Option<Query>,
+    /// Optional facets of a query
     pub facets: Option<FacetQuery>,
+    /// Max number of documents to return
     #[serde(default = "Search::default_limit")]
     pub limit: usize,
+    /// Field to sort results by
     #[serde(default)]
     pub sort_by: Option<String>,
 }
 
 impl Search {
+    /// Construct a new Search query
     pub fn new(query: Option<Query>, facets: Option<FacetQuery>, limit: usize) -> Self {
         Search {
             query,
@@ -65,15 +82,18 @@ impl Search {
         }
     }
 
+    /// Construct a builder to create the Search with
     pub fn builder() -> SearchBuilder {
         SearchBuilder::new()
     }
 
+    /// Construct a search with a known Query
     pub fn with_query(query: Query) -> Self {
         Self::new(Some(query), None, Self::default_limit())
     }
 
-    pub fn default_limit() -> usize {
+    /// The default limit for docs to return
+    pub const fn default_limit() -> usize {
         100
     }
 
@@ -81,6 +101,7 @@ impl Search {
         Some(Query::All)
     }
 
+    /// A shortcut for querying for all documents in an Index
     pub fn all_docs() -> Self {
         Self {
             query: Self::all_query(),
@@ -91,6 +112,7 @@ impl Search {
     }
 }
 
+#[derive(Debug)]
 pub struct SearchBuilder {
     query: Query,
     facets: Option<FacetQuery>,
@@ -104,7 +126,7 @@ impl Default for SearchBuilder {
 }
 
 impl SearchBuilder {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self {
             query: Query::All,
             facets: None,
@@ -136,13 +158,17 @@ fn make_field_value(schema: &Schema, k: &str, v: &str) -> crate::Result<Term> {
     Ok(Term::from_field_text(field, v))
 }
 
+/// A single key/value pair, this struct is used when we want to accept only single key/value pairs
+/// for a query and a Map would not allow that.
 #[derive(Debug, Clone)]
 pub struct KeyValue<K, V>
 where
     K: DeserializeOwned,
     V: DeserializeOwned,
 {
+    /// Key
     pub field: K,
+    /// Value
     pub value: V,
 }
 
@@ -151,8 +177,9 @@ where
     K: DeserializeOwned,
     V: DeserializeOwned,
 {
+    /// Construct a key value pair from known values
     pub fn new(field: K, value: V) -> Self {
-        KeyValue { field, value }
+        Self { field, value }
     }
 }
 
@@ -169,7 +196,7 @@ where
     K: DeserializeOwned,
     V: DeserializeOwned,
 {
-    pub fn new() -> Self {
+    fn new() -> Self {
         KVVisitor { marker: PhantomData }
     }
 }
@@ -181,7 +208,7 @@ where
 {
     type Value = KeyValue<K, V>;
 
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str("an object with a single string value of any key name")
     }
 
@@ -230,7 +257,7 @@ where
 }
 
 #[cfg(test)]
-pub mod tests {
+mod tests {
     use super::*;
 
     #[test]

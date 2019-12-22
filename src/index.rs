@@ -13,9 +13,7 @@ use tantivy::Index;
 use tokio::sync::Mutex;
 
 use toshi_proto::cluster_rpc::*;
-use toshi_types::error::Error;
-use toshi_types::query::Search;
-use toshi_types::server::{DeleteDoc, DocsAffected};
+use toshi_types::{DeleteDoc, DocsAffected, Error, Search};
 
 use crate::cluster::remote_handle::RemoteIndex;
 use crate::cluster::rpc_server::{RpcClient, RpcServer};

@@ -8,8 +8,7 @@ use rand::random;
 use tantivy::schema::*;
 use tantivy::Index;
 
-use toshi_types::error::Error;
-use toshi_types::server::{DeleteDoc, DocsAffected, SchemaBody};
+use toshi_types::{DeleteDoc, DocsAffected, Error, SchemaBody};
 
 use crate::cluster::rpc_server::RpcClient;
 use crate::handle::IndexHandle;
@@ -124,18 +123,19 @@ pub async fn add_document(catalog: SharedCatalog, mut body: Body, index: String)
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
+    use std::convert::Infallible;
 
     use bytes::Buf;
     use pretty_assertions::assert_eq;
+    use tokio::runtime::Runtime;
 
-    use toshi_types::server::IndexOptions;
+    use toshi_types::IndexOptions;
 
-    use super::*;
     use crate::handlers::all_docs;
     use crate::handlers::search::tests::wait_json;
     use crate::index::tests::*;
-    use std::convert::Infallible;
-    use tokio::runtime::Runtime;
+
+    use super::*;
 
     fn test_index() -> String {
         String::from("test_index")

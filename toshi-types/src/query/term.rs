@@ -7,16 +7,19 @@ use tantivy::schema::{IndexRecordOption, Schema};
 use crate::query::*;
 use crate::Result;
 
+/// An exact term to search for
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ExactTerm {
     term: KeyValue<String, String>,
 }
 
 impl ExactTerm {
+    /// Constructor with a known KeyValue
     pub fn new(term: KeyValue<String, String>) -> Self {
         Self { term }
     }
 
+    /// Constructor to create the key value for the user
     pub fn with_term<K, V>(field: K, value: V) -> Self
     where
         K: fmt::Display,

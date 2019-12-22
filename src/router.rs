@@ -1,3 +1,4 @@
+use std::convert::Infallible;
 use std::net::SocketAddr;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
@@ -6,11 +7,11 @@ use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Method, Request, Response, Server};
 use serde::Deserialize;
 use tower_util::BoxService;
+use tracing::info;
 
 use crate::handlers::*;
 use crate::index::SharedCatalog;
 use crate::utils::{not_found, parse_path};
-use std::convert::Infallible;
 
 #[derive(Deserialize, Debug, Default)]
 pub struct QueryOptions {
@@ -53,30 +54,20 @@ impl Router {
 
         let method = parts.method;
         let path = parse_path(parts.uri.path());
-        tracing::info!("REQ = {:?}", path);
 
         match (&method, &path[..]) {
-            (m, [idx, action]) if m == Method::PUT => match *action {
-                "_create" => create_index(catalog.clone(), body, (*idx).to_string()).await,
-                _ => not_found().await,
-            },
-            (m, [idx, action]) if m == Method::GET => match *action {
-                "_summary" => index_summary(catalog.clone(), (*idx).to_string(), query_options).await,
-                "_flush" => flush(catalog.clone(), (*idx).to_string()).await,
-                _ => not_found().await,
-            },
-            (m, [idx, action]) if m == Method::POST => match *action {
-                "_bulk" => bulk_insert(catalog.clone(), watcher.clone(), body, (*idx).to_string()).await,
-                _ => not_found().await,
-            },
-            (m, [idx]) if m == Method::POST => doc_search(catalog.clone(), body, (*idx).to_string()).await,
-            (m, [idx]) if m == Method::PUT => add_document(catalog.clone(), body, (*idx).to_string()).await,
-            (m, [idx]) if m == Method::DELETE => delete_term(catalog.clone(), body, (*idx).to_string()).await,
+            (m, [idx, "_create"]) if m == Method::PUT => create_index(catalog, body, (*idx).to_string()).await,
+            (m, [idx, "_summary"]) if m == Method::GET => index_summary(catalog, (*idx).to_string(), query_options).await,
+            (m, [idx, "_flush"]) if m == Method::GET => flush(catalog, (*idx).to_string()).await,
+            (m, [idx, "_bulk"]) if m == Method::POST => bulk_insert(catalog, watcher.clone(), body, (*idx).to_string()).await,
+            (m, [idx]) if m == Method::POST => doc_search(catalog, body, (*idx).to_string()).await,
+            (m, [idx]) if m == Method::PUT => add_document(catalog, body, (*idx).to_string()).await,
+            (m, [idx]) if m == Method::DELETE => delete_term(catalog, body, (*idx).to_string()).await,
             (m, [idx]) if m == Method::GET => {
                 if idx == &"favicon.ico" {
                     not_found().await
                 } else {
-                    all_docs(catalog.clone(), (*idx).to_string()).await
+                    all_docs(catalog, (*idx).to_string()).await
                 }
             }
             (m, []) if m == Method::GET => root::root().await,
@@ -86,6 +77,7 @@ impl Router {
 
     pub async fn service_call(catalog: SharedCatalog, watcher: Arc<AtomicBool>) -> Result<BoxedFn, Infallible> {
         Ok(BoxService::new(service_fn(move |req| {
+            info!("REQ = {:?}", &req);
             Self::route(Arc::clone(&catalog), Arc::clone(&watcher), req)
         })))
     }

@@ -4,11 +4,11 @@ use std::path::{Path, PathBuf};
 use std::sync::{atomic::AtomicBool, Arc};
 
 use futures::prelude::*;
-
 use tokio::sync::oneshot::{self, Receiver, Sender};
 use tokio::sync::Mutex;
 use tracing::*;
 
+use toshi_server::cluster::rpc_server::RpcServer;
 use toshi_server::commit::watcher;
 use toshi_server::index::{IndexCatalog, SharedCatalog};
 use toshi_server::router::Router;
@@ -55,14 +55,13 @@ async fn setup_shutdown(shutdown_signal: Receiver<()>, index_catalog: SharedCata
 #[cfg_attr(tarpaulin, skip)]
 async fn setup_toshi(settings: Settings, index_catalog: SharedCatalog, tx: Sender<()>) -> Result<(), ()> {
     let shutdown = shutdown::shutdown(tx);
-    //    if !settings.experimental_features.master && settings.experimental {
-    //        select(run_data(Arc::clone(&index_catalog), settings), shutdown).then(|_| {
-    //            Ok(())
-    //        }).await
-    //    } else {
-    let master = run_master(Arc::clone(&index_catalog), settings);
-    future::try_select(shutdown, master).map(|_| Ok(())).await
-    //    }
+    if !settings.experimental_features.master && settings.experimental {
+        let data = run_data(Arc::clone(&index_catalog), settings);
+        future::try_select(shutdown, data).map(|_| Ok(())).await
+    } else {
+        let master = run_master(Arc::clone(&index_catalog), settings);
+        future::try_select(shutdown, master).map(|_| Ok(())).await
+    }
 }
 
 #[cfg_attr(tarpaulin, skip)]
@@ -80,19 +79,23 @@ fn setup_catalog(settings: &Settings) -> SharedCatalog {
 }
 
 #[cfg_attr(tarpaulin, skip)]
-async fn run_data(catalog: Arc<Mutex<IndexCatalog>>, settings: &Settings) -> Result<(), hyper::Error> {
+fn run_data(
+    catalog: Arc<Mutex<IndexCatalog>>,
+    settings: Settings,
+) -> impl Future<Output = Result<(), tonic::transport::Error>> + Unpin + Send {
     let lock = Arc::new(AtomicBool::new(false));
     let commit_watcher = watcher(Arc::clone(&catalog), settings.auto_commit_duration, Arc::clone(&lock));
     let addr: IpAddr = settings
         .host
         .parse()
-        .unwrap_or_else(|_| panic!("Invalid ip address: {}", &settings.host));
-    let settings = settings.clone();
+        .unwrap_or_else(|_| panic!("Invalid IP address: {}", &settings.host));
+
     let bind: SocketAddr = SocketAddr::new(addr, settings.port);
 
     println!("{}", RPC_HEADER);
     info!("I am a data node...Binding to: {}", addr);
-    Ok(())
+    tokio::spawn(commit_watcher);
+    Box::pin(RpcServer::serve(bind, catalog))
 }
 
 #[cfg_attr(tarpaulin, skip)]
@@ -110,5 +113,5 @@ fn run_master(catalog: Arc<Mutex<IndexCatalog>>, settings: Settings) -> impl Fut
     tokio::spawn(commit_watcher);
     let watcher_clone = Arc::clone(&bulk_lock);
     let router = Router::new(catalog, watcher_clone);
-    Box::pin(router.router_with_catalog(bind.clone()))
+    Box::pin(router.router_with_catalog(bind))
 }

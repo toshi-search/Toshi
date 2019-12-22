@@ -1,11 +1,10 @@
 use bytes::Buf;
-
 use hyper::body::aggregate;
 use hyper::Response;
 use hyper::{Body, StatusCode};
 use tracing::*;
 
-use toshi_types::query::Search;
+use toshi_types::Search;
 
 use crate::handlers::ResponseFuture;
 use crate::index::SharedCatalog;
@@ -63,15 +62,15 @@ pub mod tests {
     use serde::de::DeserializeOwned;
     use tokio::runtime::Runtime;
 
-    use toshi_types::query::*;
-    use toshi_types::query::{KeyValue, Query};
+    use toshi_types::{ExactTerm, FuzzyQuery, FuzzyTerm, KeyValue, PhraseQuery, Query, TermPair};
 
     use crate::handlers::ResponseFuture;
     use crate::index::tests::*;
+    use crate::SearchResults;
 
     use super::*;
 
-    type ReturnUnit = Result<(), hyper::error::Error>;
+    type ReturnUnit = std::result::Result<(), hyper::error::Error>;
 
     pub async fn wait_json<T: DeserializeOwned>(r: Response<Body>) -> T {
         let body = hyper::body::aggregate(r.into_body()).await.unwrap();

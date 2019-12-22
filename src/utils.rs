@@ -1,7 +1,7 @@
 use hyper::Body;
 use serde::Serialize;
 
-use toshi_types::error::{Error, ErrorResponse};
+use toshi_types::{Error, ErrorResponse};
 
 pub fn with_body<T>(body: T) -> hyper::Response<Body>
 where
@@ -35,9 +35,9 @@ pub fn parse_path(path: &str) -> Vec<&str> {
 
 #[cfg(test)]
 mod tests {
+    use pretty_assertions::assert_eq;
 
     use super::*;
-    use pretty_assertions::assert_eq;
 
     #[test]
     fn test_parse_path() {

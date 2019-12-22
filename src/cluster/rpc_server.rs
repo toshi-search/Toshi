@@ -8,8 +8,7 @@ use tonic::{Code, Request, Response, Status, Streaming};
 use tracing::*;
 
 use toshi_proto::cluster_rpc::*;
-use toshi_types::query::Search;
-use toshi_types::server::DeleteDoc;
+use toshi_types::{DeleteDoc, DocsAffected, Search};
 
 use crate::cluster::ConnectionError;
 use crate::handle::IndexHandle;
@@ -117,16 +116,13 @@ impl server::IndexService for RpcServer {
         }
     }
 
-    async fn delete_document(&self, request: Request<DeleteRequest>) -> Result<Response<ResultReply>, Status> {
+    async fn delete_document(&self, request: Request<DeleteRequest>) -> Result<Response<DeleteReply>, Status> {
         let DeleteRequest { index, terms } = request.into_inner();
         let cat = self.catalog.lock().await;
         if let Ok(idx) = cat.get_index(&index) {
             if let Ok(delete_docs) = serde_json::from_slice::<DeleteDoc>(&terms) {
-                if idx.delete_term(delete_docs).await.is_ok() {
-                    Ok(Response::new(RpcServer::ok_result()))
-                } else {
-                    Self::error_response(Code::Internal, format!("Add Document Failed: {}", index))
-                }
+                let DocsAffected { docs_affected } = idx.delete_term(delete_docs).await?;
+                Ok(Response::new(DeleteReply { index, docs_affected }))
             } else {
                 Self::error_response(Code::Internal, format!("Invalid Document request: {}", index))
             }

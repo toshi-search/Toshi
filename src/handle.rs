@@ -11,10 +11,7 @@ use tantivy::{Document, Index, IndexReader, IndexWriter, ReloadPolicy, Term};
 use tokio::sync::Mutex;
 use tracing::*;
 
-use toshi_types::client::ScoredDoc;
-use toshi_types::error::Error;
-use toshi_types::query::{CreateQuery, KeyValue, Query, Search};
-use toshi_types::server::{DeleteDoc, DocsAffected};
+use toshi_types::{CreateQuery, DeleteDoc, DocsAffected, Error, KeyValue, Query, ScoredDoc, Search};
 
 use crate::settings::Settings;
 use crate::Result;

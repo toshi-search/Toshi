@@ -18,10 +18,10 @@ pub async fn root() -> ResponseFuture {
 
 #[cfg(test)]
 mod tests {
-
-    use super::*;
     use bytes::Buf;
     use tokio::runtime::Runtime;
+
+    use super::*;
 
     #[test]
     fn test_root() -> Result<(), hyper::Error> {
