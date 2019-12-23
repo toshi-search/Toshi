@@ -8,9 +8,8 @@ use tonic::{Code, Request, Response, Status, Streaming};
 use tracing::*;
 
 use toshi_proto::cluster_rpc::*;
-use toshi_types::{DeleteDoc, DocsAffected, Search};
+use toshi_types::{DeleteDoc, DocsAffected, Error, Search};
 
-use crate::cluster::ConnectionError;
 use crate::handle::IndexHandle;
 use crate::index::IndexCatalog;
 use crate::AddDocument;
@@ -40,9 +39,9 @@ impl RpcServer {
     }
 
     //TODO: Make DNS Threads and Buffer Requests Configurable options
-    pub async fn create_client(uri: http::Uri) -> Result<RpcClient, ConnectionError> {
+    pub async fn create_client(uri: http::Uri) -> Result<RpcClient, Error> {
         info!("Creating Client to: {:?}", uri);
-        client::IndexServiceClient::connect(uri.to_string()).await
+        client::IndexServiceClient::connect(uri.to_string()).await.map_err(Into::into)
     }
 
     pub fn ok_result() -> ResultReply {

@@ -2,7 +2,7 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
 use crate::cluster::shard::{PrimaryShard, ReplicaShard, Shard};
-use crate::cluster::ClusterError;
+use toshi_types::Error;
 
 pub const SERVICE_NAME: &str = "toshi/";
 
@@ -21,10 +21,10 @@ pub trait ClusterOps {
     type Index: DeserializeOwned;
 
     fn node_path(&self) -> String;
-    async fn register_node(&mut self) -> Result<(), ClusterError>;
-    async fn place_node_descriptor(&mut self, host: Hosts) -> Result<(), ClusterError>;
-    async fn register_cluster(&mut self) -> Result<(), ClusterError>;
-    async fn register_shard<S: Shard>(&mut self, shard: &S) -> Result<(), ClusterError>;
-    async fn get_index(&mut self, index: String, recurse: bool) -> Result<Vec<Self::Index>, ClusterError>;
-    async fn nodes(&mut self) -> Result<Vec<Self::Node>, ClusterError>;
+    async fn register_node(&mut self) -> Result<(), Error>;
+    async fn place_node_descriptor(&mut self, host: Hosts) -> Result<(), Error>;
+    async fn register_cluster(&mut self) -> Result<(), Error>;
+    async fn register_shard<S: Shard>(&mut self, shard: &S) -> Result<(), Error>;
+    async fn get_index(&mut self, index: String, recurse: bool) -> Result<Vec<Self::Index>, Error>;
+    async fn nodes(&mut self) -> Result<Vec<Self::Node>, Error>;
 }
