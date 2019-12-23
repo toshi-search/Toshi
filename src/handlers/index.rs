@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
 use bytes::Buf;
-use futures::StreamExt;
 use hyper::body::aggregate;
 use hyper::{Body, Response, StatusCode};
 use rand::random;
 use tantivy::schema::*;
 use tantivy::Index;
 
+use toshi_proto::cluster_rpc::*;
 use toshi_types::{DeleteDoc, DocsAffected, Error, SchemaBody};
 
 use crate::cluster::rpc_server::RpcClient;
@@ -33,27 +33,20 @@ async fn delete_terms(catalog: SharedCatalog, body: DeleteDoc, index: &str) -> R
     index_handle.delete_term(body).await
 }
 
-async fn create_remote_index(_nodes: &[String], _index: String, _schema: Schema) -> Result<Vec<RpcClient>, tonic::transport::Error> {
-    //    let futs = nodes
-    //        .iter()
-    //        .map(move |n| {
-    //            async {
-    //                let mut client = IndexCatalog::create_client(n.clone()).await.expect("Cannot creat client.");
-    //                let index = index.clone();
-    //                let schema = schema.clone();
-    //
-    //                let client_clone = client.clone();
-    //                let schema_bytes = serde_json::to_vec(&schema).unwrap();
-    //                let request = tonic::Request::new(PlaceRequest {
-    //                    index,
-    //                    schema: schema_bytes,
-    //                });
-    //                client.place_index(request).map(move |_| vec![client_clone]).await
-    //            }
-    //        })
-    //        .collect::<FuturesUnordered<_>>();
-    //    Ok(futs.concat().await)
-    Ok(vec![])
+async fn create_remote_index(nodes: &[String], index: String, schema: Schema) -> Result<Vec<RpcClient>, Error> {
+    let mut clients = Vec::with_capacity(nodes.len());
+    for n in nodes {
+        let mut client = IndexCatalog::create_client(n.clone()).await?;
+        let schema_bytes = serde_json::to_vec(&schema)?;
+        let request = tonic::Request::new(PlaceRequest {
+            index: index.clone(),
+            schema: schema_bytes,
+        });
+        client.place_index(request).await?;
+        clients.push(client);
+    }
+
+    Ok(clients)
 }
 
 pub async fn delete_term(catalog: SharedCatalog, body: Body, index: String) -> ResponseFuture {
@@ -98,21 +91,22 @@ pub async fn create_index(catalog: SharedCatalog, body: Body, index: String) -> 
     }
 }
 
-pub async fn add_document(catalog: SharedCatalog, mut body: Body, index: String) -> ResponseFuture {
+pub async fn add_document(catalog: SharedCatalog, body: Body, index: String) -> ResponseFuture {
     let cat_clone = catalog;
-    let mut b = vec![];
-    while let Some(Ok(chunk)) = body.next().await {
-        b.extend(chunk);
-    }
+    let full_body = aggregate(body).await?;
+    let b = full_body.bytes();
     let req = serde_json::from_slice::<AddDocument>(&b).unwrap();
     let cat = cat_clone.lock().await;
     let location: bool = random();
+    tracing::info!("LOCATION = {}", location);
     if location && cat.remote_exists(&index).await {
+        tracing::info!("Pushing to remote...");
         let add = cat.add_remote_document(&index, req).await;
 
         add.map(|_| empty_with_code(StatusCode::CREATED))
             .or_else(|e| Ok(error_response(StatusCode::BAD_REQUEST, e)))
     } else {
+        tracing::info!("Pushing to local...");
         let add = cat.add_local_document(&index, req).await;
 
         add.map(|_| empty_with_code(StatusCode::CREATED))

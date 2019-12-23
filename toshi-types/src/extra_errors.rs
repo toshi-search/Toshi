@@ -20,3 +20,9 @@ impl From<tonic::Status> for Error {
         Error::RPCError(s.to_string())
     }
 }
+
+impl From<tonic::transport::Error> for Error {
+    fn from(e: tonic::transport::Error) -> Self {
+        Error::RPCError(e.to_string())
+    }
+}

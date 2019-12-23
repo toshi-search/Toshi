@@ -11,6 +11,7 @@ use tantivy::directory::MmapDirectory;
 use tantivy::schema::Schema;
 use tantivy::Index;
 use tokio::sync::Mutex;
+use tonic::Status;
 
 use toshi_proto::cluster_rpc::*;
 use toshi_types::{DeleteDoc, DocsAffected, Error, Search};
@@ -191,10 +192,10 @@ impl IndexCatalog {
             .map_err(|e| Error::IOError(e.to_string()))
     }
 
-    pub async fn create_client(node: String) -> std::result::Result<RpcClient, tonic::transport::Error> {
+    pub async fn create_client(node: String) -> std::result::Result<RpcClient, Error> {
         let socket: SocketAddr = node.parse().unwrap();
-        let host_uri = IndexCatalog::create_host_uri(socket).unwrap();
-        RpcServer::create_client(host_uri).await
+        let host_uri = IndexCatalog::create_host_uri(socket)?;
+        Ok(RpcServer::create_client(host_uri).await?)
     }
 
     pub async fn refresh_multiple_nodes(nodes: Vec<String>) -> Result<Vec<(RpcClient, Vec<String>)>> {
@@ -203,12 +204,13 @@ impl IndexCatalog {
             let refresh = IndexCatalog::refresh_remote_catalog(node.to_owned())
                 .await
                 .expect("Could not refresh Index");
+            tracing::info!("HOST = {}, INDEXES = {:?}", &node, &refresh.1);
             results.push(refresh);
         }
         Ok(results)
     }
 
-    pub async fn refresh_remote_catalog(node: String) -> std::result::Result<(RpcClient, Vec<String>), tonic::Status> {
+    pub async fn refresh_remote_catalog(node: String) -> std::result::Result<(RpcClient, Vec<String>), Status> {
         let mut client = IndexCatalog::create_client(node).await.expect("Could not create client.");
         let r = client.list_indexes(tonic::Request::new(ListRequest {})).await?.into_inner();
         Ok((client, r.indexes))
@@ -222,12 +224,6 @@ impl IndexCatalog {
     pub async fn search_remote_index(&self, index: &str, search: Search) -> Result<Vec<SearchResults>> {
         let hand = self.get_remote_index(index).await?;
         hand.search_index(search).await.map(|r| vec![r])
-        //            .and_then(|sr| {
-        //
-        //                let doc: Vec<SearchResults> = sr.iter().map(|r| serde_json::from_slice(&r.doc).unwrap()).collect();
-        //                Ok(doc)
-        //            })
-        //            .map_err(|_| Error::IOError("An error occurred with the query".into()))
     }
 
     pub async fn add_remote_document(&self, index: &str, doc: AddDocument) -> Result<()> {

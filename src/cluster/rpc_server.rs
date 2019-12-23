@@ -99,6 +99,7 @@ impl server::IndexService for RpcServer {
     }
 
     async fn place_document(&self, request: Request<DocumentRequest>) -> Result<Response<ResultReply>, Status> {
+        info!("REQ = {:?}", &request);
         let DocumentRequest { index, document } = request.into_inner();
         let cat = self.catalog.lock().await;
         if let Ok(idx) = cat.get_index(&index) {

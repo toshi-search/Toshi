@@ -35,9 +35,8 @@ pub fn parse_path(path: &str) -> Vec<&str> {
 
 #[cfg(test)]
 mod tests {
-    use pretty_assertions::assert_eq;
-
     use super::*;
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn test_parse_path() {

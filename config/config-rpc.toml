@@ -1,4 +1,4 @@
-host = "::1"
+host = "127.0.0.1"
 port = 8081
 path = "data/"
 writer_memory = 200000000

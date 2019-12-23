@@ -30,7 +30,13 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let index_catalog = setup_catalog(&settings);
     let s_clone = settings.clone();
     let toshi = setup_toshi(s_clone.clone(), Arc::clone(&index_catalog), tx);
-
+    if settings.experimental && settings.experimental_features.master {
+        let update_cat = Arc::clone(&index_catalog);
+        tokio::spawn(async move {
+            let update = update_cat.lock().await;
+            update.update_remote_indexes().await
+        });
+    }
     tokio::spawn(toshi);
     info!("Toshi running on {}:{}", &settings.host, &settings.port);
 
@@ -74,6 +80,7 @@ fn setup_catalog(settings: &Settings) -> SharedCatalog {
             std::process::exit(1);
         }
     };
+
     info!("Indexes: {:?}", index_catalog.get_collection().keys());
     Arc::new(Mutex::new(index_catalog))
 }
