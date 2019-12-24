@@ -17,9 +17,6 @@ use crate::AddDocument;
 pub type Buf = tonic::transport::Channel;
 pub type RpcClient = client::IndexServiceClient<Buf>;
 
-/// RPC Services should "ideally" work on only local indexes, they shouldn't be responsible for
-/// going to other nodes to get index data. It should be the master's duty to know where the local
-/// indexes are stored and make the RPC query to the node to get the data.
 pub struct RpcServer {
     catalog: Arc<Mutex<IndexCatalog>>,
 }
