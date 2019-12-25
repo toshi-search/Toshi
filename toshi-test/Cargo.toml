@@ -11,7 +11,7 @@ edition = "2018"
 hyper   = { version = "^0.13", features = ["stream"] }
 http = "^0.2"
 futures = "^0.3"
-tokio = "^0.2"
+tokio = { version = "^0.2", features = ["full"] }
 failure = "^0.1"
 tracing = "^0.1"
 tantivy = "^0.11"

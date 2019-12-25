@@ -1,8 +1,17 @@
+use std::error::Error;
 use std::net::SocketAddr;
+
+use futures::Future;
+use http::{Request, Response};
+use hyper::client::ResponseFuture;
+use hyper::server::conn::AddrStream;
+use hyper::service::Service;
+use hyper::{Body, Server};
 use tantivy::schema::*;
 use tantivy::{doc, Index};
+use tokio::runtime::Handle;
+use tokio::task::JoinHandle;
 
-pub type Result<T> = std::result::Result<T, failure::Error>;
 pub static CONTENT_TYPE: &str = "application/json";
 
 pub fn get_localhost() -> SocketAddr {
@@ -29,4 +38,67 @@ pub fn create_test_index() -> Index {
     writer.commit().unwrap();
 
     idx
+}
+
+pub struct TestServer {
+    rt: Handle,
+}
+
+impl TestServer {
+    pub fn new<Fut, RetFut, Svc, Err, MkSvc>(h: Handle, svc: Svc) -> Result<Self, Err>
+    where
+        Fut: Future<Output = Result<MkSvc, Err>> + Send + 'static,
+        for<'a> Svc: Service<&'a AddrStream, Future = Fut, Error = Err, Response = MkSvc> + Send + 'static,
+        RetFut: Future<Output = Result<Response<Body>, Err>> + Send + 'static,
+        MkSvc: Service<Request<Body>, Future = RetFut, Error = Err, Response = Response<Body>> + Send + 'static,
+        Err: Into<Box<dyn Error + Send + Sync>> + 'static,
+    {
+        let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+        let server = Server::bind(&addr).serve(svc);
+        h.spawn(server);
+        Ok(TestServer { rt: h })
+    }
+
+    pub fn run(&mut self, req: ResponseFuture) -> JoinHandle<Result<Response<Body>, hyper::Error>> {
+        //        let res = tokio::sync::oneshot::Oneshot::new();
+        self.rt.spawn(req)
+    }
+}
+
+#[cfg(test)]
+pub mod tests {
+    use std::convert::Infallible;
+
+    use http::{Response, Uri};
+    use hyper::server::conn::AddrStream;
+    use hyper::service::{make_service_fn, service_fn};
+    use hyper::{Client, Error};
+    use tokio::runtime::{Builder, Runtime};
+
+    use crate::TestServer;
+
+    //    #[tokio::test(threaded_scheduler)]
+    #[test]
+    fn make_test() {
+        let rt = Runtime::new().unwrap();
+        let h = rt.handle();
+        rt.enter(move || {
+            let make_svc = make_service_fn(|_: &AddrStream| {
+                async {
+                    Ok::<_, Infallible>(service_fn(|_req| {
+                        async { Ok::<_, Infallible>(Response::new(hyper::Body::from("Hello World"))) }
+                    }))
+                }
+            });
+
+            let mut ts = TestServer::new((*h).clone(), make_svc).unwrap();
+
+            let client = Client::new();
+            let addr = "127.0.0.1:8080".parse::<Uri>().unwrap();
+
+            let req = client.get(addr);
+            let resp = ts.run(req);
+            println!("{:?}", resp);
+        });
+    }
 }
