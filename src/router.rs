@@ -1,5 +1,5 @@
 use std::convert::Infallible;
-use std::net::SocketAddr;
+use std::net::{SocketAddr, TcpListener};
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
@@ -90,6 +90,16 @@ impl Router {
         }
         Ok(())
     }
+
+    #[allow(dead_code)]
+    pub(crate) async fn router_from_tcp(self, listener: TcpListener) -> Result<(), hyper::Error> {
+        let routes = make_service_fn(move |_| Self::service_call(Arc::clone(&self.cat), Arc::clone(&self.watcher)));
+        let server = Server::from_tcp(listener)?.serve(routes);
+        if let Err(err) = server.await {
+            tracing::error!("server error: {}", err);
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -97,19 +107,35 @@ pub mod tests {
     use std::sync::atomic::AtomicBool;
     use std::sync::Arc;
 
-    use toshi_test::{get_localhost, TestServer};
+    use toshi_test::{read_body, TestServer};
 
     use crate::router::Router;
+    use http::StatusCode;
+    use hyper::Body;
+    use hyper::Request;
 
     #[tokio::test]
-    async fn test_router() {
+    async fn test_router() -> Result<(), Box<dyn std::error::Error>> {
         let catalog = crate::index::tests::create_test_catalog("test_index");
-        let addr = get_localhost();
         let router = Router::new(catalog, Arc::new(AtomicBool::new(false)));
-        let mut ts = TestServer::with_server(router.router_with_catalog(addr)).unwrap();
+        let (listen, ts) = TestServer::new()?;
+        let req = Request::get(ts.uri("/")).body(Body::empty())?;
 
-        let req = ts.get("/").await.unwrap();
-        let resp = TestServer::read_body(req).await.unwrap();
+        let req = ts.get(req, router.router_from_tcp(listen)).await?;
+        let resp = read_body(req).await.unwrap();
         assert_eq!(super::root::toshi_info(), resp);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_not_found() -> Result<(), Box<dyn std::error::Error>> {
+        let catalog = crate::index::tests::create_test_catalog("test_index");
+        let router = Router::new(catalog, Arc::new(AtomicBool::new(false)));
+        let (listen, ts) = TestServer::new()?;
+        let req = Request::get(ts.uri("/asdf/asdf")).body(Body::empty())?;
+
+        let req = ts.get(req, router.router_from_tcp(listen)).await?;
+        assert_eq!(req.status(), StatusCode::NOT_FOUND);
+        Ok(())
     }
 }

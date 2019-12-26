@@ -1,6 +1,7 @@
-use std::net::SocketAddr;
+use std::net::{SocketAddr, TcpListener};
 
 use bytes::Buf;
+use futures::future::Either;
 use futures::Future;
 use http::uri::{Authority, Scheme};
 use hyper::client::HttpConnector;
@@ -11,7 +12,7 @@ use tantivy::{doc, Index};
 pub static CONTENT_TYPE: &str = "application/json";
 
 pub fn get_localhost() -> SocketAddr {
-    "127.0.0.1:8080".parse::<SocketAddr>().unwrap()
+    "127.0.0.1:0".parse::<SocketAddr>().unwrap()
 }
 
 pub fn create_test_index() -> Index {
@@ -36,24 +37,28 @@ pub fn create_test_index() -> Index {
     idx
 }
 
+pub async fn read_body(resp: Response<Body>) -> Result<String, Box<dyn std::error::Error>> {
+    let body = hyper::body::aggregate(resp.into_body()).await?;
+    let b = body.bytes();
+    Ok(String::from_utf8(b.to_vec())?)
+}
+
 pub struct TestServer {
     client: Client<HttpConnector>,
     addr: SocketAddr,
 }
 
 impl TestServer {
-    pub fn with_server<S>(server: S) -> Result<Self, hyper::Error>
-    where
-        S: Future<Output = Result<(), hyper::Error>> + Send + 'static,
-    {
-        let addr = get_localhost();
+    pub fn new() -> Result<(TcpListener, Self), hyper::Error> {
+        let listen = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listen.local_addr().unwrap();
+        println!("BOUND = {:?}", &addr);
         let client = Client::new();
-        tokio::spawn(server);
-        Ok(TestServer { addr, client })
+        Ok((listen, TestServer { addr, client }))
     }
 
     #[inline]
-    fn make_uri(&self, path: &str) -> Uri {
+    pub fn uri(&self, path: &str) -> Uri {
         let auth = Authority::from_maybe_shared(self.addr.to_string()).unwrap();
         Uri::builder()
             .path_and_query(path)
@@ -63,38 +68,34 @@ impl TestServer {
             .expect("Invalid URI")
     }
 
-    pub async fn read_body(resp: Response<Body>) -> Result<String, Box<dyn std::error::Error>> {
-        let body = hyper::body::aggregate(resp.into_body()).await?;
-        let b = body.bytes();
-        Ok(String::from_utf8(b.to_vec())?)
-    }
-
-    pub async fn get(&mut self, path: &str) -> Result<Response<Body>, hyper::Error> {
-        let uri = self.make_uri(path);
-        let req = self.client.get(uri);
-        tokio::spawn(req).await.expect("Join Error")
-    }
-
-    pub async fn post(&mut self, path: &str, body: Body) -> Result<Response<Body>, hyper::Error> {
-        let uri = self.make_uri(path);
-        let request = Request::post(uri).body(body).expect("Creating Request");
-        let post = self.client.request(request);
-        tokio::spawn(post).await.expect("Join Error - Post")
+    pub async fn get<S>(&self, req: Request<Body>, server: S) -> Result<Response<Body>, hyper::Error>
+    where
+        S: Future<Output = Result<(), hyper::Error>> + Send + 'static,
+    {
+        let client_req = self.client.request(req);
+        let svr = tokio::spawn(server);
+        let req = tokio::spawn(client_req);
+        let svc = futures::future::try_select(Box::pin(svr), req);
+        match svc.await {
+            Ok(Either::Right((v, _))) => v,
+            e => panic!("{:?}", e),
+        }
     }
 }
 
 #[cfg(test)]
 pub mod tests {
     use std::convert::Infallible;
+    use std::net::TcpListener;
 
-    use http::Response;
+    use http::{Request, Response};
     use hyper::server::conn::AddrStream;
     use hyper::service::{make_service_fn, service_fn};
-    use hyper::Server;
+    use hyper::{Body, Server};
 
-    use crate::{get_localhost, TestServer};
+    use crate::{read_body, TestServer};
 
-    pub async fn svc() -> Result<(), hyper::Error> {
+    pub async fn svc(listen: TcpListener) -> Result<(), hyper::Error> {
         let make_svc = make_service_fn(|_: &AddrStream| {
             async {
                 Ok::<_, Infallible>(service_fn(|_req| {
@@ -102,18 +103,30 @@ pub mod tests {
                 }))
             }
         });
-        let addr = get_localhost();
-        let serv = Server::bind(&addr).serve(make_svc);
+
+        let serv = Server::from_tcp(listen)?.serve(make_svc);
         serv.await?;
         Ok(())
     }
 
     #[tokio::test]
     async fn make_test() -> Result<(), Box<dyn std::error::Error>> {
-        let mut ts = TestServer::with_server(svc())?;
-        let request = ts.get("/").await?;
-        let response = TestServer::read_body(request).await?;
-        println!("{:?}", response);
+        let (listen, ts) = TestServer::new()?;
+        let req = Request::get(ts.uri("/")).body(Body::empty())?;
+        let request = ts.get(req, svc(listen)).await?;
+        let response: String = read_body(request).await?;
+        assert_eq!("Hello World", response);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn make_post() -> Result<(), Box<dyn std::error::Error>> {
+        let (listen, ts) = TestServer::new()?;
+        let req = Request::post(ts.uri("/")).body(Body::empty())?;
+        let request = ts.get(req, svc(listen)).await?;
+        let response = read_body(request).await?;
+        assert_eq!("Hello World", response);
+
         Ok(())
     }
 }

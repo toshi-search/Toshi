@@ -19,12 +19,12 @@ pub async fn root() -> ResponseFuture {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use toshi_test::TestServer;
+    use toshi_test::read_body;
 
     #[tokio::test]
     async fn test_root() -> Result<(), Box<dyn std::error::Error>> {
         let req: Response<Body> = root().await?;
-        let body = TestServer::read_body(req).await?;
+        let body = read_body(req).await?;
         assert_eq!(body, toshi_info());
         Ok(())
     }
