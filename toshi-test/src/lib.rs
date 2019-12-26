@@ -1,13 +1,10 @@
 use std::net::SocketAddr;
 
 use bytes::Buf;
-
 use futures::Future;
 use http::uri::{Authority, Scheme};
-use http::{Response, Uri};
 use hyper::client::HttpConnector;
-
-use hyper::{Body, Client};
+use hyper::{Body, Client, Request, Response, Uri};
 use tantivy::schema::*;
 use tantivy::{doc, Index};
 
@@ -49,7 +46,7 @@ impl TestServer {
     where
         S: Future<Output = Result<(), hyper::Error>> + Send + 'static,
     {
-        let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+        let addr = get_localhost();
         let client = Client::new();
         tokio::spawn(server);
         Ok(TestServer { addr, client })
@@ -77,20 +74,25 @@ impl TestServer {
         let req = self.client.get(uri);
         tokio::spawn(req).await.expect("Join Error")
     }
+
+    pub async fn post(&mut self, path: &str, body: Body) -> Result<Response<Body>, hyper::Error> {
+        let uri = self.make_uri(path);
+        let request = Request::post(uri).body(body).expect("Creating Request");
+        let post = self.client.request(request);
+        tokio::spawn(post).await.expect("Join Error - Post")
+    }
 }
 
 #[cfg(test)]
 pub mod tests {
     use std::convert::Infallible;
 
-    use std::net::SocketAddr;
-
     use http::Response;
     use hyper::server::conn::AddrStream;
     use hyper::service::{make_service_fn, service_fn};
     use hyper::Server;
 
-    use crate::TestServer;
+    use crate::{get_localhost, TestServer};
 
     pub async fn svc() -> Result<(), hyper::Error> {
         let make_svc = make_service_fn(|_: &AddrStream| {
@@ -100,7 +102,7 @@ pub mod tests {
                 }))
             }
         });
-        let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+        let addr = get_localhost();
         let serv = Server::bind(&addr).serve(make_svc);
         serv.await?;
         Ok(())

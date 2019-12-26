@@ -94,18 +94,17 @@ impl Router {
 
 #[cfg(test)]
 pub mod tests {
-    use std::net::SocketAddr;
     use std::sync::atomic::AtomicBool;
     use std::sync::Arc;
 
-    use toshi_test::TestServer;
+    use toshi_test::{get_localhost, TestServer};
 
     use crate::router::Router;
 
     #[tokio::test]
     async fn test_router() {
         let catalog = crate::index::tests::create_test_catalog("test_index");
-        let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+        let addr = get_localhost();
         let router = Router::new(catalog, Arc::new(AtomicBool::new(false)));
         let mut ts = TestServer::with_server(router.router_with_catalog(addr)).unwrap();
 
