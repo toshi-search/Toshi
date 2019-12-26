@@ -8,6 +8,7 @@ license = "MIT"
 edition = "2018"
 
 [dependencies]
+bytes = "0.5.3"
 hyper   = { version = "^0.13", features = ["stream"] }
 http = "^0.2"
 futures = "^0.3"

@@ -3,7 +3,7 @@ use hyper::{Body, Response};
 use crate::handlers::ResponseFuture;
 
 #[inline]
-fn toshi_info() -> String {
+pub fn toshi_info() -> String {
     format!("{{\"name\":\"Toshi Search\",\"version\":\"{}\"}}", clap::crate_version!())
 }
 
@@ -18,24 +18,14 @@ pub async fn root() -> ResponseFuture {
 
 #[cfg(test)]
 mod tests {
-    use bytes::Buf;
-    use tokio::runtime::Runtime;
-
     use super::*;
+    use toshi_test::TestServer;
 
-    #[test]
-    fn test_root() -> Result<(), hyper::Error> {
-        let mut runtime = Runtime::new().unwrap();
-
-        let req = async {
-            let req: Response<Body> = root().await?;
-            hyper::body::aggregate(req.into_body()).await
-        };
-        let result = runtime.block_on(req)?;
-        let result_bytes = result.bytes();
-
-        let str_result = std::str::from_utf8(result_bytes).unwrap();
-        assert_eq!(str_result, toshi_info());
+    #[tokio::test]
+    async fn test_root() -> Result<(), Box<dyn std::error::Error>> {
+        let req: Response<Body> = root().await?;
+        let body = TestServer::read_body(req).await?;
+        assert_eq!(body, toshi_info());
         Ok(())
     }
 }

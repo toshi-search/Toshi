@@ -1,10 +1,10 @@
 use std::convert::Infallible;
 use std::net::SocketAddr;
-use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 
-use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Method, Request, Response, Server};
+use hyper::service::{make_service_fn, service_fn};
 use serde::Deserialize;
 use tower_util::BoxService;
 use tracing::info;
@@ -89,5 +89,28 @@ impl Router {
             tracing::error!("server error: {}", err);
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+pub mod tests {
+    use std::net::SocketAddr;
+    use std::sync::Arc;
+    use std::sync::atomic::AtomicBool;
+
+    use toshi_test::TestServer;
+
+    use crate::router::Router;
+
+    #[tokio::test]
+    async fn test_router() {
+        let catalog = crate::index::tests::create_test_catalog("test_index");
+        let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+        let router = Router::new(catalog, Arc::new(AtomicBool::new(false)));
+        let mut ts = TestServer::with_server(router.router_with_catalog(addr)).unwrap();
+
+        let req = ts.get("/").await.unwrap();
+        let resp = TestServer::read_body(req).await.unwrap();
+        assert_eq!(super::root::toshi_info(), resp);
     }
 }

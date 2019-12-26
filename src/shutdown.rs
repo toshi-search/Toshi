@@ -5,7 +5,7 @@ use tracing::*;
 #[cfg_attr(tarpaulin, skip)]
 #[cfg(unix)]
 pub fn shutdown(s: oneshot::Sender<()>) -> impl Future<Output = Result<(), ()>> + Unpin + Send {
-    use futures::{future, Future, FutureExt, TryFuture, TryFutureExt};
+    use futures::future;
     use tokio::signal::unix::{signal, SignalKind};
 
     let sigint = async {
