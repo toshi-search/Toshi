@@ -1,10 +1,10 @@
 use std::convert::Infallible;
 use std::net::SocketAddr;
-use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
 
-use hyper::{Body, Method, Request, Response, Server};
 use hyper::service::{make_service_fn, service_fn};
+use hyper::{Body, Method, Request, Response, Server};
 use serde::Deserialize;
 use tower_util::BoxService;
 use tracing::info;
@@ -95,8 +95,8 @@ impl Router {
 #[cfg(test)]
 pub mod tests {
     use std::net::SocketAddr;
-    use std::sync::Arc;
     use std::sync::atomic::AtomicBool;
+    use std::sync::Arc;
 
     use toshi_test::TestServer;
 
