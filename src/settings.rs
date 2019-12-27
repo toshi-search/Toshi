@@ -88,7 +88,7 @@ pub struct Settings {
     #[serde(default = "Settings::default_json_parsing_threads")]
     pub json_parsing_threads: usize,
     #[serde(default = "Settings::default_auto_commit_duration")]
-    pub auto_commit_duration: u64,
+    pub auto_commit_duration: f32,
     #[serde(default = "Settings::default_bulk_buffer_size")]
     pub bulk_buffer_size: usize,
     #[serde(default = "Settings::default_merge_policy")]
@@ -198,8 +198,8 @@ impl Settings {
         10000
     }
 
-    pub fn default_auto_commit_duration() -> u64 {
-        10
+    pub fn default_auto_commit_duration() -> f32 {
+        10.0
     }
 
     pub fn default_merge_policy() -> ConfigMergePolicy {
@@ -266,6 +266,7 @@ impl Settings {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use toshi_test::cmp_float;
 
     #[test]
     fn valid_default_config() {
@@ -295,7 +296,6 @@ mod tests {
             min_merge_size = 30"#;
 
         let config = Settings::from_str(cfg).unwrap();
-        use crate::handlers::search::tests::cmp_float;
         assert_eq!(cmp_float(config.merge_policy.level_log_size.unwrap() as f32, 10.5), true);
         assert_eq!(config.merge_policy.min_layer_size.unwrap(), 20);
         assert_eq!(config.merge_policy.min_merge_size.unwrap(), 30);

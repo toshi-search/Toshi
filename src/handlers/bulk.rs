@@ -17,33 +17,29 @@ use crate::handlers::ResponseFuture;
 use crate::index::SharedCatalog;
 use crate::utils::empty_with_code;
 
-async fn index_documents(
-    index_writer: Arc<Mutex<IndexWriter>>,
-    doc_receiver: Receiver<Document>,
-    watcher: Arc<AtomicBool>,
-) -> Result<(), ()> {
+async fn index_documents(iw: Arc<Mutex<IndexWriter>>, dr: Receiver<Document>, wr: Arc<AtomicBool>) -> Result<(), ()> {
     let parsing_span = info_span!("PipingDocuments");
     let _enter = parsing_span.enter();
     let start = Instant::now();
-    let w = index_writer.lock().await;
-    for doc in doc_receiver {
+    let w = iw.lock().await;
+    for doc in dr {
         w.add_document(doc);
     }
 
     info!("Piping Documents took: {:?}", start.elapsed());
-    watcher.store(false, Ordering::SeqCst);
+    wr.store(false, Ordering::SeqCst);
     Ok(())
 }
 
-async fn parsing_documents(schema: Schema, doc_sender: Sender<Document>, line_recv: Receiver<Vec<u8>>) -> Result<(), ()> {
+async fn parsing_documents(s: Schema, ds: Sender<Document>, lr: Receiver<Vec<u8>>) -> Result<(), ()> {
     let parsing_span = info_span!("ParsingDocs");
     let _enter = parsing_span.enter();
-    for line in line_recv {
+    for line in lr {
         if !line.is_empty() {
             if let Ok(text) = from_utf8(&line) {
-                if let Ok(doc) = schema.parse_document(text) {
+                if let Ok(doc) = s.parse_document(text) {
                     info!("Sending doc: {:?}", &doc);
-                    doc_sender.send(doc).unwrap()
+                    ds.send(doc).unwrap()
                 }
             }
         }
@@ -103,8 +99,7 @@ mod tests {
     use std::thread::sleep;
     use std::time::Duration;
 
-    use bytes::Buf;
-    use tokio::runtime::Builder;
+    use toshi_test::read_body;
 
     use crate::handlers::all_docs;
     use crate::handlers::summary::flush;
@@ -113,13 +108,8 @@ mod tests {
 
     use super::*;
 
-    #[test]
-    fn test_bulk_index() -> Result<(), Box<dyn std::error::Error>> {
-        std::env::set_var("RUST_LOG", "debug");
-        let sub = tracing_fmt::FmtSubscriber::builder().with_ansi(true).finish();
-        tracing::subscriber::set_global_default(sub).expect("Unable to set default Subscriber");
-
-        let mut runtime = Builder::new().core_threads(4).enable_all().threaded_scheduler().build().unwrap();
+    #[tokio::test(threaded_scheduler)]
+    async fn test_bulk_index() -> Result<(), Box<dyn std::error::Error>> {
         let server = create_test_catalog("test_index");
         let lock = Arc::new(AtomicBool::new(false));
 
@@ -128,19 +118,26 @@ mod tests {
         {"test_text": "asdf5678", "test_i64": 456, "test_u64": 678, "test_unindex": "asdf"}
         {"test_text": "asdf9012", "test_i64": -12, "test_u64": 901, "test_unindex": "asdf"}"#;
 
-        let index_docs = bulk_insert(Arc::clone(&server), lock, Body::from(body), "test_index".into());
-        let result = runtime.block_on(index_docs);
-        assert_eq!(result.is_ok(), true);
-        let _ = result.unwrap();
-        sleep(Duration::from_secs(1));
-        let flush = flush(Arc::clone(&server), "test_index".to_string());
-        runtime.block_on(flush)?;
+        let index_docs = bulk_insert(Arc::clone(&server), lock, Body::from(body), "test_index".into()).await?;
+        assert_eq!(index_docs.status(), StatusCode::CREATED);
         sleep(Duration::from_secs(1));
 
-        let check_docs = runtime.block_on(all_docs(server, "test_index".into()))?;
-        let body = runtime.block_on(hyper::body::aggregate(check_docs.into_body()))?;
-        let docs: SearchResults = serde_json::from_slice(body.bytes())?;
-        assert_eq!(docs.hits, 9);
+        let flush = flush(Arc::clone(&server), "test_index".to_string()).await?;
+        assert_eq!(flush.status(), StatusCode::OK);
+        sleep(Duration::from_secs(1));
+
+        let mut attempts = 0;
+        for _ in 0..5 {
+            let check_docs = all_docs(Arc::clone(&server), "test_index".into()).await?;
+            let body = read_body(check_docs).await?;
+            let docs: SearchResults = serde_json::from_slice(body.as_bytes())?;
+            println!("DOCS = {}", docs.hits);
+            if docs.hits == 9 {
+                break;
+            }
+            attempts += 1;
+        }
+        assert_eq!(attempts >= 5, false);
         Ok(())
     }
 }

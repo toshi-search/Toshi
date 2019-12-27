@@ -11,7 +11,7 @@ use tantivy::TantivyError;
 use thiserror::Error;
 
 /// The type returned when an error occurs with a query
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ErrorResponse {
     /// The human-readable message given back
     pub message: String,

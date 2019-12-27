@@ -58,6 +58,7 @@ pub async fn flush(catalog: SharedCatalog, index: String) -> ResponseFuture {
         let local_index = index_lock.get_index(&index).unwrap();
         let writer = local_index.get_writer();
         let mut write = writer.lock().await;
+
         write.commit().unwrap();
         info!("Successful commit: {}", index);
         Ok(empty_with_code(StatusCode::OK))

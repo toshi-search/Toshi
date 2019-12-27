@@ -123,10 +123,10 @@ mod tests {
     use pretty_assertions::assert_eq;
     use tokio::runtime::Runtime;
 
+    use toshi_test::wait_json;
     use toshi_types::IndexOptions;
 
     use crate::handlers::all_docs;
-    use crate::handlers::search::tests::wait_json;
     use crate::index::tests::*;
 
     use super::*;

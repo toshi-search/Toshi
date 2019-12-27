@@ -6,14 +6,9 @@ use futures::Future;
 use http::uri::{Authority, Scheme};
 use hyper::client::HttpConnector;
 use hyper::{Body, Client, Request, Response, Uri};
+use serde::de::DeserializeOwned;
 use tantivy::schema::*;
 use tantivy::{doc, Index};
-
-pub static CONTENT_TYPE: &str = "application/json";
-
-pub fn get_localhost() -> SocketAddr {
-    "127.0.0.1:0".parse::<SocketAddr>().unwrap()
-}
 
 pub fn create_test_index() -> Index {
     let mut builder = SchemaBuilder::new();
@@ -37,6 +32,23 @@ pub fn create_test_index() -> Index {
     idx
 }
 
+pub async fn wait_json<T: DeserializeOwned>(r: Response<Body>) -> T {
+    let bytes = read_body(r).await.unwrap();
+    serde_json::from_slice::<T>(bytes.as_bytes()).unwrap_or_else(|e| panic!("Could not deserialize JSON: {:?}", e))
+}
+
+pub fn cmp_float(a: f32, b: f32) -> bool {
+    let abs_a = a.abs();
+    let abs_b = b.abs();
+    let diff = (a - b).abs();
+    if diff == 0.0 {
+        return true;
+    } else if a == 0.0 || b == 0.0 || (abs_a + abs_b < std::f32::MIN_POSITIVE) {
+        return diff < (std::f32::EPSILON * std::f32::MIN_POSITIVE);
+    }
+    diff / (abs_a + abs_b).min(std::f32::MAX) < std::f32::EPSILON
+}
+
 pub async fn read_body(resp: Response<Body>) -> Result<String, Box<dyn std::error::Error>> {
     let body = hyper::body::aggregate(resp.into_body()).await?;
     let b = body.bytes();
@@ -52,7 +64,6 @@ impl TestServer {
     pub fn new() -> Result<(TcpListener, Self), hyper::Error> {
         let listen = TcpListener::bind("127.0.0.1:0").unwrap();
         let addr = listen.local_addr().unwrap();
-        println!("BOUND = {:?}", &addr);
         let client = Client::new();
         Ok((listen, TestServer { addr, client }))
     }

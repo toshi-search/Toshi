@@ -2,7 +2,7 @@ use std::io;
 use std::path::Path;
 
 use tokio::fs::File;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::prelude::*;
 use uuid::Uuid;
 
 static NODE_ID_FILENAME: &str = ".node_id";
@@ -43,23 +43,13 @@ pub async fn read_node_id(p: &str) -> Result<String, io::Error> {
 
 #[cfg(test)]
 pub mod tests {
-    use tokio::runtime::Runtime;
-
     use super::*;
 
-    #[test]
-    pub fn test_node_id() -> Result<(), io::Error> {
-        let mut rt = Runtime::new().unwrap();
-        let (s, mut recv) = tokio::sync::oneshot::channel::<String>();
-        let r = async {
-            let id = init_node_id("./".to_string()).await?;
-            s.send(id).unwrap();
-            read_node_id("./").await
-        };
-        let read_id = rt.block_on(r).unwrap();
-        let write_id = recv.try_recv().unwrap();
+    #[tokio::test]
+    async fn test_node_id() -> Result<(), io::Error> {
+        let write_id = init_node_id("./".to_string()).await?;
+        let read_id = read_node_id("./").await?;
         assert_eq!(read_id, write_id);
-
         std::fs::remove_file(format!("./{}", NODE_ID_FILENAME)).unwrap();
         Ok(())
     }
