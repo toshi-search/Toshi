@@ -1,37 +1,31 @@
-use futures::future;
-use http::header::CONTENT_TYPE;
 use hyper::{Body, Response};
 
 use crate::handlers::ResponseFuture;
 
 #[inline]
-fn toshi_info() -> String {
+pub fn toshi_info() -> String {
     format!("{{\"name\":\"Toshi Search\",\"version\":\"{}\"}}", clap::crate_version!())
 }
 
-pub fn root() -> ResponseFuture {
+pub async fn root() -> ResponseFuture {
     let resp = Response::builder()
-        .header(CONTENT_TYPE, "application/json")
+        .header(hyper::header::CONTENT_TYPE, "application/json")
         .body(Body::from(toshi_info()))
         .unwrap();
 
-    Box::new(future::ok(resp))
+    Ok(resp)
 }
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
-    use futures::{Future, Stream};
+    use toshi_test::read_body;
 
-    #[test]
-    fn test_root() -> Result<(), hyper::Error> {
-        root()
-            .wait()
-            .unwrap()
-            .into_body()
-            .concat2()
-            .map(|v| assert_eq!(String::from_utf8(v.to_vec()).unwrap(), toshi_info()))
-            .wait()
+    #[tokio::test]
+    async fn test_root() -> Result<(), Box<dyn std::error::Error>> {
+        let req: Response<Body> = root().await?;
+        let body = read_body(req).await?;
+        assert_eq!(body, toshi_info());
+        Ok(())
     }
 }

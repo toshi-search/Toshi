@@ -1,14 +1,13 @@
 syntax = "proto3";
 
-package cluster_rpc;
+package clusterrpc;
 
 service IndexService {
     rpc ping (PingRequest) returns (PingReply);
     rpc place_index (PlaceRequest) returns (ResultReply);
     rpc list_indexes (ListRequest) returns (ListReply);
     rpc place_document (DocumentRequest) returns (ResultReply);
-    rpc delete_document (DeleteRequest) returns (ResultReply);
-    rpc place_replica (ReplicaRequest) returns (ResultReply);
+    rpc delete_document (DeleteRequest) returns (DeleteReply);
     rpc search_index (SearchRequest) returns (SearchReply);
     rpc get_summary (SummaryRequest) returns (SummaryReply);
     rpc bulk_insert (stream BulkRequest) returns (ResultReply);
@@ -82,4 +81,9 @@ message SummaryRequest {
 
 message SummaryReply {
     bytes summary = 1;
+}
+
+message DeleteReply {
+    string index = 1;
+    uint64 docs_affected = 2;
 }

@@ -1,79 +1,36 @@
-use std::io::Error;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use futures::Future;
-use hyper::client::connect::HttpConnector;
-use parking_lot::RwLock;
 use tantivy::schema::Schema;
-use tokio::net::TcpListener;
-use tokio::prelude::*;
-use tower::MakeService;
-use tower_buffer::Buffer;
-use tower_grpc::{BoxBody, Code, Request, Response, Status, Streaming};
-use tower_hyper::client::{Connect, ConnectError, Connection};
-use tower_hyper::util::{Connector, Destination};
-use tower_hyper::Server;
-use tower_request_modifier::{Builder, RequestModifier};
+use tokio::sync::Mutex;
+use tonic::transport::Server;
+use tonic::{Code, Request, Response, Status, Streaming};
 use tracing::*;
 
 use toshi_proto::cluster_rpc::*;
-use toshi_types::query::Search;
+use toshi_types::{DeleteDoc, DocsAffected, Error, Search};
 
 use crate::handle::IndexHandle;
 use crate::index::IndexCatalog;
 use crate::AddDocument;
-use toshi_types::server::DeleteDoc;
 
-pub type Buf = Buffer<RequestModifier<Connection<BoxBody>, BoxBody>, http::Request<BoxBody>>;
-pub type RpcClient = client::IndexService<Buf>;
+pub type Buf = tonic::transport::Channel;
+pub type RpcClient = client::IndexServiceClient<Buf>;
 
-/// RPC Services should "ideally" work on only local indexes, they shouldn't be responsible for
-/// going to other nodes to get index data. It should be the master's duty to know where the local
-/// indexes are stored and make the RPC query to the node to get the data.
 pub struct RpcServer {
-    catalog: Arc<RwLock<IndexCatalog>>,
-}
-
-impl Clone for RpcServer {
-    fn clone(&self) -> Self {
-        Self {
-            catalog: Arc::clone(&self.catalog),
-        }
-    }
+    catalog: Arc<Mutex<IndexCatalog>>,
 }
 
 impl RpcServer {
-    pub fn serve(addr: SocketAddr, catalog: Arc<RwLock<IndexCatalog>>) -> impl Future<Item = (), Error = ()> {
+    pub async fn serve(addr: SocketAddr, catalog: Arc<Mutex<IndexCatalog>>) -> Result<(), tonic::transport::Error> {
         let service = server::IndexServiceServer::new(RpcServer { catalog });
-        info!("Binding on port: {:?}", addr);
-        let bind = TcpListener::bind(&addr).unwrap_or_else(|_| panic!("Failed to bind to host: {:?}", addr));
-
-        info!("Bound to: {:?}", &bind.local_addr().unwrap());
-        let mut hyp = Server::new(service);
-
-        bind.incoming()
-            .for_each(move |sock| {
-                info!("Connection from: {:?}", sock.local_addr().unwrap());
-                let req = hyp.serve(sock).map_err(|err| error!("hyper error: {:?}", err));
-                tokio::spawn(req);
-                Ok(())
-            })
-            .map_err(|err| error!("Server Error: {:?}", err))
+        Server::builder().add_service(service).serve(addr).await
     }
 
     //TODO: Make DNS Threads and Buffer Requests Configurable options
-    pub fn create_client(uri: http::Uri) -> impl Future<Item = RpcClient, Error = ConnectError<Error>> {
+    pub async fn create_client(uri: http::Uri) -> Result<RpcClient, Error> {
         info!("Creating Client to: {:?}", uri);
-        let dst = Destination::try_from_uri(uri.clone()).unwrap();
-        let connector = Connector::new(HttpConnector::new(8));
-        let mut connect = Connect::new(connector);
-
-        connect.make_service(dst).map(move |c| {
-            let connection = Builder::new().set_origin(uri).build(c).unwrap();
-            let buffer = Buffer::new(connection, 128);
-            client::IndexService::new(buffer)
-        })
+        client::IndexServiceClient::connect(uri.to_string()).await.map_err(Into::into)
     }
 
     pub fn ok_result() -> ResultReply {
@@ -88,65 +45,34 @@ impl RpcServer {
         SearchReply { result, doc }
     }
 
-    pub fn error_response<T>(code: Code, msg: String) -> Box<future::FutureResult<Response<T>, Status>> {
+    pub fn error_response<T>(code: Code, msg: String) -> Result<Response<T>, Status> {
         let status = Status::new(code, msg);
-        Box::new(future::failed(status))
+        Err(status)
+    }
+
+    pub fn query_or_all(b: &[u8]) -> Result<Search, Box<dyn std::error::Error>> {
+        let deser: Search = serde_json::from_slice(b)?;
+        if deser.query.is_none() {
+            return Ok(Search::all_docs());
+        }
+        Ok(deser)
     }
 }
 
+#[async_trait::async_trait]
 impl server::IndexService for RpcServer {
-    type PingFuture = Box<future::FutureResult<Response<PingReply>, Status>>;
-    type ListIndexesFuture = Box<future::FutureResult<Response<ListReply>, Status>>;
-    type PlaceIndexFuture = Box<future::FutureResult<Response<ResultReply>, Status>>;
-    type PlaceDocumentFuture = Box<future::FutureResult<Response<ResultReply>, Status>>;
-    type PlaceReplicaFuture = Box<future::FutureResult<Response<ResultReply>, Status>>;
-    type SearchIndexFuture = Box<future::FutureResult<Response<SearchReply>, Status>>;
-    type DeleteDocumentFuture = Box<future::FutureResult<Response<ResultReply>, Status>>;
-    type GetSummaryFuture = Box<future::FutureResult<Response<SummaryReply>, Status>>;
-    type BulkInsertFuture = Box<future::FutureResult<Response<ResultReply>, Status>>;
-
-    fn list_indexes(&mut self, req: Request<ListRequest>) -> Self::ListIndexesFuture {
-        let cat = self.catalog.read();
-        info!("Request From: {:?}", req);
-        let indexes = cat.get_collection();
-        let lists: Vec<String> = indexes.into_iter().map(|(t, _)| t.to_string()).collect();
-        info!("Response: {:?}", lists.join(", "));
-        let resp = Response::new(ListReply { indexes: lists });
-        Box::new(future::finished(resp))
+    async fn ping(&self, _: Request<PingRequest>) -> Result<Response<PingReply>, Status> {
+        Ok(Response::new(PingReply { status: "OK".into() }))
     }
 
-    fn search_index(&mut self, request: Request<SearchRequest>) -> Self::SearchIndexFuture {
-        let inner = request.into_inner();
-        let cat = self.catalog.read();
-        if let Ok(index) = cat.get_index(&inner.index) {
-            let query: Search = match serde_json::from_slice(&inner.query) {
-                Ok(v) => v,
-                Err(e) => return Self::error_response(Code::Internal, e.to_string()),
-            };
-            info!("QUERY = {:?}", query);
-
-            match index.search_index(query) {
-                Ok(query_results) => {
-                    info!("Query Response = {:?} hits", query_results.hits);
-                    let query_bytes: Vec<u8> = serde_json::to_vec(&query_results).unwrap();
-                    let result = Some(RpcServer::ok_result());
-                    Box::new(future::finished(Response::new(RpcServer::create_search_reply(result, query_bytes))))
-                }
-                Err(e) => Self::error_response(Code::Internal, e.to_string()),
-            }
-        } else {
-            Self::error_response(Code::NotFound, format!("Index: {} not found", inner.index))
-        }
-    }
-
-    fn place_index(&mut self, request: Request<PlaceRequest>) -> Self::PlaceIndexFuture {
+    async fn place_index(&self, request: Request<PlaceRequest>) -> Result<Response<ResultReply>, Status> {
         let PlaceRequest { index, schema } = request.into_inner();
-        let mut cat = self.catalog.write();
+        let mut cat = self.catalog.lock().await;
         if let Ok(schema) = serde_json::from_slice::<Schema>(&schema) {
             let ip = cat.base_path().clone();
             if let Ok(new_index) = IndexCatalog::create_from_managed(ip, &index.clone(), schema) {
                 if cat.add_index(index.clone(), new_index).is_ok() {
-                    Box::new(future::finished(Response::new(RpcServer::ok_result())))
+                    Ok(Response::new(RpcServer::ok_result()))
                 } else {
                     Self::error_response(Code::Internal, format!("Insert: {} failed", index))
                 }
@@ -158,13 +84,24 @@ impl server::IndexService for RpcServer {
         }
     }
 
-    fn place_document(&mut self, request: Request<DocumentRequest>) -> Self::PlaceDocumentFuture {
+    async fn list_indexes(&self, req: Request<ListRequest>) -> Result<Response<ListReply>, Status> {
+        let cat = self.catalog.lock().await;
+        info!("Request From: {:?}", req);
+        let indexes = cat.get_collection();
+        let lists: Vec<String> = indexes.into_iter().map(|(t, _)| t.to_string()).collect();
+        info!("Response: {:?}", lists.join(", "));
+        let resp = Response::new(ListReply { indexes: lists });
+        Ok(resp)
+    }
+
+    async fn place_document(&self, request: Request<DocumentRequest>) -> Result<Response<ResultReply>, Status> {
+        info!("REQ = {:?}", &request);
         let DocumentRequest { index, document } = request.into_inner();
-        let cat = self.catalog.read();
+        let cat = self.catalog.lock().await;
         if let Ok(idx) = cat.get_index(&index) {
             if let Ok(doc) = serde_json::from_slice::<AddDocument>(&document) {
-                if idx.add_document(doc).is_ok() {
-                    Box::new(future::finished(Response::new(RpcServer::ok_result())))
+                if idx.add_document(doc).await.is_ok() {
+                    Ok(Response::new(RpcServer::ok_result()))
                 } else {
                     Self::error_response(Code::Internal, format!("Add Document Failed: {}", index))
                 }
@@ -176,20 +113,13 @@ impl server::IndexService for RpcServer {
         }
     }
 
-    fn place_replica(&mut self, _request: Request<ReplicaRequest>) -> Self::PlaceReplicaFuture {
-        unimplemented!()
-    }
-
-    fn delete_document(&mut self, request: Request<DeleteRequest>) -> Self::DeleteDocumentFuture {
+    async fn delete_document(&self, request: Request<DeleteRequest>) -> Result<Response<DeleteReply>, Status> {
         let DeleteRequest { index, terms } = request.into_inner();
-        let cat = self.catalog.read();
+        let cat = self.catalog.lock().await;
         if let Ok(idx) = cat.get_index(&index) {
             if let Ok(delete_docs) = serde_json::from_slice::<DeleteDoc>(&terms) {
-                if idx.delete_term(delete_docs).is_ok() {
-                    Box::new(future::finished(Response::new(RpcServer::ok_result())))
-                } else {
-                    Self::error_response(Code::Internal, format!("Add Document Failed: {}", index))
-                }
+                let DocsAffected { docs_affected } = idx.delete_term(delete_docs).await?;
+                Ok(Response::new(DeleteReply { index, docs_affected }))
             } else {
                 Self::error_response(Code::Internal, format!("Invalid Document request: {}", index))
             }
@@ -198,12 +128,38 @@ impl server::IndexService for RpcServer {
         }
     }
 
-    fn get_summary(&mut self, request: Request<SummaryRequest>) -> Self::GetSummaryFuture {
+    async fn search_index(&self, request: Request<SearchRequest>) -> Result<Response<SearchReply>, Status> {
+        let inner = request.into_inner();
+        let cat = self.catalog.lock().await;
+        {
+            if let Ok(index) = cat.get_index(&inner.index) {
+                let query = match Self::query_or_all(&inner.query) {
+                    Ok(v) => v,
+                    Err(e) => return Self::error_response(Code::Internal, e.to_string()),
+                };
+                info!("QUERY = {:?}", &query);
+
+                match index.search_index(query).await {
+                    Ok(query_results) => {
+                        info!("Query Response = {:?} hits", query_results.hits);
+                        let query_bytes: Vec<u8> = serde_json::to_vec(&query_results).unwrap();
+                        let result = Some(RpcServer::ok_result());
+                        Ok(Response::new(RpcServer::create_search_reply(result, query_bytes)))
+                    }
+                    Err(e) => Self::error_response(Code::Internal, e.to_string()),
+                }
+            } else {
+                Self::error_response(Code::NotFound, format!("Index: {} not found", inner.index))
+            }
+        }
+    }
+
+    async fn get_summary(&self, request: Request<SummaryRequest>) -> Result<Response<SummaryReply>, Status> {
         let SummaryRequest { index } = request.into_inner();
-        if let Ok(idx) = self.catalog.read().get_index(&index) {
+        if let Ok(idx) = self.catalog.lock().await.get_index(&index) {
             if let Ok(metas) = idx.get_index().load_metas() {
                 let meta_json = serde_json::to_vec(&metas).unwrap();
-                Box::new(future::ok(Response::new(SummaryReply { summary: meta_json })))
+                Ok(Response::new(SummaryReply { summary: meta_json }))
             } else {
                 Self::error_response(Code::DataLoss, format!("Could not load metas for: {}", index))
             }
@@ -212,55 +168,104 @@ impl server::IndexService for RpcServer {
         }
     }
 
-    fn bulk_insert(&mut self, _: Request<Streaming<BulkRequest>>) -> Self::BulkInsertFuture {
+    async fn bulk_insert(&self, _: Request<Streaming<BulkRequest>>) -> Result<Response<ResultReply>, Status> {
         unimplemented!()
-    }
-
-    fn ping(&mut self, _: Request<PingRequest>) -> Self::PingFuture {
-        Box::new(future::ok(Response::new(PingReply { status: "OK".into() })))
     }
 }
 
-//#[cfg(test)]
-//mod tests {
-//    use future::Future;
-//    use http::Uri;
-//    use tokio::prelude::*;
-//    use tokio::runtime::Runtime;
-//
-//    use toshi_test::get_localhost;
-//
-//    use crate::index::tests::create_test_catalog;
-//
-//    use super::*;
-//    use failure::_core::time::Duration;
-//
-//    #[ignore]
-//    fn rpc_test() {
-//        std::env::set_var("RUST_LOG", "trace");
-//        let sub = tracing_fmt::FmtSubscriber::builder()
-//            .with_timer(tracing_fmt::time::SystemTime {})
-//            .with_ansi(true)
-//            .finish();
-//        tracing::subscriber::set_global_default(sub).expect("Unable to set default Subscriber");
-//
-//        let catalog = create_test_catalog("test_index");
-//        let addr = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
-//        let router = RpcServer::serve(addr, Arc::clone(&catalog));
-//        tokio::run(router);
-//        //        let c = RpcServer::create_client("http://127.0.0.1:8081".parse::<Uri>().unwrap())
-//        //            .map_err(|_| tower_grpc::Status::new(Code::DataLoss, ""))
-//        //            .and_then(|mut client| {
-//        //                client
-//        //                    .list_indexes(tower_grpc::Request::new(ListRequest {}))
-//        //                    .map(|resp| resp.into_inner())
-//        //                    .inspect(|r: &ListReply| info!("{:?}aaaaaaaaaaaaaaaaaaaa", r))
-//        //                    .map_err(Into::into)
-//        //            })
-//        //            .map(|_| ())
-//        //            .map_err(|_| ());
-//        //
-//        //        tokio::run(router.join(c).map(|_| ()).map_err(|_| ()));
-//        //        std::thread::sleep(Duration::from_millis(3000));
-//    }
-//}
+#[cfg(test)]
+mod tests {
+    use futures::future::{try_select, Either};
+    use http::Uri;
+
+    use crate::index::tests::create_test_catalog;
+
+    use super::*;
+
+    pub fn routes(port: i16) -> Result<(SocketAddr, Uri), Box<dyn std::error::Error>> {
+        let addr = format!("127.0.0.1:{}", port).parse::<SocketAddr>()?;
+        let uri = format!("http://127.0.0.1:{}/", port).parse::<Uri>()?;
+        Ok((addr, uri))
+    }
+
+    #[ignore]
+    #[tokio::test]
+    async fn rpc_ping() -> Result<(), Box<dyn std::error::Error>> {
+        let catalog = create_test_catalog("test_index");
+        let (addr, uri) = routes(8079)?;
+        let router = tokio::spawn(RpcServer::serve(addr, Arc::clone(&catalog)));
+        let mut client = RpcServer::create_client(uri).await?;
+        let list = tokio::spawn(async move { client.ping(Request::new(PingRequest {})).await });
+        let sel: PingReply = match try_select(list, router).await.unwrap() {
+            Either::Left((Ok(v), _)) => v.into_inner(),
+            e => panic!("{:?}", e),
+        };
+        assert_eq!(sel.status, "OK");
+        Ok(())
+    }
+
+    #[ignore]
+    #[tokio::test]
+    async fn rpc_list() -> Result<(), Box<dyn std::error::Error>> {
+        let catalog = create_test_catalog("test_index");
+        let (addr, uri) = routes(8081)?;
+        let router = tokio::spawn(RpcServer::serve(addr, Arc::clone(&catalog)));
+        let mut client = RpcServer::create_client(uri).await?;
+        let list = tokio::spawn(async move { client.list_indexes(Request::new(ListRequest {})).await });
+        let sel: ListReply = match try_select(list, router).await.unwrap() {
+            Either::Left((Ok(v), _)) => v.into_inner(),
+            _ => unreachable!(),
+        };
+        assert_eq!(sel.indexes.len(), 1);
+        assert_eq!(sel.indexes[0], "test_index");
+        Ok(())
+    }
+
+    #[ignore]
+    #[tokio::test]
+    async fn rpc_summary() -> Result<(), Box<dyn std::error::Error>> {
+        let catalog = create_test_catalog("test_index");
+        let (addr, uri) = routes(8082)?;
+        let router = tokio::spawn(RpcServer::serve(addr, Arc::clone(&catalog)));
+        let mut client = RpcServer::create_client(uri).await?;
+        let list = tokio::spawn(async move {
+            client
+                .get_summary(Request::new(SummaryRequest {
+                    index: "test_index".into(),
+                }))
+                .await
+        });
+        let sel: SummaryReply = match try_select(list, router).await.unwrap() {
+            Either::Left((Ok(v), _)) => v.into_inner(),
+            e => panic!("{:?}", e),
+        };
+        assert_eq!(sel.summary.is_empty(), false);
+        Ok(())
+    }
+
+    #[ignore]
+    #[tokio::test]
+    async fn rpc_search() -> Result<(), Box<dyn std::error::Error>> {
+        let catalog = create_test_catalog("test_index");
+        let (addr, uri) = routes(8083)?;
+        let router = tokio::spawn(RpcServer::serve(addr, Arc::clone(&catalog)));
+        let mut client = RpcServer::create_client(uri).await?;
+        let query = Search::all_docs();
+        let query_bytes = serde_json::to_vec(&query)?;
+        let list = tokio::spawn(async move {
+            client
+                .search_index(Request::new(SearchRequest {
+                    index: "test_index".into(),
+                    query: query_bytes,
+                }))
+                .await
+        });
+        let sel: SearchReply = match try_select(list, router).await.unwrap() {
+            Either::Left((Ok(v), _)) => v.into_inner(),
+            e => panic!("{:?}", e),
+        };
+        let results: crate::SearchResults = serde_json::from_slice(&sel.doc)?;
+        assert_eq!(results.hits, 5);
+        Ok(())
+    }
+}

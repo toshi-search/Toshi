@@ -1,37 +1,32 @@
-use futures::future;
-use http::header::CONTENT_TYPE;
-use http::{Response, StatusCode};
 use hyper::Body;
 use serde::Serialize;
 
-use crate::handlers::ResponseFuture;
-use toshi_types::error::{Error, ErrorResponse};
+use toshi_types::{Error, ErrorResponse};
 
-pub fn with_body<T>(body: T) -> http::Response<Body>
+pub fn with_body<T>(body: T) -> hyper::Response<Body>
 where
     T: Serialize,
 {
     let json = serde_json::to_vec::<T>(&body).unwrap();
 
-    Response::builder()
-        .header(CONTENT_TYPE, "application/json")
+    hyper::Response::builder()
+        .header(hyper::header::CONTENT_TYPE, "application/json")
         .body(Body::from(json))
         .unwrap()
 }
 
-pub fn error_response(code: StatusCode, e: Error) -> http::Response<Body> {
+pub fn error_response(code: hyper::StatusCode, e: Error) -> hyper::Response<Body> {
     let mut resp = with_body(ErrorResponse { message: e.to_string() });
     *resp.status_mut() = code;
     resp
 }
 
-pub fn empty_with_code(code: StatusCode) -> http::Response<Body> {
-    Response::builder().status(code).body(Body::empty()).unwrap()
+pub fn empty_with_code(code: hyper::StatusCode) -> hyper::Response<Body> {
+    hyper::Response::builder().status(code).body(Body::empty()).unwrap()
 }
 
-pub fn not_found() -> ResponseFuture {
-    let not_found = empty_with_code(StatusCode::NOT_FOUND);
-    Box::new(future::ok(not_found))
+pub async fn not_found() -> Result<hyper::Response<Body>, hyper::Error> {
+    Ok(empty_with_code(hyper::StatusCode::NOT_FOUND))
 }
 
 pub fn parse_path(path: &str) -> Vec<&str> {
@@ -40,7 +35,6 @@ pub fn parse_path(path: &str) -> Vec<&str> {
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
     use pretty_assertions::assert_eq;
 

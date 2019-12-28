@@ -1,13 +1,14 @@
-use std::net::SocketAddr;
+use std::convert::Infallible;
+use std::net::{SocketAddr, TcpListener};
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
-use hyper::service::service_fn;
-use hyper::{Body, Method, Request, Server};
+use hyper::service::{make_service_fn, service_fn};
+use hyper::{Body, Method, Request, Response, Server};
 use serde::Deserialize;
-use tokio::prelude::*;
+use tower_util::BoxService;
+use tracing::info;
 
-use crate::handlers::summary::flush;
 use crate::handlers::*;
 use crate::index::SharedCatalog;
 use crate::utils::{not_found, parse_path};
@@ -30,103 +31,111 @@ impl QueryOptions {
     }
 }
 
-pub fn router_with_catalog(
-    addr: &SocketAddr,
-    catalog: SharedCatalog,
-    watcher: Arc<AtomicBool>,
-) -> impl Future<Item = (), Error = ()> + Send {
-    let routes = move || {
-        let search_handler = SearchHandler::new(Arc::clone(&catalog));
-        let index_handler = IndexHandler::new(Arc::clone(&catalog));
-        let bulk_handler = BulkHandler::new(Arc::clone(&catalog), Arc::clone(&watcher));
-        let summary_cat = Arc::clone(&catalog);
+pub type BoxedFn = BoxService<Request<Body>, Response<Body>, hyper::Error>;
 
-        service_fn(move |req: Request<Body>| {
-            let summary_cat = &summary_cat;
+#[derive(Clone)]
+pub struct Router {
+    pub cat: SharedCatalog,
+    pub watcher: Arc<AtomicBool>,
+}
 
-            let (parts, body) = req.into_parts();
+impl Router {
+    pub fn new(cat: SharedCatalog, watcher: Arc<AtomicBool>) -> Self {
+        Self { cat, watcher }
+    }
 
-            let query_options: QueryOptions = parts
-                .uri
-                .query()
-                .and_then(|q| serde_urlencoded::from_str(q).ok())
-                .unwrap_or_default();
+    pub async fn route(catalog: SharedCatalog, watcher: Arc<AtomicBool>, req: Request<Body>) -> Result<Response<Body>, hyper::Error> {
+        let (parts, body) = req.into_parts();
+        let query_options: QueryOptions = parts
+            .uri
+            .query()
+            .and_then(|q| serde_urlencoded::from_str(q).ok())
+            .unwrap_or_default();
 
-            let method = parts.method;
-            let path = parse_path(parts.uri.path());
+        let method = parts.method;
+        let path = parse_path(parts.uri.path());
 
-            tracing::info!("REQ = {:?}", path);
-
-            match (&method, &path[..]) {
-                (m, [idx, action]) if m == Method::PUT => match *action {
-                    "_create" => index_handler.create_index(body, (*idx).to_string()),
-                    _ => not_found(),
-                },
-                (m, [idx, action]) if m == Method::GET => match *action {
-                    "_summary" => summary(Arc::clone(summary_cat), (*idx).to_string(), query_options),
-                    "_flush" => flush(Arc::clone(summary_cat), (*idx).to_string()),
-                    _ => not_found(),
-                },
-                (m, [idx, action]) if m == Method::POST => match *action {
-                    "_bulk" => bulk_handler.bulk_insert(body, (*idx).to_string()),
-                    _ => not_found(),
-                },
-                (m, [idx]) if m == Method::POST => search_handler.doc_search(body, (*idx).to_string()),
-                (m, [idx]) if m == Method::PUT => index_handler.add_document(body, (*idx).to_string()),
-                (m, [idx]) if m == Method::DELETE => index_handler.delete_term(body, (*idx).to_string()),
-                (m, [idx]) if m == Method::GET => {
-                    if idx == &"favicon.ico" {
-                        not_found()
-                    } else {
-                        search_handler.all_docs((*idx).to_string())
-                    }
+        match (&method, &path[..]) {
+            (m, [idx, "_create"]) if m == Method::PUT => create_index(catalog, body, (*idx).to_string()).await,
+            (m, [idx, "_summary"]) if m == Method::GET => index_summary(catalog, (*idx).to_string(), query_options).await,
+            (m, [idx, "_flush"]) if m == Method::GET => flush(catalog, (*idx).to_string()).await,
+            (m, [idx, "_bulk"]) if m == Method::POST => bulk_insert(catalog, watcher.clone(), body, (*idx).to_string()).await,
+            (m, [idx]) if m == Method::POST => doc_search(catalog, body, (*idx).to_string()).await,
+            (m, [idx]) if m == Method::PUT => add_document(catalog, body, (*idx).to_string()).await,
+            (m, [idx]) if m == Method::DELETE => delete_term(catalog, body, (*idx).to_string()).await,
+            (m, [idx]) if m == Method::GET => {
+                if idx == &"favicon.ico" {
+                    not_found().await
+                } else {
+                    all_docs(catalog, (*idx).to_string()).await
                 }
-                (m, []) if m == Method::GET => root::root(),
-                _ => not_found(),
             }
-        })
-    };
+            (m, []) if m == Method::GET => root::root().await,
+            _ => not_found().await,
+        }
+    }
 
-    Server::bind(addr)
-        .tcp_nodelay(true)
-        .http1_half_close(false)
-        .serve(routes)
-        .map_err(|e| tracing::error!("HYPER ERROR = {:?}", e))
+    pub async fn service_call(catalog: SharedCatalog, watcher: Arc<AtomicBool>) -> Result<BoxedFn, Infallible> {
+        Ok(BoxService::new(service_fn(move |req| {
+            info!("REQ = {:?}", &req);
+            Self::route(Arc::clone(&catalog), Arc::clone(&watcher), req)
+        })))
+    }
+
+    pub async fn router_with_catalog(self, addr: SocketAddr) -> Result<(), hyper::Error> {
+        let routes = make_service_fn(move |_| Self::service_call(Arc::clone(&self.cat), Arc::clone(&self.watcher)));
+        let server = Server::bind(&addr).serve(routes);
+        if let Err(err) = server.await {
+            tracing::error!("server error: {}", err);
+        }
+        Ok(())
+    }
+
+    #[allow(dead_code)]
+    pub(crate) async fn router_from_tcp(self, listener: TcpListener) -> Result<(), hyper::Error> {
+        let routes = make_service_fn(move |_| Self::service_call(Arc::clone(&self.cat), Arc::clone(&self.watcher)));
+        let server = Server::from_tcp(listener)?.serve(routes);
+        if let Err(err) = server.await {
+            tracing::error!("server error: {}", err);
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]
 pub mod tests {
+    use std::sync::atomic::AtomicBool;
+    use std::sync::Arc;
 
+    use toshi_test::{read_body, TestServer};
+
+    use crate::router::Router;
     use http::StatusCode;
+    use hyper::Body;
+    use hyper::Request;
 
-    use lazy_static::lazy_static;
-    use toshi_test::{get_localhost, TestServer};
+    #[tokio::test]
+    async fn test_router() -> Result<(), Box<dyn std::error::Error>> {
+        let catalog = crate::index::tests::create_test_catalog("test_index");
+        let router = Router::new(catalog, Arc::new(AtomicBool::new(false)));
+        let (listen, ts) = TestServer::new()?;
+        let req = Request::get(ts.uri("/")).body(Body::empty())?;
 
-    use crate::index::tests::create_test_catalog;
-
-    use super::*;
-
-    lazy_static! {
-        pub static ref TEST_SERVER: TestServer = {
-            let catalog = create_test_catalog("test_index");
-            let addr = get_localhost();
-            let lock = Arc::new(AtomicBool::new(false));
-            let router = router_with_catalog(&addr, Arc::clone(&catalog), Arc::clone(&lock));
-            TestServer::new(router).expect("Can't start test server")
-        };
+        let req = ts.get(req, router.router_from_tcp(listen)).await?;
+        let resp = read_body(req).await.unwrap();
+        assert_eq!(super::root::toshi_info(), resp);
+        Ok(())
     }
 
-    #[test]
-    pub fn test_create_router() {
-        let addr = get_localhost();
-        let response = TEST_SERVER
-            .client_with_address(addr)
-            .get("http://localhost:8080")
-            .perform()
-            .unwrap();
+    #[tokio::test]
+    async fn test_not_found() -> Result<(), Box<dyn std::error::Error>> {
+        let catalog = crate::index::tests::create_test_catalog("test_index");
+        let router = Router::new(catalog, Arc::new(AtomicBool::new(false)));
+        let (listen, ts) = TestServer::new()?;
+        let req = Request::get(ts.uri("/asdf/asdf")).body(Body::empty())?;
 
-        assert_eq!(response.status(), StatusCode::OK);
-        let buf = String::from_utf8(response.into_body().concat2().wait().unwrap().to_vec()).unwrap();
-        assert_eq!(buf, "{\"name\":\"Toshi Search\",\"version\":\"0.1.1\"}");
+        let req = ts.get(req, router.router_from_tcp(listen)).await?;
+        assert_eq!(req.status(), StatusCode::NOT_FOUND);
+        Ok(())
     }
 }

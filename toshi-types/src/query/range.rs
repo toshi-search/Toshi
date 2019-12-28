@@ -9,18 +9,31 @@ use tantivy::schema::{FieldType, Schema};
 use crate::query::{CreateQuery, KeyValue, Query};
 use crate::{error::Error, Result};
 
+/// The possible values a range can take on
+/// gte = greater than or equal
+/// lte = less than or equal
+/// lt = less than
+/// gt = greater than
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(untagged)]
 pub enum Ranges {
+    /// Possible range values, all are optional, but on parsing if enough do not exist the query
+    /// generation will fail
     ValueRange {
+        /// Greater than or equal
         gte: Option<Value>,
+        /// Less than or equal
         lte: Option<Value>,
+        /// Less than
         lt: Option<Value>,
+        /// Greater than
         gt: Option<Value>,
+        /// Currently does nothing and can be safely omitted
         boost: Option<f32>,
     },
 }
 
+/// A query for a range of values, for example 1 through 10
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RangeQuery {
     range: KeyValue<String, Ranges>,
@@ -34,12 +47,14 @@ impl CreateQuery for RangeQuery {
 }
 
 impl RangeQuery {
+    /// Constructor for create a key value for a user
     pub fn new(field: String, ranges: Ranges) -> Self {
         Self {
             range: KeyValue::new(field, ranges),
         }
     }
 
+    /// Creating a builder used to create a ranged query
     pub fn builder<V>() -> RangeQueryBuilder<V>
     where
         V: Serialize + Default,
@@ -48,7 +63,7 @@ impl RangeQuery {
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct RangeQueryBuilder<V>
 where
     V: Serialize + Default,
@@ -134,7 +149,7 @@ where
     Ok((include_exclude(lt, lte)?, include_exclude(gt, gte)?))
 }
 
-pub fn create_range_query(schema: &Schema, field: &str, r: Ranges) -> Result<Box<dyn TantivyQuery>> {
+fn create_range_query(schema: &Schema, field: &str, r: Ranges) -> Result<Box<dyn TantivyQuery>> {
     match r {
         Ranges::ValueRange { gte, lte, lt, gt, .. } => {
             let field = schema
@@ -157,20 +172,20 @@ pub fn create_range_query(schema: &Schema, field: &str, r: Ranges) -> Result<Box
 }
 
 #[cfg(test)]
-pub mod tests {
+mod tests {
     use tantivy::schema::*;
 
     use super::*;
 
     #[test]
-    pub fn test_deserialize_missing_ranges() {
+    fn test_deserialize_missing_ranges() {
         let body = r#"{ "range" : { "test_i64" : { "gte" : 2012 } } }"#;
         let req = serde_json::from_str::<RangeQuery>(body);
         assert_eq!(req.is_err(), false);
     }
 
     #[test]
-    pub fn test_query_creation_bad_type() {
+    fn test_query_creation_bad_type() {
         let body = r#"{ "range" : { "test_i64" : { "gte" : 3.14 } } }"#;
         let mut schema = SchemaBuilder::new();
         schema.add_i64_field("test_i64", FAST);
@@ -185,7 +200,7 @@ pub mod tests {
     }
 
     #[test]
-    pub fn test_query_creation_bad_range() {
+    fn test_query_creation_bad_range() {
         let body = r#"{ "range" : { "test_u64" : { "gte" : -1 } } }"#;
         let mut schema = SchemaBuilder::new();
         schema.add_u64_field("test_u64", FAST);
@@ -200,7 +215,7 @@ pub mod tests {
     }
 
     #[test]
-    pub fn test_query_impossible_range() {
+    fn test_query_impossible_range() {
         let body = r#"{ "range" : { "test_u64" : { "gte" : 10, "lte" : 1 } } }"#;
         let mut schema = SchemaBuilder::new();
         schema.add_u64_field("test_u64", FAST);

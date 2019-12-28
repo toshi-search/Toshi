@@ -6,6 +6,7 @@ use crate::error::Error;
 use crate::query::{CreateQuery, Query};
 use crate::Result;
 
+/// A boolean query parallel to Tantivy's [`tantivy::query::BooleanQuery`]: BooleanQuery
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BoolQuery {
     #[serde(default = "Vec::new")]
@@ -21,7 +22,13 @@ pub struct BoolQuery {
 }
 
 impl BoolQuery {
-    pub fn new(must: Vec<Query>, must_not: Vec<Query>, should: Vec<Query>, minimum_should_match: Option<u64>, boost: Option<f64>) -> Self {
+    pub(crate) fn new(
+        must: Vec<Query>,
+        must_not: Vec<Query>,
+        should: Vec<Query>,
+        minimum_should_match: Option<u64>,
+        boost: Option<f64>,
+    ) -> Self {
         Self {
             must,
             must_not,
@@ -31,6 +38,7 @@ impl BoolQuery {
         }
     }
 
+    /// Create a builder instance for a BoolQuery
     pub fn builder() -> BoolQueryBuilder {
         BoolQueryBuilder::default()
     }
@@ -66,7 +74,7 @@ fn parse_queries(schema: &Schema, occur: Occur, queries: Vec<Query>) -> Result<V
         .collect::<Result<Vec<(Occur, Box<dyn TQuery>)>>>()
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct BoolQueryBuilder {
     must: Vec<Query>,
     must_not: Vec<Query>,

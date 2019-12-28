@@ -9,11 +9,11 @@ edition = "2018"
 build = "build.rs"
 
 [build-dependencies]
-tower-grpc-build   = { version = "^0.1", features = ["tower-hyper"] }
+tonic-build = { git = "https://github.com/hyperium/tonic" }
 
 [dependencies]
-tower-grpc         = { version = "^0.1", features = ["tower-hyper"] }
-bytes              = "^0.4"
-prost              = "^0.5"
-prost-types        = "^0.5"
-prost-derive       = "^0.5"
+tonic        = { git = "https://github.com/hyperium/tonic" }
+bytes        = "^0.4"
+prost        = "^0.5"
+prost-types  = "^0.5"
+prost-derive = "^0.5"
