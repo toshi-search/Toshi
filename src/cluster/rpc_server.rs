@@ -188,6 +188,7 @@ mod tests {
         Ok((addr, uri))
     }
 
+    #[ignore]
     #[tokio::test]
     async fn rpc_ping() -> Result<(), Box<dyn std::error::Error>> {
         let catalog = create_test_catalog("test_index");
@@ -203,6 +204,7 @@ mod tests {
         Ok(())
     }
 
+    #[ignore]
     #[tokio::test]
     async fn rpc_list() -> Result<(), Box<dyn std::error::Error>> {
         let catalog = create_test_catalog("test_index");
@@ -219,6 +221,7 @@ mod tests {
         Ok(())
     }
 
+    #[ignore]
     #[tokio::test]
     async fn rpc_summary() -> Result<(), Box<dyn std::error::Error>> {
         let catalog = create_test_catalog("test_index");
@@ -240,6 +243,7 @@ mod tests {
         Ok(())
     }
 
+    #[ignore]
     #[tokio::test]
     async fn rpc_search() -> Result<(), Box<dyn std::error::Error>> {
         let catalog = create_test_catalog("test_index");
