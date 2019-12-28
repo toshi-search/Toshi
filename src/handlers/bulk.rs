@@ -120,11 +120,11 @@ mod tests {
 
         let index_docs = bulk_insert(Arc::clone(&server), lock, Body::from(body), "test_index".into()).await?;
         assert_eq!(index_docs.status(), StatusCode::CREATED);
-        sleep(Duration::from_secs(1));
+        sleep(Duration::from_secs_f32(0.1));
 
         let flush = flush(Arc::clone(&server), "test_index".to_string()).await?;
         assert_eq!(flush.status(), StatusCode::OK);
-        sleep(Duration::from_secs(1));
+        sleep(Duration::from_secs_f32(0.1));
 
         let mut attempts = 0;
         for _ in 0..5 {

@@ -2,6 +2,8 @@ use std::iter::Sum;
 use std::ops::Add;
 
 use serde::{Deserialize, Serialize};
+use tantivy::space_usage::SearcherSpaceUsage;
+use tantivy::IndexMeta;
 
 use crate::query::KeyValue;
 
@@ -74,5 +76,20 @@ impl<D: Clone> SearchResults<D> {
             docs,
             facets,
         }
+    }
+}
+
+/// A response gotten from the _summary route for an index
+#[derive(Debug, Serialize)]
+pub struct SummaryResponse {
+    summaries: IndexMeta,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    segment_sizes: Option<SearcherSpaceUsage>,
+}
+
+impl SummaryResponse {
+    /// Constructor for a new summary response
+    pub fn new(summaries: IndexMeta, segment_sizes: Option<SearcherSpaceUsage>) -> Self {
+        Self { summaries, segment_sizes }
     }
 }

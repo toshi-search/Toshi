@@ -1,30 +1,14 @@
 use std::time::Instant;
 
 use hyper::{Body, Response, StatusCode};
-use serde::Serialize;
-use tantivy::space_usage::SearcherSpaceUsage;
-use tantivy::IndexMeta;
 use tracing::*;
 
-use toshi_types::Error;
+use toshi_types::{Error, SummaryResponse};
 
 use crate::handlers::ResponseFuture;
 use crate::index::SharedCatalog;
 use crate::router::QueryOptions;
 use crate::utils::{empty_with_code, with_body};
-
-#[derive(Debug, Serialize)]
-pub struct SummaryResponse {
-    summaries: IndexMeta,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    segment_sizes: Option<SearcherSpaceUsage>,
-}
-
-impl SummaryResponse {
-    pub fn new(summaries: IndexMeta, segment_sizes: Option<SearcherSpaceUsage>) -> Self {
-        Self { summaries, segment_sizes }
-    }
-}
 
 pub async fn index_summary(catalog: SharedCatalog, index: String, options: QueryOptions) -> ResponseFuture {
     let start = Instant::now();
@@ -70,6 +54,26 @@ pub async fn flush(catalog: SharedCatalog, index: String) -> ResponseFuture {
 
 #[cfg(test)]
 mod tests {
-    #[test]
-    fn get_summary_data() {}
+    use std::sync::atomic::AtomicBool;
+    use std::sync::Arc;
+
+    use http::Request;
+    use hyper::Body;
+
+    use toshi_test::{read_body, TestServer};
+
+    use crate::index::tests::create_test_catalog;
+    use crate::router::Router;
+
+    #[tokio::test]
+    async fn get_summary_data() -> Result<(), Box<dyn std::error::Error>> {
+        let catalog = create_test_catalog("test_index");
+        let router = Router::new(catalog, Arc::new(AtomicBool::new(false)));
+        let (list, ts) = TestServer::new()?;
+        let request = Request::get(ts.uri("/test_index/_summary?include_sizes=true")).body(Body::empty())?;
+        let req = ts.get(request, router.router_from_tcp(list)).await?;
+        let body = read_body(req).await?;
+        dbg!(body);
+        Ok(())
+    }
 }

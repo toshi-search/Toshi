@@ -6,7 +6,7 @@
 //! looking for Toshi's protobuf types then you will want to look in the toshi-proto module
 //! of Toshi's source code.
 
-pub use client::{ScoredDoc, SearchResults};
+pub use client::{ScoredDoc, SearchResults, SummaryResponse};
 pub use error::{Error, ErrorResponse};
 pub use query::{
     boolean::BoolQuery, facet::FacetQuery, fuzzy::FuzzyQuery, fuzzy::FuzzyTerm, phrase::PhraseQuery, phrase::TermPair, range::RangeQuery,
