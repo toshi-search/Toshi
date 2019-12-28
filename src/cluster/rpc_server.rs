@@ -184,7 +184,7 @@ mod tests {
 
     pub fn routes(port: i16) -> Result<(SocketAddr, Uri), Box<dyn std::error::Error>> {
         let addr = format!("127.0.0.1:{}", port).parse::<SocketAddr>()?;
-        let uri = format!("http://127.0.0.1:{}", port).parse::<Uri>()?;
+        let uri = format!("http://127.0.0.1:{}/", port).parse::<Uri>()?;
         Ok((addr, uri))
     }
 
