@@ -8,7 +8,6 @@ service IndexService {
     rpc list_indexes (ListRequest) returns (ListReply);
     rpc place_document (DocumentRequest) returns (ResultReply);
     rpc delete_document (DeleteRequest) returns (DeleteReply);
-    rpc place_replica (ReplicaRequest) returns (ResultReply);
     rpc search_index (SearchRequest) returns (SearchReply);
     rpc get_summary (SummaryRequest) returns (SummaryReply);
     rpc bulk_insert (stream BulkRequest) returns (ResultReply);

@@ -21,14 +21,6 @@ pub struct RpcServer {
     catalog: Arc<Mutex<IndexCatalog>>,
 }
 
-impl Clone for RpcServer {
-    fn clone(&self) -> Self {
-        Self {
-            catalog: Arc::clone(&self.catalog),
-        }
-    }
-}
-
 impl RpcServer {
     pub async fn serve(addr: SocketAddr, catalog: Arc<Mutex<IndexCatalog>>) -> Result<(), tonic::transport::Error> {
         let service = server::IndexServiceServer::new(RpcServer { catalog });
@@ -56,6 +48,14 @@ impl RpcServer {
     pub fn error_response<T>(code: Code, msg: String) -> Result<Response<T>, Status> {
         let status = Status::new(code, msg);
         Err(status)
+    }
+
+    pub fn query_or_all(b: &[u8]) -> Result<Search, Box<dyn std::error::Error>> {
+        let deser: Search = serde_json::from_slice(b)?;
+        if deser.query.is_none() {
+            return Ok(Search::all_docs());
+        }
+        Ok(deser)
     }
 }
 
@@ -128,20 +128,16 @@ impl server::IndexService for RpcServer {
         }
     }
 
-    async fn place_replica(&self, _request: Request<ReplicaRequest>) -> Result<Response<ResultReply>, Status> {
-        unimplemented!()
-    }
-
     async fn search_index(&self, request: Request<SearchRequest>) -> Result<Response<SearchReply>, Status> {
         let inner = request.into_inner();
         let cat = self.catalog.lock().await;
         {
             if let Ok(index) = cat.get_index(&inner.index) {
-                let query: Search = match serde_json::from_slice(&inner.query) {
+                let query = match Self::query_or_all(&inner.query) {
                     Ok(v) => v,
                     Err(e) => return Self::error_response(Code::Internal, e.to_string()),
                 };
-                info!("QUERY = {:?}", query);
+                info!("QUERY = {:?}", &query);
 
                 match index.search_index(query).await {
                     Ok(query_results) => {
@@ -177,46 +173,95 @@ impl server::IndexService for RpcServer {
     }
 }
 
-//#[cfg(test)]
-//mod tests {
-//    use future::Future;
-//    use http::Uri;
-//    use tokio::prelude::*;
-//    use tokio::runtime::Runtime;
-//
-//    use toshi_test::get_localhost;
-//
-//    use crate::index::tests::create_test_catalog;
-//
-//    use super::*;
-//    use failure::_core::time::Duration;
-//
-//    #[ignore]
-//    fn rpc_test() {
-//        std::env::set_var("RUST_LOG", "trace");
-//        let sub = tracing_fmt::FmtSubscriber::builder()
-//            .with_timer(tracing_fmt::time::SystemTime {})
-//            .with_ansi(true)
-//            .finish();
-//        tracing::subscriber::set_global_default(sub).expect("Unable to set default Subscriber");
-//
-//        let catalog = create_test_catalog("test_index");
-//        let addr = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
-//        let router = RpcServer::serve(addr, Arc::clone(&catalog));
-//        tokio::run(router);
-//        //        let c = RpcServer::create_client("http://127.0.0.1:8081".parse::<Uri>().unwrap())
-//        //            .map_err(|_| tower_grpc::Status::new(Code::DataLoss, ""))
-//        //            .and_then(|mut client| {
-//        //                client
-//        //                    .list_indexes(tower_grpc::Request::new(ListRequest {}))
-//        //                    .map(|resp| resp.into_inner())
-//        //                    .inspect(|r: &ListReply| info!("{:?}aaaaaaaaaaaaaaaaaaaa", r))
-//        //                    .map_err(Into::into)
-//        //            })
-//        //            .map(|_| ())
-//        //            .map_err(|_| ());
-//        //
-//        //        tokio::run(router.join(c).map(|_| ()).map_err(|_| ()));
-//        //        std::thread::sleep(Duration::from_millis(3000));
-//    }
-//}
+#[cfg(test)]
+mod tests {
+    use futures::future::{try_select, Either};
+    use http::Uri;
+
+    use crate::index::tests::create_test_catalog;
+
+    use super::*;
+
+    pub fn routes(port: i16) -> Result<(SocketAddr, Uri), Box<dyn std::error::Error>> {
+        let addr = format!("127.0.0.1:{}", port).parse::<SocketAddr>()?;
+        let uri = format!("http://127.0.0.1:{}", port).parse::<Uri>()?;
+        Ok((addr, uri))
+    }
+
+    #[tokio::test]
+    async fn rpc_ping() -> Result<(), Box<dyn std::error::Error>> {
+        let catalog = create_test_catalog("test_index");
+        let (addr, uri) = routes(8079)?;
+        let router = tokio::spawn(RpcServer::serve(addr, Arc::clone(&catalog)));
+        let mut client = RpcServer::create_client(uri).await?;
+        let list = tokio::spawn(async move { client.ping(Request::new(PingRequest {})).await });
+        let sel: PingReply = match try_select(list, router).await.unwrap() {
+            Either::Left((Ok(v), _)) => v.into_inner(),
+            e => panic!("{:?}", e),
+        };
+        assert_eq!(sel.status, "OK");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn rpc_list() -> Result<(), Box<dyn std::error::Error>> {
+        let catalog = create_test_catalog("test_index");
+        let (addr, uri) = routes(8081)?;
+        let router = tokio::spawn(RpcServer::serve(addr, Arc::clone(&catalog)));
+        let mut client = RpcServer::create_client(uri).await?;
+        let list = tokio::spawn(async move { client.list_indexes(Request::new(ListRequest {})).await });
+        let sel: ListReply = match try_select(list, router).await.unwrap() {
+            Either::Left((Ok(v), _)) => v.into_inner(),
+            _ => unreachable!(),
+        };
+        assert_eq!(sel.indexes.len(), 1);
+        assert_eq!(sel.indexes[0], "test_index");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn rpc_summary() -> Result<(), Box<dyn std::error::Error>> {
+        let catalog = create_test_catalog("test_index");
+        let (addr, uri) = routes(8082)?;
+        let router = tokio::spawn(RpcServer::serve(addr, Arc::clone(&catalog)));
+        let mut client = RpcServer::create_client(uri).await?;
+        let list = tokio::spawn(async move {
+            client
+                .get_summary(Request::new(SummaryRequest {
+                    index: "test_index".into(),
+                }))
+                .await
+        });
+        let sel: SummaryReply = match try_select(list, router).await.unwrap() {
+            Either::Left((Ok(v), _)) => v.into_inner(),
+            e => panic!("{:?}", e),
+        };
+        assert_eq!(sel.summary.is_empty(), false);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn rpc_search() -> Result<(), Box<dyn std::error::Error>> {
+        let catalog = create_test_catalog("test_index");
+        let (addr, uri) = routes(8083)?;
+        let router = tokio::spawn(RpcServer::serve(addr, Arc::clone(&catalog)));
+        let mut client = RpcServer::create_client(uri).await?;
+        let query = Search::all_docs();
+        let query_bytes = serde_json::to_vec(&query)?;
+        let list = tokio::spawn(async move {
+            client
+                .search_index(Request::new(SearchRequest {
+                    index: "test_index".into(),
+                    query: query_bytes,
+                }))
+                .await
+        });
+        let sel: SearchReply = match try_select(list, router).await.unwrap() {
+            Either::Left((Ok(v), _)) => v.into_inner(),
+            e => panic!("{:?}", e),
+        };
+        let results: crate::SearchResults = serde_json::from_slice(&sel.doc)?;
+        assert_eq!(results.hits, 5);
+        Ok(())
+    }
+}

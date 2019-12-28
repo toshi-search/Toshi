@@ -72,8 +72,7 @@ mod tests {
         let (list, ts) = TestServer::new()?;
         let request = Request::get(ts.uri("/test_index/_summary?include_sizes=true")).body(Body::empty())?;
         let req = ts.get(request, router.router_from_tcp(list)).await?;
-        let body = read_body(req).await?;
-        dbg!(body);
+        let _body = read_body(req).await?;
         Ok(())
     }
 }

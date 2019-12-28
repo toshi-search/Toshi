@@ -131,7 +131,6 @@ mod tests {
             let check_docs = all_docs(Arc::clone(&server), "test_index".into()).await?;
             let body = read_body(check_docs).await?;
             let docs: SearchResults = serde_json::from_slice(body.as_bytes())?;
-            println!("DOCS = {}", docs.hits);
             if docs.hits == 9 {
                 break;
             }
