@@ -16,4 +16,4 @@ tonic        = { git = "https://github.com/hyperium/tonic" }
 bytes        = "^0.4"
 prost        = "^0.5"
 prost-types  = "^0.5"
-prost-derive = "^0.5"
+prost-derive = "^0.6"
