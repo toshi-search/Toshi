@@ -4,7 +4,7 @@ use hyper::Response;
 use hyper::{Body, StatusCode};
 use tracing::*;
 
-use toshi_types::Search;
+use toshi_types::*;
 
 use crate::handlers::ResponseFuture;
 use crate::index::SharedCatalog;
@@ -56,18 +56,16 @@ pub mod tests {
     use std::sync::atomic::AtomicBool;
     use std::sync::Arc;
 
-    use hyper::Request;
+    use hyper::{Body, Request, StatusCode};
     use pretty_assertions::assert_eq;
 
     use toshi_test::{cmp_float, read_body, wait_json, TestServer};
-    use toshi_types::{ErrorResponse, ExactTerm, FuzzyQuery, FuzzyTerm, KeyValue, PhraseQuery, Query, TermPair};
+    use toshi_types::{ErrorResponse, ExactTerm, FuzzyQuery, FuzzyTerm, KeyValue, PhraseQuery, Query, Search, TermPair};
 
-    use crate::handlers::ResponseFuture;
+    use crate::handlers::{doc_search, ResponseFuture};
     use crate::index::tests::*;
     use crate::router::Router;
     use crate::SearchResults;
-
-    use super::*;
 
     type ReturnUnit = Result<(), Box<dyn std::error::Error>>;
 

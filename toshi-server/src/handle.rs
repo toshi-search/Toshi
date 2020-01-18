@@ -11,25 +11,11 @@ use tantivy::{Document, Index, IndexReader, IndexWriter, ReloadPolicy, Term};
 use tokio::sync::Mutex;
 use tracing::*;
 
-use toshi_types::{CreateQuery, DeleteDoc, DocsAffected, Error, KeyValue, Query, ScoredDoc, Search};
+use toshi_types::{CreateQuery, DeleteDoc, DocsAffected, Error, IndexHandle, IndexLocation, KeyValue, Query, ScoredDoc, Search};
 
 use crate::settings::Settings;
 use crate::Result;
 use crate::{AddDocument, SearchResults};
-
-pub enum IndexLocation {
-    LOCAL,
-    REMOTE,
-}
-
-#[async_trait::async_trait]
-pub trait IndexHandle {
-    fn get_name(&self) -> String;
-    fn index_location(&self) -> IndexLocation;
-    async fn search_index(&'_ self, search: Search) -> Result<SearchResults>;
-    async fn add_document(&self, doc: AddDocument) -> Result<()>;
-    async fn delete_term(&self, term: DeleteDoc) -> Result<DocsAffected>;
-}
 
 /// Index handle that operates on an Index local to the node, a remote index handle
 /// will eventually call to wherever the local index is stored, so at some level the relevant
@@ -80,6 +66,10 @@ impl IndexHandle for LocalIndex {
 
     fn index_location(&self) -> IndexLocation {
         IndexLocation::LOCAL
+    }
+
+    fn get_index(&self) -> Index {
+        self.index.clone()
     }
 
     async fn search_index(&'_ self, search: Search) -> Result<SearchResults> {

@@ -3,7 +3,7 @@ use std::time::Instant;
 use hyper::{Body, Response, StatusCode};
 use tracing::*;
 
-use toshi_types::{Error, SummaryResponse};
+use toshi_types::*;
 
 use crate::handlers::ResponseFuture;
 use crate::index::SharedCatalog;

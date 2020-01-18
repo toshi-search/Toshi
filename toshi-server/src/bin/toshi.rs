@@ -4,16 +4,17 @@ use std::path::{Path, PathBuf};
 use std::sync::{atomic::AtomicBool, Arc};
 
 use futures::prelude::*;
+use slog::Drain;
 use tokio::sync::oneshot::{self, Receiver, Sender};
 use tokio::sync::Mutex;
-use tracing::*;
-
-use toshi_server::cluster::rpc_server::RpcServer;
+use toshi_raft::rpc_server::RpcServer;
 use toshi_server::commit::watcher;
 use toshi_server::index::{IndexCatalog, SharedCatalog};
 use toshi_server::router::Router;
 use toshi_server::settings::{Settings, HEADER, RPC_HEADER};
 use toshi_server::{shutdown, support};
+use toshi_types::Catalog;
+use tracing::*;
 
 #[cfg_attr(tarpaulin, skip)]
 #[tokio::main]
@@ -98,11 +99,15 @@ fn run_data(
         .unwrap_or_else(|_| panic!("Invalid IP address: {}", &settings.host));
 
     let bind: SocketAddr = SocketAddr::new(addr, settings.port);
+    let decorator = slog_term::PlainSyncDecorator::new(std::io::stdout());
+    let drain = slog_term::FullFormat::new(decorator).use_local_timestamp().build().fuse();
+    let async_drain = slog_async::Async::new(drain).build().fuse();
+    let root_log = slog::Logger::root(async_drain, slog::o!("toshi" => "toshi"));
 
     println!("{}", RPC_HEADER);
     info!("I am a data node...Binding to: {}", addr);
     tokio::spawn(commit_watcher);
-    Box::pin(RpcServer::serve(bind, catalog))
+    Box::pin(RpcServer::<IndexCatalog>::serve(bind, catalog, root_log))
 }
 
 #[cfg_attr(tarpaulin, skip)]
