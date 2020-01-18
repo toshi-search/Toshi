@@ -8,14 +8,14 @@ use tantivy::schema::*;
 use tantivy::Index;
 
 use toshi_proto::cluster_rpc::*;
+use toshi_types::{Catalog, IndexHandle};
 use toshi_types::{DeleteDoc, DocsAffected, Error, SchemaBody};
 
-use crate::cluster::rpc_server::RpcClient;
-use crate::handle::IndexHandle;
 use crate::handlers::ResponseFuture;
 use crate::index::{IndexCatalog, SharedCatalog};
 use crate::utils::{empty_with_code, error_response, with_body};
 use crate::AddDocument;
+use toshi_raft::rpc_server::RpcClient;
 
 #[inline]
 async fn add_index(catalog: SharedCatalog, name: String, index: Index) -> Result<(), Error> {
@@ -69,8 +69,8 @@ pub async fn create_index(catalog: SharedCatalog, body: Body, index: String) -> 
     let b = aggregate(body).await?;
     let req = serde_json::from_slice::<SchemaBody>(&b.bytes()).unwrap();
     {
-        let base_path = catalog.lock().await.base_path().clone();
-        let new_index: Index = match IndexCatalog::create_from_managed(base_path, &index, req.0.clone()) {
+        let base_path = catalog.lock().await.base_path();
+        let new_index: Index = match IndexCatalog::create_from_managed(base_path.into(), &index, req.0.clone()) {
             Ok(v) => v,
             Err(e) => return Ok(Response::from(e)),
         };
@@ -130,6 +130,7 @@ mod tests {
     use crate::index::tests::*;
 
     use super::*;
+    use crate::index::create_test_catalog;
 
     fn test_index() -> String {
         String::from("test_index")

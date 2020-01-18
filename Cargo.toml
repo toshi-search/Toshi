@@ -1,54 +1,12 @@
-[package]
-name    = "toshi-server"
-version = "0.1.1"
-authors = ["Stephen Carman <shcarman@gmail.com>"]
-description = "A full text search engine based on Tantivy"
-repository = "https://github.com/toshi-search/Toshi"
-license = "MIT"
-edition = "2018"
-
-[[bin]]
-name = "toshi"
-
-[lib]
-path = "src/lib.rs"
-
 [workspace]
-members = [ "./", "toshi-proto",  "toshi-client", "toshi-types", "toshi-test" ]
-
-[dependencies]
-toshi-proto            = { path = "toshi-proto" }
-toshi-types            = { path = "toshi-types" }
-http                   = "^0.2"
-bytes                  = "^0.5"
-hyper                  = { version = "^0.13", features = ["stream"] }
-serde_json             = "^1.0"
-serde_urlencoded       = "^0.6"
-futures                = "^0.3"
-tower-util             = "^0.3"
-tonic                  = { git = "https://github.com/hyperium/tonic" }
-tantivy                = "^0.11"
-tokio                  = { version = "^0.2", features = ["full"] }
-async-trait            = "^0.1"
-config                 = "^0.10"
-thiserror              = "^1.0"
-anyhow                 = "^1.0"
-crossbeam              = "^0.7"
-hashbrown              = "^0.6"
-tracing                = "^0.1"
-rand                   = { version = "^0.7", features = ["log", "small_rng"] }
-serde                  = { version = "^1.0", features = ["derive"] }
-clap                   = { version = "^2.3", features = ["color"] }
-uuid                   = { version = "^0.8", features = ["serde", "v4"] }
-tracing-futures        = { version = "^0.2", features = ["futures-03"] }
-tracing-log            = "^0.1"
-tracing-fmt            = "^0.1"
-
-[dev-dependencies]
-remove_dir_all = "^0.5"
-pretty_assertions = "^0.6"
-tokio-test = "^0.2"
-toshi-test = { path = "toshi-test" }
+members = [
+    "toshi-server",
+    "toshi-proto",
+    "toshi-client",
+    "toshi-types",
+    "toshi-test",
+    "toshi-raft"
+]
 
 [profile.release]
 opt-level = 3

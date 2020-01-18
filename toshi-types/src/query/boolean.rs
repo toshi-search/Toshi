@@ -152,7 +152,6 @@ mod tests {
         let _u_field = builder.add_i64_field("age", FAST);
         let _schema = builder.build();
 
-        let result = serde_json::from_str::<Search>(test_json).unwrap();
-        println!("{:#?}", result);
+        let _result = serde_json::from_str::<Search>(test_json).unwrap();
     }
 }

@@ -4,31 +4,84 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use hashbrown::HashMap;
+use dashmap::DashMap;
 use http::uri::Scheme;
 use http::Uri;
 use tantivy::directory::MmapDirectory;
 use tantivy::schema::Schema;
 use tantivy::Index;
-use tokio::sync::Mutex;
 use tonic::Status;
 
 use toshi_proto::cluster_rpc::*;
-use toshi_types::{DeleteDoc, DocsAffected, Error, Search};
+use toshi_raft::rpc_server::{RpcClient, RpcServer};
+use toshi_types::IndexHandle;
+use toshi_types::{Catalog, DeleteDoc, DocsAffected, Error, Search};
 
 use crate::cluster::remote_handle::RemoteIndex;
-use crate::cluster::rpc_server::{RpcClient, RpcServer};
-use crate::handle::{IndexHandle, LocalIndex};
+use crate::handle::LocalIndex;
 use crate::settings::Settings;
 use crate::{AddDocument, Result, SearchResults};
 
-pub type SharedCatalog = Arc<tokio::sync::Mutex<IndexCatalog>>;
+pub type SharedCatalog = Arc<IndexCatalog>;
 
 pub struct IndexCatalog {
     pub settings: Settings,
     base_path: PathBuf,
-    local_handles: HashMap<String, LocalIndex>,
-    remote_handles: Arc<Mutex<HashMap<String, RemoteIndex>>>,
+    local_handles: DashMap<String, LocalIndex>,
+    remote_handles: Arc<DashMap<String, RemoteIndex>>,
+}
+
+#[async_trait::async_trait]
+impl Catalog for IndexCatalog {
+    type Local = LocalIndex;
+    type Remote = RemoteIndex;
+
+    fn base_path(&self) -> String {
+        format!("{}", self.base_path.display())
+    }
+
+    fn get_collection(&self) -> &DashMap<String, Self::Local> {
+        &self.local_handles
+    }
+
+    fn add_index(&mut self, name: String, index: Index) -> Result<()> {
+        let handle = LocalIndex::new(index, self.settings.clone(), &name)?;
+        self.local_handles.insert(name, handle);
+        Ok(())
+    }
+
+    async fn list_indexes(&self) -> Vec<String> {
+        let mut local_keys = self.local_handles.keys().cloned().collect::<Vec<String>>();
+        let remote_keys = self.remote_handles.lock().await.keys().cloned().collect::<Vec<String>>();
+        local_keys.extend_from_slice(&remote_keys);
+        local_keys.sort();
+        local_keys.dedup();
+        local_keys
+    }
+
+    fn get_index(&self, name: &str) -> Result<Self::Local> {
+        self.local_handles
+            .get(name)
+            .cloned()
+            .ok_or_else(|| Error::UnknownIndex(name.into()))
+    }
+
+    fn exists(&self, index: &str) -> bool {
+        self.get_collection().contains_key(index)
+    }
+
+    async fn get_remote_index(&self, name: &str) -> Result<Self::Remote> {
+        self.get_remote_collection()
+            .lock()
+            .await
+            .get(name)
+            .cloned()
+            .ok_or_else(|| Error::UnknownIndex(name.into()))
+    }
+
+    async fn remote_exists(&self, index: &str) -> bool {
+        self.get_remote_collection().lock().await.contains_key(index)
+    }
 }
 
 impl IndexCatalog {
@@ -37,8 +90,8 @@ impl IndexCatalog {
     }
 
     pub fn new(base_path: PathBuf, settings: Settings) -> Result<Self> {
-        let remote_idxs = Arc::new(Mutex::new(HashMap::new()));
-        let local_idxs = HashMap::new();
+        let remote_idxs = Arc::new(Dash::new());
+        let local_idxs = DashMap::new();
 
         let mut index_cat = IndexCatalog {
             settings,
@@ -62,15 +115,11 @@ impl IndexCatalog {
         Ok(())
     }
 
-    pub fn base_path(&self) -> &PathBuf {
-        &self.base_path
-    }
-
     #[doc(hidden)]
     #[allow(dead_code)]
     pub fn with_index(name: String, index: Index) -> Result<Self> {
-        let mut map = HashMap::new();
-        let remote_map = HashMap::new();
+        let mut map = DashMap::new();
+        let remote_map = DashMap::new();
         let new_index = LocalIndex::new(index, Settings::default(), &name)
             .unwrap_or_else(|_| panic!("Unable to open index: {} because it's locked", name));
         map.insert(name, new_index);
@@ -79,7 +128,7 @@ impl IndexCatalog {
             settings: Settings::default(),
             base_path: PathBuf::new(),
             local_handles: map,
-            remote_handles: Arc::new(Mutex::new(remote_map)),
+            remote_handles: Arc::new(remote_map),
         })
     }
 
@@ -121,45 +170,27 @@ impl IndexCatalog {
         Ok(())
     }
 
-    pub fn get_collection(&self) -> &HashMap<String, LocalIndex> {
-        &self.local_handles
-    }
-
-    pub fn get_remote_collection(&self) -> Arc<Mutex<HashMap<String, RemoteIndex>>> {
+    pub fn get_remote_collection(&self) -> Arc<DashMap<String, RemoteIndex>> {
         Arc::clone(&self.remote_handles)
     }
 
-    pub fn get_mut_collection(&mut self) -> &mut HashMap<String, LocalIndex> {
+    pub fn get_mut_collection(&mut self) -> &mut DashMap<String, LocalIndex> {
         &mut self.local_handles
     }
 
-    pub fn exists(&self, index: &str) -> bool {
-        self.get_collection().contains_key(index)
-    }
-
-    pub async fn remote_exists(&self, index: &str) -> bool {
-        self.get_remote_collection().lock().await.contains_key(index)
-    }
-
     pub fn get_mut_index(&mut self, name: &str) -> Result<&mut LocalIndex> {
-        self.local_handles.get_mut(name).ok_or_else(|| Error::UnknownIndex(name.into()))
+        self.local_handles
+            .get_mut(name)
+            .ok_or_else(|| Error::UnknownIndex(name.into()))
+            .into()
     }
 
     pub fn get_index(&self, name: &str) -> Result<&LocalIndex> {
-        self.local_handles.get(name).ok_or_else(|| Error::UnknownIndex(name.into()))
+        self.local_handles.get(name).ok_or_else(|| Error::UnknownIndex(name.into())).into()
     }
 
     pub fn get_owned_index(&self, name: &str) -> Result<LocalIndex> {
         self.local_handles
-            .get(name)
-            .cloned()
-            .ok_or_else(|| Error::UnknownIndex(name.into()))
-    }
-
-    pub async fn get_remote_index(&self, name: &str) -> Result<RemoteIndex> {
-        self.get_remote_collection()
-            .lock()
-            .await
             .get(name)
             .cloned()
             .ok_or_else(|| Error::UnknownIndex(name.into()))
@@ -195,7 +226,8 @@ impl IndexCatalog {
     pub async fn create_client(node: String) -> std::result::Result<RpcClient, Error> {
         let socket: SocketAddr = node.parse().unwrap();
         let host_uri = IndexCatalog::create_host_uri(socket)?;
-        Ok(RpcServer::create_client(host_uri).await?)
+
+        Ok(RpcServer::<Self>::create_client(host_uri, None).await?)
     }
 
     pub async fn refresh_multiple_nodes(nodes: Vec<String>) -> Result<Vec<(RpcClient, Vec<String>)>> {
@@ -222,12 +254,12 @@ impl IndexCatalog {
     }
 
     pub async fn search_remote_index(&self, index: &str, search: Search) -> Result<Vec<SearchResults>> {
-        let hand = self.get_remote_index(index).await?;
+        let hand: RemoteIndex = self.get_remote_index(index).await?;
         hand.search_index(search).await.map(|r| vec![r])
     }
 
     pub async fn add_remote_document(&self, index: &str, doc: AddDocument) -> Result<()> {
-        let handle = self.get_remote_index(index).await.map_err(|e| Error::IOError(e.to_string()))?;
+        let handle: RemoteIndex = self.get_remote_index(index).await.map_err(|e| Error::IOError(e.to_string()))?;
         handle.add_document(doc).await
     }
 
@@ -237,7 +269,7 @@ impl IndexCatalog {
     }
 
     pub async fn delete_local_term(&self, index: &str, term: DeleteDoc) -> Result<DocsAffected> {
-        let handle = self.get_remote_index(index).await.map_err(|e| Error::IOError(e.to_string()))?;
+        let handle: RemoteIndex = self.get_remote_index(index).await.map_err(|e| Error::IOError(e.to_string()))?;
         handle.delete_term(term).await
     }
 
@@ -248,16 +280,8 @@ impl IndexCatalog {
 }
 
 #[cfg(test)]
-pub mod tests {
-    use std::sync::Arc;
-
-    use tokio::sync::Mutex;
-
-    use super::*;
-
-    pub fn create_test_catalog(name: &str) -> SharedCatalog {
-        let idx = toshi_test::create_test_index();
-        let catalog = IndexCatalog::with_index(name.into(), idx).unwrap();
-        Arc::new(Mutex::new(catalog))
-    }
+pub fn create_test_catalog(name: &str) -> SharedCatalog {
+    let idx = toshi_test::create_test_index();
+    let catalog = IndexCatalog::with_index(name.into(), idx).unwrap();
+    Arc::new(catalog)
 }

@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package clusterrpc;
 
+import "eraftpb.proto";
+
 service IndexService {
     rpc ping (PingRequest) returns (PingReply);
     rpc place_index (PlaceRequest) returns (ResultReply);
@@ -11,6 +13,7 @@ service IndexService {
     rpc search_index (SearchRequest) returns (SearchReply);
     rpc get_summary (SummaryRequest) returns (SummaryReply);
     rpc bulk_insert (stream BulkRequest) returns (ResultReply);
+    rpc raft_request (RaftRequest) returns (RaftReply);
 }
 
 enum ResultCode {
@@ -19,6 +22,25 @@ enum ResultCode {
     NO_RESULTS = 2;
     UNKNOWNNNNN = 3;
     MAGIC_UNICORN = 4;
+}
+
+enum RaftRequestType {
+    JOIN = 0;
+    LEAVE = 1;
+    ADD = 2;
+    DELETE = 3;
+    COMMIT = 4;
+    CONF_CHANGE = 5;
+    PING = 6;
+}
+
+message RaftRequest {
+    RaftRequestType tpe = 1;
+    bytes message = 2;
+}
+
+message RaftReply {
+    ResultCode code = 1;
 }
 
 message BulkRequest {

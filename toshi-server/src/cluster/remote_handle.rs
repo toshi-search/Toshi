@@ -7,11 +7,12 @@ use toshi_proto::cluster_rpc::*;
 use toshi_proto::cluster_rpc::{DocumentRequest, SearchRequest};
 use toshi_types::{DeleteDoc, DocsAffected, Error, Search};
 
-use crate::cluster::rpc_server::RpcClient;
-use crate::handle::{IndexHandle, IndexLocation};
 use crate::handlers::fold_results;
 use crate::AddDocument;
 use crate::SearchResults;
+use tantivy::Index;
+use toshi_raft::rpc_server::RpcClient;
+use toshi_types::{IndexHandle, IndexLocation};
 
 #[derive(Clone)]
 pub struct RemoteIndex {
@@ -51,6 +52,10 @@ impl IndexHandle for RemoteIndex {
 
     fn index_location(&self) -> IndexLocation {
         IndexLocation::REMOTE
+    }
+
+    fn get_index(&self) -> Index {
+        unimplemented!("Remote indexes do not have indexes to return")
     }
 
     async fn search_index(&self, search: Search) -> Result<SearchResults, Error> {

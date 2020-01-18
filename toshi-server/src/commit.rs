@@ -6,6 +6,7 @@ use tokio::time;
 use tracing::*;
 
 use crate::index::SharedCatalog;
+use toshi_types::Catalog;
 
 #[allow(irrefutable_let_patterns)]
 pub async fn watcher(cat: SharedCatalog, commit_duration: f32, lock: Arc<AtomicBool>) -> Result<(), ()> {
