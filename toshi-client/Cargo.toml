@@ -9,16 +9,16 @@ edition = "2018"
 
 [dependencies]
 toshi-types = { path = "../toshi-types" }
-http = "^0.2"
-thiserror = "^1.0"
-anyhow = "^1.0"
-serde = "^1.0"
-serde_json = "^1.0"
-tantivy = "^0.11"
+http        = "^0.2"
+thiserror   = "^1.0"
+anyhow      = "^1.0"
+serde       = "^1.0"
+serde_json  = "^1.0"
+tantivy     = "^0.11"
 
 [dependencies.isahc]
 version = "^0.8"
 features = ["json"]
 
 [dev-dependencies]
-#toshi-test = { path = "../toshi-test" }
+toshi-test = { path = "../toshi-test" }

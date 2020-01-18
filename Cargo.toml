@@ -26,7 +26,7 @@ serde_json             = "^1.0"
 serde_urlencoded       = "^0.6"
 futures                = "^0.3"
 tower-util             = "^0.3"
-tonic                  = { git = "https://github.com/hyperium/tonic" }
+tonic                  = "^0.1"
 tantivy                = "^0.11"
 tokio                  = { version = "^0.2", features = ["full"] }
 async-trait            = "^0.1"

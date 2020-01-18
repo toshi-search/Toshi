@@ -16,7 +16,7 @@ serde_json = "^1.0"
 tantivy    = "^0.11"
 
 [dependencies.tonic]
-git = "https://github.com/hyperium/tonic"
+version = "^0.1"
 optional = true
 
 [dependencies.hyper]
