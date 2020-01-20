@@ -1945,7 +1945,7 @@ dependencies = [
 
 [[package]]
 name = "tonic"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "async-stream 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2006,7 +2006,7 @@ dependencies = [
  "prost 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "prost-derive 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "prost-types 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "tonic 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tonic 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "tonic-build 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -2034,7 +2034,7 @@ dependencies = [
  "thiserror 1.0.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio 0.2.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-test 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "tonic 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tonic 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "toshi-proto 0.1.0",
  "toshi-test 0.1.0",
  "toshi-types 0.1.1",
@@ -2072,7 +2072,7 @@ dependencies = [
  "serde_json 1.0.44 (registry+https://github.com/rust-lang/crates.io-index)",
  "tantivy 0.11.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "thiserror 1.0.9 (registry+https://github.com/rust-lang/crates.io-index)",
- "tonic 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tonic 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -2705,7 +2705,7 @@ dependencies = [
 "checksum tokio-test 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "09cf9705471976fa5fc6817d3fbc9c4ff9696a6647af0e5c1870c81ca7445b05"
 "checksum tokio-util 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "571da51182ec208780505a32528fc5512a8fe1443ab960b3f2f3ef093cd16930"
 "checksum toml 0.5.6 (registry+https://github.com/rust-lang/crates.io-index)" = "ffc92d160b1eef40665be3a05630d003936a3bc7da7421277846c2613e92c71a"
-"checksum tonic 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "796bf8f5c49c0a50835f4dc0baff7abe0773c7c53abc2b2a76cc012328cca027"
+"checksum tonic 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "08283643b1d483eb7f3fc77069e63b5cba3e4db93514b3d45470e67f123e4e48"
 "checksum tonic-build 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "4ae1da859b1c093ce54a130fbb8c94c920133d0937035e8004610263785aba9e"
 "checksum tower 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)" = "fd3169017c090b7a28fce80abaad0ab4f5566423677c9331bb320af7e49cfe62"
 "checksum tower-balance 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)" = "a792277613b7052448851efcf98a2c433e6f1d01460832dc60bef676bc275d4c"
