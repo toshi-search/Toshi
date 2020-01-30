@@ -56,18 +56,18 @@ impl Router {
         let path = parse_path(parts.uri.path());
 
         match (&method, &path[..]) {
-            (m, [idx, "_create"]) if m == Method::PUT => create_index(catalog, body, (*idx).to_string()).await,
-            (m, [idx, "_summary"]) if m == Method::GET => index_summary(catalog, (*idx).to_string(), query_options).await,
-            (m, [idx, "_flush"]) if m == Method::GET => flush(catalog, (*idx).to_string()).await,
-            (m, [idx, "_bulk"]) if m == Method::POST => bulk_insert(catalog, watcher.clone(), body, (*idx).to_string()).await,
-            (m, [idx]) if m == Method::POST => doc_search(catalog, body, (*idx).to_string()).await,
-            (m, [idx]) if m == Method::PUT => add_document(catalog, body, (*idx).to_string()).await,
-            (m, [idx]) if m == Method::DELETE => delete_term(catalog, body, (*idx).to_string()).await,
+            (m, [idx, "_create"]) if m == Method::PUT => create_index(catalog, body, idx).await,
+            (m, [idx, "_summary"]) if m == Method::GET => index_summary(catalog, idx, query_options).await,
+            (m, [idx, "_flush"]) if m == Method::GET => flush(catalog, idx).await,
+            (m, [idx, "_bulk"]) if m == Method::POST => bulk_insert(catalog, watcher.clone(), body, idx).await,
+            (m, [idx]) if m == Method::POST => doc_search(catalog, body, idx).await,
+            (m, [idx]) if m == Method::PUT => add_document(catalog, body, idx).await,
+            (m, [idx]) if m == Method::DELETE => delete_term(catalog, body, idx).await,
             (m, [idx]) if m == Method::GET => {
                 if idx == &"favicon.ico" {
                     not_found().await
                 } else {
-                    all_docs(catalog, (*idx).to_string()).await
+                    all_docs(catalog, idx).await
                 }
             }
             (m, []) if m == Method::GET => root::root().await,
@@ -109,6 +109,7 @@ pub mod tests {
 
     use toshi_test::{read_body, TestServer};
 
+    use crate::index::create_test_catalog;
     use crate::router::Router;
     use http::StatusCode;
     use hyper::Body;
@@ -116,7 +117,7 @@ pub mod tests {
 
     #[tokio::test]
     async fn test_router() -> Result<(), Box<dyn std::error::Error>> {
-        let catalog = crate::index::tests::create_test_catalog("test_index");
+        let catalog = create_test_catalog("test_index");
         let router = Router::new(catalog, Arc::new(AtomicBool::new(false)));
         let (listen, ts) = TestServer::new()?;
         let req = Request::get(ts.uri("/")).body(Body::empty())?;
@@ -129,7 +130,7 @@ pub mod tests {
 
     #[tokio::test]
     async fn test_not_found() -> Result<(), Box<dyn std::error::Error>> {
-        let catalog = crate::index::tests::create_test_catalog("test_index");
+        let catalog = create_test_catalog("test_index");
         let router = Router::new(catalog, Arc::new(AtomicBool::new(false)));
         let (listen, ts) = TestServer::new()?;
         let req = Request::get(ts.uri("/asdf/asdf")).body(Body::empty())?;

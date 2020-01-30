@@ -9,10 +9,10 @@ auto_commit_duration = 10
 experimental = false
 
 [experimental_features]
-master = true
-nodes = [
-    "127.0.0.1:8081"
-]
+leader = true
+rpc_port = 8081
+id = 1
+nodes = []
 
 [merge_policy]
 kind = "log"

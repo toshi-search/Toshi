@@ -9,7 +9,9 @@ auto_commit_duration = 10
 experimental = true
 
 [experimental_features]
-master = false
+leader = false
+id = 2
+nodes = ["127.0.0.1:8080"]
 
 [merge_policy]
 kind = "log"

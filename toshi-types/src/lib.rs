@@ -79,7 +79,8 @@ pub trait Catalog: Send + Sync + 'static {
     fn base_path(&self) -> String;
     /// Return the entire collection of handles
     fn get_collection(&self) -> &DashMap<String, Self::Local>;
-    fn add_index(&mut self, name: String, index: Index) -> Result<()>;
+
+    fn add_index(&self, name: String, index: Index) -> Result<()>;
 
     async fn list_indexes(&self) -> Vec<String>;
     /// Return a handle to a single index

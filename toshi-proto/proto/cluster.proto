@@ -14,6 +14,7 @@ service IndexService {
     rpc get_summary (SummaryRequest) returns (SummaryReply);
     rpc bulk_insert (stream BulkRequest) returns (ResultReply);
     rpc raft_request (RaftRequest) returns (RaftReply);
+    rpc join (JoinRequest) returns (ResultReply);
 }
 
 enum ResultCode {
@@ -32,6 +33,11 @@ enum RaftRequestType {
     COMMIT = 4;
     CONF_CHANGE = 5;
     PING = 6;
+}
+
+message JoinRequest {
+    uint64 id = 1;
+    string host = 2;
 }
 
 message RaftRequest {

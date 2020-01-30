@@ -13,7 +13,7 @@ use tantivy::Index;
 use tonic::Status;
 
 use toshi_proto::cluster_rpc::*;
-use toshi_raft::rpc_server::{RpcClient, RpcServer};
+use toshi_raft::rpc_server::{create_client, RpcClient};
 use toshi_types::IndexHandle;
 use toshi_types::{Catalog, DeleteDoc, DocsAffected, Error, Search};
 
@@ -44,15 +44,15 @@ impl Catalog for IndexCatalog {
         &self.local_handles
     }
 
-    fn add_index(&mut self, name: String, index: Index) -> Result<()> {
+    fn add_index(&self, name: String, index: Index) -> Result<()> {
         let handle = LocalIndex::new(index, self.settings.clone(), &name)?;
         self.local_handles.insert(name, handle);
         Ok(())
     }
 
     async fn list_indexes(&self) -> Vec<String> {
-        let mut local_keys = self.local_handles.keys().cloned().collect::<Vec<String>>();
-        let remote_keys = self.remote_handles.lock().await.keys().cloned().collect::<Vec<String>>();
+        let mut local_keys = self.local_handles.iter().map(|e| e.key().to_owned()).collect::<Vec<String>>();
+        let remote_keys = self.remote_handles.iter().map(|e| e.key().to_owned()).collect::<Vec<String>>();
         local_keys.extend_from_slice(&remote_keys);
         local_keys.sort();
         local_keys.dedup();
@@ -62,7 +62,7 @@ impl Catalog for IndexCatalog {
     fn get_index(&self, name: &str) -> Result<Self::Local> {
         self.local_handles
             .get(name)
-            .cloned()
+            .map(|r| r.value().to_owned())
             .ok_or_else(|| Error::UnknownIndex(name.into()))
     }
 
@@ -72,15 +72,13 @@ impl Catalog for IndexCatalog {
 
     async fn get_remote_index(&self, name: &str) -> Result<Self::Remote> {
         self.get_remote_collection()
-            .lock()
-            .await
             .get(name)
-            .cloned()
+            .map(|r| r.value().clone())
             .ok_or_else(|| Error::UnknownIndex(name.into()))
     }
 
     async fn remote_exists(&self, index: &str) -> bool {
-        self.get_remote_collection().lock().await.contains_key(index)
+        self.get_remote_collection().contains_key(index)
     }
 }
 
@@ -90,7 +88,7 @@ impl IndexCatalog {
     }
 
     pub fn new(base_path: PathBuf, settings: Settings) -> Result<Self> {
-        let remote_idxs = Arc::new(Dash::new());
+        let remote_idxs = Arc::new(DashMap::new());
         let local_idxs = DashMap::new();
 
         let mut index_cat = IndexCatalog {
@@ -109,7 +107,7 @@ impl IndexCatalog {
         for host in hosts {
             for idx in host.1 {
                 let ri = RemoteIndex::new(idx.clone(), host.0.clone());
-                self.remote_handles.lock().await.insert(idx, ri);
+                self.remote_handles.insert(idx, ri);
             }
         }
         Ok(())
@@ -118,7 +116,7 @@ impl IndexCatalog {
     #[doc(hidden)]
     #[allow(dead_code)]
     pub fn with_index(name: String, index: Index) -> Result<Self> {
-        let mut map = DashMap::new();
+        let map = DashMap::new();
         let remote_map = DashMap::new();
         let new_index = LocalIndex::new(index, Settings::default(), &name)
             .unwrap_or_else(|_| panic!("Unable to open index: {} because it's locked", name));
@@ -152,21 +150,21 @@ impl IndexCatalog {
         }
     }
 
-    pub fn add_index(&mut self, name: String, index: Index) -> Result<()> {
-        let handle = LocalIndex::new(index, self.settings.clone(), &name)?;
-        self.local_handles.insert(name, handle);
+    pub fn add_index(&self, name: &str, index: Index) -> Result<()> {
+        let handle = LocalIndex::new(index, self.settings.clone(), name)?;
+        self.local_handles.insert(name.to_string(), handle);
         Ok(())
     }
 
-    pub async fn add_remote_index(&mut self, name: String, remote: RpcClient) -> Result<()> {
+    pub async fn add_remote_index(&self, name: String, remote: RpcClient) -> Result<()> {
         let ri = RemoteIndex::new(name.clone(), remote);
-        self.remote_handles.lock().await.entry(name).or_insert(ri);
+        self.remote_handles.entry(name).or_insert(ri);
         Ok(())
     }
 
-    pub async fn add_multi_remote_index(&mut self, name: String, remote: Vec<RpcClient>) -> Result<()> {
+    pub async fn add_multi_remote_index(&self, name: String, remote: Vec<RpcClient>) -> Result<()> {
         let ri = RemoteIndex::with_clients(name.clone(), remote);
-        self.remote_handles.lock().await.entry(name).or_insert(ri);
+        self.remote_handles.entry(name).or_insert(ri);
         Ok(())
     }
 
@@ -178,21 +176,24 @@ impl IndexCatalog {
         &mut self.local_handles
     }
 
-    pub fn get_mut_index(&mut self, name: &str) -> Result<&mut LocalIndex> {
+    pub fn get_mut_index(&mut self, name: &str) -> Result<LocalIndex> {
         self.local_handles
             .get_mut(name)
+            .map(|mut r| r.value_mut().clone())
             .ok_or_else(|| Error::UnknownIndex(name.into()))
-            .into()
     }
 
-    pub fn get_index(&self, name: &str) -> Result<&LocalIndex> {
-        self.local_handles.get(name).ok_or_else(|| Error::UnknownIndex(name.into())).into()
+    pub fn get_index(&self, name: &str) -> Result<LocalIndex> {
+        self.local_handles
+            .get(name)
+            .map(|r| r.value().clone())
+            .ok_or_else(|| Error::UnknownIndex(name.into()))
     }
 
     pub fn get_owned_index(&self, name: &str) -> Result<LocalIndex> {
         self.local_handles
             .get(name)
-            .cloned()
+            .map(|r| r.value().clone())
             .ok_or_else(|| Error::UnknownIndex(name.into()))
     }
 
@@ -205,7 +206,7 @@ impl IndexCatalog {
                 if !entry_str.ends_with(".node_id") {
                     let pth: String = entry_str.rsplit('/').take(1).collect();
                     let idx = IndexCatalog::load_index(entry_str)?;
-                    self.add_index(pth.clone(), idx)?;
+                    self.add_index(&pth, idx)?;
                 }
             } else {
                 return Err(Error::IOError(format!("Path {} is not a valid unicode path", entry.display())));
@@ -227,7 +228,7 @@ impl IndexCatalog {
         let socket: SocketAddr = node.parse().unwrap();
         let host_uri = IndexCatalog::create_host_uri(socket)?;
 
-        Ok(RpcServer::<Self>::create_client(host_uri, None).await?)
+        Ok(create_client(host_uri, None).await?)
     }
 
     pub async fn refresh_multiple_nodes(nodes: Vec<String>) -> Result<Vec<(RpcClient, Vec<String>)>> {
@@ -273,9 +274,9 @@ impl IndexCatalog {
         handle.delete_term(term).await
     }
 
-    pub async fn clear(&mut self) {
+    pub async fn clear(&self) {
         self.local_handles.clear();
-        self.remote_handles.lock().await.clear()
+        self.remote_handles.clear()
     }
 }
 

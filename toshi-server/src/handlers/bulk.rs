@@ -48,18 +48,17 @@ async fn parsing_documents(s: Schema, ds: Sender<Document>, lr: Receiver<Vec<u8>
     Ok(())
 }
 
-pub async fn bulk_insert(catalog: SharedCatalog, watcher: Arc<AtomicBool>, mut body: Body, index: String) -> ResponseFuture {
+pub async fn bulk_insert(catalog: SharedCatalog, watcher: Arc<AtomicBool>, mut body: Body, index: &str) -> ResponseFuture {
     let span = info_span!("BulkInsert");
     let _enter = span.enter();
     watcher.store(true, Ordering::SeqCst);
-    let index_lock = catalog.lock().await;
-    let index_handle = index_lock.get_index(&index).unwrap();
+    let index_handle = catalog.get_index(index).unwrap();
     let index = index_handle.get_index();
     let schema = index.schema();
-    let (line_sender, line_recv) = index_lock.settings.get_channel::<Vec<u8>>();
+    let (line_sender, line_recv) = catalog.settings.get_channel::<Vec<u8>>();
     let (doc_sender, doc_recv) = unbounded::<Document>();
     let writer = index_handle.get_writer();
-    let num_threads = index_lock.settings.json_parsing_threads;
+    let num_threads = catalog.settings.json_parsing_threads;
     let line_sender_clone = line_sender.clone();
     let watcher_clone = Arc::clone(&watcher);
 
@@ -103,10 +102,10 @@ mod tests {
 
     use crate::handlers::all_docs;
     use crate::handlers::summary::flush;
-    use crate::index::tests::*;
     use crate::SearchResults;
 
     use super::*;
+    use crate::index::create_test_catalog;
 
     #[tokio::test(threaded_scheduler)]
     async fn test_bulk_index() -> Result<(), Box<dyn std::error::Error>> {
@@ -122,7 +121,7 @@ mod tests {
         assert_eq!(index_docs.status(), StatusCode::CREATED);
         sleep(Duration::from_secs_f32(0.1));
 
-        let flush = flush(Arc::clone(&server), "test_index".to_string()).await?;
+        let flush = flush(Arc::clone(&server), "test_index").await?;
         assert_eq!(flush.status(), StatusCode::OK);
         sleep(Duration::from_secs_f32(0.1));
 
