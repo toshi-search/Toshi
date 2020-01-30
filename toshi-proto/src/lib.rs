@@ -1,6 +1,7 @@
 pub mod cluster_rpc {
 
     include!(concat!(env!("OUT_DIR"), concat!("/", "clusterrpc", ".rs")));
+    include!(concat!(env!("OUT_DIR"), concat!("/", "eraftpb", ".rs")));
 
     pub use index_service_client as client;
     pub use index_service_server as server;
@@ -53,8 +54,6 @@ pub mod cluster_rpc {
         fn from(sm: eraftpb::SnapshotMetadata) -> SnapshotMetadata {
             SnapshotMetadata {
                 conf_state: sm.conf_state.map(ConfState::from),
-                pending_membership_change: sm.pending_membership_change.map(ConfState::from),
-                pending_membership_change_index: sm.pending_membership_change_index,
                 index: sm.index,
                 term: sm.term,
             }
@@ -64,7 +63,10 @@ pub mod cluster_rpc {
     impl From<eraftpb::ConfState> for ConfState {
         fn from(c: eraftpb::ConfState) -> ConfState {
             ConfState {
-                nodes: c.nodes,
+                auto_leave: c.auto_leave,
+                learners_next: c.learners_next,
+                voters_outgoing: c.voters_outgoing,
+                voters: c.voters,
                 learners: c.learners,
             }
         }
@@ -118,8 +120,6 @@ pub mod cluster_rpc {
         fn from(sm: SnapshotMetadata) -> eraftpb::SnapshotMetadata {
             eraftpb::SnapshotMetadata {
                 conf_state: sm.conf_state.map(eraftpb::ConfState::from),
-                pending_membership_change: sm.pending_membership_change.map(eraftpb::ConfState::from),
-                pending_membership_change_index: sm.pending_membership_change_index,
                 index: sm.index,
                 term: sm.term,
             }
@@ -129,8 +129,11 @@ pub mod cluster_rpc {
     impl From<ConfState> for eraftpb::ConfState {
         fn from(c: ConfState) -> eraftpb::ConfState {
             eraftpb::ConfState {
-                nodes: c.nodes,
+                voters: c.voters,
                 learners: c.learners,
+                voters_outgoing: vec![],
+                learners_next: vec![],
+                auto_leave: false,
             }
         }
     }

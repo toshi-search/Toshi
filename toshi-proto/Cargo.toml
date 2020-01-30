@@ -13,9 +13,9 @@ tonic-build       = "^0.1"
 
 
 [dependencies]
-tonic       = "^0.1"
+tonic        = "^0.1"
 bytes        = "^0.5"
 prost        = "^0.6"
 prost-types  = "^0.6"
 prost-derive = "^0.6"
-raft         = { version = "0.6.0-alpha", default-features = false, features = ["prost-codec"] }
+raft         = { git = "https://github.com/tikv/raft-rs", default-features = false, features = ["prost-codec"] }

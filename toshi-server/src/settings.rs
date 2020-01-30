@@ -54,10 +54,14 @@ pub struct Experimental {
     pub consul_addr: String,
     #[serde(default = "Settings::default_cluster_name")]
     pub cluster_name: String,
-    #[serde(default = "Settings::default_master")]
-    pub master: bool,
+    #[serde(default = "Settings::default_leader")]
+    pub leader: bool,
     #[serde(default = "Settings::default_nodes")]
     pub nodes: Vec<String>,
+    #[serde(default = "Settings::default_id")]
+    pub id: u64,
+    #[serde(default = "Settings::default_rpc_port")]
+    pub rpc_port: u16,
 }
 
 impl Default for Experimental {
@@ -65,8 +69,10 @@ impl Default for Experimental {
         Self {
             consul_addr: Settings::default_consul_addr(),
             cluster_name: Settings::default_cluster_name(),
-            master: Settings::default_master(),
+            leader: Settings::default_leader(),
             nodes: Settings::default_nodes(),
+            id: Settings::default_id(),
+            rpc_port: Settings::default_rpc_port(),
         }
     }
 }
@@ -135,8 +141,10 @@ impl Settings {
         let exper = Experimental {
             consul_addr: args.value_of("consul-addr").unwrap().to_string(),
             cluster_name: args.value_of("cluster-name").unwrap().to_string(),
-            master: args.value_of("master").unwrap().parse().unwrap(),
+            leader: args.value_of("master").unwrap().parse().unwrap(),
             nodes: args.values_of("nodes").unwrap().map(ToString::to_string).collect(),
+            id: args.value_of("id").unwrap().parse().unwrap(),
+            rpc_port: args.value_of("rpc_port").unwrap().parse().unwrap(),
         };
         Self {
             host: args.value_of("host").unwrap().to_string(),
@@ -219,7 +227,7 @@ impl Settings {
         "kitsune".to_string()
     }
 
-    pub fn default_master() -> bool {
+    pub fn default_leader() -> bool {
         false
     }
 
@@ -229,6 +237,14 @@ impl Settings {
 
     pub fn default_experimental() -> bool {
         false
+    }
+
+    pub fn default_id() -> u64 {
+        1
+    }
+
+    pub fn default_rpc_port() -> u16 {
+        8081
     }
 
     pub fn get_channel<T>(&self) -> (Sender<T>, Receiver<T>) {
@@ -283,7 +299,7 @@ mod tests {
         assert_eq!(default.merge_policy.min_layer_size, None);
         assert_eq!(default.merge_policy.min_merge_size, None);
         assert_eq!(default.experimental, false);
-        assert_eq!(default.experimental_features.master, false);
+        assert_eq!(default.experimental_features.leader, false);
     }
 
     #[test]

@@ -16,28 +16,16 @@ pub fn fold_results(results: Vec<SearchResults>) -> SearchResults {
     results.into_iter().sum()
 }
 
-pub async fn doc_search(catalog: SharedCatalog, body: Body, index: String) -> ResponseFuture {
+pub async fn doc_search(catalog: SharedCatalog, body: Body, index: &str) -> ResponseFuture {
     let span = span!(Level::INFO, "search_handler", ?index);
     let _enter = span.enter();
     let b = aggregate(body).await?;
     let req = serde_json::from_slice::<Search>(b.bytes()).unwrap();
-    let c = catalog.lock().await;
     let req = if req.query.is_none() { Search::all_docs() } else { req };
 
-    if c.exists(&index) {
+    if catalog.exists(index) {
         info!("Query: {:?}", req);
-        //        let mut tasks = FuturesUnordered::new();
-        //        tasks.push(future::Either::Left(c.search_local_index(&index, req.clone())));
-        //        if c.remote_exists(&index) {
-        //            tasks.push(future::Either::Right(c.search_remote_index(&index, req)));
-        //        }
-        //        let mut results = vec![];
-        //        while let Some(Ok(r)) = tasks.next().await {
-        //            results.extend(r);
-        //        }
-        //
-        //        let response = fold_results(results);
-        match c.search_local_index(&index, req.clone()).await {
+        match catalog.search_local_index(index, req.clone()).await {
             Ok(v) => Ok(with_body(v)),
             Err(e) => Ok(Response::from(e)),
         }
@@ -46,7 +34,7 @@ pub async fn doc_search(catalog: SharedCatalog, body: Body, index: String) -> Re
     }
 }
 
-pub async fn all_docs(catalog: SharedCatalog, index: String) -> ResponseFuture {
+pub async fn all_docs(catalog: SharedCatalog, index: &str) -> ResponseFuture {
     let body = Body::from(serde_json::to_vec(&Search::all_docs()).unwrap());
     doc_search(catalog, body, index).await
 }
@@ -63,7 +51,7 @@ pub mod tests {
     use toshi_types::{ErrorResponse, ExactTerm, FuzzyQuery, FuzzyTerm, KeyValue, PhraseQuery, Query, Search, TermPair};
 
     use crate::handlers::{doc_search, ResponseFuture};
-    use crate::index::tests::*;
+    use crate::index::create_test_catalog;
     use crate::router::Router;
     use crate::SearchResults;
 

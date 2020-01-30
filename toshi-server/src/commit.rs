@@ -11,17 +11,17 @@ use toshi_types::Catalog;
 #[allow(irrefutable_let_patterns)]
 pub async fn watcher(cat: SharedCatalog, commit_duration: f32, lock: Arc<AtomicBool>) -> Result<(), ()> {
     while let _ = time::interval(Duration::from_secs_f32(commit_duration)).tick().await {
-        let cat = cat.lock().await;
-        for (key, index) in cat.get_collection().into_iter() {
-            let writer = index.get_writer();
-            let current_ops = index.get_opstamp();
+        for e in cat.get_collection().iter() {
+            let (k, v) = e.pair();
+            let writer = v.get_writer();
+            let current_ops = v.get_opstamp();
             if current_ops == 0 {
-                debug!("No update to index={}, opstamp={}", key, current_ops);
+                debug!("No update to index={}, opstamp={}", k, current_ops);
             } else if !lock.load(Ordering::SeqCst) {
                 let mut w = writer.lock().await;
-                debug!("Committing {}...", key);
+                debug!("Committing {}...", k);
                 w.commit().unwrap();
-                index.set_opstamp(0);
+                v.set_opstamp(0);
             }
         }
     }
@@ -35,10 +35,11 @@ pub mod tests {
     use toshi_test::read_body;
 
     use crate::handlers::{add_document, all_docs};
-    use crate::index::tests::*;
+
     use crate::SearchResults;
 
     use super::*;
+    use crate::index::create_test_catalog;
 
     #[tokio::test]
     pub async fn test_auto_commit() {

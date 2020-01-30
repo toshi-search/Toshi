@@ -10,6 +10,10 @@ edition = "2018"
 [[bin]]
 name = "toshi"
 
+[[bin]]
+name = "toshi-raft"
+path = "src/bin/toshi_raft.rs"
+
 [lib]
 path = "src/lib.rs"
 
@@ -17,6 +21,7 @@ path = "src/lib.rs"
 toshi-proto            = { path = "../toshi-proto" }
 toshi-types            = { path = "../toshi-types" }
 toshi-raft             = { path = "../toshi-raft" }
+raft                   = { git = "https://github.com/tikv/raft-rs", default-features = false, features = ["prost-codec"] }
 http                   = "^0.2"
 bytes                  = "^0.5"
 hyper                  = { version = "^0.13", features = ["stream"] }

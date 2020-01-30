@@ -6,12 +6,17 @@ use std::sync::{atomic::AtomicBool, Arc};
 use futures::prelude::*;
 use slog::Drain;
 use tokio::sync::oneshot::{self, Receiver, Sender};
-use tokio::sync::Mutex;
-use toshi_raft::rpc_server::RpcServer;
+
+use dashmap::DashMap;
+use http::Uri;
+use raft::Config;
+use tonic::Request;
+use toshi_raft::raft_node::ToshiRaft;
+use toshi_raft::rpc_server::{create_client, RpcClient, RpcServer};
 use toshi_server::commit::watcher;
 use toshi_server::index::{IndexCatalog, SharedCatalog};
 use toshi_server::router::Router;
-use toshi_server::settings::{Settings, HEADER, RPC_HEADER};
+use toshi_server::settings::{Experimental, Settings, HEADER, RPC_HEADER};
 use toshi_server::{shutdown, support};
 use toshi_types::Catalog;
 use tracing::*;
@@ -31,12 +36,9 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let index_catalog = setup_catalog(&settings);
     let s_clone = settings.clone();
     let toshi = setup_toshi(s_clone.clone(), Arc::clone(&index_catalog), tx);
-    if settings.experimental && settings.experimental_features.master {
+    if settings.experimental && settings.experimental_features.leader {
         let update_cat = Arc::clone(&index_catalog);
-        tokio::spawn(async move {
-            let update = update_cat.lock().await;
-            update.update_remote_indexes().await
-        });
+        tokio::spawn(async move { update_cat.update_remote_indexes().await });
     }
     tokio::spawn(toshi);
     info!("Toshi running on {}:{}", &settings.host, &settings.port);
@@ -55,16 +57,17 @@ fn setup_logging(level: &str) {
 async fn setup_shutdown(shutdown_signal: Receiver<()>, index_catalog: SharedCatalog) -> Result<(), oneshot::error::RecvError> {
     shutdown_signal.await?;
     info!("Shutting down...");
-    index_catalog.lock().await.clear().await;
+    index_catalog.clear().await;
     Ok(())
 }
 
 #[cfg_attr(tarpaulin, skip)]
 async fn setup_toshi(settings: Settings, index_catalog: SharedCatalog, tx: Sender<()>) -> Result<(), ()> {
     let shutdown = shutdown::shutdown(tx);
-    if !settings.experimental_features.master && settings.experimental {
-        let data = run_data(Arc::clone(&index_catalog), settings);
-        future::try_select(shutdown, data).map(|_| Ok(())).await
+    if !settings.experimental_features.leader && settings.experimental {
+        let master = run_master(Arc::clone(&index_catalog), settings.clone());
+        tokio::spawn(run_data(Arc::clone(&index_catalog), settings));
+        future::try_select(shutdown, master).map(|_| Ok(())).await
     } else {
         let master = run_master(Arc::clone(&index_catalog), settings);
         future::try_select(shutdown, master).map(|_| Ok(())).await
@@ -82,15 +85,22 @@ fn setup_catalog(settings: &Settings) -> SharedCatalog {
         }
     };
 
-    info!("Indexes: {:?}", index_catalog.get_collection().keys());
-    Arc::new(Mutex::new(index_catalog))
+    info!(
+        "Indexes: {:?}",
+        index_catalog
+            .get_collection()
+            .iter()
+            .map(|r| r.key().to_owned())
+            .collect::<Vec<String>>()
+    );
+    Arc::new(index_catalog)
 }
 
 #[cfg_attr(tarpaulin, skip)]
 fn run_data(
-    catalog: Arc<Mutex<IndexCatalog>>,
+    catalog: SharedCatalog,
     settings: Settings,
-) -> impl Future<Output = Result<(), tonic::transport::Error>> + Unpin + Send {
+) -> impl Future<Output = Result<(), Box<dyn std::error::Error + Send + Sync + 'static>>> + Unpin + Send {
     let lock = Arc::new(AtomicBool::new(false));
     let commit_watcher = watcher(Arc::clone(&catalog), settings.auto_commit_duration, Arc::clone(&lock));
     let addr: IpAddr = settings
@@ -104,14 +114,41 @@ fn run_data(
     let async_drain = slog_async::Async::new(drain).build().fuse();
     let root_log = slog::Logger::root(async_drain, slog::o!("toshi" => "toshi"));
 
+    let Experimental { id, nodes, leader, .. } = settings.experimental_features;
+    let fut = async move {
+        let raft_cfg = Config::new(id);
+        let peers = Arc::new(DashMap::new());
+        let uri = if !nodes.is_empty() {
+            format!("http://{}", nodes[0]).parse::<Uri>().unwrap()
+        } else {
+            Uri::default()
+        };
+
+        let raft = ToshiRaft::new(&raft_cfg, catalog.base_path(), &root_log, peers.clone()).unwrap();
+        let chan = raft.mailbox_sender.clone();
+        let cc = raft.conf_sender.clone();
+
+        tokio::spawn(raft.run());
+
+        if !leader {
+            let client: RpcClient = create_client(uri.clone(), Some(root_log.clone())).await.unwrap();
+            let req = Request::new(toshi_proto::cluster_rpc::JoinRequest { id, host: uri.to_string() });
+            client.clone().join(req).await.unwrap();
+            peers.insert(1, client);
+        }
+        if let Err(e) = RpcServer::<IndexCatalog>::serve(bind, catalog, root_log, chan, cc).await {
+            eprintln!("ERROR = {:?}", e);
+        }
+        Ok(())
+    };
     println!("{}", RPC_HEADER);
     info!("I am a data node...Binding to: {}", addr);
     tokio::spawn(commit_watcher);
-    Box::pin(RpcServer::<IndexCatalog>::serve(bind, catalog, root_log))
+    Box::pin(fut)
 }
 
 #[cfg_attr(tarpaulin, skip)]
-fn run_master(catalog: Arc<Mutex<IndexCatalog>>, settings: Settings) -> impl Future<Output = Result<(), hyper::Error>> + Unpin + Send {
+fn run_master(catalog: SharedCatalog, settings: Settings) -> impl Future<Output = Result<(), hyper::Error>> + Unpin + Send {
     let bulk_lock = Arc::new(AtomicBool::new(false));
     let commit_watcher = watcher(Arc::clone(&catalog), settings.auto_commit_duration, Arc::clone(&bulk_lock));
     let addr: IpAddr = settings
