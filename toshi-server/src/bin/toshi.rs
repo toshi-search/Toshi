@@ -124,7 +124,7 @@ fn run_data(
             Uri::default()
         };
 
-        let raft = ToshiRaft::new(&raft_cfg, catalog.base_path(), &root_log, peers.clone()).unwrap();
+        let raft = ToshiRaft::new(raft_cfg, catalog.base_path(), root_log.clone(), peers.clone()).unwrap();
         let chan = raft.mailbox_sender.clone();
         let cc = raft.conf_sender.clone();
 

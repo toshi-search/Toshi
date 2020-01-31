@@ -31,9 +31,9 @@ pub struct ToshiRaft {
 
 impl ToshiRaft {
     pub fn new(
-        cfg: &Config,
+        cfg: Config,
         mut base_path: String,
-        logger: &Logger,
+        logger: Logger,
         peers: Arc<DashMap<u64, RpcClient>>,
     ) -> Result<Self, crate::SledStorageError> {
         cfg.validate()?;
@@ -43,8 +43,8 @@ impl ToshiRaft {
         }
 
         let path = format!("{}-wal", base_path);
-        let db = SledStorage::new_with_logger(&path, Some(cfg), Some(logger))?;
-        let node = RawNode::new(cfg, db, logger)?;
+        let db = SledStorage::new_with_logger(&path, Some(cfg.clone()), Some(logger.clone()))?;
+        let node = RawNode::new(&cfg, db, &logger)?;
         let (snd, recv) = channel(1024);
         let (conf_snd, conf_recv) = channel(1024);
 
@@ -142,9 +142,9 @@ impl ToshiRaft {
         slog::info!(self.logger, "Am I leader?: {}", is_leader);
 
         if !raft::is_empty_snap(ready.snapshot()) {
-            let snap = ready.snapshot();
+            let mut snap = ready.snapshot().clone();
             slog::info!(self.logger, "Got a snap: {:?}", snap);
-            self.node.mut_store().apply_snapshot(&mut snap.clone())?;
+            self.node.mut_store().apply_snapshot(snap)?;
         }
 
         if !ready.entries().is_empty() {
