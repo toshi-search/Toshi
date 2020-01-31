@@ -38,7 +38,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Uri::default()
     };
 
-    let raft = ToshiRaft::new(&raft_cfg, catalog.base_path(), &root_log, peers.clone())?;
+    let raft = ToshiRaft::new(raft_cfg, catalog.base_path(), root_log.clone(), peers.clone())?;
     let chan = raft.mailbox_sender.clone();
     let cc = raft.conf_sender.clone();
 
@@ -54,7 +54,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         peers.insert(1, client);
     }
 
-    if let Err(e) = RpcServer::serve(host, catalog, root_log, chan, cc).await {
+    if let Err(e) = RpcServer::serve(host, catalog, root_log.clone(), chan, cc).await {
         eprintln!("ERROR = {:?}", e);
     }
     Ok(())
