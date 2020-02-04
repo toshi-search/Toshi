@@ -68,7 +68,7 @@ dependencies = [
 
 [[package]]
 name = "async-trait"
-version = "0.1.22"
+version = "0.1.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "proc-macro2 1.0.8 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1949,7 +1949,7 @@ version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "async-stream 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "async-trait 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)",
+ "async-trait 0.1.23 (registry+https://github.com/rust-lang/crates.io-index)",
  "base64 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "bytes 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures-core 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2015,7 +2015,7 @@ name = "toshi-server"
 version = "0.1.1"
 dependencies = [
  "anyhow 1.0.26 (registry+https://github.com/rust-lang/crates.io-index)",
- "async-trait 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)",
+ "async-trait 0.1.23 (registry+https://github.com/rust-lang/crates.io-index)",
  "bytes 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap 2.33.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "config 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2495,7 +2495,7 @@ dependencies = [
 "checksum ascii 0.9.3 (registry+https://github.com/rust-lang/crates.io-index)" = "eab1c04a571841102f5345a8fc0f6bb3d31c315dec879b5c6e42e40ce7ffa34e"
 "checksum async-stream 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "58982858be7540a465c790b95aaea6710e5139bf8956b1d1344d014fa40100b0"
 "checksum async-stream-impl 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "393356ed99aa7bff0ac486dde592633b83ab02bd254d8c209d5b9f1d0f533480"
-"checksum async-trait 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)" = "c8df72488e87761e772f14ae0c2480396810e51b2c2ade912f97f0f7e5b95e3c"
+"checksum async-trait 0.1.23 (registry+https://github.com/rust-lang/crates.io-index)" = "cc1def5f0efeaa4194778c64ebc17f7a97f650edb99228ef0c8185277f518669"
 "checksum atomicwrites 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)" = "6a2baf2feb820299c53c7ad1cc4f5914a220a1cb76d7ce321d2522a94b54651f"
 "checksum atty 0.2.14 (registry+https://github.com/rust-lang/crates.io-index)" = "d9b39be18770d11421cdb1b9947a45dd3f37e93092cbf377614828a319d5fee8"
 "checksum autocfg 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)" = "1d49d90015b3c36167a20fe2810c5cd875ad504b39cff3d4eae7977e6b7c1cb2"
