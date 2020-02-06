@@ -10,7 +10,7 @@ jobs:
         os:
           - macOS-latest
           - ubuntu-latest
-          - windows-latest
+          #- windows-latest
     steps:
       - uses: actions/checkout@v2
       - name: Install Rust & Tools
