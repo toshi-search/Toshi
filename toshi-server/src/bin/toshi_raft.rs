@@ -10,13 +10,12 @@ use toshi_proto::cluster_rpc::*;
 use toshi_raft::raft_node::ToshiRaft;
 use toshi_raft::rpc_server::{create_client, RpcClient, RpcServer};
 use toshi_server::index::{IndexCatalog, SharedCatalog};
-use toshi_server::settings::{Experimental, Settings};
-use toshi_server::support;
+use toshi_server::settings::{Experimental, Settings, settings};
 use toshi_types::Catalog;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let settings = support::settings();
+    let settings = settings();
     let addr: IpAddr = settings
         .host
         .parse()

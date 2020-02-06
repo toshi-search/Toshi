@@ -17,7 +17,6 @@ pub mod index;
 pub mod router;
 pub mod settings;
 pub mod shutdown;
-pub mod support;
 pub mod utils;
 
 pub type Result<T> = std::result::Result<T, toshi_types::Error>;

@@ -6,8 +6,8 @@ use bytes::Bytes;
 use dashmap::DashMap;
 use http::Uri;
 use prost::Message;
-use raft::prelude::*;
 use raft::{Config, RawNode};
+use raft::prelude::*;
 use slog::Logger;
 use tokio::sync::mpsc::*;
 use tokio::time::{interval, timeout};
@@ -15,8 +15,8 @@ use tonic::Request;
 
 use toshi_proto::cluster_rpc::{self, RaftRequest};
 
-use crate::rpc_server::{create_client, RpcClient};
 use crate::{SledStorage, SledStorageError};
+use crate::rpc_server::{create_client, RpcClient};
 
 pub struct ToshiRaft {
     pub node: RawNode<SledStorage>,
@@ -137,12 +137,11 @@ impl ToshiRaft {
             panic!("Node is not ready");
         }
         let mut ready = self.node.ready();
-
         let is_leader = self.node.raft.leader_id == self.node.raft.id;
         slog::info!(self.logger, "Am I leader?: {}", is_leader);
 
         if !raft::is_empty_snap(ready.snapshot()) {
-            let mut snap = ready.snapshot().clone();
+            let snap = ready.snapshot().clone();
             slog::info!(self.logger, "Got a snap: {:?}", snap);
             self.node.mut_store().apply_snapshot(snap)?;
         }
@@ -163,7 +162,6 @@ impl ToshiRaft {
             self.node.mut_store().commit(hs.commit)?;
         }
 
-        //        if is_leader {
         for msg in ready.messages.drain(..) {
             slog::info!(self.logger, "LOGMSG={:?}", msg);
             let to = msg.to;
@@ -179,7 +177,6 @@ impl ToshiRaft {
                 panic!("Could not locate client for id: {}", to);
             }
         }
-        //        }
 
         if !is_leader {
             let msgs = ready.messages.drain(..);
@@ -219,7 +216,7 @@ impl ToshiRaft {
 
                     e.merge(Bytes::from(entry.data.clone()))?;
 
-                    self.node.mut_store().append_single(e)?;
+                    self.node.mut_store().append(&vec![e])?;
                 }
                 Some(EntryType::EntryConfChangeV2) => panic!("Conf2"),
                 None => panic!(":-("),

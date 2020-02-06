@@ -16,15 +16,15 @@ use toshi_raft::rpc_server::{create_client, RpcClient, RpcServer};
 use toshi_server::commit::watcher;
 use toshi_server::index::{IndexCatalog, SharedCatalog};
 use toshi_server::router::Router;
-use toshi_server::settings::{Experimental, Settings, HEADER, RPC_HEADER};
-use toshi_server::{shutdown, support};
+use toshi_server::settings::{Experimental, Settings, HEADER, RPC_HEADER, settings};
+use toshi_server::{shutdown};
 use toshi_types::Catalog;
 use tracing::*;
 
 #[cfg_attr(tarpaulin, skip)]
 #[tokio::main]
 pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let settings = support::settings();
+    let settings = settings();
     setup_logging(&settings.log_level);
 
     let (tx, shutdown_signal) = oneshot::channel();

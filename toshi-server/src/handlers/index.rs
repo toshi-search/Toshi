@@ -115,7 +115,6 @@ pub async fn add_document(catalog: SharedCatalog, body: Body, index: &str) -> Re
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
-    use std::convert::Infallible;
 
     use bytes::Buf;
     use pretty_assertions::assert_eq;
