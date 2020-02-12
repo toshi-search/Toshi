@@ -43,17 +43,17 @@ impl ToshiRaft {
         }
 
         let path = format!("{}-wal", base_path);
-        let db = SledStorage::new_with_logger(&path, Some(cfg.clone()), Some(logger.clone()))?;
+        let db = SledStorage::new_with_logger(&path, cfg.clone(), Some(logger.clone()))?;
         let node = RawNode::new(&cfg, db, &logger)?;
-        let (snd, recv) = channel(1024);
-        let (conf_snd, conf_recv) = channel(1024);
+        let (mailbox_sender, mailbox_recv) = channel(1024);
+        let (conf_sender, conf_recv) = channel(1024);
 
         Ok(Self {
             node,
             logger: logger.clone(),
-            mailbox_sender: snd,
-            mailbox_recv: recv,
-            conf_sender: conf_snd,
+            mailbox_sender,
+            mailbox_recv,
+            conf_sender,
             conf_recv,
             heartbeat: cfg.heartbeat_tick,
             peers,
@@ -85,6 +85,7 @@ impl ToshiRaft {
     }
 
     pub async fn send(&mut self, msg: cluster_rpc::Message) -> Result<(), SledStorageError> {
+        slog::info!(self.logger, "SEND = {:?}", msg);
         self.mailbox_sender.send(msg).await.unwrap();
         Ok(())
     }
@@ -133,11 +134,10 @@ impl ToshiRaft {
     }
 
     pub async fn ready(&mut self) -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
-        if !self.node.has_ready() {
-            panic!("Node is not ready");
-        }
+
         let mut ready = self.node.ready();
         let is_leader = self.node.raft.leader_id == self.node.raft.id;
+        slog::info!(self.logger, "Leader ID: {}, Node ID: {}", self.node.raft.leader_id, self.node.raft.id);
         slog::info!(self.logger, "Am I leader?: {}", is_leader);
 
         if !raft::is_empty_snap(ready.snapshot()) {

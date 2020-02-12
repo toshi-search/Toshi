@@ -5,11 +5,12 @@ use bytes::BytesMut;
 use prost::Message;
 use raft::{RaftState, Storage, StorageError};
 use raft::prelude::*;
-use sled::{Db, open};
+use sled::{Db, open, IVec};
 use slog::{info, Logger};
 use raft::prelude::SnapshotMetadata;
 
 use crate::state::SledRaftState;
+use std::process::id;
 
 pub mod raft_node;
 pub mod rpc_server;
@@ -34,18 +35,29 @@ pub struct SledStorage {
 }
 
 impl SledStorage {
-
-    pub fn new_with_logger(path: &str, cfg: Option<raft::Config>, logger: Option<Logger>) -> Result<Self, SledStorageError> {
+    pub fn new_with_logger(path: &str, cfg: raft::Config, logger: Option<Logger>) -> Result<Self, SledStorageError> {
         if let Some(ref log) = logger {
             info!(log, "Init sled storage db at: {}", path);
         }
-        let state = SledRaftState::default();
         let db = open(Path::new(path))?;
-        let last_idx = if let Ok(Some(v)) = db.get(b"last_idx") {
-            read_be_u64(&mut v.as_ref())
-        } else {
-            1u64
-        };
+        let mut hard_state: HardState = Self::get(&db, b"hard_state")?;
+        let mut conf_state: ConfState = Self::get(&db, b"conf_state")?;
+        let last_idx_be = db.get(b"last_idx").unwrap_or(None);
+
+        if !conf_state.voters.contains(&cfg.id) {
+            conf_state.voters = vec![cfg.id];
+        }
+        let last_idx: u64 = if let Some(libe) = last_idx_be {
+            read_be_u64(&mut libe.as_ref())
+        } else { 1u64 };
+
+        if !db.contains_key(b"hard_state")? {
+            Self::insert(&db, b"hard_state", hard_state.clone())?;
+        }
+        if !db.contains_key(b"conf_state")? {
+            Self::insert(&db, b"conf_state", conf_state.clone())?;
+        }
+        let state = SledRaftState::new(hard_state, conf_state);
 
         Ok(Self {
             snapshot_metadata: SnapshotMetadata::default(),
@@ -54,6 +66,26 @@ impl SledStorage {
             logger,
             last_idx,
         })
+    }
+
+    pub fn get<K, V>(db: &Db, k: K) -> Result<V, SledStorageError>
+        where K: AsRef<[u8]>,
+              V: Message + Default {
+        if let Ok(Some(v)) = db.get(k) {
+            Ok(V::decode(v.as_ref())?)
+        } else {
+            Ok(V::default())
+        }
+    }
+
+    pub fn insert<K, V>(db: &Db, k: K, v: V) -> Result<(), SledStorageError>
+        where K: AsRef<[u8]>,
+              V: Message {
+
+        let mut buf = Vec::with_capacity(v.encoded_len());
+        v.encode(&mut buf)?;
+        db.insert(k, &buf[..])?;
+        Ok(())
     }
 
     pub fn append(&mut self, entries: &[Entry]) -> Result<(), SledStorageError> {
@@ -76,6 +108,11 @@ impl SledStorage {
     }
 
     pub fn commit(&mut self, commit: u64) -> Result<(), SledStorageError> {
+
+        Self::insert(&self.db, b"hard_state", self.state.hard_state.clone());
+        Self::insert(&self.db, b"conf_state", self.state.conf_state.clone());
+        let idx = self.last_idx.to_be_bytes();
+        self.db.insert(b"last_idx", &idx[..])?;
         let flush = self.db.flush()?;
         if let Some(ref log) = self.logger {
             info!(log, "Flushed: {} bytes ", flush);
@@ -102,9 +139,8 @@ impl SledStorage {
 }
 
 impl Storage for SledStorage {
-
     fn initial_state(&self) -> Result<RaftState, raft::Error> {
-        unimplemented!()
+        Ok(self.state.clone().into())
     }
 
     fn entries(&self, low: u64, high: u64, max_size: impl Into<Option<u64>>) -> Result<Vec<Entry>, raft::Error> {
@@ -113,8 +149,9 @@ impl Storage for SledStorage {
         }
         let lower = low.to_be_bytes();
         let upper = high.to_be_bytes();
+        let tree = self.db.open_tree(b"entries").unwrap();
         let mut results: Vec<Entry> = vec![];
-        for i in self.db.range(lower..upper) {
+        for i in tree.range(lower..upper) {
             match i {
                 Ok((k, v)) => {
                     let dec = Entry::decode(&v[..]).unwrap();
@@ -127,7 +164,19 @@ impl Storage for SledStorage {
     }
 
     fn term(&self, idx: u64) -> Result<u64, raft::Error> {
-        unimplemented!()
+        if idx == self.snapshot_metadata.index {
+            return Ok(self.snapshot_metadata.term);
+        }
+        let idx_bytes = idx.to_be_bytes();
+        let mut tree = self.db.open_tree("entries").unwrap();
+        let term = if let Ok(Some(e)) = tree.get(idx_bytes) {
+            let msg = Entry::decode(e.as_ref()).unwrap();
+            msg.term
+        } else { 1 };
+        if let Some(log) = &self.logger {
+            info!(log, "Term = {}, Idx = {}", msg.term, idx);
+        }
+        Ok(term)
     }
 
     fn first_index(&self) -> Result<u64, raft::Error> {

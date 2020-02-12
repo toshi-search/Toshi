@@ -21,3 +21,9 @@ impl SledRaftState {
         self.conf_state != ConfState::default()
     }
 }
+
+impl Into<RaftState> for SledRaftState {
+    fn into(self) -> RaftState {
+        RaftState::new(self.hard_state, self.conf_state)
+    }
+}
