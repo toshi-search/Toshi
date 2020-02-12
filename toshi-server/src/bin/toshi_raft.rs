@@ -1,6 +1,6 @@
 use dashmap::DashMap;
 use http::Uri;
-use raft::Config;
+use raft::{Config, ReadOnlyOption};
 use slog::Drain;
 use std::net::{IpAddr, SocketAddr};
 use std::path::PathBuf;
@@ -38,11 +38,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Uri::default()
     };
 
-    let raft = ToshiRaft::new(raft_cfg, catalog.base_path(), root_log.clone(), peers.clone())?;
+    let mut raft = ToshiRaft::new(raft_cfg, catalog.base_path(), root_log.clone(), peers.clone())?;
     let chan = raft.mailbox_sender.clone();
     let cc = raft.conf_sender.clone();
-
-    tokio::spawn(raft.run());
 
     if !leader {
         let client: RpcClient = create_client(uri, Some(root_log.clone())).await?;
@@ -50,9 +48,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             id,
             host: host.to_string(),
         });
-        client.clone().join(req).await.unwrap();
+        let resp = client.clone().join(req).await;
+        slog::info!(root_log.clone(), "RESP_JOIN = {:?}", resp);
         peers.insert(1, client);
     }
+
+    &raft.node.campaign();
+
+    tokio::spawn(raft.run());
+
+    slog::info!(root_log.clone(), "HOST = {:?}", host);
 
     if let Err(e) = RpcServer::serve(host, catalog, root_log.clone(), chan, cc).await {
         eprintln!("ERROR = {:?}", e);

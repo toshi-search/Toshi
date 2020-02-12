@@ -10,6 +10,7 @@ experimental = true
 
 [experimental_features]
 leader = false
+rpc_port = 8081
 id = 2
 nodes = ["127.0.0.1:8080"]
 
