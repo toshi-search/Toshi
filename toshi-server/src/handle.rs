@@ -8,10 +8,11 @@ use tantivy::query::{AllQuery, QueryParser};
 use tantivy::schema::*;
 use tantivy::space_usage::SearcherSpaceUsage;
 use tantivy::{Document, Index, IndexReader, IndexWriter, ReloadPolicy, Term};
-use tokio::sync::Mutex;
+use tokio::sync::*;
 use tracing::*;
 
-use toshi_types::{CreateQuery, DeleteDoc, DocsAffected, Error, IndexHandle, IndexLocation, KeyValue, Query, ScoredDoc, Search};
+use async_trait::async_trait;
+use toshi_types::*;
 
 use crate::settings::Settings;
 use crate::Result;
@@ -58,7 +59,7 @@ impl Hash for LocalIndex {
     }
 }
 
-#[async_trait::async_trait]
+#[async_trait]
 impl IndexHandle for LocalIndex {
     fn get_name(&self) -> String {
         self.name.clone()
@@ -72,7 +73,7 @@ impl IndexHandle for LocalIndex {
         self.index.clone()
     }
 
-    async fn search_index(&'_ self, search: Search) -> Result<SearchResults> {
+    async fn search_index(&self, search: Search) -> Result<SearchResults> {
         let searcher = self.reader.searcher();
         let schema = self.index.schema();
         let mut multi_collector = MultiCollector::new();
@@ -113,7 +114,7 @@ impl IndexHandle for LocalIndex {
                 Query::Raw { raw } => {
                     let fields: Vec<Field> = schema.fields().filter_map(|f| schema.get_field(f.1.name())).collect();
                     let query_parser = QueryParser::for_index(&self.index, fields);
-                    query_parser.parse_query(&raw)?
+                    query_parser.parse_query(raw.as_str())?
                 }
                 Query::All => Box::new(AllQuery),
             };

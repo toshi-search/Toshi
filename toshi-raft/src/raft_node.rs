@@ -6,35 +6,44 @@ use bytes::Bytes;
 use dashmap::DashMap;
 use http::Uri;
 use prost::Message;
-use raft::{Config, RawNode};
 use raft::prelude::*;
+use raft::{Config, RawNode};
 use slog::Logger;
 use tokio::sync::mpsc::*;
 use tokio::time::{interval, timeout};
 use tonic::Request;
 
 use toshi_proto::cluster_rpc::{self, RaftRequest};
+use toshi_types::{AddDocument, Catalog, IndexHandle};
 
-use crate::{SledStorage, SledStorageError};
 use crate::rpc_server::{create_client, RpcClient};
+use crate::{SledStorage, SledStorageError};
 
-pub struct ToshiRaft {
+pub struct ToshiRaft<C>
+where
+    C: Catalog,
+{
     pub node: RawNode<SledStorage>,
     pub logger: Logger,
     pub mailbox_sender: Sender<cluster_rpc::Message>,
     pub mailbox_recv: Receiver<cluster_rpc::Message>,
-    pub conf_sender: Sender<raft::prelude::ConfChange>,
-    pub conf_recv: Receiver<raft::prelude::ConfChange>,
+    pub conf_sender: Sender<ConfChange>,
+    pub conf_recv: Receiver<ConfChange>,
     pub peers: Arc<DashMap<u64, RpcClient>>,
     pub heartbeat: usize,
+    pub catalog: Arc<C>,
 }
 
-impl ToshiRaft {
+impl<C> ToshiRaft<C>
+where
+    C: Catalog,
+{
     pub fn new(
         cfg: Config,
         mut base_path: String,
         logger: Logger,
         peers: Arc<DashMap<u64, RpcClient>>,
+        catalog: Arc<C>,
     ) -> Result<Self, crate::SledStorageError> {
         cfg.validate()?;
 
@@ -57,6 +66,7 @@ impl ToshiRaft {
             conf_recv,
             heartbeat: cfg.heartbeat_tick,
             peers,
+            catalog,
         })
     }
 
@@ -134,10 +144,14 @@ impl ToshiRaft {
     }
 
     pub async fn ready(&mut self) -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
-
         let mut ready = self.node.ready();
         let is_leader = self.node.raft.leader_id == self.node.raft.id;
-        slog::info!(self.logger, "Leader ID: {}, Node ID: {}", self.node.raft.leader_id, self.node.raft.id);
+        slog::info!(
+            self.logger,
+            "Leader ID: {}, Node ID: {}",
+            self.node.raft.leader_id,
+            self.node.raft.id
+        );
         slog::info!(self.logger, "Am I leader?: {}", is_leader);
 
         if !raft::is_empty_snap(ready.snapshot()) {
@@ -158,6 +172,7 @@ impl ToshiRaft {
         }
 
         if let Some(hs) = ready.hs() {
+            slog::info!(self.logger, "HS?: {:?}", hs);
             self.node.mut_store().state.hard_state = (*hs).clone();
             self.node.mut_store().commit(hs.commit)?;
         }
@@ -185,7 +200,16 @@ impl ToshiRaft {
             }
         }
         if let Some(committed_entries) = ready.committed_entries.take() {
-            self.append_entries(&committed_entries).await?;
+            for mut entry in committed_entries.clone() {
+                let index = std::str::from_utf8(&entry.context)?;
+                let handle = self.catalog.get_index(&index)?;
+                handle
+                    .add_document(AddDocument::<serde_json::Value> {
+                        options: None,
+                        document: serde_json::to_value(entry.mut_data())?,
+                    })
+                    .await?;
+            }
 
             if let Some(entry) = committed_entries.last() {
                 self.set_hard_state(entry.index, entry.term)?;
@@ -222,6 +246,30 @@ impl ToshiRaft {
                 None => panic!(":-("),
             }
         }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use dashmap::DashMap;
+    use raft::Config;
+
+    use toshi_types::Catalog;
+
+    use crate::raft_node::ToshiRaft;
+
+    #[tokio::test]
+    async fn test_raft_propose() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
+        let log = toshi_server::setup_logging();
+        let catalog = crate::rpc_server::tests::create_test_catalog("test_index");
+        let mut raft = ToshiRaft::new(Config::new(1), catalog.base_path(), log, Arc::new(DashMap::new()), catalog).unwrap();
+
+        let ctx = br#"test_index"#;
+        let data = br#"{"test_text": "Babbaboo!", "test_u64": 10, "test_i64": -10}"#;
+
         Ok(())
     }
 }

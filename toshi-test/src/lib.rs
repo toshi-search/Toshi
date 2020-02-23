@@ -107,12 +107,10 @@ pub mod tests {
     use crate::{read_body, TestServer};
 
     pub async fn svc(listen: TcpListener) -> Result<(), hyper::Error> {
-        let make_svc = make_service_fn(|_: &AddrStream| {
-            async {
-                Ok::<_, Infallible>(service_fn(|_req| {
-                    async { Ok::<_, Infallible>(Response::new(hyper::Body::from("Hello World"))) }
-                }))
-            }
+        let make_svc = make_service_fn(|_: &AddrStream| async {
+            Ok::<_, Infallible>(service_fn(|_req| async {
+                Ok::<_, Infallible>(Response::new(hyper::Body::from("Hello World")))
+            }))
         });
 
         let serv = Server::from_tcp(listen)?.serve(make_svc);

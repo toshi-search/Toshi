@@ -3,8 +3,8 @@ use std::str::FromStr;
 use config::{Config, ConfigError, File, FileFormat, Source};
 use crossbeam::channel::{bounded, unbounded, Receiver, Sender};
 use serde::Deserialize;
-use tantivy::merge_policy::*;
 use structopt::StructOpt;
+use tantivy::merge_policy::*;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -30,9 +30,15 @@ pub enum MergePolicyType {
     NoMerge,
 }
 
-const fn default_level_log_size() -> f64 { 0.75 }
-const fn default_min_layer_size() -> u32 { 10_000 }
-const fn default_min_merge_size() -> usize { 8 }
+const fn default_level_log_size() -> f64 {
+    0.75
+}
+const fn default_min_layer_size() -> u32 {
+    10_000
+}
+const fn default_min_merge_size() -> usize {
+    8
+}
 
 pub fn settings() -> Settings {
     let options = Settings::from_args();
@@ -64,13 +70,12 @@ impl Default for ConfigMergePolicy {
             kind: "log".into(),
             min_merge_size: 0,
             min_layer_size: 0,
-            level_log_size: 0.0
+            level_log_size: 0.0,
         }
     }
 }
 
 impl ConfigMergePolicy {
-
     pub fn get_kind(&self) -> MergePolicyType {
         match self.kind.to_ascii_lowercase().as_ref() {
             "log" => MergePolicyType::Log,
@@ -157,7 +162,7 @@ impl Default for Settings {
             bulk_buffer_size: Settings::default_bulk_buffer_size(),
             merge_policy: ConfigMergePolicy::default(),
             experimental: false,
-            experimental_features: Experimental::default()
+            experimental_features: Experimental::default(),
         }
     }
 }
