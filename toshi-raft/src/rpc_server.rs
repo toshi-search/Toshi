@@ -240,7 +240,7 @@ where
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use http::Uri;
 
     use toshi_server::index::{IndexCatalog, SharedCatalog};

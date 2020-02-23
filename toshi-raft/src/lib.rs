@@ -3,14 +3,13 @@ use std::path::Path;
 
 use bytes::BytesMut;
 use prost::Message;
-use raft::{RaftState, Storage, StorageError};
-use raft::prelude::*;
-use sled::{Db, open, IVec};
-use slog::{info, Logger};
 use raft::prelude::SnapshotMetadata;
+use raft::prelude::*;
+use raft::{RaftState, Storage};
+use sled::{open, Db};
+use slog::{info, Logger};
 
 use crate::state::SledRaftState;
-use std::process::id;
 
 pub mod raft_node;
 pub mod rpc_server;
@@ -40,7 +39,7 @@ impl SledStorage {
             info!(log, "Init sled storage db at: {}", path);
         }
         let db = open(Path::new(path))?;
-        let mut hard_state: HardState = Self::get(&db, b"hard_state")?;
+        let hard_state: HardState = Self::get(&db, b"hard_state")?;
         let mut conf_state: ConfState = Self::get(&db, b"conf_state")?;
         let last_idx_be = db.get(b"last_idx").unwrap_or(None);
 
@@ -49,7 +48,9 @@ impl SledStorage {
         }
         let last_idx: u64 = if let Some(libe) = last_idx_be {
             read_be_u64(&mut libe.as_ref())
-        } else { 1u64 };
+        } else {
+            hard_state.commit
+        };
 
         if !db.contains_key(b"hard_state")? {
             Self::insert(&db, b"hard_state", hard_state.clone())?;
@@ -57,8 +58,12 @@ impl SledStorage {
         if !db.contains_key(b"conf_state")? {
             Self::insert(&db, b"conf_state", conf_state.clone())?;
         }
-        let state = SledRaftState::new(hard_state, conf_state);
 
+        let state = SledRaftState::new(hard_state, conf_state);
+        if let Some(ref log) = logger {
+            info!(log, "Initial HardState = {:?}", state.hard_state);
+            info!(log, "Initial ConfState = {:?}", state.conf_state);
+        }
         Ok(Self {
             snapshot_metadata: SnapshotMetadata::default(),
             state,
@@ -69,8 +74,10 @@ impl SledStorage {
     }
 
     pub fn get<K, V>(db: &Db, k: K) -> Result<V, SledStorageError>
-        where K: AsRef<[u8]>,
-              V: Message + Default {
+    where
+        K: AsRef<[u8]>,
+        V: Message + Default,
+    {
         if let Ok(Some(v)) = db.get(k) {
             Ok(V::decode(v.as_ref())?)
         } else {
@@ -79,9 +86,10 @@ impl SledStorage {
     }
 
     pub fn insert<K, V>(db: &Db, k: K, v: V) -> Result<(), SledStorageError>
-        where K: AsRef<[u8]>,
-              V: Message {
-
+    where
+        K: AsRef<[u8]>,
+        V: Message,
+    {
         let mut buf = Vec::with_capacity(v.encoded_len());
         v.encode(&mut buf)?;
         db.insert(k, &buf[..])?;
@@ -108,9 +116,14 @@ impl SledStorage {
     }
 
     pub fn commit(&mut self, commit: u64) -> Result<(), SledStorageError> {
+        self.state.hard_state.commit = commit;
+        if let Some(ref log) = self.logger {
+            info!(log, "Commit HardState = {:?}", self.state.hard_state);
+            info!(log, "Commit ConfState = {:?}", self.state.conf_state);
+        }
 
-        Self::insert(&self.db, b"hard_state", self.state.hard_state.clone());
-        Self::insert(&self.db, b"conf_state", self.state.conf_state.clone());
+        Self::insert(&self.db, b"hard_state", self.state.hard_state.clone())?;
+        Self::insert(&self.db, b"conf_state", self.state.conf_state.clone())?;
         let idx = self.last_idx.to_be_bytes();
         self.db.insert(b"last_idx", &idx[..])?;
         let flush = self.db.flush()?;
@@ -147,20 +160,21 @@ impl Storage for SledStorage {
         if low <= 0 || high > self.last_idx {
             return Ok(vec![]);
         }
+        let max: u64 = max_size.into().unwrap_or(high - low);
         let lower = low.to_be_bytes();
-        let upper = high.to_be_bytes();
+        let upper = max.to_be_bytes();
         let tree = self.db.open_tree(b"entries").unwrap();
-        let mut results: Vec<Entry> = vec![];
+        let mut results = vec![];
         for i in tree.range(lower..upper) {
             match i {
-                Ok((k, v)) => {
+                Ok((_, v)) => {
                     let dec = Entry::decode(&v[..]).unwrap();
                     results.push(dec);
                 }
                 Err(e) => panic!(e),
             }
         }
-        Ok(results)
+        Ok(results.into_iter().take(max as usize).collect())
     }
 
     fn term(&self, idx: u64) -> Result<u64, raft::Error> {
@@ -168,13 +182,15 @@ impl Storage for SledStorage {
             return Ok(self.snapshot_metadata.term);
         }
         let idx_bytes = idx.to_be_bytes();
-        let mut tree = self.db.open_tree("entries").unwrap();
+        let tree = self.db.open_tree("entries").unwrap();
         let term = if let Ok(Some(e)) = tree.get(idx_bytes) {
             let msg = Entry::decode(e.as_ref()).unwrap();
             msg.term
-        } else { 1 };
+        } else {
+            0
+        };
         if let Some(log) = &self.logger {
-            info!(log, "Term = {}, Idx = {}", msg.term, idx);
+            info!(log, "Term = {}, Idx = {}", term, idx);
         }
         Ok(term)
     }
@@ -187,10 +203,8 @@ impl Storage for SledStorage {
         Ok(self.last_idx)
     }
 
-    fn snapshot(&self, request_index: u64) -> Result<Snapshot, raft::Error> {
+    fn snapshot(&self, _request_index: u64) -> Result<Snapshot, raft::Error> {
         let mut snapshot = Snapshot::default();
-
-        // Use the latest applied_idx to construct the snapshot.
         let applied_idx = self.state.hard_state.commit;
         let term = self.state.hard_state.term;
         let meta = snapshot.mut_metadata();

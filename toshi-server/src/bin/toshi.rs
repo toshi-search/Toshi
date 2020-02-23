@@ -3,28 +3,26 @@ use std::net::{IpAddr, SocketAddr};
 use std::path::{Path, PathBuf};
 use std::sync::{atomic::AtomicBool, Arc};
 
-use futures::prelude::*;
-use slog::Drain;
-use tokio::sync::oneshot::{self, Receiver, Sender};
-
 use dashmap::DashMap;
+use futures::prelude::*;
 use http::Uri;
 use raft::Config;
+use tokio::sync::oneshot::{self, Receiver, Sender};
 use tonic::Request;
+use tracing::*;
+
 use toshi_raft::raft_node::ToshiRaft;
 use toshi_raft::rpc_server::{create_client, RpcClient, RpcServer};
 use toshi_server::commit::watcher;
 use toshi_server::index::{IndexCatalog, SharedCatalog};
 use toshi_server::router::Router;
-use toshi_server::settings::{Experimental, Settings, HEADER, RPC_HEADER};
-use toshi_server::{shutdown, support};
+use toshi_server::settings::{settings, Experimental, Settings, HEADER, RPC_HEADER};
+use toshi_server::shutdown;
 use toshi_types::Catalog;
-use tracing::*;
 
-#[cfg_attr(tarpaulin, skip)]
 #[tokio::main]
 pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let settings = support::settings();
+    let settings = settings();
     setup_logging(&settings.log_level);
 
     let (tx, shutdown_signal) = oneshot::channel();
@@ -46,14 +44,12 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     setup_shutdown(shutdown_signal, index_catalog).await.map_err(Into::into)
 }
 
-#[cfg_attr(tarpaulin, skip)]
 fn setup_logging(level: &str) {
     std::env::set_var("RUST_LOG", level);
     let sub = tracing_fmt::FmtSubscriber::builder().with_ansi(true).finish();
     tracing::subscriber::set_global_default(sub).expect("Unable to set default Subscriber");
 }
 
-#[cfg_attr(tarpaulin, skip)]
 async fn setup_shutdown(shutdown_signal: Receiver<()>, index_catalog: SharedCatalog) -> Result<(), oneshot::error::RecvError> {
     shutdown_signal.await?;
     info!("Shutting down...");
@@ -61,7 +57,6 @@ async fn setup_shutdown(shutdown_signal: Receiver<()>, index_catalog: SharedCata
     Ok(())
 }
 
-#[cfg_attr(tarpaulin, skip)]
 async fn setup_toshi(settings: Settings, index_catalog: SharedCatalog, tx: Sender<()>) -> Result<(), ()> {
     let shutdown = shutdown::shutdown(tx);
     if !settings.experimental_features.leader && settings.experimental {
@@ -74,7 +69,6 @@ async fn setup_toshi(settings: Settings, index_catalog: SharedCatalog, tx: Sende
     }
 }
 
-#[cfg_attr(tarpaulin, skip)]
 fn setup_catalog(settings: &Settings) -> SharedCatalog {
     let path = PathBuf::from(settings.path.clone());
     let index_catalog = match IndexCatalog::new(path, settings.clone()) {
@@ -96,7 +90,6 @@ fn setup_catalog(settings: &Settings) -> SharedCatalog {
     Arc::new(index_catalog)
 }
 
-#[cfg_attr(tarpaulin, skip)]
 fn run_data(
     catalog: SharedCatalog,
     settings: Settings,
@@ -109,10 +102,7 @@ fn run_data(
         .unwrap_or_else(|_| panic!("Invalid IP address: {}", &settings.host));
 
     let bind: SocketAddr = SocketAddr::new(addr, settings.port);
-    let decorator = slog_term::PlainSyncDecorator::new(std::io::stdout());
-    let drain = slog_term::FullFormat::new(decorator).use_local_timestamp().build().fuse();
-    let async_drain = slog_async::Async::new(drain).build().fuse();
-    let root_log = slog::Logger::root(async_drain, slog::o!("toshi" => "toshi"));
+    let root_log = toshi_server::setup_logging();
 
     let Experimental { id, nodes, leader, .. } = settings.experimental_features;
     let fut = async move {
@@ -124,7 +114,7 @@ fn run_data(
             Uri::default()
         };
 
-        let raft = ToshiRaft::new(raft_cfg, catalog.base_path(), root_log.clone(), peers.clone()).unwrap();
+        let raft = ToshiRaft::new(raft_cfg, catalog.base_path(), root_log.clone(), peers.clone(), Arc::clone(&catalog)).unwrap();
         let chan = raft.mailbox_sender.clone();
         let cc = raft.conf_sender.clone();
 
@@ -147,7 +137,6 @@ fn run_data(
     Box::pin(fut)
 }
 
-#[cfg_attr(tarpaulin, skip)]
 fn run_master(catalog: SharedCatalog, settings: Settings) -> impl Future<Output = Result<(), hyper::Error>> + Unpin + Send {
     let bulk_lock = Arc::new(AtomicBool::new(false));
     let commit_watcher = watcher(Arc::clone(&catalog), settings.auto_commit_duration, Arc::clone(&bulk_lock));

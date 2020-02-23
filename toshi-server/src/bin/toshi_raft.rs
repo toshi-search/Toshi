@@ -1,22 +1,21 @@
+use std::net::{IpAddr, SocketAddr};
+use std::sync::Arc;
+
 use dashmap::DashMap;
 use http::Uri;
-use raft::{Config, ReadOnlyOption};
-use slog::Drain;
-use std::net::{IpAddr, SocketAddr};
-use std::path::PathBuf;
-use std::sync::Arc;
+use raft::Config;
 use tonic::Request;
+
 use toshi_proto::cluster_rpc::*;
 use toshi_raft::raft_node::ToshiRaft;
 use toshi_raft::rpc_server::{create_client, RpcClient, RpcServer};
-use toshi_server::index::{IndexCatalog, SharedCatalog};
-use toshi_server::settings::{Experimental, Settings};
-use toshi_server::support;
+use toshi_server::settings::{settings, Experimental};
+use toshi_server::{setup_catalog, setup_logging};
 use toshi_types::Catalog;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let settings = support::settings();
+    let settings = settings();
     let addr: IpAddr = settings
         .host
         .parse()
@@ -25,10 +24,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let host: SocketAddr = SocketAddr::new(addr, settings.port);
     let catalog = setup_catalog(&settings);
 
-    let decorator = slog_term::PlainSyncDecorator::new(std::io::stdout());
-    let drain = slog_term::FullFormat::new(decorator).use_local_timestamp().build().fuse();
-    let async_drain = slog_async::Async::new(drain).build().fuse();
-    let root_log = slog::Logger::root(async_drain, slog::o!("toshi" => "toshi"));
+    let root_log = setup_logging();
     let Experimental { id, nodes, leader, .. } = settings.experimental_features;
     let raft_cfg = Config::new(id);
     let peers = Arc::new(DashMap::new());
@@ -38,7 +34,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Uri::default()
     };
 
-    let mut raft = ToshiRaft::new(raft_cfg, catalog.base_path(), root_log.clone(), peers.clone())?;
+    let raft = ToshiRaft::new(raft_cfg, catalog.base_path(), root_log.clone(), peers.clone(), Arc::clone(&catalog))?;
     let chan = raft.mailbox_sender.clone();
     let cc = raft.conf_sender.clone();
 
@@ -53,20 +49,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         peers.insert(1, client);
     }
 
-    &raft.node.campaign();
-
     tokio::spawn(raft.run());
-
     slog::info!(root_log.clone(), "HOST = {:?}", host);
 
     if let Err(e) = RpcServer::serve(host, catalog, root_log.clone(), chan, cc).await {
         eprintln!("ERROR = {:?}", e);
     }
     Ok(())
-}
-
-fn setup_catalog(settings: &Settings) -> SharedCatalog {
-    let path = PathBuf::from(&settings.path);
-    let index_catalog = IndexCatalog::new(path, settings.clone()).unwrap();
-    Arc::new(index_catalog)
 }
