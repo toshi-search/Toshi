@@ -21,8 +21,9 @@ async fn index_documents(iw: Arc<Mutex<IndexWriter>>, dr: Receiver<Document>, wr
     let parsing_span = info_span!("PipingDocuments");
     let _enter = parsing_span.enter();
     let start = Instant::now();
-    let w = iw.lock().await;
     for doc in dr {
+        let w = iw.lock().await;
+        info!("Added - {:?}", &doc);
         w.add_document(doc);
     }
 
@@ -38,9 +39,16 @@ async fn parsing_documents(s: Schema, ds: Sender<Document>, lr: Receiver<Vec<u8>
         if !line.is_empty() {
             if let Ok(text) = from_utf8(&line) {
                 if let Ok(doc) = s.parse_document(text) {
-                    info!("Sending doc: {:?}", &doc);
-                    ds.send(doc).unwrap()
+                    // info!("Sending doc: {:?}", &doc);
+                    let s = ds.send(doc);
+                    if s.is_err() {
+                        panic!("Parse Thread Panic: {:?}", s);
+                    }
+                } else {
+                    panic!("Bad Doc: {:?}", line);
                 }
+            } else {
+                panic!("Bad UTF-8: {:?}", line);
             }
         }
     }
@@ -51,6 +59,7 @@ async fn parsing_documents(s: Schema, ds: Sender<Document>, lr: Receiver<Vec<u8>
 pub async fn bulk_insert(catalog: SharedCatalog, watcher: Arc<AtomicBool>, mut body: Body, index: &str) -> ResponseFuture {
     let span = info_span!("BulkInsert");
     let _enter = span.enter();
+    info!("Starting..., {:?}", index);
     watcher.store(true, Ordering::SeqCst);
     let index_handle = catalog.get_index(index).unwrap();
     let index = index_handle.get_index();
@@ -69,6 +78,7 @@ pub async fn bulk_insert(catalog: SharedCatalog, watcher: Arc<AtomicBool>, mut b
 
         tokio::spawn(parsing_documents(schema.clone(), doc_sender.clone(), line_recv.clone()).in_current_span());
     }
+    tokio::spawn(index_documents(writer, doc_recv, watcher_clone).in_current_span());
 
     let mut buf = Vec::new();
     let mut remaining = vec![];
@@ -89,7 +99,6 @@ pub async fn bulk_insert(catalog: SharedCatalog, watcher: Arc<AtomicBool>, mut b
     if !remaining.is_empty() {
         line_sender.send(remaining).expect("Line sender failed #2");
     }
-    tokio::spawn(index_documents(writer, doc_recv, watcher_clone).in_current_span());
     Ok(empty_with_code(StatusCode::CREATED))
 }
 

@@ -1,0 +1,62 @@
+[
+  {
+    "name": "lyrics",
+    "type": "text",
+    "options": {
+      "indexing": {
+        "record": "position",
+        "tokenizer": "default"
+      },
+      "stored": true
+    }
+  },
+  {
+    "name": "year",
+    "type": "i64",
+    "options": {
+      "indexed": true,
+      "stored": true
+    }
+  },
+  {
+    "name": "idx",
+    "type": "u64",
+    "options": {
+      "indexed": true,
+      "stored": true
+    }
+  },
+  {
+    "name": "artist",
+    "type": "text",
+    "options": {
+      "indexing": {
+        "record": "position",
+        "tokenizer": "default"
+      },
+      "stored": true
+    }
+  },
+  {
+    "name": "genre",
+    "type": "text",
+    "options": {
+      "indexing": {
+        "record": "position",
+        "tokenizer": "default"
+      },
+      "stored": true
+    }
+  },
+  {
+    "name": "song",
+    "type": "text",
+    "options": {
+      "indexing": {
+        "record": "position",
+        "tokenizer": "default"
+      },
+      "stored": true
+    }
+  }
+]
