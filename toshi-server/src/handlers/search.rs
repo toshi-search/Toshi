@@ -12,8 +12,8 @@ use crate::utils::{empty_with_code, with_body};
 use crate::SearchResults;
 
 #[inline]
-pub fn fold_results(results: Vec<SearchResults>) -> SearchResults {
-    results.into_iter().sum()
+pub fn fold_results(results: Vec<SearchResults>, limit: usize) -> SearchResults {
+    results.into_iter().take(limit).sum()
 }
 
 pub async fn doc_search(catalog: SharedCatalog, body: Body, index: &str) -> ResponseFuture {
@@ -26,7 +26,14 @@ pub async fn doc_search(catalog: SharedCatalog, body: Body, index: &str) -> Resp
     if catalog.exists(index) {
         info!("Query: {:?}", req);
         match catalog.search_local_index(index, req.clone()).await {
-            Ok(v) => Ok(with_body(v)),
+            Ok(SearchResults {docs, hits, facets}) => {
+                let limited = docs.into_iter().take(req.limit).collect();
+                Ok(with_body(SearchResults {
+                    docs: limited,
+                    hits,
+                    facets
+                }))
+            },
             Err(e) => Ok(Response::from(e)),
         }
     } else {
