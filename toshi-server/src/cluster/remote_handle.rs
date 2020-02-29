@@ -73,7 +73,8 @@ impl IndexHandle for RemoteIndex {
             let search_results: SearchResults = serde_json::from_slice(&search.doc)?;
             results.push(search_results);
         }
-        Ok(fold_results(results))
+        let limit = search.limit;
+        Ok(fold_results(results, limit))
     }
 
     async fn add_document(&self, add: AddDocument) -> Result<(), Error> {

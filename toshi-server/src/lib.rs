@@ -2,15 +2,12 @@
 #![deny(future_incompatible)]
 #![allow(clippy::cognitive_complexity)]
 
-use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
 use slog::{Drain, Logger};
-use tantivy::schema::Value;
 
-use toshi_types::AddDocument as AD;
-use toshi_types::SearchResults as SD;
+use toshi_types::{AddDocument as AD, FlatNamedDocument, SearchResults as SD};
 
 use crate::index::{IndexCatalog, SharedCatalog};
 use crate::settings::Settings;
@@ -28,7 +25,7 @@ pub mod utils;
 
 pub type Result<T> = std::result::Result<T, toshi_types::Error>;
 pub type AddDocument = AD<serde_json::Value>;
-pub type SearchResults = SD<BTreeMap<String, Vec<Value>>>;
+pub type SearchResults = SD<FlatNamedDocument>;
 
 pub fn setup_catalog(settings: &Settings) -> SharedCatalog {
     let path = PathBuf::from(&settings.path);

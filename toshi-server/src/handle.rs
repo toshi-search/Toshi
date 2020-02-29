@@ -1,4 +1,3 @@
-use std::collections::BTreeMap;
 use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
@@ -123,12 +122,12 @@ impl IndexHandle for LocalIndex {
             let mut scored_docs = searcher.search(&*gen_query, &multi_collector)?;
 
             // FruitHandle isn't a public type which leads to some duplicate code like this.
-            let docs: Vec<ScoredDoc<BTreeMap<_, _>>> = if let Some(h) = sorted_top_handle {
+            let docs: Vec<ScoredDoc<FlatNamedDocument>> = if let Some(h) = sorted_top_handle {
                 h.extract(&mut scored_docs)
                     .into_iter()
                     .map(|(score, doc)| {
                         let d = searcher.doc(doc).expect("Doc not found in segment");
-                        ScoredDoc::<BTreeMap<_, _>>::new(Some(score as f32), schema.to_named_doc(&d).0)
+                        ScoredDoc::<FlatNamedDocument>::new(Some(score as f32), schema.to_named_doc(&d).into())
                     })
                     .collect()
             } else {
@@ -137,7 +136,7 @@ impl IndexHandle for LocalIndex {
                     .into_iter()
                     .map(|(score, doc)| {
                         let d = searcher.doc(doc).expect("Doc not found in segment");
-                        ScoredDoc::<BTreeMap<_, _>>::new(Some(score), schema.to_named_doc(&d).0)
+                        ScoredDoc::<FlatNamedDocument>::new(Some(score), schema.to_named_doc(&d).into())
                     })
                     .collect()
             };

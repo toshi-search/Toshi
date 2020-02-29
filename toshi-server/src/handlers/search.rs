@@ -21,19 +21,12 @@ pub async fn doc_search(catalog: SharedCatalog, body: Body, index: &str) -> Resp
     let _enter = span.enter();
     let b = aggregate(body).await?;
     let req = serde_json::from_slice::<Search>(b.bytes()).unwrap();
-    let req = if req.query.is_none() { Search::all_docs() } else { req };
+    let req = if req.query.is_none() { Search::all_limit(req.limit) } else { req };
 
     if catalog.exists(index) {
         info!("Query: {:?}", req);
         match catalog.search_local_index(index, req.clone()).await {
-            Ok(SearchResults {docs, hits, facets}) => {
-                let limited = docs.into_iter().take(req.limit).collect();
-                Ok(with_body(SearchResults {
-                    docs: limited,
-                    hits,
-                    facets
-                }))
-            },
+            Ok(results) => Ok(with_body(results)),
             Err(e) => Ok(Response::from(e)),
         }
     } else {
@@ -147,14 +140,18 @@ pub mod tests {
         Ok(())
     }
 
+    // This code is just...the worst thing ever.
     #[tokio::test]
     async fn test_raw_query() -> ReturnUnit {
-        let body = r#"test_text:"Duckiment""#;
-        let req = Search::new(Some(Query::Raw { raw: body.into() }), None, 10);
+        let b = r#"test_text:"Duckiment""#;
+        let req = Search::new(Some(Query::Raw { raw: b.into() }), None, 10);
         let q = run_query(req, "test_index").await?;
         let body: SearchResults = wait_json(q).await;
-        assert_eq!(body.hits as usize, body.docs.len());
-        assert_eq!(body.docs[0].doc["test_text"][0].text().unwrap(), "Test Duckiment 3");
+        assert_eq!(*&body.hits as usize, body.docs.len());
+        let b2 = body.clone();
+        let map = b2.docs[0].clone().doc.0;
+        let text = String::from(map.remove("test_text").unwrap().1.clone().as_str().unwrap());
+        assert_eq!(text, "Test Duckiment 3");
         Ok(())
     }
 

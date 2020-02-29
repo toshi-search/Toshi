@@ -1,12 +1,14 @@
 use std::fmt;
 use std::marker::PhantomData;
 
+use dashmap::DashMap;
 use serde::de::{DeserializeOwned, Deserializer, Error as SerdeError, MapAccess, Visitor};
 use serde::ser::SerializeMap;
 use serde::Serializer;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use tantivy::query::Query as TantivyQuery;
-use tantivy::schema::Schema;
+use tantivy::schema::{NamedFieldDocument, Schema};
 use tantivy::Term;
 
 use crate::error::Error;
@@ -109,6 +111,12 @@ impl Search {
             limit: Self::default_limit(),
             sort_by: None,
         }
+    }
+
+    pub fn all_limit(limit: usize) -> Self {
+        let mut all = Self::all_docs();
+        all.limit = limit;
+        all
     }
 }
 
@@ -256,9 +264,45 @@ where
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct FlatNamedDocument(pub DashMap<String, Value>);
+
+impl Into<FlatNamedDocument> for NamedFieldDocument {
+    fn into(self) -> FlatNamedDocument {
+        let map = DashMap::with_capacity(self.0.len());
+        for (k, v) in self.0 {
+            if v.len() == 1 {
+                map.insert(k, serde_json::to_value(&v[0]).unwrap());
+                continue;
+            }
+            map.insert(k, serde_json::to_value(v).unwrap());
+        }
+        FlatNamedDocument(map)
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use tantivy::schema::*;
+
     use super::*;
+
+    #[test]
+    fn test_doc_deserialize() {
+        let mut schema_builder = Schema::builder();
+        let title = schema_builder.add_text_field("title", TEXT);
+        let author = schema_builder.add_text_field("text", TEXT);
+        let likes = schema_builder.add_u64_field("num_u64", FAST);
+        let schema: Schema = schema_builder.build();
+        let doc = tantivy::doc!(
+            title => "Life Aquatic",
+            author => "Wes Anderson",
+            likes => 4u64
+        );
+        let named: FlatNamedDocument = schema.to_named_doc(&doc).into();
+
+        println!("{}", serde_json::to_string_pretty(&named).unwrap());
+    }
 
     #[test]
     fn test_kv_serialize() {
