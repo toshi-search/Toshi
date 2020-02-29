@@ -9,16 +9,14 @@ rust_2018_idioms, unreachable_pub)]
 //! of Toshi's source code.
 
 use dashmap::DashMap;
-use std::collections::BTreeMap;
 
 use serde_json::Value as SerdeValue;
-use tantivy::schema::Value;
 
 pub use client::{ScoredDoc, SearchResults, SummaryResponse};
 pub use error::{Error, ErrorResponse};
 pub use query::{
     boolean::BoolQuery, facet::FacetQuery, fuzzy::FuzzyQuery, fuzzy::FuzzyTerm, phrase::PhraseQuery, phrase::TermPair, range::RangeQuery,
-    range::Ranges, regex::RegexQuery, term::ExactTerm, CreateQuery, KeyValue, Query, Search,
+    range::Ranges, regex::RegexQuery, term::ExactTerm, CreateQuery, FlatNamedDocument, KeyValue, Query, Search,
 };
 pub use server::*;
 use tantivy::Index;
@@ -63,7 +61,7 @@ pub trait IndexHandle: Clone {
     fn get_index(&self) -> Index;
 
     /// Search for documents in this index
-    async fn search_index(&self, search: Search) -> Result<SearchResults<BTreeMap<String, Vec<Value>>>>;
+    async fn search_index(&self, search: Search) -> Result<SearchResults<FlatNamedDocument>>;
     /// Add documents to this index
     async fn add_document(&self, doc: AddDocument<SerdeValue>) -> Result<()>;
     /// Delete terms/documents from this index
