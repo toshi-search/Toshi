@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use slog::{Drain, Logger};
 
-use toshi_types::{AddDocument as AD, FlatNamedDocument, SearchResults as SD};
+use toshi_types::FlatNamedDocument;
 
 use crate::index::{IndexCatalog, SharedCatalog};
 use crate::settings::Settings;
@@ -23,8 +23,8 @@ pub mod shutdown;
 pub mod utils;
 
 pub type Result<T> = std::result::Result<T, toshi_types::Error>;
-pub type AddDocument = AD<serde_json::Value>;
-pub type SearchResults = SD<FlatNamedDocument>;
+pub type AddDocument = toshi_types::AddDocument<serde_json::Value>;
+pub type SearchResults = toshi_types::SearchResults<FlatNamedDocument>;
 
 pub fn setup_catalog(settings: &Settings) -> SharedCatalog {
     let path = PathBuf::from(&settings.path);

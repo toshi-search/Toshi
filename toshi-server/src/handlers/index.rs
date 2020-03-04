@@ -4,6 +4,7 @@ use hyper::{Body, Response, StatusCode};
 use rand::random;
 use tantivy::schema::*;
 use tantivy::Index;
+use tokio::sync::mpsc::Sender;
 
 use toshi_proto::cluster_rpc::*;
 use toshi_raft::rpc_server::RpcClient;
@@ -91,7 +92,7 @@ pub async fn create_index(catalog: SharedCatalog, body: Body, index: &str) -> Re
     }
 }
 
-pub async fn add_document(catalog: SharedCatalog, body: Body, index: &str) -> ResponseFuture {
+pub async fn add_document(catalog: SharedCatalog, body: Body, index: &str, raft_sender: Option<Sender<Message>>) -> ResponseFuture {
     let full_body = aggregate(body).await?;
     let b = full_body.bytes();
     let req = serde_json::from_slice::<AddDocument>(&b).unwrap();
@@ -105,6 +106,17 @@ pub async fn add_document(catalog: SharedCatalog, body: Body, index: &str) -> Re
             .or_else(|e| Ok(error_response(StatusCode::BAD_REQUEST, e)))
     } else {
         tracing::info!("Pushing to local...");
+        if let Some(mut sender) = raft_sender {
+            let mut msg = Message::default();
+            msg.set_msg_type(MessageType::MsgPropose);
+            msg.from = catalog.raft_id();
+            let mut entry = Entry::default();
+            entry.context = index.into();
+            msg.entries = vec![entry].into();
+
+            sender.send(msg).await;
+
+        }
         let add = catalog.add_local_document(index, req).await;
 
         add.map(|_| empty_with_code(StatusCode::CREATED))
@@ -155,7 +167,7 @@ mod tests {
         let shared_cat = create_test_catalog("test_index");
         let body = async {
             let q = r#" {"options": {"commit": true }, "document": {"test_text": "Babbaboo!", "test_u64": 10, "test_i64": -10} }"#;
-            let req = add_document(Arc::clone(&shared_cat), Body::from(q), &test_index()).await;
+            let req = add_document(Arc::clone(&shared_cat), Body::from(q), &test_index(), None).await;
 
             assert_eq!(req.is_ok(), true);
         };
@@ -191,7 +203,7 @@ mod tests {
                 options: None,
             };
             let body_bytes = serde_json::to_vec(&add_doc).unwrap();
-            let req = add_document(Arc::clone(&shared_cat), Body::from(body_bytes), &test_index())
+            let req = add_document(Arc::clone(&shared_cat), Body::from(body_bytes), &test_index(), None)
                 .await
                 .unwrap()
                 .into_body();

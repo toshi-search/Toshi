@@ -102,6 +102,10 @@ impl IndexCatalog {
         Ok(index_cat)
     }
 
+    pub fn raft_id(&self) -> u64 {
+        self.settings.experimental_features.id
+    }
+
     pub async fn update_remote_indexes(&self) -> Result<()> {
         let hosts = IndexCatalog::refresh_multiple_nodes(self.settings.experimental_features.nodes.clone()).await?;
         for host in hosts {

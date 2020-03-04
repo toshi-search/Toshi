@@ -51,7 +51,7 @@ pub mod tests {
 
         let body = r#"{"document": { "test_text": "Babbaboo!", "test_u64": 10 , "test_i64": -10, "test_unindex": "asdf1234" } }"#;
 
-        add_document(Arc::clone(&catalog), Body::from(body), "test_index".into())
+        add_document(Arc::clone(&catalog), Body::from(body), "test_index".into(), None)
             .await
             .unwrap();
 

@@ -90,7 +90,7 @@ pub mod tests {
         let cat = create_test_catalog("test_index");
         let body = r#"{ "query" : { "raw": "test_text:\"document\"" } }"#;
         let (list, ts) = TestServer::new()?;
-        let router = Router::new(cat, Arc::new(AtomicBool::new(false)));
+        let router = Router::new(cat, Arc::new(AtomicBool::new(false)), None);
         let req = Request::post(ts.uri("/asdf1234")).body(Body::from(body))?;
         let resp = ts.get(req, router.router_from_tcp(list)).await?;
         assert_eq!(resp.status(), StatusCode::NOT_FOUND);
