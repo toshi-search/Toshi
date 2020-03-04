@@ -26,18 +26,18 @@ jobs:
           args: --all
       - name: Check Fmt
         uses: actions-rs/cargo@v1
-          with:
-            command: fmt
-            args: --all -- --check
+        with:
+          command: fmt
+          args: --all -- --check
       - name: Run Clippy
         uses: actions-rs/cargo@v1
-          with:
-            command: clippy
+        with:
+          command: clippy
       - name: Run Tests
         uses: actions-rs/cargo@v1
-          with:
-            command: test
-            args: --all --all-features
+        with:
+          command: test
+          args: --all --all-features
 #        run: |
 #          set -e
 #          curl https://sh.rustup.rs -sSf | sh -s -- -y
