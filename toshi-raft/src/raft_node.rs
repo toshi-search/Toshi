@@ -158,7 +158,7 @@ where
         slog::info!(self.logger, "Am I leader?: {}", is_leader);
 
         if !raft::is_empty_snap(ready.snapshot()) {
-            let mut snap = ready.snapshot().clone();
+            let snap = ready.snapshot().clone();
             slog::info!(self.logger, "Got a snap: {:?}", snap);
             self.node.mut_store().apply_snapshot(snap)?;
         }
@@ -180,7 +180,6 @@ where
             self.node.mut_store().commit(hs.commit)?;
         }
 
-        //        if is_leader {
         for msg in ready.messages.drain(..) {
             slog::info!(self.logger, "LOGMSG={:?}", msg);
             let to = msg.to;
@@ -196,7 +195,6 @@ where
                 panic!("Could not locate client for id: {}", to);
             }
         }
-        //        }
 
         if !is_leader {
             let msgs = ready.messages.drain(..);
@@ -245,7 +243,7 @@ where
 
                     e.merge(Bytes::from(entry.data.clone()))?;
 
-                    self.node.mut_store().append_single(e)?;
+                    self.node.mut_store().append(&vec![e])?;
                 }
                 Some(EntryType::EntryConfChangeV2) => panic!("Conf2"),
                 None => panic!(":-("),

@@ -123,7 +123,7 @@ impl IndexCatalog {
         let map = DashMap::new();
         let remote_map = DashMap::new();
         let new_index = LocalIndex::new(index, Settings::default(), &name)
-            .unwrap_or_else(|_| panic!("Unable to open index: {} because it's locked", name));
+            .unwrap_or_else(|e| panic!("Unable to open index: {} because it's locked: {:?}", name, e));
         map.insert(name, new_index);
 
         Ok(IndexCatalog {

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -eu
 CUR_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd $CUR_DIR/../
+cd "$CUR_DIR/../"
 COVERAGE_DIR="$CUR_DIR/../coverage"
 OUTPUT=${1:-Html}
 
@@ -10,20 +10,20 @@ OUTPUT=${1:-Html}
 ##
 
 if [[ -d $CUR_DIR/../target ]]; then
-  find $CUR_DIR/../target -name "*.gc*" -delete
+  find "$CUR_DIR/../target" -name "*.gc*" -delete
 fi
 
 export CARGO_OPTIONS="--all --all-features"
 export CARGO_INCREMENTAL=0
 export RUSTFLAGS="-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Zno-landing-pads"
 cargo +nightly clean
-cargo +nightly build $CARGO_OPTIONS
-cargo +nightly test $CARGO_OPTIONS
+cargo +nightly build "$CARGO_OPTIONS"
+cargo +nightly test "$CARGO_OPTIONS"
 
-mkdir -p $COVERAGE_DIR
-zip -0 $COVERAGE_DIR/ccov.zip `find . \( -name "*toshi*.gc*" \) -print`;
+mkdir -p "$COVERAGE_DIR"
+zip -0 "$COVERAGE_DIR/ccov.zip" "$(find . \( -name "*toshi*.gc*" \) -print)";
 
-grcov $COVERAGE_DIR/ccov.zip -s . -t lcov --llvm -o $COVERAGE_DIR/lcov.info \
+grcov "$COVERAGE_DIR/ccov.zip" -s . -t lcov --llvm -o "$COVERAGE_DIR/lcov.info" \
 	--ignore-not-existing \
 	--ignore "/*"
 
