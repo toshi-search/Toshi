@@ -10,7 +10,7 @@ jobs:
         os:
           - macOS-latest
           - ubuntu-latest
-          #- windows-latest
+          - windows-latest
     steps:
       - uses: actions/checkout@v2
       - name: Install Rust & Tools
@@ -32,26 +32,27 @@ jobs:
           cargo clippy
           cargo test --all --all-features
         shell: bash
-  coverage:
-    runs-on: ubuntu-latest
 
-    steps:
-      - uses: actions/checkout@v2
-      - name: Install Rust & Dependencies
-        run: |
-          set -e
-          curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain stable
-          export PATH=$PATH:$HOME/.cargo/bin:/usr/local/cargo/bin
-          rustc --version && cargo --version
-          rustup toolchain install nightly
-        shell: bash
-      - name: Check & test
-        run: |
-          set -e
-          curl -L https://github.com/mozilla/grcov/releases/latest/download/grcov-linux-x86_64.tar.bz2 | tar jxf -
-          export PATH=$PATH:`pwd`
-          chmod +x ./ci/coverage.sh
-          ./ci/coverage.sh codecov_io
-          export CODECOV_TOKEN=${{ secrets.CODECOV_TOKEN }}
-          bash <(curl -s https://codecov.io/bash)
-        shell: bash
+# Broken pending https://github.com/rust-lang/rust/issues/69629
+#  coverage:
+#    runs-on: ubuntu-latest
+#    steps:
+#      - uses: actions/checkout@v2
+#      - name: Install Rust & Dependencies
+#        run: |
+#          set -e
+#          curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain stable
+#          export PATH=$PATH:$HOME/.cargo/bin:/usr/local/cargo/bin
+#          rustc --version && cargo --version
+#          rustup toolchain install nightly
+#        shell: bash
+#      - name: Check & test
+#        run: |
+#          set -e
+#          curl -L https://github.com/mozilla/grcov/releases/latest/download/grcov-linux-x86_64.tar.bz2 | tar jxf -
+#          export PATH=$PATH:`pwd`
+#          chmod +x ./ci/coverage.sh
+#          ./ci/coverage.sh codecov_io
+#          export CODECOV_TOKEN=${{ secrets.CODECOV_TOKEN }}
+#          bash <(curl -s https://codecov.io/bash)
+#        shell: bash

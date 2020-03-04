@@ -243,7 +243,7 @@ where
 
                     e.merge(Bytes::from(entry.data.clone()))?;
 
-                    self.node.mut_store().append(&vec![e])?;
+                    self.node.mut_store().append(&[e])?;
                 }
                 Some(EntryType::EntryConfChangeV2) => panic!("Conf2"),
                 None => panic!(":-("),

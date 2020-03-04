@@ -157,7 +157,7 @@ impl Storage for SledStorage {
     }
 
     fn entries(&self, low: u64, high: u64, max_size: impl Into<Option<u64>>) -> Result<Vec<Entry>, raft::Error> {
-        if low <= 0 || high > self.last_idx {
+        if high > self.last_idx {
             return Ok(vec![]);
         }
         let max: u64 = max_size.into().unwrap_or(high - low);
