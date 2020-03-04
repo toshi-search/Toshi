@@ -47,7 +47,12 @@ impl Router {
         Self { cat, watcher, sender }
     }
 
-    pub async fn route(catalog: SharedCatalog, watcher: Arc<AtomicBool>, req: Request<Body>, sender: Option<Sender<Message>>) -> Result<Response<Body>, hyper::Error> {
+    pub async fn route(
+        catalog: SharedCatalog,
+        watcher: Arc<AtomicBool>,
+        req: Request<Body>,
+        sender: Option<Sender<Message>>,
+    ) -> Result<Response<Body>, hyper::Error> {
         let (parts, body) = req.into_parts();
         let query_options: QueryOptions = parts
             .uri
@@ -78,7 +83,11 @@ impl Router {
         }
     }
 
-    pub async fn service_call(catalog: SharedCatalog, watcher: Arc<AtomicBool>, sender: Option<Sender<Message>>) -> Result<BoxedFn, Infallible> {
+    pub async fn service_call(
+        catalog: SharedCatalog,
+        watcher: Arc<AtomicBool>,
+        sender: Option<Sender<Message>>,
+    ) -> Result<BoxedFn, Infallible> {
         Ok(BoxService::new(service_fn(move |req| {
             info!("REQ = {:?}", &req);
             Self::route(Arc::clone(&catalog), Arc::clone(&watcher), req, sender.clone())

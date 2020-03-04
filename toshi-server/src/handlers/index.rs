@@ -114,8 +114,7 @@ pub async fn add_document(catalog: SharedCatalog, body: Body, index: &str, raft_
             entry.context = index.into();
             msg.entries = vec![entry].into();
 
-            sender.send(msg).await;
-
+            sender.send(msg).await.unwrap();
         }
         let add = catalog.add_local_document(index, req).await;
 
