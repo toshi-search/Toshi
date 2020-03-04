@@ -26,6 +26,7 @@ jobs:
           args: --all
       - name: Check Fmt
         uses: actions-rs/cargo@v1
+        if: matrix.os != 'windows-latest'
         with:
           command: fmt
           args: --all -- --check
