@@ -44,9 +44,12 @@ where
         logger: Logger,
         peers: Arc<DashMap<u64, RpcClient>>,
         catalog: Arc<C>,
+        mailbox_sender: Sender<cluster_rpc::Message>,
+        mailbox_recv: Receiver<cluster_rpc::Message>,
     ) -> Result<Self, crate::SledStorageError> {
         cfg.validate()?;
 
+        assert!(!base_path.is_empty());
         if base_path.ends_with('/') {
             base_path.pop();
         }
@@ -54,7 +57,6 @@ where
         let path = format!("{}-wal", base_path);
         let db = SledStorage::new_with_logger(&path, cfg.clone(), Some(logger.clone()))?;
         let node = RawNode::new(&cfg, db, &logger)?;
-        let (mailbox_sender, mailbox_recv) = channel(1024);
         let (conf_sender, conf_recv) = channel(1024);
 
         Ok(Self {
@@ -268,7 +270,7 @@ mod tests {
     async fn test_raft_propose() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
         let log = toshi_server::setup_logging();
         let catalog = crate::rpc_server::tests::create_test_catalog("test_index");
-        let raft = ToshiRaft::new(Config::new(1), catalog.base_path(), log, Arc::new(DashMap::new()), catalog).unwrap();
+        // let raft = ToshiRaft::new(Config::new(1), catalog.base_path(), log, Arc::new(DashMap::new()), catalog).unwrap();
 
         let ctx = br#"test_index"#;
         let data = br#"{"test_text": "Babbaboo!", "test_u64": 10, "test_i64": -10}"#;

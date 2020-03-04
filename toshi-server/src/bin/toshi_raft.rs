@@ -27,14 +27,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let root_log = setup_logging();
     let Experimental { id, nodes, leader, .. } = settings.experimental_features;
     let raft_cfg = Config::new(id);
-    let peers = Arc::new(DashMap::new());
+    let peers: Arc<DashMap<u64, RpcClient>> = Arc::new(DashMap::new());
     let uri = if !nodes.is_empty() {
         format!("http://{}", nodes[0]).parse::<Uri>()?
     } else {
         Uri::default()
     };
 
-    let raft = ToshiRaft::new(raft_cfg, catalog.base_path(), root_log.clone(), peers.clone(), Arc::clone(&catalog))?;
+    let (sender, recv) = tokio::sync::mpsc::channel(1024);
+    let raft = ToshiRaft::new(
+        raft_cfg,
+        catalog.base_path(),
+        root_log.clone(),
+        peers.clone(),
+        Arc::clone(&catalog),
+        sender,
+        recv,
+    )?;
     let chan = raft.mailbox_sender.clone();
     let cc = raft.conf_sender.clone();
 

@@ -66,7 +66,7 @@ mod tests {
     #[tokio::test]
     async fn get_summary_data() -> Result<(), Box<dyn std::error::Error>> {
         let catalog = create_test_catalog("test_index");
-        let router = Router::new(catalog, Arc::new(AtomicBool::new(false)));
+        let router = Router::new(catalog, Arc::new(AtomicBool::new(false)), None);
         let (list, ts) = TestServer::new()?;
         let request = Request::get(ts.uri("/test_index/_summary?include_sizes=true")).body(Body::empty())?;
         let req = ts.get(request, router.router_from_tcp(list)).await?;
