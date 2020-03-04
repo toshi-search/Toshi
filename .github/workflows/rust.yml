@@ -16,7 +16,8 @@ jobs:
       - name: Install Rust & Tools
         run: |
           set -e
-          curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain stable
+          curl https://sh.rustup.rs -sSf | sh -s -- -y
+          rustup toolchain install stable
           export PATH=$PATH:$HOME/.cargo/bin:/usr/local/cargo/bin
           rustc --version && cargo --version
           rustup component add rustfmt
