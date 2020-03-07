@@ -3,9 +3,9 @@ use tantivy::query::{BooleanQuery, Occur, Query as TQuery};
 use tantivy::schema::Schema;
 
 use crate::error::Error;
+use crate::query::Query::{Exact, Range, Raw, Regex};
 use crate::query::{CreateQuery, Query};
-use crate::{Result, FuzzyQuery, PhraseQuery};
-use crate::query::Query::{Exact, Regex, Raw, Range};
+use crate::{FuzzyQuery, PhraseQuery, Result};
 
 /// A boolean query parallel to Tantivy's [`tantivy::query::BooleanQuery`]: BooleanQuery
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -133,7 +133,7 @@ mod tests {
     use tantivy::schema::*;
 
     use crate::query::Search;
-    use crate::{BoolQuery, PhraseQuery, TermPair, RegexQuery, Query};
+    use crate::{BoolQuery, PhraseQuery, Query, RegexQuery, TermPair};
 
     #[test]
     fn test_bool_query() {
