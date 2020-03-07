@@ -66,7 +66,7 @@ pub mod tests {
     async fn test_term_query() -> Result<(), Box<dyn std::error::Error>> {
         let term = KeyValue::new("test_text".into(), "document".into());
         let term_query = Query::Exact(ExactTerm::new(term));
-        let search = Search::new(Some(term_query), None, 10);
+        let search = Search::new(Some(term_query), None, 10, None);
         let q = run_query(search, "test_index").await?;
         let body: SearchResults = wait_json(q).await;
         assert_eq!(body.hits, 3);
@@ -78,7 +78,7 @@ pub mod tests {
         let terms = TermPair::new(vec!["test".into(), "document".into()], None);
         let phrase = KeyValue::new("test_text".into(), terms);
         let term_query = Query::Phrase(PhraseQuery::new(phrase));
-        let search = Search::new(Some(term_query), None, 10);
+        let search = Search::new(Some(term_query), None, 10, None);
         let q = run_query(search, "test_index").await?;
         let body: SearchResults = wait_json(q).await;
         assert_eq!(body.hits, 3);
@@ -144,7 +144,7 @@ pub mod tests {
     #[tokio::test]
     async fn test_raw_query() -> ReturnUnit {
         let b = r#"test_text:"Duckiment""#;
-        let req = Search::new(Some(Query::Raw { raw: b.into() }), None, 10);
+        let req = Search::new(Some(Query::Raw { raw: b.into() }), None, 10, None);
         let q = run_query(req, "test_index").await?;
         let body: SearchResults = wait_json(q).await;
         assert_eq!(*&body.hits as usize, body.docs.len());
@@ -159,7 +159,7 @@ pub mod tests {
     async fn test_fuzzy_term_query() -> ReturnUnit {
         let fuzzy = KeyValue::new("test_text".into(), FuzzyTerm::new("document".into(), 0, false));
         let term_query = Query::Fuzzy(FuzzyQuery::new(fuzzy));
-        let search = Search::new(Some(term_query), None, 10);
+        let search = Search::new(Some(term_query), None, 10, None);
         let q = run_query(search, "test_index").await?;
         let body: SearchResults = wait_json(q).await;
 

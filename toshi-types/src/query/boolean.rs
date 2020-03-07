@@ -4,7 +4,8 @@ use tantivy::schema::Schema;
 
 use crate::error::Error;
 use crate::query::{CreateQuery, Query};
-use crate::Result;
+use crate::{Result, FuzzyQuery, PhraseQuery};
+use crate::query::Query::{Exact, Regex, Raw, Range};
 
 /// A boolean query parallel to Tantivy's [`tantivy::query::BooleanQuery`]: BooleanQuery
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -132,6 +133,7 @@ mod tests {
     use tantivy::schema::*;
 
     use crate::query::Search;
+    use crate::{BoolQuery, PhraseQuery, TermPair, RegexQuery, Query};
 
     #[test]
     fn test_bool_query() {
@@ -153,5 +155,18 @@ mod tests {
         let _schema = builder.build();
 
         let _result = serde_json::from_str::<Search>(test_json).unwrap();
+    }
+
+    #[test]
+    pub fn test_builder() {
+        let phrase = PhraseQuery::with_phrase("test_text".into(), TermPair::new(vec!["blah".into()], None));
+        let regex = RegexQuery::from_str("test_text".into(), ".*");
+        let builder = BoolQuery::builder()
+            .must_match(Query::Phrase(phrase.clone()))
+            .should_match(Query::Regex(regex))
+            .must_not_match(Query::Phrase(phrase))
+            .with_minimum_should_match(1)
+            .with_boost(1.0)
+            .build();
     }
 }

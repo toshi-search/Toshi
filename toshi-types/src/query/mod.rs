@@ -75,12 +75,12 @@ pub struct Search {
 
 impl Search {
     /// Construct a new Search query
-    pub fn new(query: Option<Query>, facets: Option<FacetQuery>, limit: usize) -> Self {
+    pub fn new(query: Option<Query>, facets: Option<FacetQuery>, limit: usize, sort_by: Option<String>) -> Self {
         Search {
             query,
             facets,
             limit,
-            sort_by: None,
+            sort_by,
         }
     }
 
@@ -91,7 +91,7 @@ impl Search {
 
     /// Construct a search with a known Query
     pub fn with_query(query: Query) -> Self {
-        Self::new(Some(query), None, Self::default_limit())
+        Self::new(Some(query), None, Self::default_limit(), None)
     }
 
     /// The default limit for docs to return
@@ -125,6 +125,7 @@ pub struct SearchBuilder {
     query: Query,
     facets: Option<FacetQuery>,
     limit: usize,
+    sort_by: Option<String>,
 }
 
 impl Default for SearchBuilder {
@@ -139,6 +140,7 @@ impl SearchBuilder {
             query: Query::All,
             facets: None,
             limit: 100,
+            sort_by: None,
         }
     }
 
@@ -154,8 +156,15 @@ impl SearchBuilder {
         self.limit = limit;
         self
     }
+    pub fn sort_by<V>(mut self, field: V) -> Self
+    where
+        V: ToString,
+    {
+        self.sort_by = Some(field.to_string());
+        self
+    }
     pub fn build(self) -> Search {
-        Search::new(Some(self.query), self.facets, self.limit)
+        Search::new(Some(self.query), self.facets, self.limit, self.sort_by)
     }
 }
 
@@ -309,5 +318,17 @@ mod tests {
         let kv = KeyValue::new("test_field".to_string(), 1);
         let expected = r#"{"test_field":1}"#;
         assert_eq!(expected, serde_json::to_string(&kv).unwrap());
+    }
+
+    #[test]
+    fn test_builder() {
+        let query_builder = FuzzyQuery::builder().for_field("text").with_distance(20).with_value("Hi!").build();
+        let builder = Search::builder().with_limit(50).with_query(query_builder).sort_by("text");
+        let query = builder.build();
+
+        assert_eq!(query.query.is_some(), true);
+        assert_eq!(query.limit, 50);
+        assert_eq!(query.sort_by.is_some(), true);
+        assert_eq!(query.sort_by.unwrap(), "text");
     }
 }

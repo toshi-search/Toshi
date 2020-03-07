@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -eu
 CUR_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$CUR_DIR/../"
+cd $CUR_DIR/../
 COVERAGE_DIR="$CUR_DIR/../coverage"
 OUTPUT=${1:-Html}
 
@@ -10,7 +10,7 @@ OUTPUT=${1:-Html}
 ##
 
 if [[ -d $CUR_DIR/../target ]]; then
-  find "$CUR_DIR/../target" -name "*.gc*" -delete
+  find $CUR_DIR/../target -name "*.gc*" -delete
 fi
 
 export CARGO_INCREMENTAL=0
@@ -19,16 +19,14 @@ cargo +nightly clean
 cargo +nightly build --all --all-features
 cargo +nightly test --all --all-features
 
-mkdir -p "$COVERAGE_DIR"
-zip -0 "$COVERAGE_DIR/ccov.zip" "$(find . \( -name "*toshi*.gc*" \) -print)";
+mkdir -p $COVERAGE_DIR
+zip -0 $COVERAGE_DIR/ccov.zip `find . \( -name "*toshi*.gc*" \) -print`;
 
-grcov "$COVERAGE_DIR/ccov.zip" -s . -t lcov --llvm -o "$COVERAGE_DIR/lcov.info" \
-	--ignore-not-existing \
-	--ignore "/*"
+grcov $COVERAGE_DIR/ccov.zip -s . -t lcov --llvm -o $COVERAGE_DIR/lcov.info --ignore-not-existing --ignore "/*"
 
 
 if [[ "$OUTPUT" == "Html" ]]; then
-	genhtml -o "$COVERAGE_DIR"/ --show-details --highlight --ignore-errors source --legend "$COVERAGE_DIR"/lcov.info
+	genhtml -o $COVERAGE_DIR/ --show-details --highlight --ignore-errors source --legend "$COVERAGE_DIR"/lcov.info
 else
-	bash <(curl -s https://codecov.io/bash) -f "$COVERAGE_DIR"/lcov.info;
+	bash <(curl -s https://codecov.io/bash) -f $COVERAGE_DIR/lcov.info;
 fi

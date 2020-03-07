@@ -59,7 +59,7 @@ impl RangeQuery {
     where
         V: Serialize + Default,
     {
-        RangeQueryBuilder::default()
+        RangeQueryBuilder::<V>::default()
     }
 }
 
@@ -84,7 +84,10 @@ where
         Self::default()
     }
 
-    pub fn for_field<F: ToString>(mut self, field: F) -> Self {
+    pub fn for_field<F>(mut self, field: F) -> Self
+    where
+        F: ToString,
+    {
         self.field = field.to_string();
         self
     }
@@ -223,5 +226,12 @@ mod tests {
         let req = serde_json::from_str::<RangeQuery>(body).unwrap().create_query(&built);
 
         assert_eq!(req.is_err(), false);
+    }
+
+    #[test]
+    fn test_range_builder() {
+        let builder = RangeQuery::builder().gte(5).lte(10).for_field("test");
+        let query = builder.build();
+        println!("{:?}", query);
     }
 }
