@@ -4,7 +4,7 @@ rust_2018_idioms, unreachable_pub)]
 
 //! Toshi-Types
 //! These are the high level types available in the Toshi search engine.
-//! The client for toshi as well as Toshi itself is built on top of these types. If you are
+//! The client for Toshi as well as Toshi itself is built on top of these types. If you are
 //! looking for Toshi's protobuf types then you will want to look in the toshi-proto module
 //! of Toshi's source code.
 

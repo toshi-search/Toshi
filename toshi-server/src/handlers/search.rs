@@ -134,9 +134,9 @@ pub mod tests {
         let req: Search = serde_json::from_str(body)?;
         let q = run_query(req, "test_index").await?;
         let b: SearchResults = wait_json(q).await;
-        assert_eq!(b.facets[0].value, 1);
-        assert_eq!(b.facets[1].value, 1);
-        assert_eq!(b.facets[0].field, "/cat/cat2");
+        assert_eq!(b.get_facets()[0].value, 1);
+        assert_eq!(b.get_facets()[1].value, 1);
+        assert_eq!(b.get_facets()[0].field, "/cat/cat2");
         Ok(())
     }
 
@@ -147,9 +147,9 @@ pub mod tests {
         let req = Search::new(Some(Query::Raw { raw: b.into() }), None, 10, None);
         let q = run_query(req, "test_index").await?;
         let body: SearchResults = wait_json(q).await;
-        assert_eq!(*&body.hits as usize, body.docs.len());
+        assert_eq!(*&body.hits as usize, body.get_docs().len());
         let b2 = body.clone();
-        let map = b2.docs[0].clone().doc.0;
+        let map = b2.get_docs()[0].clone().doc.0;
         let text = String::from(map.remove("test_text").unwrap().1.clone().as_str().unwrap());
         assert_eq!(text, "Test Duckiment 3");
         Ok(())
@@ -163,9 +163,9 @@ pub mod tests {
         let q = run_query(search, "test_index").await?;
         let body: SearchResults = wait_json(q).await;
 
-        assert_eq!(body.hits as usize, body.docs.len());
+        assert_eq!(body.hits as usize, body.get_docs().len());
         assert_eq!(body.hits, 3);
-        assert_eq!(body.docs.len(), 3);
+        assert_eq!(body.get_docs().len(), 3);
         Ok(())
     }
 
@@ -175,8 +175,8 @@ pub mod tests {
         let req: Search = serde_json::from_str(body)?;
         let q = run_query(req, "test_index").await?;
         let body: SearchResults = wait_json(q).await;
-        assert_eq!(body.hits as usize, body.docs.len());
-        assert_eq!(cmp_float(body.docs[0].score.unwrap(), 1.0), true);
+        assert_eq!(body.hits as usize, body.get_docs().len());
+        assert_eq!(cmp_float(body.get_docs()[0].score.unwrap(), 1.0), true);
         Ok(())
     }
 
@@ -186,8 +186,8 @@ pub mod tests {
         let req: Search = serde_json::from_str(&body)?;
         let q = run_query(req, "test_index").await?;
         let body: SearchResults = wait_json(q).await;
-        assert_eq!(body.hits as usize, body.docs.len());
-        assert_eq!(cmp_float(body.docs[0].score.unwrap(), 1.0), true);
+        assert_eq!(body.hits as usize, body.get_docs().len());
+        assert_eq!(cmp_float(body.get_docs()[0].score.unwrap(), 1.0), true);
         Ok(())
     }
 

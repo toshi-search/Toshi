@@ -8,12 +8,10 @@ pub fn toshi_info() -> String {
 }
 
 pub async fn root() -> ResponseFuture {
-    let resp = Response::builder()
+    Ok(Response::builder()
         .header(hyper::header::CONTENT_TYPE, "application/json")
         .body(Body::from(toshi_info()))
-        .unwrap();
-
-    Ok(resp)
+        .unwrap())
 }
 
 #[cfg(test)]

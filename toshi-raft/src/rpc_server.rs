@@ -178,7 +178,7 @@ where
 
                 match index.search_index(query).await {
                     Ok(query_results) => {
-                        info!(self.logger, "Query Response = {:?} hits", query_results.hits);
+                        info!(self.logger, "Query Response = {:?}", query_results);
                         let query_bytes: Vec<u8> = serde_json::to_vec(&query_results).unwrap();
                         let result = Some(RpcServer::<C>::ok_result());
                         Ok(Response::new(RpcServer::<C>::create_search_reply(result, query_bytes)))

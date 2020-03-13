@@ -58,6 +58,42 @@ pub enum Query {
     All,
 }
 
+impl Into<Query> for BoolQuery {
+    fn into(self) -> Query {
+        Query::Boolean { bool: self }
+    }
+}
+impl Into<Query> for PhraseQuery {
+    fn into(self) -> Query {
+        Query::Phrase(self)
+    }
+}
+impl Into<Query> for FuzzyQuery {
+    fn into(self) -> Query {
+        Query::Fuzzy(self)
+    }
+}
+impl Into<Query> for ExactTerm {
+    fn into(self) -> Query {
+        Query::Exact(self)
+    }
+}
+impl Into<Query> for RegexQuery {
+    fn into(self) -> Query {
+        Query::Regex(self)
+    }
+}
+impl Into<Query> for RangeQuery {
+    fn into(self) -> Query {
+        Query::Range(self)
+    }
+}
+impl Into<Query> for String {
+    fn into(self) -> Query {
+        Query::Raw { raw: self }
+    }
+}
+
 /// The request body of a search POST in Toshi
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Search {
@@ -113,6 +149,7 @@ impl Search {
         }
     }
 
+    /// Another shortcut, but with a known limit
     pub fn all_limit(limit: usize) -> Self {
         let mut all = Self::all_docs();
         all.limit = limit;

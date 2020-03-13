@@ -3,9 +3,8 @@ use tantivy::query::{BooleanQuery, Occur, Query as TQuery};
 use tantivy::schema::Schema;
 
 use crate::error::Error;
-use crate::query::Query::{Exact, Range, Raw, Regex};
 use crate::query::{CreateQuery, Query};
-use crate::{FuzzyQuery, PhraseQuery, Result};
+use crate::Result;
 
 /// A boolean query parallel to Tantivy's [`tantivy::query::BooleanQuery`]: BooleanQuery
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -89,18 +88,27 @@ impl BoolQueryBuilder {
         Self::default()
     }
 
-    pub fn must_match(mut self, query: Query) -> Self {
-        self.must.push(query);
+    pub fn must_match<T>(mut self, query: T) -> Self
+    where
+        T: Into<Query>,
+    {
+        self.must.push(query.into());
         self
     }
 
-    pub fn must_not_match(mut self, query: Query) -> Self {
-        self.must_not.push(query);
+    pub fn must_not_match<T>(mut self, query: T) -> Self
+    where
+        T: Into<Query>,
+    {
+        self.must_not.push(query.into());
         self
     }
 
-    pub fn should_match(mut self, query: Query) -> Self {
-        self.should.push(query);
+    pub fn should_match<T>(mut self, query: T) -> Self
+    where
+        T: Into<Query>,
+    {
+        self.should.push(query.into());
         self
     }
 
@@ -133,7 +141,7 @@ mod tests {
     use tantivy::schema::*;
 
     use crate::query::Search;
-    use crate::{BoolQuery, PhraseQuery, Query, RegexQuery, TermPair};
+    use crate::{BoolQuery, PhraseQuery, RegexQuery, TermPair};
 
     #[test]
     fn test_bool_query() {
@@ -158,13 +166,13 @@ mod tests {
     }
 
     #[test]
-    pub fn test_builder() {
+    fn test_builder() {
         let phrase = PhraseQuery::with_phrase("test_text".into(), TermPair::new(vec!["blah".into()], None));
         let regex = RegexQuery::from_str("test_text".into(), ".*");
-        let builder = BoolQuery::builder()
-            .must_match(Query::Phrase(phrase.clone()))
-            .should_match(Query::Regex(regex))
-            .must_not_match(Query::Phrase(phrase))
+        BoolQuery::builder()
+            .must_match(phrase.clone())
+            .should_match(regex)
+            .must_not_match(phrase)
             .with_minimum_should_match(1)
             .with_boost(1.0)
             .build();
