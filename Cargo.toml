@@ -34,7 +34,7 @@ config                 = "^0.10"
 thiserror              = "^1.0"
 anyhow                 = "^1.0"
 crossbeam              = "^0.7"
-hashbrown              = "^0.6"
+hashbrown              = "^0.7"
 tracing                = "^0.1"
 rand                   = { version = "^0.7", features = ["log", "small_rng"] }
 serde                  = { version = "^1.0", features = ["derive"] }
