@@ -29,9 +29,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.26"
+version = "1.0.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7825f6833612eb2414095684fcf6c635becf3ce97fe48cf6421321e93bfbd53c"
+checksum = "013a6e0a2cbe3d20f9c60b65458f7a7f7a5e636c5d0f45a5a6aee5d4b1f01785"
 
 [[package]]
 name = "arc-swap"
@@ -521,6 +521,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bb1f6b1ce1c140482ea30ddd3335fc0024ac7ee112895426e0a629a6c20adfe3"
 
 [[package]]
+name = "encoding_rs"
+version = "0.8.22"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cd8d03faa7fe0c1431609dfad7bbe827af30f82e1e2ae6f7ee4fca6bd764bc28"
+dependencies = [
+ "cfg-if",
+]
+
+[[package]]
 name = "fail"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -777,7 +786,7 @@ dependencies = [
  "futures-core",
  "futures-sink",
  "futures-util",
- "http 0.2.0",
+ "http",
  "indexmap",
  "log",
  "slab",
@@ -811,17 +820,6 @@ checksum = "e9025058dae765dee5070ec375f591e2ba14638c63feff74f13805a72e523163"
 
 [[package]]
 name = "http"
-version = "0.1.21"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d6ccf5ede3a895d8856620237b2f02972c1bbc78d2965ad7fe8838d4a0ed41f0"
-dependencies = [
- "bytes 0.4.12",
- "fnv",
- "itoa",
-]
-
-[[package]]
-name = "http"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b708cc7f06493459026f53b9a61a7a121a5d1ec6238dee58ea4941132b30156b"
@@ -838,7 +836,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13d5ff830006f7646652e057693569bfe0d51760c0085a071769d142a205111b"
 dependencies = [
  "bytes 0.5.4",
- "http 0.2.0",
+ "http",
 ]
 
 [[package]]
@@ -858,7 +856,7 @@ dependencies = [
  "futures-core",
  "futures-util",
  "h2",
- "http 0.2.0",
+ "http",
  "http-body",
  "httparse",
  "itoa",
@@ -922,22 +920,23 @@ dependencies = [
 
 [[package]]
 name = "isahc"
-version = "0.8.2"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c45d8c41e6f0b5aa495fd2577e6068e100f57eb87c4b353b0dab20bb53a56035"
+checksum = "50bdb3bdcbf6d534daaad1a686eda0d0dc1946818fa71e3edd3124d001adfdc2"
 dependencies = [
- "bytes 0.4.12",
- "chrono",
+ "bytes 0.5.4",
  "crossbeam-channel 0.4.2",
  "crossbeam-utils 0.7.2",
  "curl",
  "curl-sys",
+ "encoding_rs",
  "futures-channel",
  "futures-io",
  "futures-util",
- "http 0.1.21",
+ "http",
  "lazy_static",
  "log",
+ "mime",
  "serde 1.0.104",
  "serde_json",
  "slab",
@@ -1005,9 +1004,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.67"
+version = "0.2.68"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eb147597cdf94ed43ab7a9038716637d2d1bf2bc571da995d0028dec06bd3018"
+checksum = "dea0c0405123bba743ee3f91f49b1c7cfb684eef0da0a50110f758ccf24cdff0"
 
 [[package]]
 name = "libnghttp2-sys"
@@ -1104,12 +1103,18 @@ dependencies = [
 
 [[package]]
 name = "memoffset"
-version = "0.5.3"
+version = "0.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "75189eb85871ea5c2e2c15abbdd541185f63b408415e5051f5cac122d8c774b9"
+checksum = "b4fc2c02a7e374099d4ee95a193111f72d2110197fe200272371758f6c3643d8"
 dependencies = [
- "rustc_version",
+ "autocfg 1.0.0",
 ]
+
+[[package]]
+name = "mime"
+version = "0.3.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2a60c7ce501c71e03a9c9c0d35b861413ae925bd979cc7a4e30d060069aaac8d"
 
 [[package]]
 name = "mio"
@@ -1496,9 +1501,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro-hack"
-version = "0.5.11"
+version = "0.5.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ecd45702f76d6d3c75a80564378ae228a85f0b59d2f3ed43c91b4a69eb2ebfc5"
+checksum = "f918f2b601f93baa836c1c2945faef682ba5b6d4828ecb45eeb7cc3c71b811b4"
 dependencies = [
  "proc-macro2 1.0.9",
  "quote 1.0.3",
@@ -1507,9 +1512,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro-nested"
-version = "0.1.3"
+version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "369a6ed065f249a159e06c45752c780bda2fb53c995718f9e484d08daa9eb42e"
+checksum = "8e946095f9d3ed29ec38de908c22f95d9ac008e424c7bcae54c75a79c527c694"
 
 [[package]]
 name = "proc-macro2"
@@ -2557,7 +2562,7 @@ dependencies = [
  "bytes 0.5.4",
  "futures-core",
  "futures-util",
- "http 0.2.0",
+ "http",
  "http-body",
  "hyper",
  "percent-encoding 1.0.1",
@@ -2592,7 +2597,7 @@ name = "toshi"
 version = "0.1.1"
 dependencies = [
  "anyhow",
- "http 0.2.0",
+ "http",
  "isahc",
  "serde 1.0.104",
  "serde_json",
@@ -2623,7 +2628,7 @@ dependencies = [
  "bytes 0.5.4",
  "dashmap",
  "futures",
- "http 0.2.0",
+ "http",
  "prost 0.6.1",
  "prost-derive 0.6.1",
  "prost-types 0.6.1",
@@ -2655,7 +2660,7 @@ dependencies = [
  "crossbeam",
  "dashmap",
  "futures",
- "http 0.2.0",
+ "http",
  "hyper",
  "pretty_assertions",
  "raft",
@@ -2692,7 +2697,7 @@ dependencies = [
  "bytes 0.5.4",
  "failure",
  "futures",
- "http 0.2.0",
+ "http",
  "hyper",
  "serde 1.0.104",
  "serde_json",
@@ -2708,7 +2713,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "dashmap",
- "http 0.2.0",
+ "http",
  "hyper",
  "serde 1.0.104",
  "serde_json",

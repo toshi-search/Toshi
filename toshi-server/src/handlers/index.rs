@@ -112,8 +112,11 @@ pub async fn add_document(catalog: SharedCatalog, body: Body, index: &str, raft_
             msg.from = catalog.raft_id();
             let mut entry = Entry::default();
             entry.context = index.into();
+            entry.data = match serde_json::to_vec(&req.document) {
+                Ok(v) => v,
+                Err(e) => return Ok(error_response(StatusCode::BAD_REQUEST, e.into())),
+            };
             msg.entries = vec![entry].into();
-
             sender.send(msg).await.unwrap();
         }
         let add = catalog.add_local_document(index, req).await;
@@ -126,10 +129,10 @@ pub async fn add_document(catalog: SharedCatalog, body: Body, index: &str, raft_
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
+    use std::sync::Arc;
 
     use bytes::Buf;
     use pretty_assertions::assert_eq;
-    use tokio::runtime::Runtime;
 
     use toshi_test::wait_json;
     use toshi_types::IndexOptions;
@@ -138,7 +141,6 @@ mod tests {
     use crate::index::create_test_catalog;
 
     use super::*;
-    use std::sync::Arc;
 
     fn test_index() -> String {
         String::from("test_index")
@@ -161,56 +163,45 @@ mod tests {
         remove_dir_all::remove_dir_all("new_index").map_err(Into::into)
     }
 
-    #[test]
-    fn test_doc_create() {
+    #[tokio::test]
+    async fn test_doc_create() {
         let shared_cat = create_test_catalog("test_index");
-        let body = async {
-            let q = r#" {"options": {"commit": true }, "document": {"test_text": "Babbaboo!", "test_u64": 10, "test_i64": -10} }"#;
-            let req = add_document(Arc::clone(&shared_cat), Body::from(q), &test_index(), None).await;
-
-            assert_eq!(req.is_ok(), true);
-        };
-        let mut rt: Runtime = tokio::runtime::Runtime::new().unwrap();
-        rt.block_on(body);
+        let q = r#" {"options": {"commit": true }, "document": {"test_text": "Babbaboo!", "test_u64": 10, "test_i64": -10} }"#;
+        let req = add_document(Arc::clone(&shared_cat), Body::from(q), &test_index(), None).await;
+        assert_eq!(req.is_ok(), true);
     }
 
-    #[test]
-    fn test_doc_delete() {
+    #[tokio::test]
+    async fn test_doc_delete() {
         let shared_cat = create_test_catalog("test_index");
-        let req = async {
-            let mut terms = HashMap::new();
-            terms.insert(test_index(), "document".to_string());
-            let delete = DeleteDoc {
-                options: Some(IndexOptions { commit: true }),
-                terms,
-            };
-            let body_bytes = serde_json::to_vec(&delete).unwrap();
-            let del = delete_term(Arc::clone(&shared_cat), Body::from(body_bytes), &test_index()).await;
-            assert_eq!(del.is_ok(), true);
+
+        let mut terms = HashMap::new();
+        terms.insert(test_index(), "document".to_string());
+        let delete = DeleteDoc {
+            options: Some(IndexOptions { commit: true }),
+            terms,
         };
-        let mut rt: Runtime = tokio::runtime::Runtime::new().unwrap();
-        rt.block_on(req);
+        let body_bytes = serde_json::to_vec(&delete).unwrap();
+        let del = delete_term(Arc::clone(&shared_cat), Body::from(body_bytes), &test_index()).await;
+        assert_eq!(del.is_ok(), true);
     }
 
-    #[test]
-    fn test_bad_json() {
+    #[tokio::test]
+    async fn test_bad_json() {
         let shared_cat = create_test_catalog("test_index");
-        let bad = async {
-            let bad_json: serde_json::Value = serde_json::Value::String("".into());
-            let add_doc = AddDocument {
-                document: bad_json,
-                options: None,
-            };
-            let body_bytes = serde_json::to_vec(&add_doc).unwrap();
-            let req = add_document(Arc::clone(&shared_cat), Body::from(body_bytes), &test_index(), None)
-                .await
-                .unwrap()
-                .into_body();
-            let req_body = hyper::body::aggregate(req).await.unwrap();
-            let buf = req_body.bytes();
-            println!("{}", std::str::from_utf8(&buf).unwrap());
+
+        let bad_json: serde_json::Value = serde_json::Value::String("".into());
+        let add_doc = AddDocument {
+            document: bad_json,
+            options: None,
         };
-        let mut rt: Runtime = tokio::runtime::Runtime::new().unwrap();
-        rt.block_on(bad);
+        let body_bytes = serde_json::to_vec(&add_doc).unwrap();
+        let req = add_document(Arc::clone(&shared_cat), Body::from(body_bytes), &test_index(), None)
+            .await
+            .unwrap()
+            .into_body();
+        let req_body = hyper::body::aggregate(req).await.unwrap();
+        let buf = req_body.bytes();
+        println!("{}", std::str::from_utf8(&buf).unwrap());
     }
 }

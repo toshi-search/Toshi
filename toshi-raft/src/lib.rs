@@ -25,6 +25,44 @@ fn read_be_u64(input: &mut &[u8]) -> u64 {
     u64::from_be_bytes(int_bytes.try_into().unwrap())
 }
 
+pub fn decode<V>(v: &[u8]) -> Result<V, SledStorageError>
+where
+    V: Message + Default,
+{
+    Ok(V::decode(v)?)
+}
+
+pub fn encode<V>(v: V) -> Result<BytesMut, SledStorageError>
+where
+    V: Message,
+{
+    let mut buf = bytes::BytesMut::with_capacity(v.encoded_len());
+    V::encode(&v, &mut buf)?;
+    Ok(buf)
+}
+
+pub fn get<K, V>(db: &Db, k: K) -> Result<V, SledStorageError>
+where
+    K: AsRef<[u8]>,
+    V: Message + Default,
+{
+    if let Ok(Some(v)) = db.get(k) {
+        decode(v.as_ref())
+    } else {
+        Ok(V::default())
+    }
+}
+
+pub fn insert<K, V>(db: &Db, k: K, v: V) -> Result<(), SledStorageError>
+where
+    K: AsRef<[u8]>,
+    V: Message,
+{
+    let buf = encode(v)?;
+    db.insert(k, &buf[..])?;
+    Ok(())
+}
+
 pub struct SledStorage {
     state: SledRaftState,
     snapshot_metadata: SnapshotMetadata,
@@ -39,8 +77,8 @@ impl SledStorage {
             info!(log, "Init sled storage db at: {}", path);
         }
         let db = open(Path::new(path))?;
-        let hard_state: HardState = Self::get(&db, b"hard_state")?;
-        let mut conf_state: ConfState = Self::get(&db, b"conf_state")?;
+        let hard_state: HardState = get(&db, b"hard_state")?;
+        let mut conf_state: ConfState = get(&db, b"conf_state")?;
         let last_idx_be = db.get(b"last_idx").unwrap_or(None);
 
         if !conf_state.voters.contains(&cfg.id) {
@@ -53,10 +91,10 @@ impl SledStorage {
         };
 
         if !db.contains_key(b"hard_state")? {
-            Self::insert(&db, b"hard_state", hard_state.clone())?;
+            insert(&db, b"hard_state", hard_state.clone())?;
         }
         if !db.contains_key(b"conf_state")? {
-            Self::insert(&db, b"conf_state", conf_state.clone())?;
+            insert(&db, b"conf_state", conf_state.clone())?;
         }
 
         let state = SledRaftState::new(hard_state, conf_state);
@@ -73,36 +111,12 @@ impl SledStorage {
         })
     }
 
-    pub fn get<K, V>(db: &Db, k: K) -> Result<V, SledStorageError>
-    where
-        K: AsRef<[u8]>,
-        V: Message + Default,
-    {
-        if let Ok(Some(v)) = db.get(k) {
-            Ok(V::decode(v.as_ref())?)
-        } else {
-            Ok(V::default())
-        }
-    }
-
-    pub fn insert<K, V>(db: &Db, k: K, v: V) -> Result<(), SledStorageError>
-    where
-        K: AsRef<[u8]>,
-        V: Message,
-    {
-        let mut buf = Vec::with_capacity(v.encoded_len());
-        v.encode(&mut buf)?;
-        db.insert(k, &buf[..])?;
-        Ok(())
-    }
-
     pub fn append(&mut self, entries: &[Entry]) -> Result<(), SledStorageError> {
         let entry_tree = self.db.open_tree("entries")?;
 
-        for (i, e) in entries.iter().enumerate() {
+        for (i, e) in entries.into_iter().enumerate() {
             let idx = e.index.to_be_bytes();
-            let mut b = BytesMut::with_capacity(e.encoded_len());
-            e.encode(&mut b)?;
+            let b = encode(e.clone())?;
             entry_tree.insert(idx, &b[..])?;
             self.last_idx = i as u64;
         }
@@ -122,8 +136,8 @@ impl SledStorage {
             info!(log, "Commit ConfState = {:?}", self.state.conf_state);
         }
 
-        Self::insert(&self.db, b"hard_state", self.state.hard_state.clone())?;
-        Self::insert(&self.db, b"conf_state", self.state.conf_state.clone())?;
+        insert(&self.db, b"hard_state", self.state.hard_state.clone())?;
+        insert(&self.db, b"conf_state", self.state.conf_state.clone())?;
         let idx = self.last_idx.to_be_bytes();
         self.db.insert(b"last_idx", &idx[..])?;
         let flush = self.db.flush()?;
@@ -168,7 +182,7 @@ impl Storage for SledStorage {
         for i in tree.range(lower..upper) {
             match i {
                 Ok((_, v)) => {
-                    let dec = Entry::decode(&v[..]).unwrap();
+                    let dec: Entry = decode(v.as_ref()).unwrap();
                     results.push(dec);
                 }
                 Err(e) => panic!(e),
