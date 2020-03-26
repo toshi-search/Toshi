@@ -2,15 +2,16 @@ use std::error::Error;
 use std::fs::create_dir;
 use std::net::{IpAddr, SocketAddr};
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 use std::sync::{atomic::AtomicBool, Arc};
 
 use dashmap::DashMap;
 use futures::prelude::*;
 use http::Uri;
+use log::info;
 use raft::Config;
 use tokio::sync::{mpsc, oneshot};
 use tonic::Request;
-use tracing::*;
 
 use toshi_proto::cluster_rpc::Message;
 use toshi_raft::raft_node::ToshiRaft;
@@ -19,13 +20,15 @@ use toshi_server::commit::watcher;
 use toshi_server::index::{IndexCatalog, SharedCatalog};
 use toshi_server::router::Router;
 use toshi_server::settings::{settings, Experimental, Settings, HEADER, RPC_HEADER};
-use toshi_server::shutdown;
+use toshi_server::{setup_logging_from_file, shutdown};
 use toshi_types::Catalog;
 
 #[tokio::main]
 pub async fn main() -> Result<(), Box<dyn Error>> {
     let settings = settings();
-    setup_logging(&settings.log_level);
+    let logger = setup_logging_from_file("config/logging.toml")?;
+    let _scope = slog_scope::set_global_logger(logger.clone());
+    let _guard = slog_stdlog::init_with_level(log::Level::from_str(&settings.log_level)?)?;
 
     let (tx, shutdown_signal) = oneshot::channel();
     if !Path::new(&settings.path).exists() {
@@ -44,12 +47,6 @@ pub async fn main() -> Result<(), Box<dyn Error>> {
     info!("Toshi running on {}:{}", &settings.host, &settings.port);
 
     setup_shutdown(shutdown_signal, index_catalog).await.map_err(Into::into)
-}
-
-fn setup_logging(level: &str) {
-    std::env::set_var("RUST_LOG", level);
-    let sub = tracing_fmt::FmtSubscriber::builder().with_ansi(true).finish();
-    tracing::subscriber::set_global_default(sub).expect("Unable to set default Subscriber");
 }
 
 async fn setup_shutdown(shutdown_signal: oneshot::Receiver<()>, index_catalog: SharedCatalog) -> Result<(), oneshot::error::RecvError> {
@@ -107,7 +104,6 @@ fn run_data(
         .unwrap_or_else(|_| panic!("Invalid IP address: {}", &settings.host));
 
     let bind: SocketAddr = SocketAddr::new(addr, settings.port);
-    let root_log = toshi_server::setup_logging();
 
     let Experimental { id, nodes, leader, .. } = settings.experimental_features;
     let fut = async move {
@@ -122,7 +118,7 @@ fn run_data(
         let raft = ToshiRaft::new(
             raft_cfg,
             catalog.base_path(),
-            root_log.clone(),
+            slog_scope::logger(),
             peers.clone(),
             Arc::clone(&catalog),
             sender,
@@ -134,12 +130,12 @@ fn run_data(
         tokio::spawn(raft.run());
 
         if !leader {
-            let client: RpcClient = create_client(uri.clone(), Some(root_log.clone())).await?;
+            let client: RpcClient = create_client(uri.clone(), Some(slog_scope::logger())).await?;
             let req = Request::new(toshi_proto::cluster_rpc::JoinRequest { id, host: uri.to_string() });
             client.clone().join(req).await?;
             peers.insert(1, client);
         }
-        if let Err(e) = RpcServer::<IndexCatalog>::serve(bind, catalog, root_log, chan, cc).await {
+        if let Err(e) = RpcServer::<IndexCatalog>::serve(bind, catalog, slog_scope::logger(), chan, cc).await {
             eprintln!("ERROR = {:?}", e);
         }
         Ok(())

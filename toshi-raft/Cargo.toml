@@ -27,8 +27,9 @@ sled         = "*"
 slog         = "^2.5"
 slog-async   = "^2.4"
 slog-term    = "^2.5"
-raft         = { git = "https://github.com/tikv/raft-rs", rev = "063501fafec73196247295c2e024510972699d79", default-features = false, features = ["prost-codec"] }
+raft         = { git = "https://github.com/tikv/raft-rs", default-features = false, features = ["prost-codec"] }
 
 [dev-dependencies]
+remove_dir_all = "^0.5"
 toshi-server = { path = "../toshi-server" }
 toshi-test = { path = "../toshi-test" }

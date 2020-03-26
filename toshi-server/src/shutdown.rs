@@ -1,6 +1,6 @@
 use futures::{Future, FutureExt};
+use log::*;
 use tokio::sync::oneshot;
-use tracing::*;
 
 #[cfg(unix)]
 pub fn shutdown(s: oneshot::Sender<()>) -> impl Future<Output = Result<(), ()>> + Unpin + Send {

@@ -19,13 +19,13 @@ dashmap     = { version = "^3", features = ["serde"] }
 slog        = "^2.5"
 
 [dependencies.tonic]
-version       = "^0.1"
+version  = "^0.1"
 optional = true
 
 [dependencies.hyper]
-version = "^0.13"
+version  = "^0.13"
 optional = true
 
 [features]
-default = ["extra-errors"]
+default      = ["extra-errors"]
 extra-errors = ["tonic", "hyper"]

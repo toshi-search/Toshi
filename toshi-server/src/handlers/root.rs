@@ -2,7 +2,6 @@ use hyper::{Body, Response};
 
 use crate::handlers::ResponseFuture;
 
-#[inline]
 pub fn toshi_info() -> String {
     format!("{{\"name\":\"Toshi Search\",\"version\":\"{}\"}}", clap::crate_version!())
 }

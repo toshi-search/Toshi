@@ -5,10 +5,10 @@ use std::sync::Arc;
 
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Method, Request, Response, Server};
+use log::*;
 use serde::Deserialize;
 use tokio::sync::mpsc::Sender;
 use tower_util::BoxService;
-use tracing::info;
 
 use crate::handlers::*;
 use crate::index::SharedCatalog;
@@ -98,7 +98,7 @@ impl Router {
         let routes = make_service_fn(move |_| Self::service_call(Arc::clone(&self.cat), Arc::clone(&self.watcher), self.sender.clone()));
         let server = Server::bind(&addr).serve(routes);
         if let Err(err) = server.await {
-            tracing::error!("server error: {}", err);
+            trace!("server error: {}", err);
         }
         Ok(())
     }
@@ -108,7 +108,7 @@ impl Router {
         let routes = make_service_fn(move |_| Self::service_call(Arc::clone(&self.cat), Arc::clone(&self.watcher), self.sender.clone()));
         let server = Server::from_tcp(listener)?.serve(routes);
         if let Err(err) = server.await {
-            tracing::error!("server error: {}", err);
+            trace!("server error: {}", err);
         }
         Ok(())
     }

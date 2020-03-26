@@ -2,11 +2,12 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
+use log::trace;
 use tokio::time;
-use tracing::*;
+
+use toshi_types::Catalog;
 
 use crate::index::SharedCatalog;
-use toshi_types::Catalog;
 
 #[allow(irrefutable_let_patterns)]
 pub async fn watcher(cat: SharedCatalog, commit_duration: f32, lock: Arc<AtomicBool>) -> Result<(), ()> {
@@ -16,10 +17,10 @@ pub async fn watcher(cat: SharedCatalog, commit_duration: f32, lock: Arc<AtomicB
             let writer = v.get_writer();
             let current_ops = v.get_opstamp();
             if current_ops == 0 {
-                debug!("No update to index={}, opstamp={}", k, current_ops);
+                trace!("No update to index={}, opstamp={}", k, current_ops);
             } else if !lock.load(Ordering::SeqCst) {
                 let mut w = writer.lock().await;
-                debug!("Committing {}...", k);
+                trace!("Committing: {}...", k);
                 w.commit().unwrap();
                 v.set_opstamp(0);
             }
@@ -35,11 +36,10 @@ pub mod tests {
     use toshi_test::read_body;
 
     use crate::handlers::{add_document, all_docs};
-
+    use crate::index::create_test_catalog;
     use crate::SearchResults;
 
     use super::*;
-    use crate::index::create_test_catalog;
 
     #[tokio::test]
     pub async fn test_auto_commit() {

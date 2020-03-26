@@ -21,7 +21,7 @@ path = "src/lib.rs"
 toshi-proto            = { path = "../toshi-proto" }
 toshi-types            = { path = "../toshi-types" }
 toshi-raft             = { path = "../toshi-raft" }
-raft                   = { git = "https://github.com/tikv/raft-rs", rev = "063501fafec73196247295c2e024510972699d79", default-features = false, features = ["prost-codec"] }
+raft                   = { git = "https://github.com/tikv/raft-rs", default-features = false, features = ["prost-codec"] }
 http                   = "^0.2"
 bytes                  = "^0.5"
 hyper                  = { version = "^0.13", features = ["stream"] }
@@ -31,7 +31,7 @@ futures                = "^0.3"
 tower-util             = "^0.3"
 tonic                  = "^0.1"
 tantivy                = "^0.12"
-tokio                  = { version = "^0.2", features = ["full"] }
+tokio                  = { version = "^0.2", features = ["full", "parking_lot"] }
 async-trait            = "^0.1"
 config                 = "^0.10"
 structopt              = "^0.3"
@@ -39,17 +39,18 @@ thiserror              = "^1.0"
 anyhow                 = "^1.0"
 crossbeam              = "^0.7"
 dashmap                = "^3"
-tracing                = "^0.1"
 rand                   = { version = "^0.7", features = ["log", "small_rng"] }
 serde                  = { version = "^1.0", features = ["derive"] }
 clap                   = { version = "^2.3", features = ["color"] }
 uuid                   = { version = "^0.8", features = ["serde", "v4"] }
-tracing-futures        = { version = "^0.2", features = ["futures-03"] }
-tracing-log            = "^0.1"
-tracing-fmt            = "^0.1"
 slog                   = "^2.5"
 slog-async             = "^2.3"
 slog-term              = "^2.4"
+slog-stdlog            = "4.0.0"
+slog-scope             = "4.3.0"
+log                    = { version = "*", features = ["max_level_trace", "release_max_level_warn"] }
+sloggers               = "0.3.5"
+toml                   = "0.5.6"
 
 [dev-dependencies]
 remove_dir_all = "^0.5"

@@ -2,13 +2,13 @@ use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
 
+use log::*;
 use tantivy::collector::{FacetCollector, MultiCollector, TopDocs};
 use tantivy::query::{AllQuery, QueryParser};
 use tantivy::schema::*;
 use tantivy::space_usage::SearcherSpaceUsage;
 use tantivy::{Document, Index, IndexReader, IndexWriter, ReloadPolicy, Term};
 use tokio::sync::*;
-use tracing::*;
 
 use async_trait::async_trait;
 use toshi_types::*;
@@ -118,7 +118,7 @@ impl IndexHandle for LocalIndex {
                 Query::All => Box::new(AllQuery),
             };
 
-            debug!("{:?}", gen_query);
+            trace!("{:?}", gen_query);
             let mut scored_docs = searcher.search(&*gen_query, &multi_collector)?;
 
             // FruitHandle isn't a public type which leads to some duplicate code like this.

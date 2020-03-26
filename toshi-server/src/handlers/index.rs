@@ -1,6 +1,7 @@
 use bytes::Buf;
 use hyper::body::aggregate;
 use hyper::{Body, Response, StatusCode};
+use log::info;
 use rand::random;
 use tantivy::schema::*;
 use tantivy::Index;
@@ -97,15 +98,15 @@ pub async fn add_document(catalog: SharedCatalog, body: Body, index: &str, raft_
     let b = full_body.bytes();
     let req = serde_json::from_slice::<AddDocument>(&b).unwrap();
     let location: bool = random();
-    tracing::info!("LOCATION = {}", location);
+    info!("LOCATION = {}", location);
     if location && catalog.remote_exists(index).await {
-        tracing::info!("Pushing to remote...");
+        info!("Pushing to remote...");
         let add = catalog.add_remote_document(index, req).await;
 
         add.map(|_| empty_with_code(StatusCode::CREATED))
             .or_else(|e| Ok(error_response(StatusCode::BAD_REQUEST, e)))
     } else {
-        tracing::info!("Pushing to local...");
+        info!("Pushing to local...");
         if let Some(mut sender) = raft_sender {
             let mut msg = Message::default();
             msg.set_msg_type(MessageType::MsgPropose);
@@ -169,6 +170,18 @@ mod tests {
         let q = r#" {"options": {"commit": true }, "document": {"test_text": "Babbaboo!", "test_u64": 10, "test_i64": -10} }"#;
         let req = add_document(Arc::clone(&shared_cat), Body::from(q), &test_index(), None).await;
         assert_eq!(req.is_ok(), true);
+    }
+
+    #[tokio::test]
+    async fn test_doc_channel() {
+        let shared_cat = create_test_catalog("test_index");
+        let q = r#" {"options": {"commit": true }, "document": {"test_text": "Babbaboo!", "test_u64": 10, "test_i64": -10} }"#;
+        let (snd, mut rcv) = tokio::sync::mpsc::channel(1024);
+        let req = add_document(Arc::clone(&shared_cat), Body::from(q), &test_index(), Some(snd)).await;
+
+        let msg = rcv.recv().await;
+        assert_eq!(req.is_ok(), true);
+        println!("{:?}", msg);
     }
 
     #[tokio::test]

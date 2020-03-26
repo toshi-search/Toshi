@@ -7,6 +7,7 @@ use std::sync::Arc;
 use dashmap::DashMap;
 use http::uri::Scheme;
 use http::Uri;
+use log::*;
 use tantivy::directory::MmapDirectory;
 use tantivy::schema::Schema;
 use tantivy::Index;
@@ -241,7 +242,7 @@ impl IndexCatalog {
             let refresh = IndexCatalog::refresh_remote_catalog(node.to_owned())
                 .await
                 .expect("Could not refresh Index");
-            tracing::info!("HOST = {}, INDEXES = {:?}", &node, &refresh.1);
+            info!("HOST = {}, INDEXES = {:?}", &node, &refresh.1);
             results.push(refresh);
         }
         Ok(results)

@@ -1,7 +1,7 @@
 use std::time::Instant;
 
 use hyper::{Body, Response, StatusCode};
-use tracing::*;
+use log::{debug, info};
 
 use toshi_types::*;
 
@@ -12,9 +12,6 @@ use crate::utils::{empty_with_code, with_body};
 
 pub async fn index_summary(catalog: SharedCatalog, index: &str, options: QueryOptions) -> ResponseFuture {
     let start = Instant::now();
-    let span = span!(Level::INFO, "summary_handler", ?index, ?options);
-    let _enter = span.enter();
-
     if catalog.exists(index) {
         let index = catalog.get_index(index).unwrap();
         let metas = index.get_index().load_metas().unwrap();
@@ -23,19 +20,17 @@ pub async fn index_summary(catalog: SharedCatalog, index: &str, options: QueryOp
         } else {
             SummaryResponse::new(metas, None)
         };
-        tracing::info!("Took: {:?}", start.elapsed());
+        info!("Took: {:?}", start.elapsed());
         Ok(with_body(summary))
     } else {
         let err = Error::IOError(format!("Index {} does not exist", index));
         let resp: Response<Body> = Response::from(err);
-        tracing::info!("Took: {:?}", start.elapsed());
+        info!("Took: {:?}", start.elapsed());
         Ok(resp)
     }
 }
 
 pub async fn flush(catalog: SharedCatalog, index: &str) -> ResponseFuture {
-    let span = span!(Level::INFO, "flush_handler", ?index);
-    let _enter = span.enter();
     if catalog.exists(index) {
         let local_index = catalog.get_index(index).unwrap();
         let writer = local_index.get_writer();
@@ -45,7 +40,7 @@ pub async fn flush(catalog: SharedCatalog, index: &str) -> ResponseFuture {
         info!("Successful commit: {}", index);
         Ok(empty_with_code(StatusCode::OK))
     } else {
-        error!("Could not find index: {}", index);
+        debug!("Could not find index: {}", index);
         Ok(empty_with_code(StatusCode::NOT_FOUND))
     }
 }

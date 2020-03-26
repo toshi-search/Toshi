@@ -3,10 +3,10 @@ use std::path::Path;
 
 use bytes::BytesMut;
 use prost::Message;
-use raft::prelude::SnapshotMetadata;
-use raft::prelude::*;
 use raft::{RaftState, Storage};
-use sled::{open, Db};
+use raft::prelude::*;
+use raft::prelude::SnapshotMetadata;
+use sled::{Db, open};
 use slog::{info, Logger};
 
 use crate::state::SledRaftState;
@@ -112,9 +112,15 @@ impl SledStorage {
     }
 
     pub fn append(&mut self, entries: &[Entry]) -> Result<(), SledStorageError> {
+        if entries.is_empty() {
+            return Ok(())
+        }
         let entry_tree = self.db.open_tree("entries")?;
 
         for (i, e) in entries.into_iter().enumerate() {
+            if e.data.is_empty() || e.context.is_empty() {
+                continue;
+            }
             let idx = e.index.to_be_bytes();
             let b = encode(e.clone())?;
             entry_tree.insert(idx, &b[..])?;
@@ -129,8 +135,8 @@ impl SledStorage {
         self.state.conf_state = conf;
     }
 
-    pub fn commit(&mut self, commit: u64) -> Result<(), SledStorageError> {
-        self.state.hard_state.commit = commit;
+    pub fn commit(&mut self) -> Result<(), SledStorageError> {
+
         if let Some(ref log) = self.logger {
             info!(log, "Commit HardState = {:?}", self.state.hard_state);
             info!(log, "Commit ConfState = {:?}", self.state.conf_state);
@@ -166,6 +172,7 @@ impl SledStorage {
 }
 
 impl Storage for SledStorage {
+
     fn initial_state(&self) -> Result<RaftState, raft::Error> {
         Ok(self.state.clone().into())
     }
@@ -210,7 +217,7 @@ impl Storage for SledStorage {
     }
 
     fn first_index(&self) -> Result<u64, raft::Error> {
-        Ok(1)
+        Ok(0)
     }
 
     fn last_index(&self) -> Result<u64, raft::Error> {
@@ -228,4 +235,34 @@ impl Storage for SledStorage {
         meta.set_conf_state(self.state.conf_state.clone());
         Ok(snapshot)
     }
+}
+
+#[cfg(test)]
+pub mod tests {
+
+    use super::*;
+    use crate::rpc_server::tests::create_test_catalog;
+
+    type TestResult = Result<(), Box<dyn std::error::Error + Send + Sync>>;
+
+    pub fn test_storage() -> SledStorage {
+        SledStorage::new_with_logger("./test_storage", Config::default(), None).unwrap()
+    }
+
+    #[test]
+    pub fn test_last_idx() -> TestResult {
+        let mut  storage = test_storage();
+        let test_cat = create_test_catalog("test_index");
+
+        assert_eq!(storage.last_index()?, 0);
+
+        let entry = Entry::default();
+
+
+        storage.append(&[entry])?;
+        storage.commit()?;
+        assert_eq!(storage.last_index()?, 0);
+        remove_dir_all::remove_dir_all("./test_storage").map_err(Into::into)
+    }
+
 }

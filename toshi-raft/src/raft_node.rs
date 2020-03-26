@@ -177,7 +177,7 @@ where
         if let Some(hs) = ready.hs() {
             slog::info!(self.logger, "HS?: {:?}", hs);
             self.node.mut_store().state.hard_state = (*hs).clone();
-            self.node.mut_store().commit(hs.commit)?;
+            self.node.mut_store().commit()?;
         }
 
         for msg in ready.messages.drain(..) {
@@ -266,7 +266,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_raft_propose() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
-        let _log = toshi_server::setup_logging();
         let _catalog = crate::rpc_server::tests::create_test_catalog("test_index");
         // let raft = ToshiRaft::new(Config::new(1), catalog.base_path(), log, Arc::new(DashMap::new()), catalog).unwrap();
 

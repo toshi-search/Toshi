@@ -1,18 +1,18 @@
 use std::hash::{Hash, Hasher};
 
+use log::*;
 use rand::prelude::*;
-use tracing::*;
+use tantivy::Index;
 
 use toshi_proto::cluster_rpc::*;
 use toshi_proto::cluster_rpc::{DocumentRequest, SearchRequest};
+use toshi_raft::rpc_server::RpcClient;
 use toshi_types::{DeleteDoc, DocsAffected, Error, Search};
+use toshi_types::{IndexHandle, IndexLocation};
 
 use crate::handlers::fold_results;
 use crate::AddDocument;
 use crate::SearchResults;
-use tantivy::Index;
-use toshi_raft::rpc_server::RpcClient;
-use toshi_types::{IndexHandle, IndexLocation};
 
 #[derive(Clone)]
 pub struct RemoteIndex {
