@@ -3,10 +3,9 @@ use std::path::Path;
 
 use bytes::BytesMut;
 use prost::Message;
-use raft::{RaftState, Storage};
 use raft::prelude::*;
-use raft::prelude::SnapshotMetadata;
-use sled::{Db, open};
+use raft::{RaftState, Storage};
+use sled::{open, Db};
 use slog::{info, Logger};
 
 use crate::state::SledRaftState;
@@ -113,7 +112,7 @@ impl SledStorage {
 
     pub fn append(&mut self, entries: &[Entry]) -> Result<(), SledStorageError> {
         if entries.is_empty() {
-            return Ok(())
+            return Ok(());
         }
         let entry_tree = self.db.open_tree("entries")?;
 
@@ -136,7 +135,6 @@ impl SledStorage {
     }
 
     pub fn commit(&mut self) -> Result<(), SledStorageError> {
-
         if let Some(ref log) = self.logger {
             info!(log, "Commit HardState = {:?}", self.state.hard_state);
             info!(log, "Commit ConfState = {:?}", self.state.conf_state);
@@ -172,7 +170,6 @@ impl SledStorage {
 }
 
 impl Storage for SledStorage {
-
     fn initial_state(&self) -> Result<RaftState, raft::Error> {
         Ok(self.state.clone().into())
     }
@@ -251,18 +248,16 @@ pub mod tests {
 
     #[test]
     pub fn test_last_idx() -> TestResult {
-        let mut  storage = test_storage();
-        let test_cat = create_test_catalog("test_index");
+        let mut storage = test_storage();
+        let _test_cat = create_test_catalog("test_index");
 
         assert_eq!(storage.last_index()?, 0);
 
         let entry = Entry::default();
-
 
         storage.append(&[entry])?;
         storage.commit()?;
         assert_eq!(storage.last_index()?, 0);
         remove_dir_all::remove_dir_all("./test_storage").map_err(Into::into)
     }
-
 }

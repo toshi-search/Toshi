@@ -1,4 +1,5 @@
 use std::net::{IpAddr, SocketAddr};
+use std::str::FromStr;
 use std::sync::Arc;
 
 use dashmap::DashMap;
@@ -12,7 +13,6 @@ use toshi_raft::rpc_server::{create_client, RpcClient, RpcServer};
 use toshi_server::settings::{settings, Experimental};
 use toshi_server::{setup_catalog, setup_logging_from_file};
 use toshi_types::Catalog;
-use std::str::FromStr;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {

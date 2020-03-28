@@ -447,9 +447,9 @@ dependencies = [
 
 [[package]]
 name = "dashmap"
-version = "3.7.0"
+version = "3.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "010ef3f25ed5bb93505a3238d19957622190268640526aab07174c66ccf5d611"
+checksum = "8b58d1fe94e8ca0be6d9d1fd0e1cc55ee5c037e4b9bf6a50768ef3f056e28c4c"
 dependencies = [
  "ahash",
  "cfg-if",
@@ -1581,7 +1581,7 @@ dependencies = [
 [[package]]
 name = "raft"
 version = "0.6.0-alpha"
-source = "git+https://github.com/tikv/raft-rs#e2a1841203ad6b3a4b2a6df1a38fea5c88f44e7e"
+source = "git+https://github.com/tikv/raft-rs#b9891b673573fad77ebcf9bbe0969cf945841926"
 dependencies = [
  "fxhash",
  "getset",
@@ -1595,7 +1595,7 @@ dependencies = [
 [[package]]
 name = "raft-proto"
 version = "0.6.0-alpha"
-source = "git+https://github.com/tikv/raft-rs#e2a1841203ad6b3a4b2a6df1a38fea5c88f44e7e"
+source = "git+https://github.com/tikv/raft-rs#b9891b673573fad77ebcf9bbe0969cf945841926"
 dependencies = [
  "lazy_static",
  "prost",
@@ -1993,9 +1993,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.48"
+version = "1.0.50"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9371ade75d4c2d6cb154141b9752cf3781ec9c05e0e5cf35060e1e70ee7b9c25"
+checksum = "78a7a12c167809363ec3bd7329fc0a3369056996de43c4b37ef3cd54a6ce4867"
 dependencies = [
  "itoa",
  "ryu",
