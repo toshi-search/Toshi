@@ -1846,15 +1846,15 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
-version = "1.0.9"
+version = "1.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "thiserror-impl 1.0.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "thiserror-impl 1.0.14 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "thiserror-impl"
-version = "1.0.9"
+version = "1.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "proc-macro2 1.0.8 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1993,7 +1993,7 @@ dependencies = [
  "serde 1.0.104 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.44 (registry+https://github.com/rust-lang/crates.io-index)",
  "tantivy 0.11.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "thiserror 1.0.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "thiserror 1.0.14 (registry+https://github.com/rust-lang/crates.io-index)",
  "toshi-test 0.1.0",
  "toshi-types 0.1.1",
 ]
@@ -2031,7 +2031,7 @@ dependencies = [
  "serde_json 1.0.44 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_urlencoded 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "tantivy 0.11.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "thiserror 1.0.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "thiserror 1.0.14 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio 0.2.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-test 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "tonic 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2071,7 +2071,7 @@ dependencies = [
  "serde 1.0.104 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.44 (registry+https://github.com/rust-lang/crates.io-index)",
  "tantivy 0.11.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "thiserror 1.0.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "thiserror 1.0.14 (registry+https://github.com/rust-lang/crates.io-index)",
  "tonic 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -2696,8 +2696,8 @@ dependencies = [
 "checksum tempdir 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)" = "15f2b5fb00ccdf689e0149d1b1b3c03fead81c2b37735d812fa8bddbbf41b6d8"
 "checksum tempfile 3.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "7a6e24d9338a0a5be79593e2fa15a648add6138caa803e2d5bc782c371732ca9"
 "checksum textwrap 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)" = "d326610f408c7a4eb6f51c37c330e496b08506c9457c9d34287ecc38809fb060"
-"checksum thiserror 1.0.9 (registry+https://github.com/rust-lang/crates.io-index)" = "6f357d1814b33bc2dc221243f8424104bfe72dbe911d5b71b3816a2dff1c977e"
-"checksum thiserror-impl 1.0.9 (registry+https://github.com/rust-lang/crates.io-index)" = "eb2e25d25307eb8436894f727aba8f65d07adf02e5b35a13cebed48bd282bfef"
+"checksum thiserror 1.0.14 (registry+https://github.com/rust-lang/crates.io-index)" = "f0570dc61221295909abdb95c739f2e74325e14293b2026b0a7e195091ec54ae"
+"checksum thiserror-impl 1.0.14 (registry+https://github.com/rust-lang/crates.io-index)" = "227362df41d566be41a28f64401e07a043157c21c14b9785a0d8e256f940a8fd"
 "checksum thread_local 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)" = "d40c6d1b69745a6ec6fb1ca717914848da4b44ae29d9b3080cbee91d72a69b14"
 "checksum time 0.1.42 (registry+https://github.com/rust-lang/crates.io-index)" = "db8dcfca086c1143c9270ac42a2bbd8a7ee477b78ac8e45b19abfb0cbede4b6f"
 "checksum tokio 0.2.9 (registry+https://github.com/rust-lang/crates.io-index)" = "ffa2fdcfa937b20cb3c822a635ceecd5fc1a27a6a474527e5516aa24b8c8820a"
