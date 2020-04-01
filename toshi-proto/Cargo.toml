@@ -12,7 +12,7 @@ build = "build.rs"
 tonic-build  = "^0.1"
 
 [dependencies]
-tonic        = "^0.1"
+tonic        = "^0.2"
 bytes        = "^0.5"
 prost        = "^0.6"
 prost-types  = "^0.6"
