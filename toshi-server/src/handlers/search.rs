@@ -2,9 +2,9 @@ use bytes::Buf;
 use hyper::body::aggregate;
 use hyper::Response;
 use hyper::{Body, StatusCode};
-use tracing::*;
+use log::info;
 
-use toshi_types::Search;
+use toshi_types::*;
 
 use crate::handlers::ResponseFuture;
 use crate::index::SharedCatalog;
@@ -12,33 +12,19 @@ use crate::utils::{empty_with_code, with_body};
 use crate::SearchResults;
 
 #[inline]
-pub fn fold_results(results: Vec<SearchResults>) -> SearchResults {
-    results.into_iter().sum()
+pub fn fold_results(results: Vec<SearchResults>, limit: usize) -> SearchResults {
+    results.into_iter().take(limit).sum()
 }
 
-pub async fn doc_search(catalog: SharedCatalog, body: Body, index: String) -> ResponseFuture {
-    let span = span!(Level::INFO, "search_handler", ?index);
-    let _enter = span.enter();
+pub async fn doc_search(catalog: SharedCatalog, body: Body, index: &str) -> ResponseFuture {
     let b = aggregate(body).await?;
     let req = serde_json::from_slice::<Search>(b.bytes()).unwrap();
-    let c = catalog.lock().await;
-    let req = if req.query.is_none() { Search::all_docs() } else { req };
+    let req = if req.query.is_none() { Search::all_limit(req.limit) } else { req };
 
-    if c.exists(&index) {
+    if catalog.exists(index) {
         info!("Query: {:?}", req);
-        //        let mut tasks = FuturesUnordered::new();
-        //        tasks.push(future::Either::Left(c.search_local_index(&index, req.clone())));
-        //        if c.remote_exists(&index) {
-        //            tasks.push(future::Either::Right(c.search_remote_index(&index, req)));
-        //        }
-        //        let mut results = vec![];
-        //        while let Some(Ok(r)) = tasks.next().await {
-        //            results.extend(r);
-        //        }
-        //
-        //        let response = fold_results(results);
-        match c.search_local_index(&index, req.clone()).await {
-            Ok(v) => Ok(with_body(v)),
+        match catalog.search_local_index(index, req.clone()).await {
+            Ok(results) => Ok(with_body(results)),
             Err(e) => Ok(Response::from(e)),
         }
     } else {
@@ -46,7 +32,7 @@ pub async fn doc_search(catalog: SharedCatalog, body: Body, index: String) -> Re
     }
 }
 
-pub async fn all_docs(catalog: SharedCatalog, index: String) -> ResponseFuture {
+pub async fn all_docs(catalog: SharedCatalog, index: &str) -> ResponseFuture {
     let body = Body::from(serde_json::to_vec(&Search::all_docs()).unwrap());
     doc_search(catalog, body, index).await
 }
@@ -56,18 +42,16 @@ pub mod tests {
     use std::sync::atomic::AtomicBool;
     use std::sync::Arc;
 
-    use hyper::Request;
+    use hyper::{Body, Request, StatusCode};
     use pretty_assertions::assert_eq;
 
     use toshi_test::{cmp_float, read_body, wait_json, TestServer};
-    use toshi_types::{ErrorResponse, ExactTerm, FuzzyQuery, FuzzyTerm, KeyValue, PhraseQuery, Query, TermPair};
+    use toshi_types::{ErrorResponse, ExactTerm, FuzzyQuery, FuzzyTerm, KeyValue, PhraseQuery, Query, Search, TermPair};
 
-    use crate::handlers::ResponseFuture;
-    use crate::index::tests::*;
+    use crate::handlers::{doc_search, ResponseFuture};
+    use crate::index::create_test_catalog;
     use crate::router::Router;
     use crate::SearchResults;
-
-    use super::*;
 
     type ReturnUnit = Result<(), Box<dyn std::error::Error>>;
 
@@ -80,7 +64,7 @@ pub mod tests {
     async fn test_term_query() -> Result<(), Box<dyn std::error::Error>> {
         let term = KeyValue::new("test_text".into(), "document".into());
         let term_query = Query::Exact(ExactTerm::new(term));
-        let search = Search::new(Some(term_query), None, 10);
+        let search = Search::new(Some(term_query), None, 10, None);
         let q = run_query(search, "test_index").await?;
         let body: SearchResults = wait_json(q).await;
         assert_eq!(body.hits, 3);
@@ -92,7 +76,7 @@ pub mod tests {
         let terms = TermPair::new(vec!["test".into(), "document".into()], None);
         let phrase = KeyValue::new("test_text".into(), terms);
         let term_query = Query::Phrase(PhraseQuery::new(phrase));
-        let search = Search::new(Some(term_query), None, 10);
+        let search = Search::new(Some(term_query), None, 10, None);
         let q = run_query(search, "test_index").await?;
         let body: SearchResults = wait_json(q).await;
         assert_eq!(body.hits, 3);
@@ -104,7 +88,7 @@ pub mod tests {
         let cat = create_test_catalog("test_index");
         let body = r#"{ "query" : { "raw": "test_text:\"document\"" } }"#;
         let (list, ts) = TestServer::new()?;
-        let router = Router::new(cat, Arc::new(AtomicBool::new(false)));
+        let router = Router::new(cat, Arc::new(AtomicBool::new(false)), None);
         let req = Request::post(ts.uri("/asdf1234")).body(Body::from(body))?;
         let resp = ts.get(req, router.router_from_tcp(list)).await?;
         assert_eq!(resp.status(), StatusCode::NOT_FOUND);
@@ -148,20 +132,24 @@ pub mod tests {
         let req: Search = serde_json::from_str(body)?;
         let q = run_query(req, "test_index").await?;
         let b: SearchResults = wait_json(q).await;
-        assert_eq!(b.facets[0].value, 1);
-        assert_eq!(b.facets[1].value, 1);
-        assert_eq!(b.facets[0].field, "/cat/cat2");
+        assert_eq!(b.get_facets()[0].value, 1);
+        assert_eq!(b.get_facets()[1].value, 1);
+        assert_eq!(b.get_facets()[0].field, "/cat/cat2");
         Ok(())
     }
 
+    // This code is just...the worst thing ever.
     #[tokio::test]
     async fn test_raw_query() -> ReturnUnit {
-        let body = r#"test_text:"Duckiment""#;
-        let req = Search::new(Some(Query::Raw { raw: body.into() }), None, 10);
+        let b = r#"test_text:"Duckiment""#;
+        let req = Search::new(Some(Query::Raw { raw: b.into() }), None, 10, None);
         let q = run_query(req, "test_index").await?;
         let body: SearchResults = wait_json(q).await;
-        assert_eq!(body.hits as usize, body.docs.len());
-        assert_eq!(body.docs[0].doc["test_text"][0].text().unwrap(), "Test Duckiment 3");
+        assert_eq!(*&body.hits as usize, body.get_docs().len());
+        let b2 = body.clone();
+        let map = b2.get_docs()[0].clone().doc.0;
+        let text = String::from(map.remove("test_text").unwrap().1.clone().as_str().unwrap());
+        assert_eq!(text, "Test Duckiment 3");
         Ok(())
     }
 
@@ -169,13 +157,13 @@ pub mod tests {
     async fn test_fuzzy_term_query() -> ReturnUnit {
         let fuzzy = KeyValue::new("test_text".into(), FuzzyTerm::new("document".into(), 0, false));
         let term_query = Query::Fuzzy(FuzzyQuery::new(fuzzy));
-        let search = Search::new(Some(term_query), None, 10);
+        let search = Search::new(Some(term_query), None, 10, None);
         let q = run_query(search, "test_index").await?;
         let body: SearchResults = wait_json(q).await;
 
-        assert_eq!(body.hits as usize, body.docs.len());
+        assert_eq!(body.hits as usize, body.get_docs().len());
         assert_eq!(body.hits, 3);
-        assert_eq!(body.docs.len(), 3);
+        assert_eq!(body.get_docs().len(), 3);
         Ok(())
     }
 
@@ -185,8 +173,8 @@ pub mod tests {
         let req: Search = serde_json::from_str(body)?;
         let q = run_query(req, "test_index").await?;
         let body: SearchResults = wait_json(q).await;
-        assert_eq!(body.hits as usize, body.docs.len());
-        assert_eq!(cmp_float(body.docs[0].score.unwrap(), 1.0), true);
+        assert_eq!(body.hits as usize, body.get_docs().len());
+        assert_eq!(cmp_float(body.get_docs()[0].score.unwrap(), 1.0), true);
         Ok(())
     }
 
@@ -196,8 +184,8 @@ pub mod tests {
         let req: Search = serde_json::from_str(&body)?;
         let q = run_query(req, "test_index").await?;
         let body: SearchResults = wait_json(q).await;
-        assert_eq!(body.hits as usize, body.docs.len());
-        assert_eq!(cmp_float(body.docs[0].score.unwrap(), 1.0), true);
+        assert_eq!(body.hits as usize, body.get_docs().len());
+        assert_eq!(cmp_float(body.get_docs()[0].score.unwrap(), 1.0), true);
         Ok(())
     }
 

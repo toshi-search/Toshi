@@ -1,8 +1,7 @@
 use futures::{Future, FutureExt};
+use log::*;
 use tokio::sync::oneshot;
-use tracing::*;
 
-#[cfg_attr(tarpaulin, skip)]
 #[cfg(unix)]
 pub fn shutdown(s: oneshot::Sender<()>) -> impl Future<Output = Result<(), ()>> + Unpin + Send {
     use futures::future;
@@ -20,7 +19,6 @@ pub fn shutdown(s: oneshot::Sender<()>) -> impl Future<Output = Result<(), ()>> 
     Box::pin(handle_shutdown(s, Box::pin(sig)))
 }
 
-#[cfg_attr(tarpaulin, skip)]
 #[cfg(not(unix))]
 pub fn shutdown(signal: oneshot::Sender<()>) -> impl Future<Output = Result<(), ()>> + Unpin + Send {
     let stream = tokio::signal::ctrl_c().map(|_| String::from("ctrl-c"));

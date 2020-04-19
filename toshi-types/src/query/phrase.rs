@@ -78,9 +78,8 @@ impl CreateQuery for PhraseQuery {
 
 #[cfg(test)]
 mod tests {
-    use tantivy::schema::*;
-
     use super::*;
+    use tantivy::schema::*;
 
     #[test]
     fn test_no_terms() {
@@ -111,5 +110,20 @@ mod tests {
             query.unwrap_err().to_string(),
             "Error in query execution: 'Differing numbers of offsets and query terms (2 and 1)'"
         );
+    }
+
+    #[test]
+    fn test_query() {
+        let body = r#"{ "phrase": { "test_u64": { "terms": ["asdf", "asdf2"], "offsets": [1, 2] } } }"#;
+        let mut schema = SchemaBuilder::new();
+        schema.add_u64_field("test_u64", FAST);
+        let built = schema.build();
+        let phrase: PhraseQuery = serde_json::from_str(body).unwrap();
+        let query = phrase.create_query(&built);
+
+        assert_eq!(query.is_ok(), true);
+        let result = query.unwrap();
+        let q: &TantivyPhraseQuery = result.downcast_ref::<TantivyPhraseQuery>().unwrap();
+        assert_eq!(q.phrase_terms().len(), 2);
     }
 }

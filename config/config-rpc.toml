@@ -1,5 +1,5 @@
 host = "127.0.0.1"
-port = 8081
+port = 8082
 path = "data/"
 writer_memory = 200000000
 log_level = "info"
@@ -9,7 +9,10 @@ auto_commit_duration = 10
 experimental = true
 
 [experimental_features]
-master = false
+leader = false
+rpc_port = 8083
+id = 2
+nodes = ["127.0.0.1:8081"]
 
 [merge_policy]
 kind = "log"

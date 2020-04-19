@@ -1,12 +1,14 @@
 use std::fmt;
 use std::marker::PhantomData;
 
+use dashmap::DashMap;
 use serde::de::{DeserializeOwned, Deserializer, Error as SerdeError, MapAccess, Visitor};
 use serde::ser::SerializeMap;
 use serde::Serializer;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use tantivy::query::Query as TantivyQuery;
-use tantivy::schema::Schema;
+use tantivy::schema::{NamedFieldDocument, Schema};
 use tantivy::Term;
 
 use crate::error::Error;
@@ -56,6 +58,42 @@ pub enum Query {
     All,
 }
 
+impl Into<Query> for BoolQuery {
+    fn into(self) -> Query {
+        Query::Boolean { bool: self }
+    }
+}
+impl Into<Query> for PhraseQuery {
+    fn into(self) -> Query {
+        Query::Phrase(self)
+    }
+}
+impl Into<Query> for FuzzyQuery {
+    fn into(self) -> Query {
+        Query::Fuzzy(self)
+    }
+}
+impl Into<Query> for ExactTerm {
+    fn into(self) -> Query {
+        Query::Exact(self)
+    }
+}
+impl Into<Query> for RegexQuery {
+    fn into(self) -> Query {
+        Query::Regex(self)
+    }
+}
+impl Into<Query> for RangeQuery {
+    fn into(self) -> Query {
+        Query::Range(self)
+    }
+}
+impl Into<Query> for String {
+    fn into(self) -> Query {
+        Query::Raw { raw: self }
+    }
+}
+
 /// The request body of a search POST in Toshi
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Search {
@@ -73,12 +111,12 @@ pub struct Search {
 
 impl Search {
     /// Construct a new Search query
-    pub fn new(query: Option<Query>, facets: Option<FacetQuery>, limit: usize) -> Self {
+    pub fn new(query: Option<Query>, facets: Option<FacetQuery>, limit: usize, sort_by: Option<String>) -> Self {
         Search {
             query,
             facets,
             limit,
-            sort_by: None,
+            sort_by,
         }
     }
 
@@ -89,7 +127,7 @@ impl Search {
 
     /// Construct a search with a known Query
     pub fn with_query(query: Query) -> Self {
-        Self::new(Some(query), None, Self::default_limit())
+        Self::new(Some(query), None, Self::default_limit(), None)
     }
 
     /// The default limit for docs to return
@@ -110,6 +148,13 @@ impl Search {
             sort_by: None,
         }
     }
+
+    /// Another shortcut, but with a known limit
+    pub fn all_limit(limit: usize) -> Self {
+        let mut all = Self::all_docs();
+        all.limit = limit;
+        all
+    }
 }
 
 #[derive(Debug)]
@@ -117,6 +162,7 @@ pub struct SearchBuilder {
     query: Query,
     facets: Option<FacetQuery>,
     limit: usize,
+    sort_by: Option<String>,
 }
 
 impl Default for SearchBuilder {
@@ -131,6 +177,7 @@ impl SearchBuilder {
             query: Query::All,
             facets: None,
             limit: 100,
+            sort_by: None,
         }
     }
 
@@ -146,8 +193,15 @@ impl SearchBuilder {
         self.limit = limit;
         self
     }
+    pub fn sort_by<V>(mut self, field: V) -> Self
+    where
+        V: ToString,
+    {
+        self.sort_by = Some(field.to_string());
+        self
+    }
     pub fn build(self) -> Search {
-        Search::new(Some(self.query), self.facets, self.limit)
+        Search::new(Some(self.query), self.facets, self.limit, self.sort_by)
     }
 }
 
@@ -256,14 +310,62 @@ where
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct FlatNamedDocument(pub DashMap<String, Value>);
+
+impl Into<FlatNamedDocument> for NamedFieldDocument {
+    fn into(self) -> FlatNamedDocument {
+        let map = DashMap::with_capacity(self.0.len());
+        for (k, v) in self.0 {
+            if v.len() == 1 {
+                map.insert(k, serde_json::to_value(&v[0]).unwrap());
+                continue;
+            }
+            map.insert(k, serde_json::to_value(v).unwrap());
+        }
+        FlatNamedDocument(map)
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use tantivy::schema::*;
+
     use super::*;
+
+    #[test]
+    fn test_doc_deserialize() {
+        let mut schema_builder = Schema::builder();
+        let title = schema_builder.add_text_field("title", TEXT);
+        let author = schema_builder.add_text_field("text", TEXT);
+        let likes = schema_builder.add_u64_field("num_u64", FAST);
+        let schema: Schema = schema_builder.build();
+        let doc = tantivy::doc!(
+            title => "Life Aquatic",
+            author => "Wes Anderson",
+            likes => 4u64
+        );
+        let named: FlatNamedDocument = schema.to_named_doc(&doc).into();
+
+        println!("{}", serde_json::to_string_pretty(&named).unwrap());
+    }
 
     #[test]
     fn test_kv_serialize() {
         let kv = KeyValue::new("test_field".to_string(), 1);
         let expected = r#"{"test_field":1}"#;
         assert_eq!(expected, serde_json::to_string(&kv).unwrap());
+    }
+
+    #[test]
+    fn test_builder() {
+        let query_builder = FuzzyQuery::builder().for_field("text").with_distance(20).with_value("Hi!").build();
+        let builder = Search::builder().with_limit(50).with_query(query_builder).sort_by("text");
+        let query = builder.build();
+
+        assert_eq!(query.query.is_some(), true);
+        assert_eq!(query.limit, 50);
+        assert_eq!(query.sort_by.is_some(), true);
+        assert_eq!(query.sort_by.unwrap(), "text");
     }
 }

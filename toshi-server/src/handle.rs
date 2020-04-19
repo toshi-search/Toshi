@@ -1,35 +1,21 @@
-use std::collections::BTreeMap;
 use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
 
+use log::*;
 use tantivy::collector::{FacetCollector, MultiCollector, TopDocs};
 use tantivy::query::{AllQuery, QueryParser};
 use tantivy::schema::*;
 use tantivy::space_usage::SearcherSpaceUsage;
 use tantivy::{Document, Index, IndexReader, IndexWriter, ReloadPolicy, Term};
-use tokio::sync::Mutex;
-use tracing::*;
+use tokio::sync::*;
 
-use toshi_types::{CreateQuery, DeleteDoc, DocsAffected, Error, KeyValue, Query, ScoredDoc, Search};
+use async_trait::async_trait;
+use toshi_types::*;
 
 use crate::settings::Settings;
 use crate::Result;
 use crate::{AddDocument, SearchResults};
-
-pub enum IndexLocation {
-    LOCAL,
-    REMOTE,
-}
-
-#[async_trait::async_trait]
-pub trait IndexHandle {
-    fn get_name(&self) -> String;
-    fn index_location(&self) -> IndexLocation;
-    async fn search_index(&'_ self, search: Search) -> Result<SearchResults>;
-    async fn add_document(&self, doc: AddDocument) -> Result<()>;
-    async fn delete_term(&self, term: DeleteDoc) -> Result<DocsAffected>;
-}
 
 /// Index handle that operates on an Index local to the node, a remote index handle
 /// will eventually call to wherever the local index is stored, so at some level the relevant
@@ -72,7 +58,7 @@ impl Hash for LocalIndex {
     }
 }
 
-#[async_trait::async_trait]
+#[async_trait]
 impl IndexHandle for LocalIndex {
     fn get_name(&self) -> String {
         self.name.clone()
@@ -82,7 +68,11 @@ impl IndexHandle for LocalIndex {
         IndexLocation::LOCAL
     }
 
-    async fn search_index(&'_ self, search: Search) -> Result<SearchResults> {
+    fn get_index(&self) -> Index {
+        self.index.clone()
+    }
+
+    async fn search_index(&self, search: Search) -> Result<SearchResults> {
         let searcher = self.reader.searcher();
         let schema = self.index.schema();
         let mut multi_collector = MultiCollector::new();
@@ -123,21 +113,21 @@ impl IndexHandle for LocalIndex {
                 Query::Raw { raw } => {
                     let fields: Vec<Field> = schema.fields().filter_map(|f| schema.get_field(f.1.name())).collect();
                     let query_parser = QueryParser::for_index(&self.index, fields);
-                    query_parser.parse_query(&raw)?
+                    query_parser.parse_query(raw.as_str())?
                 }
                 Query::All => Box::new(AllQuery),
             };
 
-            debug!("{:?}", gen_query);
+            trace!("{:?}", gen_query);
             let mut scored_docs = searcher.search(&*gen_query, &multi_collector)?;
 
             // FruitHandle isn't a public type which leads to some duplicate code like this.
-            let docs: Vec<ScoredDoc<BTreeMap<_, _>>> = if let Some(h) = sorted_top_handle {
+            let docs: Vec<ScoredDoc<FlatNamedDocument>> = if let Some(h) = sorted_top_handle {
                 h.extract(&mut scored_docs)
                     .into_iter()
                     .map(|(score, doc)| {
                         let d = searcher.doc(doc).expect("Doc not found in segment");
-                        ScoredDoc::<BTreeMap<_, _>>::new(Some(score as f32), schema.to_named_doc(&d).0)
+                        ScoredDoc::<FlatNamedDocument>::new(Some(score as f32), schema.to_named_doc(&d).into())
                     })
                     .collect()
             } else {
@@ -146,7 +136,7 @@ impl IndexHandle for LocalIndex {
                     .into_iter()
                     .map(|(score, doc)| {
                         let d = searcher.doc(doc).expect("Doc not found in segment");
-                        ScoredDoc::<BTreeMap<_, _>>::new(Some(score), schema.to_named_doc(&d).0)
+                        ScoredDoc::<FlatNamedDocument>::new(Some(score), schema.to_named_doc(&d).into())
                     })
                     .collect()
             };

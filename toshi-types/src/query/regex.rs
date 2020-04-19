@@ -17,8 +17,11 @@ impl RegexQuery {
         Self { regex }
     }
     /// Constructor to create a key value for the user
-    pub fn from_str(field: String, regex: String) -> Self {
-        Self::new(KeyValue::new(field, regex))
+    pub fn from_str<R>(field: String, regex: R) -> Self
+    where
+        R: ToString,
+    {
+        Self::new(KeyValue::new(field, regex.to_string()))
     }
 }
 
@@ -29,5 +32,42 @@ impl CreateQuery for RegexQuery {
             .get_field(&field)
             .ok_or_else(|| Error::QueryError(format!("Field: {} does not exist", field)))?;
         Ok(Box::new(TantivyRegexQuery::from_pattern(&value, field)?))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use tantivy::schema::*;
+
+    use super::*;
+
+    #[test]
+    fn test_valid_regex() {
+        let body = r#"{ "regex": { "test_text": ".*" } }"#;
+        let mut schema = SchemaBuilder::new();
+        schema.add_u64_field("test_text", FAST);
+        let phrase: RegexQuery = serde_json::from_str(body).unwrap();
+        let query = phrase.create_query(&schema.build());
+        assert_eq!(query.is_ok(), true);
+    }
+
+    #[test]
+    fn test_bad_regex() {
+        let body = r#"{ "regex": { "test_text": "[(.!" } }"#;
+        let mut schema = SchemaBuilder::new();
+        schema.add_u64_field("test_text", FAST);
+        let phrase: RegexQuery = serde_json::from_str(body).unwrap();
+        let query = phrase.create_query(&schema.build());
+        assert_eq!(query.is_err(), true);
+    }
+
+    #[test]
+    fn test_create_regex() {
+        let mut schema = SchemaBuilder::new();
+        schema.add_u64_field("test_text", FAST);
+        let phrase: RegexQuery = RegexQuery::from_str("test_text".into(), ".*");
+        let query = phrase.create_query(&schema.build());
+
+        assert_eq!(query.is_ok(), true);
     }
 }

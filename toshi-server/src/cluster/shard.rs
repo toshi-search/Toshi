@@ -2,11 +2,11 @@ use serde::{Deserialize, Serialize};
 use tantivy::Index;
 use uuid::Uuid;
 
-use crate::handle::IndexHandle;
 use crate::handle::LocalIndex;
 use crate::settings::Settings;
 use serde::export::Result::Err;
 use toshi_types::Error;
+use toshi_types::IndexHandle;
 
 /// Trait implemented by both Primary and Replica Shards
 pub trait Shard: Serialize {

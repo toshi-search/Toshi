@@ -10,31 +10,37 @@ jobs:
         os:
           - macOS-latest
           - ubuntu-latest
-          #- windows-latest
+          - windows-latest
     steps:
       - uses: actions/checkout@v2
       - name: Install Rust & Tools
-        run: |
-          set -e
-          curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain stable
-          export PATH=$PATH:$HOME/.cargo/bin:/usr/local/cargo/bin
-          rustc --version && cargo --version
-          rustup component add rustfmt
-          rustup component add clippy
-        shell: bash
-      - name: Check & test
-        run: |
-          set -e
-          export PATH=$PATH:$HOME/.cargo/bin:/usr/local/cargo/bin
-          cargo fmt --all -- --check
-          cargo check --all
-          cargo clean
-          cargo clippy
-          cargo test --all --all-features
-        shell: bash
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+          components: clippy, rustfmt
+      - name: Check Source
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+          args: --all
+      - name: Check Fmt
+        uses: actions-rs/cargo@v1
+        if: matrix.os != 'windows-latest'
+        with:
+          command: fmt
+          args: --all -- --check
+      - name: Run Clippy
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+      - name: Run Tests
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --all --all-features
   coverage:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v2
       - name: Install Rust & Dependencies

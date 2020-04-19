@@ -54,3 +54,24 @@ pub struct DeleteDoc {
     /// KeyValue like a lot of other queries do that only accept a single term pair at a time
     pub terms: HashMap<String, String>,
 }
+
+#[cfg(test)]
+mod tests {
+
+    use crate::SchemaBody;
+    use tantivy::schema::*;
+
+    #[test]
+    fn test_debug() {
+        let mut builder = SchemaBuilder::new();
+        builder.add_text_field("test_text", STORED | TEXT);
+        builder.add_i64_field("test_i64", STORED | INDEXED | FAST);
+        builder.add_u64_field("test_u64", STORED | INDEXED);
+        builder.add_text_field("test_unindex", STORED);
+        builder.add_facet_field("test_facet");
+        builder.add_date_field("test_date", INDEXED | FAST);
+        let schema = SchemaBody(builder.build());
+
+        println!("{:?}", schema);
+    }
+}

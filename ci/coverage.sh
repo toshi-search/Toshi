@@ -13,23 +13,20 @@ if [[ -d $CUR_DIR/../target ]]; then
   find $CUR_DIR/../target -name "*.gc*" -delete
 fi
 
-export CARGO_OPTIONS="--all --all-features"
 export CARGO_INCREMENTAL=0
 export RUSTFLAGS="-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Zno-landing-pads"
 cargo +nightly clean
-cargo +nightly build $CARGO_OPTIONS
-cargo +nightly test $CARGO_OPTIONS
+cargo +nightly build --all --all-features
+cargo +nightly test --all --all-features
 
 mkdir -p $COVERAGE_DIR
 zip -0 $COVERAGE_DIR/ccov.zip `find . \( -name "*toshi*.gc*" \) -print`;
 
-grcov $COVERAGE_DIR/ccov.zip -s . -t lcov --llvm -o $COVERAGE_DIR/lcov.info \
-	--ignore-not-existing \
-	--ignore "/*"
+grcov $COVERAGE_DIR/ccov.zip -s . -t lcov --llvm -o $COVERAGE_DIR/lcov.info --ignore-not-existing --ignore "/*"
 
 
 if [[ "$OUTPUT" == "Html" ]]; then
-	genhtml -o $COVERAGE_DIR/ --show-details --highlight --ignore-errors source --legend $COVERAGE_DIR/lcov.info
+	genhtml -o $COVERAGE_DIR/ --show-details --highlight --ignore-errors source --legend "$COVERAGE_DIR"/lcov.info
 else
 	bash <(curl -s https://codecov.io/bash) -f $COVERAGE_DIR/lcov.info;
 fi

@@ -1,0 +1,59 @@
+[package]
+name    = "toshi-server"
+version = "0.1.1"
+authors = ["Stephen Carman <shcarman@gmail.com>"]
+description = "A full text search engine based on Tantivy"
+repository = "https://github.com/toshi-search/Toshi"
+license = "MIT"
+edition = "2018"
+
+[[bin]]
+name = "toshi"
+
+[[bin]]
+name = "toshi-raft"
+path = "src/bin/toshi_raft.rs"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+toshi-proto            = { path = "../toshi-proto" }
+toshi-types            = { path = "../toshi-types" }
+toshi-raft             = { path = "../toshi-raft" }
+raft                   = { git = "https://github.com/tikv/raft-rs", default-features = false, features = ["prost-codec"] }
+http                   = "^0.2"
+bytes                  = "^0.5"
+hyper                  = { version = "^0.13", features = ["stream"] }
+serde_json             = "^1.0"
+serde_urlencoded       = "^0.6"
+futures                = "^0.3"
+tower-util             = "^0.3"
+tonic                  = "^0.2"
+tantivy                = "^0.12"
+tokio                  = { version = "^0.2", features = ["full", "parking_lot"] }
+async-trait            = "^0.1"
+config                 = "^0.10"
+structopt              = "^0.3"
+thiserror              = "^1.0"
+anyhow                 = "^1.0"
+crossbeam              = "^0.7"
+dashmap                = "^3"
+rand                   = { version = "^0.7", features = ["log", "small_rng"] }
+serde                  = { version = "^1.0", features = ["derive"] }
+clap                   = { version = "^2.3", features = ["color"] }
+uuid                   = { version = "^0.8", features = ["serde", "v4"] }
+slog                   = "^2.5"
+slog-async             = "^2.3"
+slog-term              = "^2.4"
+slog-stdlog            = "^4.0"
+slog-scope             = "^4.3"
+log                    = { version = "*", features = ["max_level_trace", "release_max_level_warn"] }
+sloggers               = "^0.3"
+toml                   = "^0.5"
+
+[dev-dependencies]
+remove_dir_all = "^0.5"
+pretty_assertions = "^0.6"
+tokio-test = "^0.2"
+toshi-test = { path = "../toshi-test" }

@@ -9,11 +9,12 @@ pub struct Wiki {
     rating: i32,
 }
 
-pub fn main() -> Result<()> {
+#[tokio::main]
+pub async fn main() -> Result<()> {
     let c = ToshiClient::new("http://localhost:8080")?;
     let query = Query::Exact(ExactTerm::with_term("body", "born"));
     let search = Search::with_query(query);
-    let _docs: SearchResults<Wiki> = c.search("wiki", search)?;
+    let _docs: SearchResults<Wiki> = c.search("wiki", search).await?;
 
     Ok(())
 }

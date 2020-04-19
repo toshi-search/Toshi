@@ -134,3 +134,9 @@ impl From<serde_json::Error> for Error {
         Error::QueryError(err.to_string())
     }
 }
+
+impl From<slog::Error> for Error {
+    fn from(e: slog::Error) -> Self {
+        Error::IOError(e.to_string())
+    }
+}

@@ -9,12 +9,13 @@ pub struct Wiki {
     rating: i32,
 }
 
-pub fn main() -> Result<()> {
+#[tokio::main]
+pub async fn main() -> Result<()> {
     let client = ToshiClient::new("http://localhost:8080")?;
     let query = RangeQuery::builder().gte(3).lte(5).for_field("rating").build();
 
     let search = Search::with_query(query);
-    let _results: SearchResults<Wiki> = client.search("wiki", search)?;
+    let _results: SearchResults<Wiki> = client.search("wiki", search).await?;
 
     Ok(())
 }
