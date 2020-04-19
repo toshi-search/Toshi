@@ -213,26 +213,28 @@ where
     async fn raft_request(&self, request: Request<RaftRequest>) -> Result<Response<RaftReply>, Status> {
         let RaftRequest { message, .. } = request.into_inner();
         let msg: toshi_proto::cluster_rpc::Message = Message::decode(Bytes::from(message)).unwrap();
-        slog::info!(self.logger, "MSG = {:?}", msg);
+        slog::debug!(self.logger, "MSG = {:?}", msg);
         let mut chan = self.raft_chan.clone();
-        chan.send(msg).await.unwrap();
-
+        if let Err(err) = chan.send(msg).await {
+            panic!("Send Error: {:?}", err);
+        }
         let response = Response::new(RaftReply { code: 0 });
         Ok(response)
     }
 
     async fn join(&self, request: Request<JoinRequest>) -> Result<Response<ResultReply>, Status> {
         let JoinRequest { host, id } = request.into_inner();
-        let h = format!("http://{}", host);
         let conf = raft::prelude::ConfChange {
             id,
             change_type: 0,
             node_id: id,
-            context: h.as_bytes().to_vec(),
+            context: host.as_bytes().to_vec(),
         };
-        slog::info!(self.logger, "CONF = {:?}", conf);
+        slog::debug!(self.logger, "CONF = {:?}", conf);
         let mut chan = self.raft_conf.clone();
-        chan.send(conf).await.unwrap();
+        if let Err(err) = chan.send(conf).await {
+            panic!("Send Error: {:?}", err);
+        }
 
         let response = Response::new(ResultReply::default());
         Ok(response)

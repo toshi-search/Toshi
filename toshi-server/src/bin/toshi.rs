@@ -19,7 +19,7 @@ use toshi_raft::rpc_server::{create_client, RpcClient, RpcServer};
 use toshi_server::commit::watcher;
 use toshi_server::index::{IndexCatalog, SharedCatalog};
 use toshi_server::router::Router;
-use toshi_server::settings::{settings, Experimental, Settings, HEADER, RPC_HEADER};
+use toshi_server::settings::{settings, Experimental, Settings, HEADER};
 use toshi_server::{setup_logging_from_file, shutdown};
 use toshi_types::Catalog;
 
@@ -58,7 +58,7 @@ async fn setup_shutdown(shutdown_signal: oneshot::Receiver<()>, index_catalog: S
 
 async fn setup_toshi(settings: Settings, index_catalog: SharedCatalog, tx: oneshot::Sender<()>) -> Result<(), ()> {
     let shutdown = shutdown::shutdown(tx);
-    if !settings.experimental_features.leader && settings.experimental {
+    if settings.experimental {
         let (sender, recv) = tokio::sync::mpsc::channel(1024);
         let master = run_master(Arc::clone(&index_catalog), settings.clone(), Some(sender.clone()));
         tokio::spawn(run_data(Arc::clone(&index_catalog), settings, sender.clone(), recv));
@@ -96,16 +96,22 @@ fn run_data(
     sender: mpsc::Sender<Message>,
     recv: mpsc::Receiver<Message>,
 ) -> impl Future<Output = Result<(), Box<dyn Error + Send + Sync + 'static>>> + Unpin + Send {
-    let lock = Arc::new(AtomicBool::new(false));
-    let commit_watcher = watcher(Arc::clone(&catalog), settings.auto_commit_duration, Arc::clone(&lock));
     let addr: IpAddr = settings
         .host
         .parse()
         .unwrap_or_else(|_| panic!("Invalid IP address: {}", &settings.host));
 
-    let bind: SocketAddr = SocketAddr::new(addr, settings.port);
+    let bind: SocketAddr = SocketAddr::new(addr, settings.experimental_features.rpc_port);
 
-    let Experimental { id, nodes, leader, .. } = settings.experimental_features;
+    let Experimental {
+        id,
+        nodes,
+        leader,
+        rpc_port,
+        ..
+    } = settings.experimental_features;
+    let resp_uri = format!("http://{}:{}", settings.host, rpc_port);
+
     let fut = async move {
         let raft_cfg = Config::new(id);
         let peers = Arc::new(DashMap::new());
@@ -131,18 +137,22 @@ fn run_data(
 
         if !leader {
             let client: RpcClient = create_client(uri.clone(), Some(slog_scope::logger())).await?;
-            let req = Request::new(toshi_proto::cluster_rpc::JoinRequest { id, host: uri.to_string() });
+            let req = Request::new(toshi_proto::cluster_rpc::JoinRequest {
+                id,
+                host: resp_uri.to_string(),
+            });
             client.clone().join(req).await?;
             peers.insert(1, client);
         }
+        info!("I am a data node...Binding to: {}", bind);
+
         if let Err(e) = RpcServer::<IndexCatalog>::serve(bind, catalog, slog_scope::logger(), chan, cc).await {
             eprintln!("ERROR = {:?}", e);
         }
         Ok(())
     };
-    println!("{}", RPC_HEADER);
-    info!("I am a data node...Binding to: {}", addr);
-    tokio::spawn(commit_watcher);
+    // println!("{}", RPC_HEADER);
+    // tokio::spawn(commit_watcher);
     Box::pin(fut)
 }
 

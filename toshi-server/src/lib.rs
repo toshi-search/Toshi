@@ -5,8 +5,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use slog::Logger;
-use sloggers::{Config, LoggerConfig};
+use slog::{Drain, Level, Logger};
 
 use toshi_types::FlatNamedDocument;
 
@@ -33,9 +32,23 @@ pub fn setup_catalog(settings: &Settings) -> SharedCatalog {
     Arc::new(index_catalog)
 }
 
+#[cfg(not(debug_assertions))]
 pub fn setup_logging_from_file(path: &str) -> Result<Logger> {
     let file = std::fs::read(path)?;
     toml::from_slice(&file)
-        .map(|cfg: LoggerConfig| cfg.build_logger().expect("Invalid Logger Config"))
+        .map(|cfg: sloggers::LoggerConfig| cfg.build_logger().expect("Bad Config Format"))
         .map_err(|err| toshi_types::Error::IOError(err.to_string()))
+}
+
+#[cfg(debug_assertions)]
+pub fn setup_logging_from_file(_: &str) -> Result<Logger> {
+    let decorator = slog_term::TermDecorator::new().force_color().stdout().build();
+    let format = slog_term::FullFormat::new(decorator)
+        .use_local_timestamp()
+        .use_original_order()
+        .build()
+        .fuse();
+    let sink = slog_async::Async::new(format).build().filter_level(Level::Debug).fuse();
+    let filter = slog::o!("toshi" => "debug");
+    Ok(Logger::root(sink, filter))
 }

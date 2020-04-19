@@ -9,6 +9,7 @@ edition = "2018"
 
 [dependencies]
 toshi-types = { path = "../toshi-types" }
+async-trait = "^0.1"
 http        = "^0.2"
 thiserror   = "^1.0"
 anyhow      = "^1.0"
@@ -21,4 +22,5 @@ version = "^0.9"
 features = ["json"]
 
 [dev-dependencies]
+tokio = "^0.2"
 toshi-test = { path = "../toshi-test" }

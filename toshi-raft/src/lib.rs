@@ -76,7 +76,7 @@ impl SledStorage {
             info!(log, "Init sled storage db at: {}", path);
         }
         let db = open(Path::new(path))?;
-        let hard_state: HardState = get(&db, b"hard_state")?;
+        let mut hard_state: HardState = get(&db, b"hard_state")?;
         let mut conf_state: ConfState = get(&db, b"conf_state")?;
         let last_idx_be = db.get(b"last_idx").unwrap_or(None);
 
@@ -89,6 +89,10 @@ impl SledStorage {
             hard_state.commit
         };
 
+        if hard_state.commit != last_idx {
+            hard_state.commit = last_idx;
+        }
+
         if !db.contains_key(b"hard_state")? {
             insert(&db, b"hard_state", hard_state.clone())?;
         }
@@ -100,6 +104,8 @@ impl SledStorage {
         if let Some(ref log) = logger {
             info!(log, "Initial HardState = {:?}", state.hard_state);
             info!(log, "Initial ConfState = {:?}", state.conf_state);
+            info!(log, "Last IDX = {:?}", last_idx);
+            info!(log, "Initial DB = {:?}", db);
         }
         Ok(Self {
             snapshot_metadata: SnapshotMetadata::default(),
@@ -205,7 +211,7 @@ impl Storage for SledStorage {
             let msg = Entry::decode(e.as_ref()).unwrap();
             msg.term
         } else {
-            0
+            1
         };
         if let Some(log) = &self.logger {
             info!(log, "Term = {}, Idx = {}", term, idx);
@@ -214,7 +220,7 @@ impl Storage for SledStorage {
     }
 
     fn first_index(&self) -> Result<u64, raft::Error> {
-        Ok(0)
+        Ok(1)
     }
 
     fn last_index(&self) -> Result<u64, raft::Error> {

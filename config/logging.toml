@@ -1,4 +1,4 @@
 type = "terminal"
 level = "info"
 timezone = "utc"
-format = "compact"
+format = "full"

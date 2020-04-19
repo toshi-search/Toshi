@@ -3,6 +3,7 @@ use isahc::HttpClientBuilder;
 use serde::{de::DeserializeOwned, Serialize};
 use tantivy::schema::Schema;
 
+use async_trait::async_trait;
 pub use toshi_types::*;
 
 pub use crate::error::ToshiClientError;
@@ -42,70 +43,75 @@ impl ToshiClient {
     {
         format!("{}/{}", self.host, index.to_string())
     }
+}
 
-    pub fn all_docs<I, D>(&self, index: I) -> Result<SearchResults<D>>
+#[async_trait]
+impl Client for ToshiClient {
+    async fn index_summary<I>(&self, index: I, include_sizes: bool) -> Result<Response<Body>>
     where
-        I: ToString,
-        D: DeserializeOwned + Clone,
+        I: ToString + Send + Sync,
     {
-        let uri = self.uri(index);
-        self.client.get(uri)?.json().map_err(Into::into)
+        let uri = self.uri(format!("{}/_summary?include_sizes={}", index.to_string(), include_sizes));
+        self.client.get(uri).map_err(Into::into)
     }
 
-    pub fn search<I, D>(&self, index: I, search: Search) -> Result<SearchResults<D>>
+    async fn create_index<I>(&self, name: I, schema: Schema) -> Result<Response<Body>>
     where
-        I: ToString,
-        D: DeserializeOwned + Clone,
-    {
-        let uri = self.uri(index);
-        let body = serde_json::to_vec(&search)?;
-        self.client.post(uri, body)?.json().map_err(Into::into)
-    }
-
-    pub fn add_document<I, D>(&self, index: String, options: Option<IndexOptions>, document: D) -> Result<Response<Body>>
-    where
-        I: ToString,
-        D: Serialize,
-    {
-        let uri = self.uri(index);
-        let body = serde_json::to_vec(&AddDocument { options, document })?;
-        self.client.post(uri, body).map_err(Into::into)
-    }
-
-    pub fn create_index<I>(&self, name: I, schema: Schema) -> Result<Response<Body>>
-    where
-        I: ToString,
+        I: ToString + Send + Sync,
     {
         let uri = self.uri(format!("{}/_create", name.to_string()));
         let body = serde_json::to_vec(&SchemaBody(schema))?;
         self.client.put(uri, body).map_err(Into::into)
     }
 
-    pub fn index_summary<I>(&self, index: I, include_sizes: bool) -> Result<Response<Body>>
+    async fn add_document<I, D>(&self, index: String, options: Option<IndexOptions>, document: D) -> Result<Response<Body>>
     where
-        I: ToString,
+        I: ToString + Send + Sync,
+        D: Serialize + Send + Sync,
     {
-        let uri = self.uri(format!("{}/_summary?include_sizes={}", index.to_string(), include_sizes));
-        self.client.get(uri).map_err(Into::into)
+        let uri = self.uri(index);
+        let body = serde_json::to_vec(&AddDocument { options, document })?;
+        self.client.post(uri, body).map_err(Into::into)
+    }
+
+    async fn search<I, D>(&self, index: I, search: Search) -> Result<SearchResults<D>>
+    where
+        I: ToString + Send + Sync,
+        D: DeserializeOwned + Clone + Send + Sync,
+    {
+        let uri = self.uri(index);
+        let body = serde_json::to_vec(&search)?;
+        self.client.post(uri, body)?.json().map_err(Into::into)
+    }
+
+    async fn all_docs<I, D>(&self, index: I) -> Result<SearchResults<D>>
+    where
+        I: ToString + Send + Sync,
+        D: DeserializeOwned + Clone + Send + Sync,
+    {
+        let uri = self.uri(index);
+        self.client.get(uri)?.json().map_err(Into::into)
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use serde::Deserialize;
-
-    #[derive(Deserialize, Debug, Clone)]
-    struct Wiki {
-        url: Vec<String>,
-        body: Vec<String>,
-        title: Vec<String>,
-    }
-
-    //    #[ignore]
-    //    fn test_client() {
-    //        let c = ToshiClient::new("http://localhost:8080").unwrap();
-    //        let query = Query::Exact(ExactTerm::with_term("body", "born"));
-    //        let search = Search::with_query(query);
-    //        let _docs: SearchResults<Wiki> = c.search("wiki", search).unwrap();
-    //    }
+#[async_trait]
+pub trait Client {
+    async fn index_summary<I>(&self, index: I, include_sizes: bool) -> Result<Response<Body>>
+    where
+        I: ToString + Send + Sync;
+    async fn create_index<I>(&self, name: I, schema: Schema) -> Result<Response<Body>>
+    where
+        I: ToString + Send + Sync;
+    async fn add_document<I, D>(&self, index: String, options: Option<IndexOptions>, document: D) -> Result<Response<Body>>
+    where
+        I: ToString + Send + Sync,
+        D: Serialize + Send + Sync;
+    async fn search<I, D>(&self, index: I, search: Search) -> Result<SearchResults<D>>
+    where
+        I: ToString + Send + Sync,
+        D: DeserializeOwned + Clone + Send + Sync;
+    async fn all_docs<I, D>(&self, index: I) -> Result<SearchResults<D>>
+    where
+        I: ToString + Send + Sync,
+        D: DeserializeOwned + Clone + Send + Sync;
 }

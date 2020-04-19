@@ -10,7 +10,7 @@ use raft::prelude::*;
 use raft::{Config, RawNode};
 use slog::Logger;
 use tokio::sync::mpsc::*;
-use tokio::time::{interval, timeout};
+use tokio::time::*;
 use tonic::Request;
 
 use toshi_proto::cluster_rpc::{self, RaftRequest};
@@ -177,12 +177,15 @@ where
         if let Some(hs) = ready.hs() {
             slog::info!(self.logger, "HS?: {:?}", hs);
             self.node.mut_store().state.hard_state = (*hs).clone();
-            self.node.mut_store().commit()?;
+            // self.node.mut_store().commit()?;
         }
 
-        for msg in ready.messages.drain(..) {
-            slog::info!(self.logger, "LOGMSG={:?}", msg);
+        for mut msg in ready.messages.drain(..) {
+            slog::info!(self.logger, "LOGMSG==={:?}", msg);
             let to = msg.to;
+            msg.from = self.catalog.raft_id();
+            msg.log_term = self.node.store().state.hard_state.term;
+            msg.commit = self.node.store().state.hard_state.commit;
             if let Some(client) = self.peers.get(&to) {
                 let mut msg_bytes = vec![];
                 msg.encode(&mut msg_bytes).unwrap();
@@ -190,20 +193,15 @@ where
                     tpe: 0,
                     message: msg_bytes,
                 });
-                client.clone().raft_request(req).await?;
-            } else {
-                panic!("Could not locate client for id: {}", to);
+                let req = client.clone().raft_request(req).await?;
+                slog::info!(self.logger, "RESP={:?}", req);
             }
+            self.append_entries(&msg.entries).await?;
         }
 
-        if !is_leader {
-            let msgs = ready.messages.drain(..);
-            for msg in msgs {
-                self.append_entries(&msg.entries).await?;
-            }
-        }
         if let Some(committed_entries) = ready.committed_entries.take() {
             for mut entry in committed_entries.clone() {
+                slog::info!(self.logger, "Committing: {:?}", entry);
                 let index = std::str::from_utf8(&entry.context)?;
                 let handle = self.catalog.get_index(&index)?;
                 handle
@@ -228,7 +226,7 @@ where
             if entry.data.is_empty() {
                 continue;
             }
-            slog::info!(self.logger, "LOGMSG={:?}", entry);
+            slog::info!(self.logger, "APPEND={:?}", entry);
 
             match EntryType::from_i32(entry.entry_type) {
                 Some(EntryType::EntryConfChange) => {

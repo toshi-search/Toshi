@@ -90,4 +90,6 @@ pub trait Catalog: Send + Sync + 'static {
 
     /// Determine if an index exists remotely
     async fn remote_exists(&self, index: &str) -> bool;
+
+    fn raft_id(&self) -> u64;
 }

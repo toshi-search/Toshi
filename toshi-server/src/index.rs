@@ -81,6 +81,10 @@ impl Catalog for IndexCatalog {
     async fn remote_exists(&self, index: &str) -> bool {
         self.get_remote_collection().contains_key(index)
     }
+
+    fn raft_id(&self) -> u64 {
+        self.settings.experimental_features.id
+    }
 }
 
 impl IndexCatalog {
@@ -101,10 +105,6 @@ impl IndexCatalog {
         index_cat.refresh_catalog()?;
 
         Ok(index_cat)
-    }
-
-    pub fn raft_id(&self) -> u64 {
-        self.settings.experimental_features.id
     }
 
     pub async fn update_remote_indexes(&self) -> Result<()> {

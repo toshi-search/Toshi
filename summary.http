@@ -1,3 +1,86 @@
+PUT http://localhost:8080/lyrics/
+Content-Type: application/json
+
+{
+  "options": { "commit": true },
+  "document": {
+    "song": "he-still-loves-me-f-choir-from-fighting-temptations",
+    "year": 2007,
+    "artist": "beyonce-knowles",
+    "genre": "Pop",
+    "lyrics": "Took me a while but I'm finally here",
+    "idx": 23
+  }
+}
+
+###
+PUT http://localhost:8080/lyrics/_create
+Content-Type: application/json
+
+[
+  {
+    "name": "lyrics",
+    "type": "text",
+    "options": {
+      "indexing": {
+        "record": "position",
+        "tokenizer": "default"
+      },
+      "stored": true
+    }
+  },
+  {
+    "name": "year",
+    "type": "i64",
+    "options": {
+      "indexed": true,
+      "stored": true
+    }
+  },
+  {
+    "name": "idx",
+    "type": "u64",
+    "options": {
+      "indexed": true,
+      "stored": true
+    }
+  },
+  {
+    "name": "artist",
+    "type": "text",
+    "options": {
+      "indexing": {
+        "record": "position",
+        "tokenizer": "default"
+      },
+      "stored": true
+    }
+  },
+  {
+    "name": "genre",
+    "type": "text",
+    "options": {
+      "indexing": {
+        "record": "position",
+        "tokenizer": "default"
+      },
+      "stored": true
+    }
+  },
+  {
+    "name": "song",
+    "type": "text",
+    "options": {
+      "indexing": {
+        "record": "position",
+        "tokenizer": "default"
+      },
+      "stored": true
+    }
+  }
+]
+
+###
 GET localhost:8080/test_index/_summary?include_sizes=true
 Content-Type: application/JSON
 
