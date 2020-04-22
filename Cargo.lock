@@ -1566,7 +1566,7 @@ dependencies = [
 [[package]]
 name = "raft"
 version = "0.6.0-alpha"
-source = "git+https://github.com/tikv/raft-rs#c2945e18b4111d28633e07fead2fd8b04d66ce45"
+source = "git+https://github.com/tikv/raft-rs#a1cfa634af8275376c120c2d58dcf09bf05c3adc"
 dependencies = [
  "fxhash",
  "getset",
@@ -1580,7 +1580,7 @@ dependencies = [
 [[package]]
 name = "raft-proto"
 version = "0.6.0-alpha"
-source = "git+https://github.com/tikv/raft-rs#c2945e18b4111d28633e07fead2fd8b04d66ce45"
+source = "git+https://github.com/tikv/raft-rs#a1cfa634af8275376c120c2d58dcf09bf05c3adc"
 dependencies = [
  "lazy_static",
  "prost",
@@ -2590,7 +2590,7 @@ dependencies = [
  "futures",
  "http",
  "hyper",
- "log 0.4.8",
+ "log 0.3.9",
  "pretty_assertions",
  "raft",
  "rand 0.7.3",
