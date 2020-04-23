@@ -34,9 +34,10 @@ pub fn setup_catalog(settings: &Settings) -> SharedCatalog {
 
 #[cfg(not(debug_assertions))]
 pub fn setup_logging_from_file(path: &str) -> Result<Logger> {
+    use sloggers::{Config, LoggerConfig};
     let file = std::fs::read(path)?;
     toml::from_slice(&file)
-        .map(|cfg: sloggers::LoggerConfig| cfg.build_logger().expect("Bad Config Format"))
+        .map(|cfg: LoggerConfig| cfg.build_logger().expect("Bad Config Format"))
         .map_err(|err| toshi_types::Error::IOError(err.to_string()))
 }
 
