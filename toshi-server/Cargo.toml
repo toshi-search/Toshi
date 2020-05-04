@@ -57,3 +57,4 @@ remove_dir_all = "^0.5"
 pretty_assertions = "^0.6"
 tokio-test = "^0.2"
 toshi-test = { path = "../toshi-test" }
+toshi = { path = "../toshi-client", default-features = false, features = ["hyper_client"] }

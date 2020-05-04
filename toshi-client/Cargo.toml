@@ -6,21 +6,47 @@ description = "A client for a full text search engine based on Tantivy"
 repository = "https://github.com/toshi-search/Toshi"
 license = "MIT"
 edition = "2018"
+autoexamples = false
+
+[[example]]
+name = "bool_query"
+
+[[example]]
+name = "exact_query"
+
+[[example]]
+name = "range_query"
+
+[[example]]
+name = "hyper_example"
+required-features = ["hyper_client"]
+
+
+[features]
+default = ["isahc_client"]
+isahc_client = ["isahc"]
+hyper_client = ["hyper", "bytes"]
 
 [dependencies]
 toshi-types = { path = "../toshi-types" }
 async-trait = "^0.1"
 http        = "^0.2"
 thiserror   = "^1.0"
-anyhow      = "^1.0"
 serde       = "^1.0"
 serde_json  = "^1.0"
 tantivy     = "^0.12"
+bytes       = { version = "^0.5", optional = true }
 
 [dependencies.isahc]
 version = "^0.9"
 features = ["json"]
+optional = true
+
+[dependencies.hyper]
+version = "^0.13"
+features = ["stream"]
+optional = true
 
 [dev-dependencies]
 tokio = "^0.2"
-toshi-test = { path = "../toshi-test" }
+#toshi-test = { path = "../toshi-test" }

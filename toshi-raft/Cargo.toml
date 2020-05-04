@@ -16,17 +16,14 @@ async-trait  = "^0.1"
 http         = "^0.2"
 dashmap      = "^3"
 tonic        = "^0.2"
-tokio        = { version = "^0.2", features = ["full"] }
+tokio        = { version = "^0.2", features = ["full", "parking_lot"] }
 prost        = "^0.6"
-prost-types  = "^0.6"
 prost-derive = "^0.6"
 tantivy      = "^0.12"
 serde        = { version = "^1.0", features = ["derive"] }
 serde_json   = "^1.0"
-sled         = "*"
+sled         = { version = "*", features = ["testing"] }
 slog         = "^2.5"
-slog-async   = "^2.4"
-slog-term    = "^2.5"
 raft         = { git = "https://github.com/tikv/raft-rs", default-features = false, features = ["prost-codec"] }
 
 [dev-dependencies]

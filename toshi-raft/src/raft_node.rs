@@ -252,24 +252,4 @@ where
 }
 
 #[cfg(test)]
-mod tests {
-    // use std::sync::Arc;
-
-    // use dashmap::DashMap;
-    // use raft::Config;
-    //
-    // use toshi_types::Catalog;
-    //
-    // use crate::raft_node::ToshiRaft;
-
-    #[tokio::test]
-    async fn test_raft_propose() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
-        let _catalog = crate::rpc_server::tests::create_test_catalog("test_index");
-        // let raft = ToshiRaft::new(Config::new(1), catalog.base_path(), log, Arc::new(DashMap::new()), catalog).unwrap();
-
-        let _ctx = br#"test_index"#;
-        let _data = br#"{"test_text": "Babbaboo!", "test_u64": 10, "test_i64": -10}"#;
-
-        Ok(())
-    }
-}
+mod tests {}

@@ -5,7 +5,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use slog::{Drain, Level, Logger};
+use slog::Logger;
 
 use toshi_types::FlatNamedDocument;
 
@@ -43,6 +43,7 @@ pub fn setup_logging_from_file(path: &str) -> Result<Logger> {
 
 #[cfg(debug_assertions)]
 pub fn setup_logging_from_file(_: &str) -> Result<Logger> {
+    use slog::{Drain, Level};
     let decorator = slog_term::TermDecorator::new().force_color().stdout().build();
     let format = slog_term::FullFormat::new(decorator)
         .use_local_timestamp()
