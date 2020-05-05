@@ -49,7 +49,7 @@ slog-term              = "^2.4"
 slog-stdlog            = "^4.0"
 slog-scope             = "^4.3"
 log                    = { version = "*", features = ["max_level_trace", "release_max_level_warn"] }
-sloggers               = "^0.3"
+sloggers               = "^1.0"
 toml                   = "^0.5"
 
 [dev-dependencies]
