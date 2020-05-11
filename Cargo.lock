@@ -317,12 +317,6 @@ dependencies = [
 
 [[package]]
 name = "crossbeam"
-version = "0.2.12"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bd66663db5a988098a89599d4857919b3acf7f61402e61365acfd3919857b9be"
-
-[[package]]
-name = "crossbeam"
 version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "69323bff1fb41c635347b8ead484a5ca6c3f11914d784170b158d8449ab07f8e"
@@ -513,7 +507,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f63eec71a3013ee912a0ecb339ff0c5fa5ed9660df04bfefa10c250b885d018c"
 dependencies = [
  "lazy_static",
- "log 0.4.8",
+ "log",
  "rand 0.6.5",
 ]
 
@@ -765,7 +759,7 @@ dependencies = [
  "futures-util",
  "http",
  "indexmap",
- "log 0.4.8",
+ "log",
  "slab",
  "tokio",
  "tokio-util",
@@ -837,7 +831,7 @@ dependencies = [
  "http-body",
  "httparse",
  "itoa",
- "log 0.4.8",
+ "log",
  "net2",
  "pin-project",
  "time",
@@ -912,7 +906,7 @@ dependencies = [
  "futures-util",
  "http",
  "lazy_static",
- "log 0.4.8",
+ "log",
  "mime",
  "serde 1.0.106",
  "serde_json",
@@ -996,15 +990,21 @@ checksum = "99e85c08494b21a9054e7fe1374a732aeadaff3980b6990b94bfd3a70f690005"
 
 [[package]]
 name = "libflate"
-version = "0.1.27"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d9135df43b1f5d0e333385cb6e7897ecd1a43d7d11b91ac003f4d2c2d2401fdd"
+checksum = "a1fbe6b967a94346446d37ace319ae85be7eca261bb8149325811ac435d35d64"
 dependencies = [
  "adler32",
  "crc32fast",
+ "libflate_lz77",
  "rle-decode-fast",
- "take_mut",
 ]
+
+[[package]]
+name = "libflate_lz77"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3286f09f7d4926fc486334f28d8d2e6ebe4f7f9994494b6dab27ddfad2c9b11b"
 
 [[package]]
 name = "libnghttp2-sys"
@@ -1051,15 +1051,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c4da24a77a3d8a6d4862d95f72e6fdb9c09a643ecdb402d754004a557f2bec75"
 dependencies = [
  "scopeguard",
-]
-
-[[package]]
-name = "log"
-version = "0.3.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e19e8d5c34a3e0e2223db8e060f9e8264aeeb5c5fc64a4ee9965c062211c024b"
-dependencies = [
- "log 0.4.8",
 ]
 
 [[package]]
@@ -1126,7 +1117,7 @@ dependencies = [
  "iovec",
  "kernel32-sys",
  "libc",
- "log 0.4.8",
+ "log",
  "miow 0.2.1",
  "net2",
  "slab",
@@ -1140,7 +1131,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "52403fe290012ce777c4626790c8951324a2b9e3316b3143779c72b029742f19"
 dependencies = [
  "lazycell",
- "log 0.4.8",
+ "log",
  "mio",
  "slab",
 ]
@@ -1151,7 +1142,7 @@ version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f5e374eff525ce1c5b7687c4cef63943e7686524a387933ad27ca7ec43779cb3"
 dependencies = [
- "log 0.4.8",
+ "log",
  "mio",
  "miow 0.3.3",
  "winapi 0.3.8",
@@ -1516,7 +1507,7 @@ dependencies = [
  "bytes",
  "heck",
  "itertools",
- "log 0.4.8",
+ "log",
  "multimap",
  "petgraph",
  "prost",
@@ -1646,7 +1637,7 @@ checksum = "6a6b1679d49b24bbfe0c803429aa1874472f50d9b363131f0e89fc356b544d03"
 dependencies = [
  "getrandom",
  "libc",
- "log 0.4.8",
+ "log",
  "rand_chacha 0.2.2",
  "rand_core 0.5.1",
  "rand_hc 0.2.0",
@@ -2064,7 +2055,7 @@ dependencies = [
  "fs2",
  "fxhash",
  "libc",
- "log 0.4.8",
+ "log",
  "parking_lot",
  "rand 0.7.3",
  "rand_chacha 0.2.2",
@@ -2113,24 +2104,12 @@ dependencies = [
 
 [[package]]
 name = "slog-stdlog"
-version = "3.0.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f1c469573d1e3f36f9eee66cd132206caf47b50c94b1f6c6e7b4d8235e9ecf01"
-dependencies = [
- "crossbeam 0.2.12",
- "log 0.3.9",
- "slog",
- "slog-scope",
-]
-
-[[package]]
-name = "slog-stdlog"
 version = "4.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be4d87903baf655da2d82bc3ac3f7ef43868c58bf712b3a661fda72009304c23"
 dependencies = [
- "crossbeam 0.7.3",
- "log 0.4.8",
+ "crossbeam",
+ "log",
  "slog",
  "slog-scope",
 ]
@@ -2150,20 +2129,19 @@ dependencies = [
 
 [[package]]
 name = "sloggers"
-version = "0.3.6"
+version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "31bef221d42166d6708aa1e9b0182324b37a0a7517ff590ec201dbfe1cfa46ef"
+checksum = "f01d37507aa6f37490cfa08d71e2639b16906e84c285ae4b9f7ec7ca35756d69"
 dependencies = [
  "chrono",
  "libflate",
  "regex",
  "serde 1.0.106",
- "serde_derive",
  "slog",
  "slog-async",
  "slog-kvfilter",
  "slog-scope",
- "slog-stdlog 3.0.5",
+ "slog-stdlog",
  "slog-term",
  "trackable",
 ]
@@ -2299,7 +2277,7 @@ dependencies = [
  "census",
  "chrono",
  "crc32fast",
- "crossbeam 0.7.3",
+ "crossbeam",
  "downcast-rs",
  "fail",
  "failure",
@@ -2309,7 +2287,7 @@ dependencies = [
  "htmlescape",
  "itertools",
  "levenshtein_automata",
- "log 0.4.8",
+ "log",
  "memmap",
  "murmurhash32",
  "notify",
@@ -2492,7 +2470,7 @@ dependencies = [
  "bytes",
  "futures-core",
  "futures-sink",
- "log 0.4.8",
+ "log",
  "pin-project-lite",
  "tokio",
 ]
@@ -2613,12 +2591,12 @@ dependencies = [
  "bytes",
  "clap",
  "config",
- "crossbeam 0.7.3",
+ "crossbeam",
  "dashmap",
  "futures",
  "http",
  "hyper",
- "log 0.4.8",
+ "log",
  "pretty_assertions",
  "raft",
  "rand 0.7.3",
@@ -2629,7 +2607,7 @@ dependencies = [
  "slog",
  "slog-async",
  "slog-scope",
- "slog-stdlog 4.0.0",
+ "slog-stdlog",
  "slog-term",
  "sloggers",
  "structopt",
@@ -2771,7 +2749,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8cc79fc3afd07492b7966d7efa7c6c50f8ed58d768a6075dd7ae6591c5d2017b"
 dependencies = [
  "futures-core",
- "log 0.4.8",
+ "log",
  "pin-project",
  "tokio",
  "tower-discover",
@@ -2809,7 +2787,7 @@ dependencies = [
  "futures-core",
  "futures-util",
  "indexmap",
- "log 0.4.8",
+ "log",
  "tokio",
  "tower-service",
 ]
@@ -2864,7 +2842,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1721cc8cf7d770cc4257872507180f35a4797272f5962f24c806af9e7faf52ab"
 dependencies = [
  "cfg-if",
- "log 0.4.8",
+ "log",
  "tracing-attributes",
  "tracing-core",
 ]
@@ -2900,18 +2878,18 @@ dependencies = [
 
 [[package]]
 name = "trackable"
-version = "0.2.23"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "11475c3c53b075360eac9794965822cb053996046545f91cf61d90e00b72efa5"
+checksum = "30fb6e13d129dd92c501458f64d56c708e3685e3fd307e878ec5f934c5c5bdb0"
 dependencies = [
  "trackable_derive",
 ]
 
 [[package]]
 name = "trackable_derive"
-version = "0.1.3"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "edcf0b9b2caa5f4804ef77aeee1b929629853d806117c48258f402b69737e65c"
+checksum = "ebeb235c5847e2f82cfe0f07eb971d1e5f6804b18dac2ae16349cc604380f82f"
 dependencies = [
  "quote",
  "syn",
@@ -3027,7 +3005,7 @@ version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ce8a968cb1cd110d136ff8b819a556d6fb6d919363c61534f6860c7eb172ba0"
 dependencies = [
- "log 0.4.8",
+ "log",
  "try-lock",
 ]
 
