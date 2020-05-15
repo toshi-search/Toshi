@@ -179,9 +179,8 @@ mod tests {
         let (snd, mut rcv) = tokio::sync::mpsc::channel(1024);
         let req = add_document(Arc::clone(&shared_cat), Body::from(q), &test_index(), Some(snd)).await;
 
-        let msg = rcv.recv().await;
+        rcv.recv().await;
         assert_eq!(req.is_ok(), true);
-        println!("{:?}", msg);
     }
 
     #[tokio::test]
@@ -215,6 +214,7 @@ mod tests {
             .into_body();
         let req_body = hyper::body::aggregate(req).await.unwrap();
         let buf = req_body.bytes();
-        println!("{}", std::str::from_utf8(&buf).unwrap());
+        let str_buf = std::str::from_utf8(&buf).unwrap();
+        assert_eq!(str_buf, "{\"message\":\"IO Error: Document: '\\\"\\\"' is not valid JSON\"}")
     }
 }

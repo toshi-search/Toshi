@@ -39,21 +39,3 @@ async fn test_client() {
 
     // dbg!(index);
 }
-
-#[ignore]
-fn da_rank() {
-    let base = 190.0;
-    let rank_dmg = vec![133.0, 133.0, 152.0, 152.0, 171.0, 190.0, 229.0, 304.0, 380.0, 532.0, 618.0];
-    let pcts = rank_dmg.into_iter().map(|dmg| (dmg / base) * 100.0).collect::<Vec<f32>>();
-
-    let mut c = 0;
-    for x in pcts.windows(2) {
-        match x {
-            &[i, y] => println!("Rank: {} = {}% = {}%", c, y as u32, (y as u32 - i as u32)),
-            _ => (),
-        }
-        c += 1;
-    }
-
-    // println!("Rank: {} = {:.1}%", i, (pct / base ) * 100.0)
-}

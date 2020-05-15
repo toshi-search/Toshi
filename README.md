@@ -142,7 +142,6 @@ You should get a startup message like this.
  Such Relevance, Much Index, Many Search, Wow
  
  INFO  toshi::index > Indexes: []
- INFO  gotham::start >  Gotham listening on http://[::1]:8080 with 12 threads
 ```
 
 You can verify Toshi is running with:
@@ -153,70 +152,13 @@ curl -X GET http://localhost:8080/
 
 which should return:
 
-```html
-Toshi Search, Version: 0.1.1
+```json
+{
+  "name": "Toshi Search",
+  "version": "0.1.1"
+}
 ```
-
-Once Toshi is up and running we can create an index. Toshi uses Tantivy so creating an index requires a Tantivy Schema. Let's create a simple one as seen below.
-
-```bash
-curl -X PUT \
-  http://localhost:8080/test_index/_create \
-  -H 'Content-Type: application/json' \
-  -d '[
-    {
-      "name": "test_text",
-      "type": "text",
-      "options": {
-        "indexing": {
-          "record": "position",
-          "tokenizer": "default"
-        },
-        "stored": true
-      }
-    },
-    {
-      "name": "test_i64",
-      "type": "i64",
-      "options": {
-        "indexed": true,
-        "stored": true
-      }
-    },
-    {
-      "name": "test_u64",
-      "type": "u64",
-      "options": {
-        "indexed": true,
-        "stored": true
-      }
-    }
-  ]'
-  ```
-  
-If successful you should receive a `201 CREATED` response and the `data` directory should now contain a directory for the `test_index` you just created.
-
-Now you can add documents to our index. The `options` field can be omitted if a user does not want to commit on every document addition, but for completeness it is included here:
-
-```bash
-curl -X PUT \
-  http://localhost:8080/test_index \
-  -H 'Content-Type: application/json' \
-  -d '{
-        "options": { "commit": true },
-        "document": {
-          "test_text": "Babbaboo!",
-          "test_u64": 10,
-          "test_i64": -10
-        }
-    }'
-```
-
-Now we can retrieve all the documents in an index with a simple GET call:
-
-```bash
-curl -X GET http://localhost:8080/test_index -H 'Content-Type: application/json'
-```
+Once toshi is running it's best to check the `requests.http` file in the root of this project to see some more examples of usage.
 
 #### Example Queries
 ##### Term Query

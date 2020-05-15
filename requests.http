@@ -1,17 +1,6 @@
-PUT http://localhost:8080/lyrics/
-Content-Type: application/json
-
-{
-  "options": { "commit": true },
-  "document": {
-    "song": "he-still-loves-me-f-choir-from-fighting-temptations",
-    "year": 2007,
-    "artist": "beyonce-knowles",
-    "genre": "Pop",
-    "lyrics": "Took me a while but I'm finally here",
-    "idx": 23
-  }
-}
+### Assuming Toshi is running on port 8080
+### Create an index for some song lyrics
+GET http://localhost:8080
 
 ###
 PUT http://localhost:8080/lyrics/_create
@@ -79,9 +68,24 @@ Content-Type: application/json
     }
   }
 ]
-
-###
+### Get the schema summary back to see the index was created
 GET localhost:8080/test_index/_summary?include_sizes=true
 Content-Type: application/JSON
+### Add a single song to the index
+PUT http://localhost:8080/lyrics/
+Content-Type: application/json
 
-###
+{
+  "options": { "commit": true },
+  "document": {
+    "song": "he-still-loves-me-f-choir-from-fighting-temptations",
+    "year": 2007,
+    "artist": "beyonce-knowles",
+    "genre": "Pop",
+    "lyrics": "Took me a while but I'm finally here",
+    "idx": 23
+  }
+}
+### Get that document back from the engine
+GET http://localhost:8080/lyrics/
+Content-Type: application/json

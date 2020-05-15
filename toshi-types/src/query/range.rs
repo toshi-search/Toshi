@@ -36,7 +36,7 @@ pub enum Ranges {
 /// A query for a range of values, for example 1 through 10
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RangeQuery {
-    range: KeyValue<String, Ranges>,
+    pub(crate) range: KeyValue<String, Ranges>,
 }
 
 impl CreateQuery for RangeQuery {
@@ -231,7 +231,10 @@ mod tests {
     #[test]
     fn test_range_builder() {
         let builder = RangeQuery::builder().gte(5).lte(10).for_field("test");
-        let query = builder.build();
-        println!("{:?}", query);
+        let query: Query = builder.build();
+        if let Query::Range(rq) = query {
+            assert_eq!(rq.range.field, "test");
+            // assert_eq!(rq.range.value, );
+        }
     }
 }
