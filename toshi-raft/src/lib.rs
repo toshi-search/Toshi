@@ -163,7 +163,7 @@ impl SledStorage {
         let index = meta.index;
 
         if self.first_index()? > index {
-            return Err(toshi_types::Error::IOError("".into()).into());
+            return Err(toshi_types::Error::IOError(std::io::Error::from_raw_os_error(1)).into());
         }
 
         self.snapshot_metadata = meta.clone();

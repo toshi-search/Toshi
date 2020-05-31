@@ -59,7 +59,7 @@ impl<D: Clone> SearchResults<D> {
     pub fn get_docs(&self) -> &[ScoredDoc<D>] {
         &self.docs
     }
-
+    /// Getter for the returned facets
     pub fn get_facets(&self) -> &[KeyValue<String, u64>] {
         &self.facets
     }

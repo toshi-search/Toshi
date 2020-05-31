@@ -10,6 +10,7 @@ edition = "2018"
 [dependencies]
 toshi-proto  = { path = "../toshi-proto" }
 toshi-types  = { path = "../toshi-types" }
+anyhow = "1.0.31"
 bytes        = "^0.5"
 futures      = "^0.3"
 async-trait  = "^0.1"

@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use hyper::{Body, Response, StatusCode};
+use hyper::{Response, StatusCode};
 use log::{debug, info};
 
 use toshi_types::*;
@@ -23,8 +23,7 @@ pub async fn index_summary(catalog: SharedCatalog, index: &str, options: QueryOp
         info!("Took: {:?}", start.elapsed());
         Ok(with_body(summary))
     } else {
-        let err = Error::IOError(format!("Index {} does not exist", index));
-        let resp: Response<Body> = Response::from(err);
+        let resp = Response::from(Error::UnknownIndex(index.into()));
         info!("Took: {:?}", start.elapsed());
         Ok(resp)
     }

@@ -4,7 +4,6 @@ use hyper::{Body, Response, StatusCode};
 use log::info;
 use rand::random;
 use tantivy::schema::*;
-use tantivy::Index;
 use tokio::sync::mpsc::Sender;
 
 use toshi_proto::cluster_rpc::*;
@@ -39,28 +38,19 @@ async fn create_remote_index(nodes: &[String], index: String, schema: Schema) ->
 }
 
 pub async fn delete_term(catalog: SharedCatalog, body: Body, index: &str) -> ResponseFuture {
-    let cat = catalog;
+    if !catalog.exists(index) {
+        return Ok(empty_with_code(StatusCode::NOT_FOUND));
+    }
     let agg_body = aggregate(body).await?;
     let b = agg_body.bytes();
-    let req = match serde_json::from_slice::<DeleteDoc>(&b) {
-        Ok(v) => v,
-        Err(_e) => return Ok(empty_with_code(hyper::StatusCode::BAD_REQUEST)),
-    };
-    let docs_affected = match delete_terms(cat, req, index).await {
-        Ok(v) => with_body(v),
-        Err(e) => return Ok(Response::from(e)),
-    };
-
-    Ok(docs_affected)
-}
-
-macro_rules! try_response {
-    ($S: expr) => {
-        match $S {
-            Ok(v) => v,
-            Err(e) => return Ok(Response::from(e)),
+    if let Ok(dd) = serde_json::from_slice::<DeleteDoc>(&b) {
+        match delete_terms(catalog, dd, index).await {
+            Ok(v) => Ok(with_body(v)),
+            Err(_e) => Ok(empty_with_code(StatusCode::BAD_REQUEST)),
         }
-    };
+    } else {
+        Ok(empty_with_code(StatusCode::BAD_REQUEST))
+    }
 }
 
 pub async fn create_index(catalog: SharedCatalog, body: Body, index: &str) -> ResponseFuture {
@@ -71,11 +61,15 @@ pub async fn create_index(catalog: SharedCatalog, body: Body, index: &str) -> Re
     match req {
         Ok(Ok(req)) => {
             let base_path = catalog.base_path();
-            let new_index: Index = try_response!(IndexCatalog::create_from_managed(base_path.into(), &index, req.0.clone()));
-            try_response!(catalog.add_index(&index, new_index));
+            match IndexCatalog::create_from_managed(base_path.into(), &index, req.0.clone()) {
+                Ok(v) => match catalog.add_index(&index, v) {
+                    Ok(_) => (),
+                    Err(e) => return Ok(Response::from(e)),
+                },
+                Err(e) => return Ok(Response::from(e)),
+            };
 
-            let expir = catalog.settings.experimental;
-            if expir {
+            if catalog.settings.experimental {
                 let nodes = &catalog.settings.get_nodes();
                 match create_remote_index(&nodes, index.to_string(), req.0).await {
                     Ok(clients) => match catalog.add_multi_remote_index(index.to_string(), clients).await {
@@ -88,15 +82,18 @@ pub async fn create_index(catalog: SharedCatalog, body: Body, index: &str) -> Re
                 Ok(empty_with_code(StatusCode::CREATED))
             }
         }
-        Ok(Err(e)) => Ok(error_response(StatusCode::BAD_REQUEST, Error::IOError(e.to_string()))),
-        Err(e) => Ok(error_response(StatusCode::BAD_REQUEST, Error::IOError(e.to_string()))),
+        Ok(Err(e)) => Ok(error_response(StatusCode::BAD_REQUEST, e.into())),
+        Err(e) => Ok(error_response(StatusCode::BAD_REQUEST, e.into())),
     }
 }
 
 pub async fn add_document(catalog: SharedCatalog, body: Body, index: &str, raft_sender: Option<Sender<Message>>) -> ResponseFuture {
     let full_body = aggregate(body).await?;
     let b = full_body.bytes();
-    let req = serde_json::from_slice::<AddDocument>(&b).unwrap();
+    let req = match serde_json::from_slice::<AddDocument>(&b) {
+        Ok(v) => v,
+        Err(err) => return Ok(error_response(StatusCode::BAD_REQUEST, err.into())),
+    };
     let location: bool = random();
     info!("LOCATION = {}", location);
     if location && catalog.remote_exists(index).await {
@@ -215,6 +212,9 @@ mod tests {
         let req_body = hyper::body::aggregate(req).await.unwrap();
         let buf = req_body.bytes();
         let str_buf = std::str::from_utf8(&buf).unwrap();
-        assert_eq!(str_buf, "{\"message\":\"IO Error: Document: '\\\"\\\"' is not valid JSON\"}")
+        assert_eq!(
+            str_buf,
+            "{\"message\":\"Error in Tantivy: \'The provided string is not valid JSON\'\"}"
+        )
     }
 }

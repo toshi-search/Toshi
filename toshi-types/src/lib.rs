@@ -1,6 +1,4 @@
-#![warn(missing_debug_implementations,
-//missing_docs,
-rust_2018_idioms, unreachable_pub)]
+#![warn(missing_debug_implementations, missing_docs, rust_2018_idioms, unreachable_pub)]
 
 //! Toshi-Types
 //! These are the high level types available in the Toshi search engine.
@@ -57,9 +55,8 @@ pub trait IndexHandle: Clone {
     fn get_name(&self) -> String;
     /// Whether the index is local or remote
     fn index_location(&self) -> IndexLocation;
-
+    /// Return the underlying index
     fn get_index(&self) -> Index;
-
     /// Search for documents in this index
     async fn search_index(&self, search: Search) -> Result<SearchResults<FlatNamedDocument>>;
     /// Add documents to this index
@@ -71,15 +68,18 @@ pub trait IndexHandle: Clone {
 /// Defines the interface for obtaining a handle from a catalog to an index
 #[async_trait::async_trait]
 pub trait Catalog: Send + Sync + 'static {
+    /// The type of handle the catalog returns when the index is local
     type Local: IndexHandle + Send + Sync;
+    /// The type of handle the catalog returns when the index is remote
     type Remote: IndexHandle + Send + Sync;
 
+    /// The base path for local indexes, useless for remote
     fn base_path(&self) -> String;
     /// Return the entire collection of handles
     fn get_collection(&self) -> &DashMap<String, Self::Local>;
-
+    /// Add a local index to the catalog
     fn add_index(&self, name: String, index: Index) -> Result<()>;
-
+    /// Return a list of index names
     async fn list_indexes(&self) -> Vec<String>;
     /// Return a handle to a single index
     fn get_index(&self, name: &str) -> Result<Self::Local>;
@@ -87,9 +87,8 @@ pub trait Catalog: Send + Sync + 'static {
     fn exists(&self, index: &str) -> bool;
     /// Return a handle to a single remote index
     async fn get_remote_index(&self, name: &str) -> Result<Self::Remote>;
-
-    /// Determine if an index exists remotely
+    /// Determine if an index exists on some other machine
     async fn remote_exists(&self, index: &str) -> bool;
-
+    /// The current catalog's raft_id
     fn raft_id(&self) -> u64;
 }

@@ -24,10 +24,10 @@ pub type RpcClient = client::IndexServiceClient<Channel>;
 pub fn create_from_managed(mut base_path: PathBuf, index_path: &str, schema: Schema) -> Result<Index, Error> {
     base_path.push(index_path);
     if !base_path.exists() {
-        fs::create_dir(&base_path).map_err(|e| Error::IOError(e.to_string()))?;
+        fs::create_dir(&base_path)?;
     }
-    let dir = MmapDirectory::open(base_path).map_err(|e| Error::IOError(e.to_string()))?;
-    Index::open_or_create(dir, schema).map_err(|e| Error::IOError(e.to_string()))
+    let dir: MmapDirectory = MmapDirectory::open(base_path)?;
+    Index::open_or_create(dir, schema).map_err(Into::into)
 }
 
 pub async fn create_client(uri: Uri, logger: Option<Logger>) -> Result<RpcClient, transport::Error> {

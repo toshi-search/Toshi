@@ -138,10 +138,10 @@ impl IndexCatalog {
     pub fn create_from_managed(mut base_path: PathBuf, index_path: &str, schema: Schema) -> Result<Index> {
         base_path.push(index_path);
         if !base_path.exists() {
-            fs::create_dir(&base_path).map_err(|e| Error::IOError(e.to_string()))?;
+            fs::create_dir(&base_path)?;
         }
-        let dir = MmapDirectory::open(base_path).map_err(|e| Error::IOError(e.to_string()))?;
-        Index::open_or_create(dir, schema).map_err(|e| Error::IOError(e.to_string()))
+        let dir = MmapDirectory::open(base_path)?;
+        Ok(Index::open_or_create(dir, schema)?)
     }
 
     pub fn load_index(path: &str) -> Result<Index> {
@@ -214,7 +214,7 @@ impl IndexCatalog {
                     self.add_index(&pth, idx)?;
                 }
             } else {
-                return Err(Error::IOError(format!("Path {} is not a valid unicode path", entry.display())));
+                return Err(Error::UnknownIndex(format!("Path {} is not a valid unicode path", entry.display())));
             }
         }
         Ok(())
@@ -226,7 +226,7 @@ impl IndexCatalog {
             .authority(socket.to_string().as_str())
             .path_and_query("")
             .build()
-            .map_err(|e| Error::IOError(e.to_string()))
+            .map_err(|e| Error::HttpError(e))
     }
 
     pub async fn create_client(node: String) -> std::result::Result<RpcClient, Error> {
@@ -265,17 +265,17 @@ impl IndexCatalog {
     }
 
     pub async fn add_remote_document(&self, index: &str, doc: AddDocument) -> Result<()> {
-        let handle: RemoteIndex = self.get_remote_index(index).await.map_err(|e| Error::IOError(e.to_string()))?;
+        let handle: RemoteIndex = self.get_remote_index(index).await?;
         handle.add_document(doc).await
     }
 
     pub async fn add_local_document(&self, index: &str, doc: AddDocument) -> Result<()> {
-        let handle = self.get_owned_index(index).map_err(|e| Error::IOError(e.to_string()))?;
+        let handle = self.get_owned_index(index)?;
         handle.add_document(doc).await
     }
 
     pub async fn delete_local_term(&self, index: &str, term: DeleteDoc) -> Result<DocsAffected> {
-        let handle: RemoteIndex = self.get_remote_index(index).await.map_err(|e| Error::IOError(e.to_string()))?;
+        let handle: RemoteIndex = self.get_remote_index(index).await?;
         handle.delete_term(term).await
     }
 

@@ -157,7 +157,7 @@ where
         );
         slog::info!(self.logger, "Am I leader?: {}", is_leader);
 
-        if !raft::is_empty_snap(ready.snapshot()) {
+        if !ready.snapshot().is_empty() {
             let snap = ready.snapshot().clone();
             slog::info!(self.logger, "Got a snap: {:?}", snap);
             self.node.mut_store().apply_snapshot(snap)?;

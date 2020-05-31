@@ -47,7 +47,7 @@ impl PrimaryShard {
                 self.index_handle = Some(lh);
                 Ok(self)
             }
-            Err(e) => Err(Error::IOError(e.to_string())),
+            Err(e) => Err(e),
         }
     }
 }
@@ -79,10 +79,7 @@ impl Shard for PrimaryShard {
 
     /// Returns the name from the underlying IndexHandle
     fn index_name(&self) -> Result<String, Error> {
-        match self.index_handle {
-            Some(ref handle) => Ok(handle.get_name()),
-            None => Err(Error::IOError("Unable to get index handle".to_string())),
-        }
+        self.index_handle.as_ref().map(|h| h.get_name()).ok_or(Error::UnknownError)
     }
 }
 
@@ -104,7 +101,7 @@ impl ReplicaShard {
                 self.index_handle = Some(lh);
                 Ok(self)
             }
-            Err(e) => Err(Error::IOError(e.to_string())),
+            Err(e) => Err(e),
         }
     }
 }
@@ -128,10 +125,7 @@ impl Shard for ReplicaShard {
 
     /// Returns the name of the underlying Index
     fn index_name(&self) -> Result<String, Error> {
-        match self.index_handle {
-            Some(ref handle) => Ok(handle.get_name()),
-            None => Err(Error::IOError("No index with that name exists".to_string())),
-        }
+        self.index_handle.as_ref().map(|h| h.get_name()).ok_or(Error::UnknownError)
     }
 }
 

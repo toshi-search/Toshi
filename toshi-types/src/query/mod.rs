@@ -310,6 +310,7 @@ where
     }
 }
 
+#[doc(hidden)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FlatNamedDocument(pub DashMap<String, Value>);
 
