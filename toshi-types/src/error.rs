@@ -58,8 +58,8 @@ pub enum Error {
     /// An error occured in Toshi's internal RPC communications
     #[error("An RPC error occurred: '{0}'")]
     RPCError(String),
-    #[error("Error in Tantivy: '{0}'")]
-    TantivyError (#[from] anyhow::Error),
+    #[error("Error in Index: '{0}'")]
+    TantivyError(#[from] anyhow::Error),
 
     #[error("Error Parsing Json: '{0}'")]
     JsonParsing(#[from] serde_json::Error),

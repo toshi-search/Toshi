@@ -1,32 +1,32 @@
+use http::{Response, StatusCode};
 use hyper::Body;
 use serde::Serialize;
-
 use toshi_types::{Error, ErrorResponse};
 
-pub fn with_body<T>(body: T) -> hyper::Response<Body>
+pub fn with_body<T>(body: T) -> Response<Body>
 where
     T: Serialize,
 {
     let json = serde_json::to_vec::<T>(&body).unwrap();
 
-    hyper::Response::builder()
+    Response::builder()
         .header(hyper::header::CONTENT_TYPE, "application/json")
         .body(Body::from(json))
         .unwrap()
 }
 
-pub fn error_response(code: hyper::StatusCode, e: Error) -> hyper::Response<Body> {
+pub fn error_response(code: StatusCode, e: Error) -> Response<Body> {
     let mut resp = with_body(ErrorResponse { message: e.to_string() });
     *resp.status_mut() = code;
     resp
 }
 
-pub fn empty_with_code(code: hyper::StatusCode) -> hyper::Response<Body> {
-    hyper::Response::builder().status(code).body(Body::empty()).unwrap()
+pub fn empty_with_code(code: StatusCode) -> Response<Body> {
+    Response::builder().status(code).body(Body::empty()).unwrap()
 }
 
-pub async fn not_found() -> Result<hyper::Response<Body>, hyper::Error> {
-    Ok(empty_with_code(hyper::StatusCode::NOT_FOUND))
+pub async fn not_found() -> Result<Response<Body>, hyper::Error> {
+    Ok(empty_with_code(StatusCode::NOT_FOUND))
 }
 
 pub fn parse_path(path: &str) -> Vec<&str> {

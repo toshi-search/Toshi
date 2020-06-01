@@ -214,7 +214,7 @@ mod tests {
         let str_buf = std::str::from_utf8(&buf).unwrap();
         assert_eq!(
             str_buf,
-            "{\"message\":\"Error in Tantivy: \'The provided string is not valid JSON\'\"}"
+            "{\"message\":\"Error in Index: \'The provided string is not valid JSON\'\"}"
         )
     }
 }

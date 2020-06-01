@@ -1,17 +1,17 @@
 use std::str::from_utf8;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use crossbeam::channel::{Receiver, Sender, unbounded};
+use crossbeam::channel::{unbounded, Receiver, Sender};
 use futures::StreamExt;
 use hyper::Body;
 use hyper::StatusCode;
 use log::*;
-use tantivy::{Document, IndexWriter};
 use tantivy::schema::Schema;
-use tokio::sync::{Mutex, oneshot};
+use tantivy::{Document, IndexWriter};
 use tokio::sync::Barrier;
+use tokio::sync::{oneshot, Mutex};
 
 use toshi_types::{Catalog, Error};
 
@@ -47,10 +47,7 @@ async fn parsing_documents(
                         ds.send(doc);
                     }
                     Err(e) => {
-                        // let text = &text.clone();
-                        let err = anyhow::Error::msg("Bad JSON")
-                            // .context(text.trim())
-                            .context(e);
+                        let err = anyhow::Error::msg("Error parsing document").context(text).context(e);
                         error_chan.send(Error::TantivyError(err));
                     }
                 };
@@ -116,12 +113,17 @@ pub async fn bulk_insert(catalog: SharedCatalog, watcher: Arc<AtomicBool>, mut b
 
     futures::future::join_all(parsing_handles).await;
     if !err_rcv.is_empty() {
-        dbg!(err_rcv.recv());
+        let mut iw = writer.lock().await;
+        iw.rollback();
+        match err_rcv.recv() {
+            Ok(err) => return Ok(error_response(StatusCode::BAD_REQUEST, err)),
+            Err(err) => panic!("Panic receiving error: {:?}", err),
+        }
     }
 
-     match index_documents(writer, doc_recv, watcher_clone).await {
+    match index_documents(writer, doc_recv, watcher_clone).await {
         Ok(_) => Ok(empty_with_code(StatusCode::CREATED)),
-        Err(err) => Ok(error_response(StatusCode::BAD_REQUEST, err))
+        Err(err) => Ok(error_response(StatusCode::BAD_REQUEST, err)),
     }
 }
 
@@ -133,19 +135,15 @@ mod tests {
 
     use toshi_test::read_body;
 
-    use crate::{SearchResults, setup_logging_from_file};
     use crate::handlers::all_docs;
     use crate::handlers::summary::flush;
     use crate::index::create_test_catalog;
+    use crate::{setup_logging_from_file, SearchResults};
 
     use super::*;
 
     #[tokio::test(threaded_scheduler)]
     async fn test_bulk_index() -> Result<(), Box<dyn std::error::Error>> {
-        // let log = setup_logging_from_file("")?;
-        // let _scope = slog_scope::set_global_logger(log.clone());
-        // let _guard = slog_stdlog::init_with_level(log::Level::from_str("INFO")?)?;
-
         let server = create_test_catalog("test_index");
         let lock = Arc::new(AtomicBool::new(false));
 
@@ -156,67 +154,33 @@ mod tests {
 
         let index_docs = bulk_insert(Arc::clone(&server), lock, Body::from(body), "test_index".into()).await?;
         assert_eq!(index_docs.status(), StatusCode::CREATED);
-        // sleep(Duration::from_secs_f32(5.0));
 
         let f = flush(Arc::clone(&server), "test_index").await?;
-        flush(Arc::clone(&server), "test_index").await?;
-
         assert_eq!(f.status(), StatusCode::OK);
-        // sleep(Duration::from_secs_f32(1.0));
 
-        let mut attempts: u32 = 0;
-        for _ in 0..5 {
-            let check_docs = all_docs(Arc::clone(&server), "test_index".into()).await?;
-            let body: String = read_body(check_docs).await?;
-            let docs: SearchResults = serde_json::from_slice(body.as_bytes())?;
-            log::info!("Hits: {}", docs.hits);
+        let check_docs = all_docs(Arc::clone(&server), "test_index".into()).await?;
+        let body: String = read_body(check_docs).await?;
+        let docs: SearchResults = serde_json::from_slice(body.as_bytes())?;
 
-            if docs.hits == 9 {
-                break;
-            }
-            attempts += 1;
-        }
-        assert_eq!(attempts >= 5, false);
+        assert_eq!(docs.hits, 9);
         Ok(())
     }
 
     #[tokio::test(threaded_scheduler)]
-    async fn test_bad_json() -> Result<(), Box<dyn std::error::Error>> {
-        // let log = setup_logging_from_file("")?;
-        // let _scope = slog_scope::set_global_logger(log.clone());
-        // let _guard = slog_stdlog::init_with_level(log::Level::from_str("INFO")?)?;
-
+    async fn test_errors() -> Result<(), Box<dyn std::error::Error>> {
         let server = create_test_catalog("test_index");
         let lock = Arc::new(AtomicBool::new(false));
 
-        let body = r#"
+        let body: &str = r#"
         {"test_text": "asdf1234", "test_i64": 123, "test_u64": 321, "test_unindex": "asdf", "test_facet": "/cat/cat4"}
         {"test_text": "asdf5678", "test_i64": 456, "test_u64": 678, "test_unindex": "asdf", "test_facet": "/cat/cat4"}
-        {"test_text": "asdf9012", "test_i64": -12, "test_u64": -901, "test_unindex": "asdf", "test_facet": "/cat/cat4"}"#;
+        {"test_text": "asdf9012", "test_i64": -12, "test_u64": -9, "test_unindex": "asdf", "test_facet": "/cat/cat4"}"#;
 
         let index_docs = bulk_insert(Arc::clone(&server), lock, Body::from(body), "test_index".into()).await?;
-        assert_eq!(index_docs.status(), StatusCode::CREATED);
-        // sleep(Duration::from_secs_f32(5.0));
+        assert_eq!(index_docs.status(), StatusCode::BAD_REQUEST);
 
-        let f = flush(Arc::clone(&server), "test_index").await?;
-        flush(Arc::clone(&server), "test_index").await?;
-
-        assert_eq!(f.status(), StatusCode::OK);
-        // sleep(Duration::from_secs_f32(1.0));
-
-        let mut attempts: u32 = 0;
-        for _ in 0..5 {
-            let check_docs = all_docs(Arc::clone(&server), "test_index".into()).await?;
-            let body: String = read_body(check_docs).await?;
-            let docs: SearchResults = serde_json::from_slice(body.as_bytes())?;
-            log::info!("Hits: {}", docs.hits);
-
-            if docs.hits == 9 {
-                break;
-            }
-            attempts += 1;
-        }
-        assert_eq!(attempts >= 5, false);
+        let body = read_body(index_docs).await?;
+        println!("{}", body);
         Ok(())
     }
 }

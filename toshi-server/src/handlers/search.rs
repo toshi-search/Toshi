@@ -101,7 +101,7 @@ pub mod tests {
         let body = r#"{ "query" : { "raw": "asd*(@sq__" } }"#;
         let err = doc_search(Arc::clone(&cat), Body::from(body), "test_index".into()).await?;
         let body: ErrorResponse = wait_json::<ErrorResponse>(err).await;
-        assert_eq!(body.message, "Error in Tantivy: \'Syntax Error\'");
+        assert_eq!(body.message, "Error in Index: \'Syntax Error\'");
         Ok(())
     }
 
@@ -111,7 +111,7 @@ pub mod tests {
         let body = r#"{ "query" : { "raw": "test_unindex:yes" } }"#;
         let r = doc_search(Arc::clone(&cat), Body::from(body), "test_index".into()).await?;
         let b = read_body(r).await?;
-        let expected = "{\"message\":\"Error in Tantivy: \'The field \'\\\"test_unindex\\\"\' is not declared as indexed\'\"}";
+        let expected = "{\"message\":\"Error in Index: \'The field \'\\\"test_unindex\\\"\' is not declared as indexed\'\"}";
         assert_eq!(b, expected);
         Ok(())
     }
