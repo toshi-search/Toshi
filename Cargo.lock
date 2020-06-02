@@ -17,9 +17,9 @@ checksum = "5d2e7343e7fc9de883d1b0341e0b13970f764c14101234857d2ddafa1cb1cac2"
 
 [[package]]
 name = "ahash"
-version = "0.3.4"
+version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c251dce3391a07b43218ca070203ecb8f9f520d35ab71312296a59dbceab154"
+checksum = "2f3e0bf23f51883cce372d5d5892211236856e4bb37fb942e1eb135ee0f146e3"
 dependencies = [
  "const-random",
 ]
@@ -435,9 +435,9 @@ dependencies = [
 
 [[package]]
 name = "dashmap"
-version = "3.11.1"
+version = "3.11.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0f87a04c37da1d3d27db1fb7f372802b72fb8c3ff3e9c0914530995127f4a6a1"
+checksum = "8cfcd41ae02d60edded204341d2798ba519c336c51a37330aa4b98a1128def32"
 dependencies = [
  "ahash",
  "cfg-if",
