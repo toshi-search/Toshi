@@ -147,7 +147,7 @@ impl SledStorage {
     }
 
     pub fn append_entry(&mut self, entry: Entry) -> Result<(), SledStorageError> {
-        if e.data.is_empty() || e.context.is_empty() {
+        if entry.data.is_empty() || entry.context.is_empty() {
             return Ok(());
         }
 
