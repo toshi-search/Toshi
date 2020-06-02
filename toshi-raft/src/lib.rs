@@ -148,7 +148,7 @@ impl SledStorage {
 
     pub fn append_entry(&mut self, entry: Entry) -> Result<(), SledStorageError> {
         if e.data.is_empty() || e.context.is_empty() {
-            return Ok(())
+            return Ok(());
         }
 
         let entry_tree = self.db.open_tree("entries")?;
@@ -297,7 +297,7 @@ pub mod tests {
             index: 1,
             data: br#"{"asdf": 1}"#.to_vec(),
             context: br#"test_index"#.to_vec(),
-            sync_log: false
+            sync_log: false,
         };
 
         storage.append_entry(entry)?;
