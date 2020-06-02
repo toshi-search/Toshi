@@ -1,4 +1,3 @@
-use std::str::from_utf8;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -11,7 +10,7 @@ use log::*;
 use tantivy::schema::Schema;
 use tantivy::{Document, IndexWriter};
 use tokio::sync::Barrier;
-use tokio::sync::{oneshot, Mutex};
+use tokio::sync::Mutex;
 
 use toshi_types::{Catalog, Error};
 
@@ -44,15 +43,19 @@ async fn parsing_documents(
             if let Ok(text) = String::from_utf8(line) {
                 match s.parse_document(&text) {
                     Ok(doc) => {
-                        ds.send(doc);
+                        ds.send(doc).unwrap_or_else(|e| panic!("Error in network channel: {}", e));
                     }
                     Err(e) => {
                         let err = anyhow::Error::msg("Error parsing document").context(text).context(e);
-                        error_chan.send(Error::TantivyError(err));
+                        error_chan
+                            .send(Error::TantivyError(err))
+                            .unwrap_or_else(|e| panic!("Error in network channel: {}", e));
                     }
                 };
             } else {
-                error_chan.send(Error::TantivyError(anyhow::Error::msg("Bad UTF-8 Line")));
+                error_chan
+                    .send(Error::TantivyError(anyhow::Error::msg("Bad UTF-8 Line")))
+                    .unwrap_or_else(|e| panic!("Error in network channel: {}", e));
             }
         }
     }
@@ -67,8 +70,8 @@ pub async fn bulk_insert(catalog: SharedCatalog, watcher: Arc<AtomicBool>, mut b
     }
     watcher.store(true, Ordering::SeqCst);
     let index_handle = catalog.get_index(index).unwrap();
-    let index = index_handle.get_index();
-    let schema = index.schema();
+    let i = index_handle.get_index();
+    let schema = i.schema();
     let (line_sender, line_recv) = catalog.settings.get_channel::<Vec<u8>>();
     let (doc_sender, doc_recv) = unbounded::<Document>();
     let writer = index_handle.get_writer();
@@ -114,7 +117,8 @@ pub async fn bulk_insert(catalog: SharedCatalog, watcher: Arc<AtomicBool>, mut b
     futures::future::join_all(parsing_handles).await;
     if !err_rcv.is_empty() {
         let mut iw = writer.lock().await;
-        iw.rollback();
+        iw.rollback()
+            .unwrap_or_else(|e| panic!("Error rolling back index: {}, this should be reported as a bug. {}", index, e));
         match err_rcv.recv() {
             Ok(err) => return Ok(error_response(StatusCode::BAD_REQUEST, err)),
             Err(err) => panic!("Panic receiving error: {:?}", err),
@@ -129,16 +133,13 @@ pub async fn bulk_insert(catalog: SharedCatalog, watcher: Arc<AtomicBool>, mut b
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
-    use std::thread::sleep;
-    use std::time::Duration;
 
     use toshi_test::read_body;
 
     use crate::handlers::all_docs;
     use crate::handlers::summary::flush;
     use crate::index::create_test_catalog;
-    use crate::{setup_logging_from_file, SearchResults};
+    use crate::SearchResults;
 
     use super::*;
 

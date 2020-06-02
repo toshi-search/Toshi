@@ -171,7 +171,7 @@ where
                 .filter(|e| !e.get_data().is_empty())
                 .collect::<Vec<Entry>>();
             slog::info!(self.logger, "Entries?: {}", entries.len());
-            self.node.mut_store().append(&entries)?;
+            self.node.mut_store().append_entries(&entries)?;
         }
 
         if let Some(hs) = ready.hs() {
@@ -241,7 +241,7 @@ where
 
                     e.merge(Bytes::from(entry.data.clone()))?;
 
-                    self.node.mut_store().append(&[e])?;
+                    self.node.mut_store().append_entries(&[e])?;
                 }
                 Some(EntryType::EntryConfChangeV2) => panic!("Conf2"),
                 None => panic!(":-("),

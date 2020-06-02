@@ -62,6 +62,36 @@ where
     Ok(())
 }
 
+/// toshi-raft - Toshi's raft consensus implementation
+/// The structure of Toshi's raft implementation is as follows
+/// root {
+///   last_idx: u64
+///   hard_state {
+///     term: u64
+///     vote: u64
+///     commit: u64
+///   }
+///   conf_state {
+///     voters: Vec<u64>
+///     learners: Vec<u64>
+///     voters_outgoing: Vec<u64>
+///     listeners_next: Vec<u64>
+///     auto_leave: bool
+///   }
+///   entries [
+///     1: Entry {
+///       entry_type: i32
+///       term: u64
+///       index: u64
+///       data: Vec<u8>
+///       context: Vec<u8>
+///       sync_log: bool
+///     }
+///     2: Entry { ... }
+///     n: Entry { ... }
+///   ]
+/// }
+
 pub struct SledStorage {
     state: SledRaftState,
     snapshot_metadata: SnapshotMetadata,
@@ -116,23 +146,29 @@ impl SledStorage {
         })
     }
 
-    pub fn append(&mut self, entries: &[Entry]) -> Result<(), SledStorageError> {
+    pub fn append_entry(&mut self, entry: Entry) -> Result<(), SledStorageError> {
+        if e.data.is_empty() || e.context.is_empty() {
+            return Ok(())
+        }
+
+        let entry_tree = self.db.open_tree("entries")?;
+        let idx = entry.index.to_be_bytes();
+        let b = encode(entry)?;
+        entry_tree.insert(idx, &b[..])?;
+        self.last_idx = i as u64;
+
+        let last_idx_be = self.last_idx.to_be_bytes();
+        self.db.insert(b"last_idx", &last_idx_be)?;
+        Ok(())
+    }
+
+    pub fn append_entries(&mut self, entries: &[Entry]) -> Result<(), SledStorageError> {
         if entries.is_empty() {
             return Ok(());
         }
-        let entry_tree = self.db.open_tree("entries")?;
-
-        for (i, e) in entries.into_iter().enumerate() {
-            if e.data.is_empty() || e.context.is_empty() {
-                continue;
-            }
-            let idx = e.index.to_be_bytes();
-            let b = encode(e.clone())?;
-            entry_tree.insert(idx, &b[..])?;
-            self.last_idx = i as u64;
+        for e in entries {
+            self.append_entry(e.clone());
         }
-        let last_idx_be = self.last_idx.to_be_bytes();
-        self.db.insert(b"last_idx", &last_idx_be)?;
         Ok(())
     }
 
@@ -252,6 +288,23 @@ pub mod tests {
         SledStorage::new_with_logger("./test_storage", Config::default(), None).unwrap()
     }
 
+    fn test_entries() -> TestResult {
+        let mut storage = test_storage();
+
+        let entry = Entry {
+            entry_type: 1,
+            term: 1,
+            index: 1,
+            data: br#"{"asdf": 1}"#.to_vec(),
+            context: br#"test_index"#.to_vec(),
+            sync_log: false
+        };
+
+        storage.append_entry(entry)?;
+        storage.commit()?;
+        Ok(())
+    }
+
     #[test]
     pub fn test_last_idx() -> TestResult {
         let mut storage = test_storage();
@@ -261,7 +314,7 @@ pub mod tests {
 
         let entry = Entry::default();
 
-        storage.append(&[entry])?;
+        storage.append_entries(&[entry])?;
         storage.commit()?;
         assert_eq!(storage.last_index()?, 0);
         remove_dir_all::remove_dir_all("./test_storage").map_err(Into::into)
