@@ -158,7 +158,8 @@ mod tests {
         let resp = all_docs(Arc::clone(&shared_cat), "new_index").await?;
         let b = wait_json::<crate::SearchResults>(resp).await;
         assert_eq!(b.hits, 0);
-        remove_dir_all::remove_dir_all("new_index").map_err(Into::into)
+        remove_dir_all::remove_dir_all("new_index").unwrap();
+        Ok(())
     }
 
     #[tokio::test]

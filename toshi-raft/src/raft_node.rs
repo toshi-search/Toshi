@@ -17,7 +17,8 @@ use toshi_proto::cluster_rpc::{self, RaftRequest};
 use toshi_types::{AddDocument, Catalog, IndexHandle};
 
 use crate::rpc_server::{create_client, RpcClient};
-use crate::{SledStorage, SledStorageError};
+use crate::storage::SledStorage;
+use crate::SledStorageError;
 
 pub struct ToshiRaft<C>
 where

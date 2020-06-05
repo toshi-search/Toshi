@@ -123,12 +123,16 @@ impl IndexCatalog {
     pub fn with_index(name: String, index: Index) -> Result<Self> {
         let map = DashMap::new();
         let remote_map = DashMap::new();
-        let new_index = LocalIndex::new(index, Settings::default(), &name)
+        let settings = Settings {
+            json_parsing_threads: 1,
+            ..Default::default()
+        };
+        let new_index = LocalIndex::new(index, settings.clone(), &name)
             .unwrap_or_else(|e| panic!("Unable to open index: {} because it's locked: {:?}", name, e));
         map.insert(name, new_index);
 
         Ok(IndexCatalog {
-            settings: Settings::default(),
+            settings: settings.clone(),
             base_path: PathBuf::new(),
             local_handles: map,
             remote_handles: Arc::new(remote_map),

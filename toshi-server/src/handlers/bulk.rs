@@ -145,7 +145,7 @@ mod tests {
 
     #[tokio::test(threaded_scheduler)]
     async fn test_bulk_index() -> Result<(), Box<dyn std::error::Error>> {
-        let server = create_test_catalog("test_index");
+        let server = create_test_catalog("test_index_bulk");
         let lock = Arc::new(AtomicBool::new(false));
 
         let body = r#"
@@ -153,13 +153,15 @@ mod tests {
         {"test_text": "asdf5678", "test_i64": 456, "test_u64": 678, "test_unindex": "asdf", "test_facet": "/cat/cat4"}
         {"test_text": "asdf9012", "test_i64": -12, "test_u64": 901, "test_unindex": "asdf", "test_facet": "/cat/cat4"}"#;
 
-        let index_docs = bulk_insert(Arc::clone(&server), lock, Body::from(body), "test_index".into()).await?;
+        let index_docs = bulk_insert(Arc::clone(&server), lock, Body::from(body), "test_index_bulk".into()).await?;
         assert_eq!(index_docs.status(), StatusCode::CREATED);
 
-        let f = flush(Arc::clone(&server), "test_index").await?;
+        let f = flush(Arc::clone(&server), "test_index_bulk").await?;
+
         assert_eq!(f.status(), StatusCode::OK);
 
-        let check_docs = all_docs(Arc::clone(&server), "test_index".into()).await?;
+        std::thread::sleep(Duration::from_secs(1));
+        let check_docs = all_docs(Arc::clone(&server), "test_index_bulk".into()).await?;
         let body: String = read_body(check_docs).await?;
         let docs: SearchResults = serde_json::from_slice(body.as_bytes())?;
 
@@ -167,7 +169,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test(threaded_scheduler)]
+    #[tokio::test]
     async fn test_errors() -> Result<(), Box<dyn std::error::Error>> {
         let server = create_test_catalog("test_index");
         let lock = Arc::new(AtomicBool::new(false));
