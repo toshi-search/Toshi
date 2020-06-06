@@ -143,7 +143,7 @@ mod tests {
 
     use super::*;
 
-    #[tokio::test(threaded_scheduler)]
+    #[tokio::test]
     async fn test_bulk_index() -> Result<(), Box<dyn std::error::Error>> {
         let server = create_test_catalog("test_index_bulk");
         let lock = Arc::new(AtomicBool::new(false));
