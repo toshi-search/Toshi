@@ -1,9 +1,13 @@
+GET http://localhost:8082/lyrics/_flush
+Accept: application/json
+
+###
 ### Assuming Toshi is running on port 8080
 ### Create an index for some song lyrics
 GET http://localhost:8080
 
 ###
-PUT http://localhost:8080/lyrics/_create
+PUT http://localhost:8082/lyrics/_create
 Content-Type: application/json
 
 [
@@ -87,5 +91,5 @@ Content-Type: application/json
   }
 }
 ### Get that document back from the engine
-GET http://localhost:8080/lyrics/
+GET http://localhost:8082/lyrics/
 Content-Type: application/json

@@ -34,9 +34,9 @@ pub enum Error {
     /// IO error that deals with anything related to reading from disk or network communications
     #[error("IO Error: {0}")]
     IOError(#[from] std::io::Error),
+    /// Unlikely error related to Slog
     #[error("IO Error: {0}")]
     SlogError(#[from] slog::Error),
-
     /// A query tried to reference a field that does not exist
     #[error("Unknown Field: '{0}' queried")]
     UnknownIndexField(String),
@@ -58,13 +58,16 @@ pub enum Error {
     /// An error occured in Toshi's internal RPC communications
     #[error("An RPC error occurred: '{0}'")]
     RPCError(String),
+    /// Any Error related to Tantivy
     #[error("Error in Index: '{0}'")]
     TantivyError(#[from] anyhow::Error),
-
+    /// Any error related to serde_json
     #[error("Error Parsing Json: '{0}'")]
     JsonParsing(#[from] serde_json::Error),
+    /// Any error related to Hyper
     #[error("Http Error: '{0}'")]
     HyperError(#[from] hyper::Error),
+    /// Any error related to http
     #[error("Http Crate Error: '{0}'")]
     HttpError(#[from] http::Error),
 }

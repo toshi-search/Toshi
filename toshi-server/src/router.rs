@@ -7,13 +7,12 @@ use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Method, Request, Response, Server};
 use log::*;
 use serde::Deserialize;
-use tokio::sync::mpsc::Sender;
+
 use tower_util::BoxService;
 
 use crate::handlers::*;
 use crate::index::SharedCatalog;
 use crate::utils::{not_found, parse_path};
-use toshi_proto::cluster_rpc::Message;
 
 #[derive(Deserialize, Debug, Default)]
 pub struct QueryOptions {
@@ -39,20 +38,14 @@ pub type BoxedFn = BoxService<Request<Body>, Response<Body>, hyper::Error>;
 pub struct Router {
     pub cat: SharedCatalog,
     pub watcher: Arc<AtomicBool>,
-    pub sender: Option<Sender<Message>>,
 }
 
 impl Router {
-    pub fn new(cat: SharedCatalog, watcher: Arc<AtomicBool>, sender: Option<Sender<Message>>) -> Self {
-        Self { cat, watcher, sender }
+    pub fn new(cat: SharedCatalog, watcher: Arc<AtomicBool>) -> Self {
+        Self { cat, watcher }
     }
 
-    pub async fn route(
-        catalog: SharedCatalog,
-        watcher: Arc<AtomicBool>,
-        req: Request<Body>,
-        sender: Option<Sender<Message>>,
-    ) -> Result<Response<Body>, hyper::Error> {
+    pub async fn route(catalog: SharedCatalog, watcher: Arc<AtomicBool>, req: Request<Body>) -> Result<Response<Body>, hyper::Error> {
         let (parts, body) = req.into_parts();
         let query_options: QueryOptions = parts
             .uri
@@ -69,7 +62,7 @@ impl Router {
             (m, [idx, "_flush"]) if m == Method::GET => flush(catalog, idx).await,
             (m, [idx, "_bulk"]) if m == Method::POST => bulk_insert(catalog, watcher.clone(), body, idx).await,
             (m, [idx]) if m == Method::POST => doc_search(catalog, body, idx).await,
-            (m, [idx]) if m == Method::PUT => add_document(catalog, body, idx, sender).await,
+            (m, [idx]) if m == Method::PUT => add_document(catalog, body, idx).await,
             (m, [idx]) if m == Method::DELETE => delete_term(catalog, body, idx).await,
             (m, [idx]) if m == Method::GET => {
                 if idx == &"favicon.ico" {
@@ -83,19 +76,15 @@ impl Router {
         }
     }
 
-    pub async fn service_call(
-        catalog: SharedCatalog,
-        watcher: Arc<AtomicBool>,
-        sender: Option<Sender<Message>>,
-    ) -> Result<BoxedFn, Infallible> {
+    pub async fn service_call(catalog: SharedCatalog, watcher: Arc<AtomicBool>) -> Result<BoxedFn, Infallible> {
         Ok(BoxService::new(service_fn(move |req| {
             info!("REQ = {:?}", &req);
-            Self::route(Arc::clone(&catalog), Arc::clone(&watcher), req, sender.clone())
+            Self::route(Arc::clone(&catalog), Arc::clone(&watcher), req)
         })))
     }
 
     pub async fn router_with_catalog(self, addr: SocketAddr) -> Result<(), hyper::Error> {
-        let routes = make_service_fn(move |_| Self::service_call(Arc::clone(&self.cat), Arc::clone(&self.watcher), self.sender.clone()));
+        let routes = make_service_fn(move |_| Self::service_call(Arc::clone(&self.cat), Arc::clone(&self.watcher)));
         let server = Server::bind(&addr).serve(routes);
         if let Err(err) = server.await {
             trace!("server error: {}", err);
@@ -105,7 +94,7 @@ impl Router {
 
     #[allow(dead_code)]
     pub(crate) async fn router_from_tcp(self, listener: TcpListener) -> Result<(), hyper::Error> {
-        let routes = make_service_fn(move |_| Self::service_call(Arc::clone(&self.cat), Arc::clone(&self.watcher), self.sender.clone()));
+        let routes = make_service_fn(move |_| Self::service_call(Arc::clone(&self.cat), Arc::clone(&self.watcher)));
         let server = Server::from_tcp(listener)?.serve(routes);
         if let Err(err) = server.await {
             trace!("server error: {}", err);
@@ -130,7 +119,7 @@ pub mod tests {
     #[tokio::test]
     async fn test_router() -> Result<(), Box<dyn std::error::Error>> {
         let catalog = create_test_catalog("test_index");
-        let router = Router::new(catalog, Arc::new(AtomicBool::new(false)), None);
+        let router = Router::new(catalog, Arc::new(AtomicBool::new(false)));
         let (listen, ts) = TestServer::new()?;
         let req = Request::get(ts.uri("/")).body(Body::empty())?;
 
@@ -143,7 +132,7 @@ pub mod tests {
     #[tokio::test]
     async fn test_not_found() -> Result<(), Box<dyn std::error::Error>> {
         let catalog = create_test_catalog("test_index");
-        let router = Router::new(catalog, Arc::new(AtomicBool::new(false)), None);
+        let router = Router::new(catalog, Arc::new(AtomicBool::new(false)));
         let (listen, ts) = TestServer::new()?;
         let req = Request::get(ts.uri("/asdf/asdf")).body(Body::empty())?;
 

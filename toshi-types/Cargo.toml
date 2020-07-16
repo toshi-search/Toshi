@@ -11,16 +11,17 @@ edition = "2018"
 http        = "^0.2"
 thiserror   = "^1.0"
 anyhow      = "^1.0"
-failure = "0.1.8"
+failure     = "^0.1"
 serde       = "^1.0"
 serde_json  = "^1.0"
 tantivy     = "^0.12"
 async-trait = "^0.1"
 dashmap     = { version = "^3", features = ["serde"] }
 slog        = "^2.5"
+tokio       = { version = "^0.2", features = ["sync"] }
 
 [dependencies.tonic]
-version  = "^0.2"
+version  = "^0.3"
 optional = true
 
 [dependencies.hyper]

@@ -137,7 +137,6 @@ impl BoolQueryBuilder {
 
 #[cfg(test)]
 mod tests {
-    use serde_json;
     use tantivy::schema::*;
 
     use crate::query::Search;

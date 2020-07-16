@@ -1,27 +1,18 @@
 use std::clone::Clone;
 use std::fs;
-use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
 
 use dashmap::DashMap;
-use http::uri::Scheme;
-use http::Uri;
-use log::*;
 use tantivy::directory::MmapDirectory;
 use tantivy::schema::Schema;
 use tantivy::Index;
-use tonic::Status;
 
-use toshi_proto::cluster_rpc::*;
-use toshi_raft::rpc_server::{create_client, RpcClient};
-use toshi_types::IndexHandle;
-use toshi_types::{Catalog, DeleteDoc, DocsAffected, Error, Search};
+use toshi_types::{Catalog, Error};
 
-use crate::cluster::remote_handle::RemoteIndex;
 use crate::handle::LocalIndex;
 use crate::settings::Settings;
-use crate::{AddDocument, Result, SearchResults};
+use crate::Result;
 
 pub type SharedCatalog = Arc<IndexCatalog>;
 
@@ -29,13 +20,11 @@ pub struct IndexCatalog {
     pub settings: Settings,
     base_path: PathBuf,
     local_handles: DashMap<String, LocalIndex>,
-    remote_handles: Arc<DashMap<String, RemoteIndex>>,
 }
 
 #[async_trait::async_trait]
 impl Catalog for IndexCatalog {
     type Local = LocalIndex;
-    type Remote = RemoteIndex;
 
     fn base_path(&self) -> String {
         format!("{}", self.base_path.display())
@@ -53,8 +42,6 @@ impl Catalog for IndexCatalog {
 
     async fn list_indexes(&self) -> Vec<String> {
         let mut local_keys = self.local_handles.iter().map(|e| e.key().to_owned()).collect::<Vec<String>>();
-        let remote_keys = self.remote_handles.iter().map(|e| e.key().to_owned()).collect::<Vec<String>>();
-        local_keys.extend_from_slice(&remote_keys);
         local_keys.sort();
         local_keys.dedup();
         local_keys
@@ -71,17 +58,6 @@ impl Catalog for IndexCatalog {
         self.get_collection().contains_key(index)
     }
 
-    async fn get_remote_index(&self, name: &str) -> Result<Self::Remote> {
-        self.get_remote_collection()
-            .get(name)
-            .map(|r| r.value().clone())
-            .ok_or_else(|| Error::UnknownIndex(name.into()))
-    }
-
-    async fn remote_exists(&self, index: &str) -> bool {
-        self.get_remote_collection().contains_key(index)
-    }
-
     fn raft_id(&self) -> u64 {
         self.settings.experimental_features.id
     }
@@ -93,36 +69,21 @@ impl IndexCatalog {
     }
 
     pub fn new(base_path: PathBuf, settings: Settings) -> Result<Self> {
-        let remote_idxs = Arc::new(DashMap::new());
         let local_idxs = DashMap::new();
-
         let mut index_cat = IndexCatalog {
             settings,
             base_path,
             local_handles: local_idxs,
-            remote_handles: remote_idxs,
         };
         index_cat.refresh_catalog()?;
 
         Ok(index_cat)
     }
 
-    pub async fn update_remote_indexes(&self) -> Result<()> {
-        let hosts = IndexCatalog::refresh_multiple_nodes(self.settings.experimental_features.nodes.clone()).await?;
-        for host in hosts {
-            for idx in host.1 {
-                let ri = RemoteIndex::new(idx.clone(), host.0.clone());
-                self.remote_handles.insert(idx, ri);
-            }
-        }
-        Ok(())
-    }
-
     #[doc(hidden)]
     #[allow(dead_code)]
     pub fn with_index(name: String, index: Index) -> Result<Self> {
         let map = DashMap::new();
-        let remote_map = DashMap::new();
         let settings = Settings {
             json_parsing_threads: 1,
             ..Default::default()
@@ -132,10 +93,9 @@ impl IndexCatalog {
         map.insert(name, new_index);
 
         Ok(IndexCatalog {
-            settings: settings.clone(),
+            settings,
             base_path: PathBuf::new(),
             local_handles: map,
-            remote_handles: Arc::new(remote_map),
         })
     }
 
@@ -165,45 +125,8 @@ impl IndexCatalog {
         Ok(())
     }
 
-    pub async fn add_remote_index(&self, name: String, remote: RpcClient) -> Result<()> {
-        let ri = RemoteIndex::new(name.clone(), remote);
-        self.remote_handles.entry(name).or_insert(ri);
-        Ok(())
-    }
-
-    pub async fn add_multi_remote_index(&self, name: String, remote: Vec<RpcClient>) -> Result<()> {
-        let ri = RemoteIndex::with_clients(name.clone(), remote);
-        self.remote_handles.entry(name).or_insert(ri);
-        Ok(())
-    }
-
-    pub fn get_remote_collection(&self) -> Arc<DashMap<String, RemoteIndex>> {
-        Arc::clone(&self.remote_handles)
-    }
-
     pub fn get_mut_collection(&mut self) -> &mut DashMap<String, LocalIndex> {
         &mut self.local_handles
-    }
-
-    pub fn get_mut_index(&mut self, name: &str) -> Result<LocalIndex> {
-        self.local_handles
-            .get_mut(name)
-            .map(|mut r| r.value_mut().clone())
-            .ok_or_else(|| Error::UnknownIndex(name.into()))
-    }
-
-    pub fn get_index(&self, name: &str) -> Result<LocalIndex> {
-        self.local_handles
-            .get(name)
-            .map(|r| r.value().clone())
-            .ok_or_else(|| Error::UnknownIndex(name.into()))
-    }
-
-    pub fn get_owned_index(&self, name: &str) -> Result<LocalIndex> {
-        self.local_handles
-            .get(name)
-            .map(|r| r.value().clone())
-            .ok_or_else(|| Error::UnknownIndex(name.into()))
     }
 
     pub fn refresh_catalog(&mut self) -> Result<()> {
@@ -224,68 +147,8 @@ impl IndexCatalog {
         Ok(())
     }
 
-    fn create_host_uri(socket: SocketAddr) -> Result<Uri> {
-        Uri::builder()
-            .scheme(Scheme::HTTP)
-            .authority(socket.to_string().as_str())
-            .path_and_query("")
-            .build()
-            .map_err(|e| Error::HttpError(e))
-    }
-
-    pub async fn create_client(node: String) -> std::result::Result<RpcClient, Error> {
-        let socket: SocketAddr = node.parse().unwrap();
-        let host_uri = IndexCatalog::create_host_uri(socket)?;
-
-        Ok(create_client(host_uri, None).await?)
-    }
-
-    pub async fn refresh_multiple_nodes(nodes: Vec<String>) -> Result<Vec<(RpcClient, Vec<String>)>> {
-        let mut results = vec![];
-        for node in nodes {
-            let refresh = IndexCatalog::refresh_remote_catalog(node.to_owned())
-                .await
-                .expect("Could not refresh Index");
-            info!("HOST = {}, INDEXES = {:?}", &node, &refresh.1);
-            results.push(refresh);
-        }
-        Ok(results)
-    }
-
-    pub async fn refresh_remote_catalog(node: String) -> std::result::Result<(RpcClient, Vec<String>), Status> {
-        let mut client = IndexCatalog::create_client(node).await.expect("Could not create client.");
-        let r = client.list_indexes(tonic::Request::new(ListRequest {})).await?.into_inner();
-        Ok((client, r.indexes))
-    }
-
-    pub async fn search_local_index(&self, index: &str, search: Search) -> Result<SearchResults> {
-        let hand = self.get_index(index)?;
-        hand.search_index(search).await
-    }
-
-    pub async fn search_remote_index(&self, index: &str, search: Search) -> Result<Vec<SearchResults>> {
-        let hand: RemoteIndex = self.get_remote_index(index).await?;
-        hand.search_index(search).await.map(|r| vec![r])
-    }
-
-    pub async fn add_remote_document(&self, index: &str, doc: AddDocument) -> Result<()> {
-        let handle: RemoteIndex = self.get_remote_index(index).await?;
-        handle.add_document(doc).await
-    }
-
-    pub async fn add_local_document(&self, index: &str, doc: AddDocument) -> Result<()> {
-        let handle = self.get_owned_index(index)?;
-        handle.add_document(doc).await
-    }
-
-    pub async fn delete_local_term(&self, index: &str, term: DeleteDoc) -> Result<DocsAffected> {
-        let handle: RemoteIndex = self.get_remote_index(index).await?;
-        handle.delete_term(term).await
-    }
-
     pub async fn clear(&self) {
         self.local_handles.clear();
-        self.remote_handles.clear()
     }
 }
 

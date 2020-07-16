@@ -50,7 +50,7 @@ pub fn setup_logging_from_file(_: &str) -> Result<Logger> {
         .use_original_order()
         .build()
         .fuse();
-    let sink = slog_async::Async::new(format).build().filter_level(Level::Debug).fuse();
+    let sink = slog_async::Async::new(format).build().filter_level(Level::Info).fuse();
     let filter = slog::o!("toshi" => "debug");
     Ok(Logger::root(sink, filter))
 }

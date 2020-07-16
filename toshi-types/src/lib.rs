@@ -6,8 +6,6 @@
 //! looking for Toshi's protobuf types then you will want to look in the toshi-proto module
 //! of Toshi's source code.
 
-use dashmap::DashMap;
-
 use serde_json::Value as SerdeValue;
 
 pub use client::{ScoredDoc, SearchResults, SummaryResponse};
@@ -17,7 +15,10 @@ pub use query::{
     range::Ranges, regex::RegexQuery, term::ExactTerm, CreateQuery, FlatNamedDocument, KeyValue, Query, Search,
 };
 pub use server::*;
-use tantivy::Index;
+use std::sync::Arc;
+use tantivy::space_usage::SearcherSpaceUsage;
+use tantivy::{Index, IndexWriter};
+use tokio::sync::Mutex;
 
 type Result<T> = std::result::Result<T, error::Error>;
 
@@ -48,7 +49,7 @@ pub enum IndexLocation {
     REMOTE,
 }
 
-/// Defines an interface on how operations are done on indexes inside toshi
+/// Defines an interface on how operations are done on indexes inside Toshi
 #[async_trait::async_trait]
 pub trait IndexHandle: Clone {
     /// The human-readable name of the index
@@ -57,6 +58,10 @@ pub trait IndexHandle: Clone {
     fn index_location(&self) -> IndexLocation;
     /// Return the underlying index
     fn get_index(&self) -> Index;
+    /// Return index writer
+    fn get_writer(&self) -> Arc<Mutex<IndexWriter>>;
+    /// Get size of an index
+    fn get_space(&self) -> SearcherSpaceUsage;
     /// Search for documents in this index
     async fn search_index(&self, search: Search) -> Result<SearchResults<FlatNamedDocument>>;
     /// Add documents to this index
@@ -70,13 +75,11 @@ pub trait IndexHandle: Clone {
 pub trait Catalog: Send + Sync + 'static {
     /// The type of handle the catalog returns when the index is local
     type Local: IndexHandle + Send + Sync;
-    /// The type of handle the catalog returns when the index is remote
-    type Remote: IndexHandle + Send + Sync;
 
     /// The base path for local indexes, useless for remote
     fn base_path(&self) -> String;
     /// Return the entire collection of handles
-    fn get_collection(&self) -> &DashMap<String, Self::Local>;
+    fn get_collection(&self) -> &dashmap::DashMap<String, Self::Local>;
     /// Add a local index to the catalog
     fn add_index(&self, name: String, index: Index) -> Result<()>;
     /// Return a list of index names
@@ -85,10 +88,6 @@ pub trait Catalog: Send + Sync + 'static {
     fn get_index(&self, name: &str) -> Result<Self::Local>;
     /// Determine if an index exists locally
     fn exists(&self, index: &str) -> bool;
-    /// Return a handle to a single remote index
-    async fn get_remote_index(&self, name: &str) -> Result<Self::Remote>;
-    /// Determine if an index exists on some other machine
-    async fn remote_exists(&self, index: &str) -> bool;
     /// The current catalog's raft_id
     fn raft_id(&self) -> u64;
 }
