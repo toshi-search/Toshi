@@ -1,6 +1,5 @@
 use std::net::{SocketAddr, TcpListener};
 
-use bytes::Buf;
 use futures::future::Either;
 use futures::Future;
 use http::uri::{Authority, Scheme};
@@ -50,8 +49,7 @@ pub fn cmp_float(a: f32, b: f32) -> bool {
 }
 
 pub async fn read_body(resp: Response<Body>) -> Result<String, Box<dyn std::error::Error>> {
-    let body = hyper::body::aggregate(resp.into_body()).await?;
-    let b = body.bytes();
+    let b = hyper::body::to_bytes(resp.into_body()).await?;
     Ok(String::from_utf8(b.to_vec())?)
 }
 

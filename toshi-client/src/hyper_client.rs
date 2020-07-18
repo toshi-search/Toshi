@@ -1,6 +1,5 @@
 use std::fmt::Display;
 
-use bytes::Buf;
 use http::Response;
 use hyper::client::connect::Connect;
 use hyper::{Body, Client, Request, Uri};
@@ -46,8 +45,8 @@ where
         R: DeserializeOwned + Send + Sync,
     {
         let response = self.client.request(request).await?;
-        let body = hyper::body::aggregate(response.into_body()).await?;
-        serde_json::from_slice::<R>(body.bytes()).map_err(Into::into)
+        let body_bytes = hyper::body::to_bytes(response.into_body()).await?;
+        serde_json::from_slice::<R>(&body_bytes).map_err(Into::into)
     }
 
     pub async fn index(&self) -> Result<Response<Body>> {
