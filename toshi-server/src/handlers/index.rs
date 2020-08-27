@@ -1,5 +1,4 @@
-use bytes::Buf;
-use hyper::body::aggregate;
+use hyper::body::to_bytes;
 use hyper::{Body, Response, StatusCode};
 use log::info;
 use rand::random;
@@ -40,8 +39,7 @@ async fn create_remote_index(nodes: &[String], index: String, schema: Schema) ->
 
 pub async fn delete_term(catalog: SharedCatalog, body: Body, index: &str) -> ResponseFuture {
     let cat = catalog;
-    let agg_body = aggregate(body).await?;
-    let b = agg_body.bytes();
+    let b = to_bytes(body).await?;
     let req = match serde_json::from_slice::<DeleteDoc>(&b) {
         Ok(v) => v,
         Err(_e) => return Ok(empty_with_code(hyper::StatusCode::BAD_REQUEST)),
@@ -64,9 +62,9 @@ macro_rules! try_response {
 }
 
 pub async fn create_index(catalog: SharedCatalog, body: Body, index: &str) -> ResponseFuture {
-    let req = aggregate(body)
+    let req = to_bytes(body)
         .await
-        .map(|body| serde_json::from_slice::<SchemaBody>(&body.bytes()));
+        .map(|body_bytes| serde_json::from_slice::<SchemaBody>(&body_bytes));
 
     match req {
         Ok(Ok(req)) => {
@@ -94,8 +92,7 @@ pub async fn create_index(catalog: SharedCatalog, body: Body, index: &str) -> Re
 }
 
 pub async fn add_document(catalog: SharedCatalog, body: Body, index: &str, raft_sender: Option<Sender<Message>>) -> ResponseFuture {
-    let full_body = aggregate(body).await?;
-    let b = full_body.bytes();
+    let b = to_bytes(body).await?;
     let req = serde_json::from_slice::<AddDocument>(&b).unwrap();
     let location: bool = random();
     info!("LOCATION = {}", location);
@@ -132,7 +129,6 @@ mod tests {
     use std::collections::HashMap;
     use std::sync::Arc;
 
-    use bytes::Buf;
     use pretty_assertions::assert_eq;
 
     use toshi_test::wait_json;
@@ -212,8 +208,7 @@ mod tests {
             .await
             .unwrap()
             .into_body();
-        let req_body = hyper::body::aggregate(req).await.unwrap();
-        let buf = req_body.bytes();
+        let buf = hyper::body::to_bytes(req).await.unwrap();
         let str_buf = std::str::from_utf8(&buf).unwrap();
         assert_eq!(str_buf, "{\"message\":\"IO Error: Document: '\\\"\\\"' is not valid JSON\"}")
     }

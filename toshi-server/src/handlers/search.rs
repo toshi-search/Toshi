@@ -1,5 +1,4 @@
-use bytes::Buf;
-use hyper::body::aggregate;
+use hyper::body::to_bytes;
 use hyper::Response;
 use hyper::{Body, StatusCode};
 use log::info;
@@ -17,8 +16,8 @@ pub fn fold_results(results: Vec<SearchResults>, limit: usize) -> SearchResults 
 }
 
 pub async fn doc_search(catalog: SharedCatalog, body: Body, index: &str) -> ResponseFuture {
-    let b = aggregate(body).await?;
-    let req = serde_json::from_slice::<Search>(b.bytes()).unwrap();
+    let b = to_bytes(body).await?;
+    let req = serde_json::from_slice::<Search>(&b).unwrap();
     let req = if req.query.is_none() { Search::all_limit(req.limit) } else { req };
 
     if catalog.exists(index) {
