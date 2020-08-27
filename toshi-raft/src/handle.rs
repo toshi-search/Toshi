@@ -24,7 +24,7 @@ where
         unimplemented!()
     }
 
-    fn entries(&self, low: u64, high: u64, max_size: impl Into<Option<u64>>) -> Result<Vec<Entry>> {
+    fn entries(&self, _low: u64, _high: u64, _max_size: impl Into<Option<u64>>) -> Result<Vec<Entry>> {
         unimplemented!()
         // let index = self.handle.get_index();
         // let searcher = index.reader().unwrap().searcher();
@@ -57,7 +57,7 @@ where
         // }
     }
 
-    fn term(&self, idx: u64) -> Result<u64> {
+    fn term(&self, _idx: u64) -> Result<u64> {
         unimplemented!()
     }
 
@@ -69,7 +69,7 @@ where
         unimplemented!()
     }
 
-    fn snapshot(&self, request_index: u64) -> Result<Snapshot> {
+    fn snapshot(&self, _request_index: u64) -> Result<Snapshot> {
         unimplemented!()
     }
 }

@@ -111,9 +111,7 @@ impl IndexCatalog {
     pub fn load_index(path: &str) -> Result<Index> {
         let p = PathBuf::from(path);
         if p.exists() {
-            Index::open_in_dir(&p)
-                .map_err(|_| Error::UnknownIndex(p.display().to_string()))
-                .and_then(Ok)
+            Index::open_in_dir(&p).map_err(|_| Error::UnknownIndex(p.display().to_string()))
         } else {
             Err(Error::UnknownIndex(path.to_string()))
         }

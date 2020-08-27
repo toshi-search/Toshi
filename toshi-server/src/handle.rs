@@ -72,6 +72,14 @@ impl IndexHandle for LocalIndex {
         self.index.clone()
     }
 
+    fn get_writer(&self) -> Arc<Mutex<IndexWriter>> {
+        Arc::clone(&self.writer)
+    }
+
+    fn get_space(&self) -> SearcherSpaceUsage {
+        self.reader.searcher().space_usage()
+    }
+
     async fn search_index(&self, search: Search) -> Result<SearchResults> {
         let searcher = self.reader.searcher();
         let schema = self.index.schema();
@@ -205,14 +213,6 @@ impl IndexHandle for LocalIndex {
         let current = self.deleted_docs.load(Ordering::SeqCst);
         self.deleted_docs.store(current + docs_affected, Ordering::SeqCst);
         Ok(DocsAffected { docs_affected })
-    }
-
-    fn get_writer(&self) -> Arc<Mutex<IndexWriter>> {
-        Arc::clone(&self.writer)
-    }
-
-    fn get_space(&self) -> SearcherSpaceUsage {
-        self.reader.searcher().space_usage()
     }
 }
 
