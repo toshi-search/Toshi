@@ -81,7 +81,7 @@ where
         self.client.request(request).await.map_err(Into::into)
     }
 
-    async fn add_document<I, D>(&self, index: String, options: Option<IndexOptions>, document: D) -> Result<Response<Self::Body>>
+    async fn add_document<I, D>(&self, index: I, options: Option<IndexOptions>, document: D) -> Result<Response<Self::Body>>
     where
         I: ToString + Send + Sync + Display,
         D: Serialize + Send + Sync,
