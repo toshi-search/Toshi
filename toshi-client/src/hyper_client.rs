@@ -88,7 +88,7 @@ where
     {
         let uri = self.uri(index);
         let body = serde_json::to_vec(&AddDocument { options, document })?;
-        let request = Request::post(uri).body(Body::from(body))?;
+        let request = Request::put(uri).body(Body::from(body))?;
         self.client.request(request).await.map_err(Into::into)
     }
 
@@ -109,7 +109,7 @@ where
         D: DeserializeOwned + Clone + Send + Sync,
     {
         let uri = self.uri(index);
-        let request = Request::post(uri).body(Body::empty())?;
+        let request = Request::get(uri).body(Body::empty())?;
         self.make_request::<SearchResults<D>>(request).await
     }
 }

@@ -71,7 +71,7 @@ impl Client for ToshiClient {
     {
         let uri = self.uri(index);
         let body = serde_json::to_vec(&AddDocument { options, document })?;
-        self.client.post(uri, body).map_err(Into::into)
+        self.client.put(uri, body).map_err(Into::into)
     }
 
     async fn search<I, D>(&self, index: I, search: Search) -> Result<SearchResults<D>>
