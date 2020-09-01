@@ -81,14 +81,14 @@ where
         self.client.request(request).await.map_err(Into::into)
     }
 
-    async fn add_document<I, D>(&self, index: String, options: Option<IndexOptions>, document: D) -> Result<Response<Self::Body>>
+    async fn add_document<I, D>(&self, index: I, options: Option<IndexOptions>, document: D) -> Result<Response<Self::Body>>
     where
         I: ToString + Send + Sync + Display,
         D: Serialize + Send + Sync,
     {
         let uri = self.uri(index);
         let body = serde_json::to_vec(&AddDocument { options, document })?;
-        let request = Request::post(uri).body(Body::from(body))?;
+        let request = Request::put(uri).body(Body::from(body))?;
         self.client.request(request).await.map_err(Into::into)
     }
 
@@ -109,7 +109,7 @@ where
         D: DeserializeOwned + Clone + Send + Sync,
     {
         let uri = self.uri(index);
-        let request = Request::post(uri).body(Body::empty())?;
+        let request = Request::get(uri).body(Body::empty())?;
         self.make_request::<SearchResults<D>>(request).await
     }
 }
