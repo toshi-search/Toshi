@@ -64,7 +64,6 @@ mod tests {
     use std::collections::HashMap;
     use std::sync::Arc;
 
-    use bytes::Buf;
     use pretty_assertions::assert_eq;
 
     use toshi_test::wait_json;
@@ -134,8 +133,7 @@ mod tests {
             .await
             .unwrap()
             .into_body();
-        let req_body = hyper::body::aggregate(req).await.unwrap();
-        let buf = req_body.bytes();
+        let buf = hyper::body::to_bytes(req).await.unwrap();
         let str_buf = std::str::from_utf8(&buf).unwrap();
         assert_eq!(
             str_buf,

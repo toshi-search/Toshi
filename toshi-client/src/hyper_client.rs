@@ -1,6 +1,5 @@
 use std::fmt::Display;
 
-use bytes::Buf;
 use http::Response;
 use hyper::client::connect::Connect;
 use hyper::{Body, Client, Request, Uri};
@@ -46,8 +45,8 @@ where
         R: DeserializeOwned + Send + Sync,
     {
         let response = self.client.request(request).await?;
-        let body = hyper::body::aggregate(response.into_body()).await?;
-        serde_json::from_slice::<R>(body.bytes()).map_err(Into::into)
+        let body_bytes = hyper::body::to_bytes(response.into_body()).await?;
+        serde_json::from_slice::<R>(&body_bytes).map_err(Into::into)
     }
 
     pub async fn index(&self) -> Result<Response<Body>> {
@@ -82,14 +81,14 @@ where
         self.client.request(request).await.map_err(Into::into)
     }
 
-    async fn add_document<I, D>(&self, index: String, options: Option<IndexOptions>, document: D) -> Result<Response<Self::Body>>
+    async fn add_document<I, D>(&self, index: I, options: Option<IndexOptions>, document: D) -> Result<Response<Self::Body>>
     where
         I: ToString + Send + Sync + Display,
         D: Serialize + Send + Sync,
     {
         let uri = self.uri(index);
         let body = serde_json::to_vec(&AddDocument { options, document })?;
-        let request = Request::post(uri).body(Body::from(body))?;
+        let request = Request::put(uri).body(Body::from(body))?;
         self.client.request(request).await.map_err(Into::into)
     }
 
@@ -110,7 +109,7 @@ where
         D: DeserializeOwned + Clone + Send + Sync,
     {
         let uri = self.uri(index);
-        let request = Request::post(uri).body(Body::empty())?;
+        let request = Request::get(uri).body(Body::empty())?;
         self.make_request::<SearchResults<D>>(request).await
     }
 }

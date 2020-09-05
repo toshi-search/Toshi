@@ -64,14 +64,14 @@ impl Client for ToshiClient {
         self.client.put(uri, body).map_err(Into::into)
     }
 
-    async fn add_document<I, D>(&self, index: String, options: Option<IndexOptions>, document: D) -> Result<Response<Body>>
+    async fn add_document<I, D>(&self, index: I, options: Option<IndexOptions>, document: D) -> Result<Response<Body>>
     where
         I: ToString + Send + Sync + Display,
         D: Serialize + Send + Sync,
     {
         let uri = self.uri(index);
         let body = serde_json::to_vec(&AddDocument { options, document })?;
-        self.client.post(uri, body).map_err(Into::into)
+        self.client.put(uri, body).map_err(Into::into)
     }
 
     async fn search<I, D>(&self, index: I, search: Search) -> Result<SearchResults<D>>
