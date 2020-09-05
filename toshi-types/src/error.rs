@@ -70,6 +70,9 @@ pub enum Error {
     /// Any error related to http
     #[error("Http Crate Error: '{0}'")]
     HttpError(#[from] http::Error),
+    /// When attempting to create an index that already exists
+    #[error("Index: '{0}' already exists")]
+    AlreadyExists(String),
 }
 
 impl From<OpenDirectoryError> for Error {

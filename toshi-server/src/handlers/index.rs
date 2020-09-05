@@ -1,67 +1,62 @@
-use bytes::{Buf, Bytes};
-use hyper::body::aggregate;
+use hyper::body::to_bytes;
 use hyper::{Body, Response, StatusCode};
 
 use toshi_types::{Catalog, IndexHandle};
-use toshi_types::{DeleteDoc, DocsAffected, Error, SchemaBody};
+use toshi_types::{DeleteDoc, Error, SchemaBody};
 
 use crate::handlers::ResponseFuture;
-use crate::index::{IndexCatalog, SharedCatalog};
+use crate::index::SharedCatalog;
 use crate::utils::{empty_with_code, error_response, with_body};
 use crate::AddDocument;
 
-async fn delete_terms(catalog: SharedCatalog, body: DeleteDoc, index: &str) -> Result<DocsAffected, Error> {
-    let index_handle = catalog.get_index(index)?;
-    index_handle.delete_term(body).await
-}
-
 pub async fn delete_term(catalog: SharedCatalog, body: Body, index: &str) -> ResponseFuture {
     if !catalog.exists(index) {
-        return Ok(empty_with_code(StatusCode::NOT_FOUND));
+        return Ok(error_response(StatusCode::BAD_REQUEST, Error::UnknownIndex(index.to_string())));
     }
-    let agg_body = aggregate(body).await?;
-    let b = agg_body.bytes();
-    if let Ok(dd) = serde_json::from_slice::<DeleteDoc>(&b) {
-        match delete_terms(catalog, dd, index).await {
-            Ok(v) => Ok(with_body(v)),
-            Err(_e) => Ok(empty_with_code(StatusCode::BAD_REQUEST)),
-        }
-    } else {
-        Ok(empty_with_code(StatusCode::BAD_REQUEST))
+    let agg_body = to_bytes(body).await?;
+    match serde_json::from_slice::<DeleteDoc>(&agg_body) {
+        Ok(dd) => match catalog.get_index(index) {
+            Ok(c) => c
+                .delete_term(dd)
+                .await
+                .map(with_body)
+                .or_else(|e| Ok(error_response(StatusCode::BAD_REQUEST, e))),
+            Err(e) => Ok(error_response(StatusCode::BAD_REQUEST, e)),
+        },
+        Err(e) => Ok(error_response(StatusCode::BAD_REQUEST, e.into())),
     }
 }
 
 pub async fn create_index(catalog: SharedCatalog, body: Body, index: &str) -> ResponseFuture {
-    let req = aggregate(body)
-        .await
-        .map(|body| serde_json::from_slice::<SchemaBody>(&body.bytes()));
-
-    match req {
-        Ok(Ok(req)) => {
-            let base_path = catalog.base_path();
-            match IndexCatalog::create_from_managed(base_path.into(), &index, req.0) {
-                Ok(v) => match catalog.add_index(&index, v) {
-                    Ok(_) => Ok(empty_with_code(StatusCode::CREATED)),
-                    Err(e) => Ok(Response::from(e)),
-                },
-                Err(e) => Ok(Response::from(e)),
-            }
-        }
-        Ok(Err(e)) => Ok(error_response(StatusCode::BAD_REQUEST, e.into())),
+    if catalog.exists(index) {
+        return Ok(error_response(StatusCode::BAD_REQUEST, Error::AlreadyExists(index.to_string())));
+    }
+    let req = to_bytes(body).await?;
+    match serde_json::from_slice::<SchemaBody>(&req) {
+        Ok(schema_body) => match catalog.create_add_index(index, schema_body.0) {
+            Ok(_) => Ok(empty_with_code(StatusCode::CREATED)),
+            Err(e) => Ok(Response::from(e)),
+        },
         Err(e) => Ok(error_response(StatusCode::BAD_REQUEST, e.into())),
     }
 }
 
 pub async fn add_document(catalog: SharedCatalog, body: Body, index: &str) -> ResponseFuture {
-    let full_body: Bytes = aggregate(body).await?.to_bytes();
-    let req = match serde_json::from_slice::<AddDocument>(&full_body) {
-        Ok(v) => v,
-        Err(err) => return Ok(error_response(StatusCode::BAD_REQUEST, err.into())),
-    };
-    let add = catalog.get_index(index).unwrap().add_document(req).await;
-
-    add.map(|_| empty_with_code(StatusCode::CREATED))
-        .or_else(|e| Ok(error_response(StatusCode::BAD_REQUEST, e)))
+    if !catalog.exists(index) {
+        return Ok(error_response(StatusCode::BAD_REQUEST, Error::UnknownIndex(index.to_string())));
+    }
+    let full_body = to_bytes(body).await?;
+    match serde_json::from_slice::<AddDocument>(&full_body) {
+        Ok(v) => match catalog.get_index(index) {
+            Ok(c) => c
+                .add_document(v)
+                .await
+                .map(|_| empty_with_code(StatusCode::CREATED))
+                .or_else(|e| Ok(error_response(StatusCode::BAD_REQUEST, e))),
+            Err(e) => Ok(error_response(StatusCode::BAD_REQUEST, e)),
+        },
+        Err(e) => Ok(error_response(StatusCode::BAD_REQUEST, e.into())),
+    }
 }
 
 #[cfg(test)]

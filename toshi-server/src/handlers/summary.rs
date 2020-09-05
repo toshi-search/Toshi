@@ -10,7 +10,7 @@ use crate::index::SharedCatalog;
 use crate::router::QueryOptions;
 use crate::utils::{empty_with_code, with_body};
 
-#[derive(Debug, Serialize)]
+#[derive(Serialize)]
 struct FlushResponse {
     opstamp: u64,
 }

@@ -123,6 +123,11 @@ impl IndexCatalog {
         Ok(())
     }
 
+    pub fn create_add_index(&self, name: &str, schema: Schema) -> Result<()> {
+        let new_index = IndexCatalog::create_from_managed(self.base_path.clone(), name, schema)?;
+        self.add_index(name, new_index)
+    }
+
     pub fn get_mut_collection(&mut self) -> &mut DashMap<String, LocalIndex> {
         &mut self.local_handles
     }

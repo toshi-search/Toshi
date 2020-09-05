@@ -12,7 +12,6 @@ use toshi_types::FlatNamedDocument;
 use crate::index::{IndexCatalog, SharedCatalog};
 use crate::settings::Settings;
 
-pub mod cluster;
 pub mod commit;
 pub mod handle;
 pub mod handlers;
