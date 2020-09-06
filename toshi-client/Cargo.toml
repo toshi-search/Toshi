@@ -34,7 +34,7 @@ http        = "^0.2"
 thiserror   = "^1.0"
 serde       = "^1.0"
 serde_json  = "^1.0"
-tantivy     = "^0.12"
+tantivy     = "^0.13"
 bytes       = { version = "^0.5", optional = true }
 
 [dependencies.isahc]

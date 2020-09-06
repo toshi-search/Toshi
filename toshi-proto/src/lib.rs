@@ -90,6 +90,7 @@ pub mod cluster_rpc {
                 reject: m.reject,
                 context: m.context,
                 reject_hint: m.reject_hint,
+                priority: 0,
             }
         }
     }

@@ -1,7 +1,7 @@
-use std::time::Instant;
-
-use hyper::{Body, Response, StatusCode};
+use hyper::{Response, StatusCode};
 use log::{debug, info};
+use serde::Serialize;
+use std::time::Instant;
 
 use toshi_types::*;
 
@@ -9,6 +9,11 @@ use crate::handlers::ResponseFuture;
 use crate::index::SharedCatalog;
 use crate::router::QueryOptions;
 use crate::utils::{empty_with_code, with_body};
+
+#[derive(Serialize)]
+struct FlushResponse {
+    opstamp: u64,
+}
 
 pub async fn index_summary(catalog: SharedCatalog, index: &str, options: QueryOptions) -> ResponseFuture {
     let start = Instant::now();
@@ -23,8 +28,7 @@ pub async fn index_summary(catalog: SharedCatalog, index: &str, options: QueryOp
         info!("Took: {:?}", start.elapsed());
         Ok(with_body(summary))
     } else {
-        let err = Error::IOError(format!("Index {} does not exist", index));
-        let resp: Response<Body> = Response::from(err);
+        let resp = Response::from(Error::UnknownIndex(index.into()));
         info!("Took: {:?}", start.elapsed());
         Ok(resp)
     }
@@ -35,10 +39,9 @@ pub async fn flush(catalog: SharedCatalog, index: &str) -> ResponseFuture {
         let local_index = catalog.get_index(index).unwrap();
         let writer = local_index.get_writer();
         let mut write = writer.lock().await;
-
-        write.commit().unwrap();
+        let opstamp = write.commit().unwrap();
         info!("Successful commit: {}", index);
-        Ok(empty_with_code(StatusCode::OK))
+        Ok(with_body(FlushResponse { opstamp }))
     } else {
         debug!("Could not find index: {}", index);
         Ok(empty_with_code(StatusCode::NOT_FOUND))
@@ -61,7 +64,7 @@ mod tests {
     #[tokio::test]
     async fn get_summary_data() -> Result<(), Box<dyn std::error::Error>> {
         let catalog = create_test_catalog("test_index");
-        let router = Router::new(catalog, Arc::new(AtomicBool::new(false)), None);
+        let router = Router::new(catalog, Arc::new(AtomicBool::new(false)));
         let (list, ts) = TestServer::new()?;
         let request = Request::get(ts.uri("/test_index/_summary?include_sizes=true")).body(Body::empty())?;
         let req = ts.get(request, router.router_from_tcp(list)).await?;

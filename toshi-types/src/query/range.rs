@@ -198,7 +198,7 @@ mod tests {
         assert_eq!(req.is_err(), true);
         assert_eq!(
             req.unwrap_err().to_string(),
-            "Error in query execution: 'invalid type: floating point `3.14`, expected i64'"
+            "Error Parsing Json: 'invalid type: floating point `3.14`, expected i64'"
         );
     }
 
@@ -213,7 +213,7 @@ mod tests {
         assert_eq!(req.is_err(), true);
         assert_eq!(
             req.unwrap_err().to_string(),
-            "Error in query execution: 'invalid value: integer `-1`, expected u64'"
+            "Error Parsing Json: 'invalid value: integer `-1`, expected u64'"
         );
     }
 

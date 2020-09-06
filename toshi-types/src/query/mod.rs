@@ -88,11 +88,6 @@ impl Into<Query> for RangeQuery {
         Query::Range(self)
     }
 }
-impl Into<Query> for String {
-    fn into(self) -> Query {
-        Query::Raw { raw: self }
-    }
-}
 
 /// The request body of a search POST in Toshi
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -310,6 +305,7 @@ where
     }
 }
 
+#[doc(hidden)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FlatNamedDocument(pub DashMap<String, Value>);
 

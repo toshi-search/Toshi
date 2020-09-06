@@ -72,6 +72,14 @@ impl IndexHandle for LocalIndex {
         self.index.clone()
     }
 
+    fn get_writer(&self) -> Arc<Mutex<IndexWriter>> {
+        Arc::clone(&self.writer)
+    }
+
+    fn get_space(&self) -> SearcherSpaceUsage {
+        self.reader.searcher().space_usage()
+    }
+
     async fn search_index(&self, search: Search) -> Result<SearchResults> {
         let searcher = self.reader.searcher();
         let schema = self.index.schema();
@@ -230,20 +238,8 @@ impl LocalIndex {
         schema.parse_document(bytes).map_err(Into::into)
     }
 
-    pub fn get_space(&self) -> SearcherSpaceUsage {
-        self.reader.searcher().space_usage()
-    }
-
-    pub fn get_index(&self) -> &Index {
-        &self.index
-    }
-
     pub fn recreate_writer(self) -> Result<Self> {
         LocalIndex::new(self.index, self.settings.clone(), &self.name)
-    }
-
-    pub fn get_writer(&self) -> Arc<Mutex<IndexWriter>> {
-        Arc::clone(&self.writer)
     }
 
     pub fn get_opstamp(&self) -> usize {

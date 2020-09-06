@@ -10,11 +10,10 @@ use slog::{info, Logger};
 use tantivy::directory::MmapDirectory;
 use tantivy::schema::Schema;
 use tantivy::Index;
-use tokio::sync::mpsc::*;
-use tonic::transport::{self, Channel, Server};
-use tonic::{Code, Request, Response, Status, Streaming};
 
-use toshi_proto::cluster_rpc;
+use tonic::transport::{self, Channel, Server};
+use tonic::{Code, Request, Response, Status};
+
 use toshi_proto::cluster_rpc::*;
 use toshi_types::{AddDocument, Catalog, Error};
 use toshi_types::{DeleteDoc, DocsAffected, IndexHandle, Search};
@@ -24,10 +23,10 @@ pub type RpcClient = client::IndexServiceClient<Channel>;
 pub fn create_from_managed(mut base_path: PathBuf, index_path: &str, schema: Schema) -> Result<Index, Error> {
     base_path.push(index_path);
     if !base_path.exists() {
-        fs::create_dir(&base_path).map_err(|e| Error::IOError(e.to_string()))?;
+        fs::create_dir(&base_path)?;
     }
-    let dir = MmapDirectory::open(base_path).map_err(|e| Error::IOError(e.to_string()))?;
-    Index::open_or_create(dir, schema).map_err(|e| Error::IOError(e.to_string()))
+    let dir: MmapDirectory = MmapDirectory::open(base_path)?;
+    Index::open_or_create(dir, schema).map_err(Into::into)
 }
 
 pub async fn create_client(uri: Uri, logger: Option<Logger>) -> Result<RpcClient, transport::Error> {
@@ -42,8 +41,6 @@ where
     C: Catalog,
 {
     logger: Logger,
-    raft_chan: Sender<cluster_rpc::Message>,
-    raft_conf: Sender<raft::prelude::ConfChange>,
     catalog: Arc<C>,
 }
 
@@ -55,14 +52,10 @@ where
         addr: SocketAddr,
         catalog: Arc<C>,
         logger: Logger,
-        raft_chan: Sender<cluster_rpc::Message>,
-        raft_conf: Sender<raft::prelude::ConfChange>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
         let service = server::IndexServiceServer::new(RpcServer {
             catalog,
             logger: logger.clone(),
-            raft_chan,
-            raft_conf,
         });
 
         Ok(Server::builder().add_service(service).serve(addr).await?)
@@ -108,7 +101,7 @@ where
         let cat = Arc::clone(&self.catalog);
         if let Ok(schema) = serde_json::from_slice::<Schema>(&schema) {
             let ip = cat.base_path();
-            if let Ok(new_index) = create_from_managed(ip.into(), &index.clone(), schema) {
+            if let Ok(new_index) = create_from_managed(ip.into(), &index, schema) {
                 if cat.add_index(index.clone(), new_index).is_ok() {
                     Ok(Response::new(Self::ok_result()))
                 } else {
@@ -206,18 +199,11 @@ where
         }
     }
 
-    async fn bulk_insert(&self, _: Request<Streaming<BulkRequest>>) -> Result<Response<ResultReply>, Status> {
-        unimplemented!()
-    }
-
     async fn raft_request(&self, request: Request<RaftRequest>) -> Result<Response<RaftReply>, Status> {
         let RaftRequest { message, .. } = request.into_inner();
         let msg: toshi_proto::cluster_rpc::Message = Message::decode(Bytes::from(message)).unwrap();
         slog::debug!(self.logger, "MSG = {:?}", msg);
-        let mut chan = self.raft_chan.clone();
-        if let Err(err) = chan.send(msg).await {
-            panic!("Send Error: {:?}", err);
-        }
+
         let response = Response::new(RaftReply { code: 0 });
         Ok(response)
     }
@@ -231,10 +217,6 @@ where
             context: host.as_bytes().to_vec(),
         };
         slog::debug!(self.logger, "CONF = {:?}", conf);
-        let mut chan = self.raft_conf.clone();
-        if let Err(err) = chan.send(conf).await {
-            panic!("Send Error: {:?}", err);
-        }
 
         let response = Response::new(ResultReply::default());
         Ok(response)

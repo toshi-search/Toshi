@@ -5,7 +5,7 @@ use std::time::Duration;
 use log::trace;
 use tokio::time;
 
-use toshi_types::Catalog;
+use toshi_types::{Catalog, IndexHandle};
 
 use crate::index::SharedCatalog;
 
@@ -51,13 +51,11 @@ pub mod tests {
 
         let body = r#"{"document": { "test_text": "Babbaboo!", "test_u64": 10 , "test_i64": -10, "test_unindex": "asdf1234" } }"#;
 
-        add_document(Arc::clone(&catalog), Body::from(body), "test_index".into(), None)
-            .await
-            .unwrap();
+        add_document(Arc::clone(&catalog), Body::from(body), "test_index").await.unwrap();
 
         let expected = 6;
         for _ in 0..2 {
-            let req = all_docs(Arc::clone(&catalog), "test_index".into()).await.unwrap();
+            let req = all_docs(Arc::clone(&catalog), "test_index").await.unwrap();
             let body = read_body(req).await.unwrap();
             let docs: SearchResults = serde_json::from_slice(body.as_bytes()).unwrap();
             if docs.hits == expected {

@@ -22,7 +22,8 @@ pub async fn doc_search(catalog: SharedCatalog, body: Body, index: &str) -> Resp
 
     if catalog.exists(index) {
         info!("Query: {:?}", req);
-        match catalog.search_local_index(index, req.clone()).await {
+        let index = catalog.get_index(index).unwrap();
+        match index.search_index(req).await {
             Ok(results) => Ok(with_body(results)),
             Err(e) => Ok(Response::from(e)),
         }
@@ -56,7 +57,7 @@ pub mod tests {
 
     pub async fn run_query(req: Search, index: &str) -> ResponseFuture {
         let cat = create_test_catalog(index);
-        doc_search(Arc::clone(&cat), Body::from(serde_json::to_vec(&req).unwrap()), index.into()).await
+        doc_search(Arc::clone(&cat), Body::from(serde_json::to_vec(&req).unwrap()), index).await
     }
 
     #[tokio::test]
@@ -87,7 +88,7 @@ pub mod tests {
         let cat = create_test_catalog("test_index");
         let body = r#"{ "query" : { "raw": "test_text:\"document\"" } }"#;
         let (list, ts) = TestServer::new()?;
-        let router = Router::new(cat, Arc::new(AtomicBool::new(false)), None);
+        let router = Router::new(cat, Arc::new(AtomicBool::new(false)));
         let req = Request::post(ts.uri("/asdf1234")).body(Body::from(body))?;
         let resp = ts.get(req, router.router_from_tcp(list)).await?;
         assert_eq!(resp.status(), StatusCode::NOT_FOUND);
@@ -98,9 +99,9 @@ pub mod tests {
     async fn test_bad_raw_query_syntax() -> ReturnUnit {
         let cat = create_test_catalog("test_index");
         let body = r#"{ "query" : { "raw": "asd*(@sq__" } }"#;
-        let err = doc_search(Arc::clone(&cat), Body::from(body), "test_index".into()).await?;
+        let err = doc_search(Arc::clone(&cat), Body::from(body), "test_index").await?;
         let body: ErrorResponse = wait_json::<ErrorResponse>(err).await;
-        assert_eq!(body.message, "Error in query execution: \'Syntax error in query\'");
+        assert_eq!(body.message, "Error in Index: \'Syntax Error\'");
         Ok(())
     }
 
@@ -108,9 +109,9 @@ pub mod tests {
     async fn test_unindexed_field() -> ReturnUnit {
         let cat = create_test_catalog("test_index");
         let body = r#"{ "query" : { "raw": "test_unindex:yes" } }"#;
-        let r = doc_search(Arc::clone(&cat), Body::from(body), "test_index".into()).await?;
+        let r = doc_search(Arc::clone(&cat), Body::from(body), "test_index").await?;
         let b = read_body(r).await?;
-        let expected = "{\"message\":\"Error in query execution: 'Query on un-indexed field test_unindex'\"}";
+        let expected = "{\"message\":\"Error in Index: \'The field \'\\\"test_unindex\\\"\' is not declared as indexed\'\"}";
         assert_eq!(b, expected);
         Ok(())
     }
@@ -119,7 +120,7 @@ pub mod tests {
     async fn test_bad_term_field_syntax() -> ReturnUnit {
         let cat = create_test_catalog("test_index");
         let body = r#"{ "query" : { "term": { "asdf": "Document" } } }"#;
-        let q = doc_search(Arc::clone(&cat), Body::from(body), "test_index".into()).await?;
+        let q = doc_search(Arc::clone(&cat), Body::from(body), "test_index").await?;
         let b: ErrorResponse = wait_json(q).await;
         assert_eq!(b.message, "Error in query execution: 'Unknown field: asdf'");
         Ok(())
@@ -144,10 +145,10 @@ pub mod tests {
         let req = Search::new(Some(Query::Raw { raw: b.into() }), None, 10, None);
         let q = run_query(req, "test_index").await?;
         let body: SearchResults = wait_json(q).await;
-        assert_eq!(*&body.hits as usize, body.get_docs().len());
-        let b2 = body.clone();
+        assert_eq!(body.hits as usize, body.get_docs().len());
+        let b2 = body;
         let map = b2.get_docs()[0].clone().doc.0;
-        let text = String::from(map.remove("test_text").unwrap().1.clone().as_str().unwrap());
+        let text = String::from(map.remove("test_text").unwrap().1.as_str().unwrap());
         assert_eq!(text, "Test Duckiment 3");
         Ok(())
     }

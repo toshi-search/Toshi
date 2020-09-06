@@ -1,7 +1,6 @@
 use std::str::FromStr;
 
 use config::{Config, ConfigError, File, FileFormat, Source};
-use crossbeam::channel::{bounded, unbounded, Receiver, Sender};
 use serde::Deserialize;
 use structopt::StructOpt;
 use tantivy::merge_policy::*;
@@ -266,14 +265,6 @@ impl Settings {
         8081
     }
 
-    pub fn get_channel<T>(&self) -> (Sender<T>, Receiver<T>) {
-        if self.bulk_buffer_size == 0 {
-            unbounded::<T>()
-        } else {
-            bounded::<T>(self.bulk_buffer_size)
-        }
-    }
-
     pub fn get_nodes(&self) -> Vec<String> {
         self.experimental_features.nodes.clone()
     }
@@ -308,7 +299,7 @@ mod tests {
         assert_eq!(default.json_parsing_threads, 4);
         assert_eq!(default.bulk_buffer_size, 10000);
         assert_eq!(default.merge_policy.kind, "log");
-        assert_eq!(default.merge_policy.level_log_size, 0.75);
+        assert_eq!(cmp_float(default.merge_policy.level_log_size as f32, 0.75), true);
         assert_eq!(default.merge_policy.min_layer_size, 10_000);
         assert_eq!(default.merge_policy.min_merge_size, 8);
         assert_eq!(default.experimental, false);
@@ -340,7 +331,7 @@ mod tests {
 
         assert!(config.merge_policy.get_kind() == MergePolicyType::NoMerge);
         assert_eq!(config.merge_policy.kind, "nomerge");
-        assert_eq!(config.merge_policy.level_log_size, 0.75);
+        assert_eq!(cmp_float(config.merge_policy.level_log_size as f32, 0.75), true);
         assert_eq!(config.merge_policy.min_layer_size, 10_000);
         assert_eq!(config.merge_policy.min_merge_size, 8);
     }

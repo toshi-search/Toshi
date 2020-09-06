@@ -1,126 +1,61 @@
 use hyper::body::to_bytes;
 use hyper::{Body, Response, StatusCode};
-use log::info;
-use rand::random;
-use tantivy::schema::*;
-use tantivy::Index;
-use tokio::sync::mpsc::Sender;
 
-use toshi_proto::cluster_rpc::*;
-use toshi_raft::rpc_server::RpcClient;
 use toshi_types::{Catalog, IndexHandle};
-use toshi_types::{DeleteDoc, DocsAffected, Error, SchemaBody};
+use toshi_types::{DeleteDoc, Error, SchemaBody};
 
 use crate::handlers::ResponseFuture;
-use crate::index::{IndexCatalog, SharedCatalog};
+use crate::index::SharedCatalog;
 use crate::utils::{empty_with_code, error_response, with_body};
 use crate::AddDocument;
 
-async fn delete_terms(catalog: SharedCatalog, body: DeleteDoc, index: &str) -> Result<DocsAffected, Error> {
-    let index_handle = catalog.get_index(index)?;
-    index_handle.delete_term(body).await
-}
-
-async fn create_remote_index(nodes: &[String], index: String, schema: Schema) -> Result<Vec<RpcClient>, Error> {
-    let mut clients = Vec::with_capacity(nodes.len());
-    for n in nodes {
-        let mut client = IndexCatalog::create_client(n.clone()).await?;
-        let schema_bytes = serde_json::to_vec(&schema)?;
-        let request = tonic::Request::new(PlaceRequest {
-            index: index.clone(),
-            schema: schema_bytes,
-        });
-        client.place_index(request).await?;
-        clients.push(client);
-    }
-
-    Ok(clients)
-}
-
 pub async fn delete_term(catalog: SharedCatalog, body: Body, index: &str) -> ResponseFuture {
-    let cat = catalog;
-    let b = to_bytes(body).await?;
-    let req = match serde_json::from_slice::<DeleteDoc>(&b) {
-        Ok(v) => v,
-        Err(_e) => return Ok(empty_with_code(hyper::StatusCode::BAD_REQUEST)),
-    };
-    let docs_affected = match delete_terms(cat, req, index).await {
-        Ok(v) => with_body(v),
-        Err(e) => return Ok(Response::from(e)),
-    };
-
-    Ok(docs_affected)
-}
-
-macro_rules! try_response {
-    ($S: expr) => {
-        match $S {
-            Ok(v) => v,
-            Err(e) => return Ok(Response::from(e)),
-        }
-    };
+    if !catalog.exists(index) {
+        return Ok(error_response(StatusCode::BAD_REQUEST, Error::UnknownIndex(index.to_string())));
+    }
+    let agg_body = to_bytes(body).await?;
+    match serde_json::from_slice::<DeleteDoc>(&agg_body) {
+        Ok(dd) => match catalog.get_index(index) {
+            Ok(c) => c
+                .delete_term(dd)
+                .await
+                .map(with_body)
+                .or_else(|e| Ok(error_response(StatusCode::BAD_REQUEST, e))),
+            Err(e) => Ok(error_response(StatusCode::BAD_REQUEST, e)),
+        },
+        Err(e) => Ok(error_response(StatusCode::BAD_REQUEST, e.into())),
+    }
 }
 
 pub async fn create_index(catalog: SharedCatalog, body: Body, index: &str) -> ResponseFuture {
-    let req = to_bytes(body)
-        .await
-        .map(|body_bytes| serde_json::from_slice::<SchemaBody>(&body_bytes));
-
-    match req {
-        Ok(Ok(req)) => {
-            let base_path = catalog.base_path();
-            let new_index: Index = try_response!(IndexCatalog::create_from_managed(base_path.into(), &index, req.0.clone()));
-            try_response!(catalog.add_index(&index, new_index));
-
-            let expir = catalog.settings.experimental;
-            if expir {
-                let nodes = &catalog.settings.get_nodes();
-                match create_remote_index(&nodes, index.to_string(), req.0).await {
-                    Ok(clients) => match catalog.add_multi_remote_index(index.to_string(), clients).await {
-                        Ok(_) => Ok(empty_with_code(StatusCode::CREATED)),
-                        Err(e) => Ok(Response::from(e)),
-                    },
-                    Err(e) => Ok(Response::from(e)),
-                }
-            } else {
-                Ok(empty_with_code(StatusCode::CREATED))
-            }
-        }
-        Ok(Err(e)) => Ok(error_response(StatusCode::BAD_REQUEST, Error::IOError(e.to_string()))),
-        Err(e) => Ok(error_response(StatusCode::BAD_REQUEST, Error::IOError(e.to_string()))),
+    if catalog.exists(index) {
+        return Ok(error_response(StatusCode::BAD_REQUEST, Error::AlreadyExists(index.to_string())));
+    }
+    let req = to_bytes(body).await?;
+    match serde_json::from_slice::<SchemaBody>(&req) {
+        Ok(schema_body) => match catalog.create_add_index(index, schema_body.0) {
+            Ok(_) => Ok(empty_with_code(StatusCode::CREATED)),
+            Err(e) => Ok(Response::from(e)),
+        },
+        Err(e) => Ok(error_response(StatusCode::BAD_REQUEST, e.into())),
     }
 }
 
-pub async fn add_document(catalog: SharedCatalog, body: Body, index: &str, raft_sender: Option<Sender<Message>>) -> ResponseFuture {
-    let b = to_bytes(body).await?;
-    let req = serde_json::from_slice::<AddDocument>(&b).unwrap();
-    let location: bool = random();
-    info!("LOCATION = {}", location);
-    if location && catalog.remote_exists(index).await {
-        info!("Pushing to remote...");
-        let add = catalog.add_remote_document(index, req).await;
-
-        add.map(|_| empty_with_code(StatusCode::CREATED))
-            .or_else(|e| Ok(error_response(StatusCode::BAD_REQUEST, e)))
-    } else {
-        info!("Pushing to local...");
-        if let Some(mut sender) = raft_sender {
-            let mut msg = Message::default();
-            msg.set_msg_type(MessageType::MsgPropose);
-            msg.from = catalog.raft_id();
-            let mut entry = Entry::default();
-            entry.context = index.into();
-            entry.data = match serde_json::to_vec(&req.document) {
-                Ok(v) => v,
-                Err(e) => return Ok(error_response(StatusCode::BAD_REQUEST, e.into())),
-            };
-            msg.entries = vec![entry].into();
-            sender.send(msg).await.unwrap();
-        }
-        let add = catalog.add_local_document(index, req).await;
-
-        add.map(|_| empty_with_code(StatusCode::CREATED))
-            .or_else(|e| Ok(error_response(StatusCode::BAD_REQUEST, e)))
+pub async fn add_document(catalog: SharedCatalog, body: Body, index: &str) -> ResponseFuture {
+    if !catalog.exists(index) {
+        return Ok(error_response(StatusCode::BAD_REQUEST, Error::UnknownIndex(index.to_string())));
+    }
+    let full_body = to_bytes(body).await?;
+    match serde_json::from_slice::<AddDocument>(&full_body) {
+        Ok(v) => match catalog.get_index(index) {
+            Ok(c) => c
+                .add_document(v)
+                .await
+                .map(|_| empty_with_code(StatusCode::CREATED))
+                .or_else(|e| Ok(error_response(StatusCode::BAD_REQUEST, e))),
+            Err(e) => Ok(error_response(StatusCode::BAD_REQUEST, e)),
+        },
+        Err(e) => Ok(error_response(StatusCode::BAD_REQUEST, e.into())),
     }
 }
 
@@ -157,25 +92,15 @@ mod tests {
         let resp = all_docs(Arc::clone(&shared_cat), "new_index").await?;
         let b = wait_json::<crate::SearchResults>(resp).await;
         assert_eq!(b.hits, 0);
-        remove_dir_all::remove_dir_all("new_index").map_err(Into::into)
+        remove_dir_all::remove_dir_all("new_index").unwrap();
+        Ok(())
     }
 
     #[tokio::test]
     async fn test_doc_create() {
         let shared_cat = create_test_catalog("test_index");
         let q = r#" {"options": {"commit": true }, "document": {"test_text": "Babbaboo!", "test_u64": 10, "test_i64": -10} }"#;
-        let req = add_document(Arc::clone(&shared_cat), Body::from(q), &test_index(), None).await;
-        assert_eq!(req.is_ok(), true);
-    }
-
-    #[tokio::test]
-    async fn test_doc_channel() {
-        let shared_cat = create_test_catalog("test_index");
-        let q = r#" {"options": {"commit": true }, "document": {"test_text": "Babbaboo!", "test_u64": 10, "test_i64": -10} }"#;
-        let (snd, mut rcv) = tokio::sync::mpsc::channel(1024);
-        let req = add_document(Arc::clone(&shared_cat), Body::from(q), &test_index(), Some(snd)).await;
-
-        rcv.recv().await;
+        let req = add_document(Arc::clone(&shared_cat), Body::from(q), &test_index()).await;
         assert_eq!(req.is_ok(), true);
     }
 
@@ -204,12 +129,15 @@ mod tests {
             options: None,
         };
         let body_bytes = serde_json::to_vec(&add_doc).unwrap();
-        let req = add_document(Arc::clone(&shared_cat), Body::from(body_bytes), &test_index(), None)
+        let req = add_document(Arc::clone(&shared_cat), Body::from(body_bytes), &test_index())
             .await
             .unwrap()
             .into_body();
         let buf = hyper::body::to_bytes(req).await.unwrap();
         let str_buf = std::str::from_utf8(&buf).unwrap();
-        assert_eq!(str_buf, "{\"message\":\"IO Error: Document: '\\\"\\\"' is not valid JSON\"}")
+        assert_eq!(
+            str_buf,
+            "{\"message\":\"Error in Index: \'The provided string is not valid JSON\'\"}"
+        )
     }
 }

@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use std::process;
 use std::process::Child;
 use std::time::Duration;
