@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use toshi::{Client, HyperToshi};
+use toshi::{AsyncClient, HyperToshi};
 use toshi_types::{ExactTerm, Query, Search, SearchResults};
 
 #[derive(Clone, Deserialize)]
@@ -13,8 +13,7 @@ pub struct Wiki {
 
 #[tokio::main]
 pub async fn main() -> toshi::Result<()> {
-    let client = hyper::Client::default();
-    let c = HyperToshi::with_client("http://localhost:8080", client);
+    let c = HyperToshi::new("http://localhost:8080");
     let query = Query::Exact(ExactTerm::with_term("body", "born"));
     let search = Search::with_query(query);
     let _docs: SearchResults<Wiki> = c.search("wiki", search).await?;

@@ -171,7 +171,7 @@ impl SearchBuilder {
         Self {
             query: Query::All,
             facets: None,
-            limit: 100,
+            limit: Search::default_limit(),
             sort_by: None,
         }
     }
@@ -200,6 +200,7 @@ impl SearchBuilder {
     }
 }
 
+#[inline]
 fn make_field_value(schema: &Schema, k: &str, v: &str) -> crate::Result<Term> {
     let field = schema
         .get_field(k)

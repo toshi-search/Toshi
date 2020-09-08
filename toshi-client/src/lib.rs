@@ -25,8 +25,11 @@ mod hyper_client;
 pub type Result<T> = std::result::Result<T, ToshiClientError>;
 
 #[async_trait]
-pub trait Client {
+pub trait AsyncClient {
     type Body;
+
+    async fn index(&self) -> Result<Response<Self::Body>>;
+
     async fn index_summary<I>(&self, index: I, include_sizes: bool) -> Result<Response<Self::Body>>
     where
         I: ToString + Send + Sync + Display;
@@ -35,7 +38,7 @@ pub trait Client {
     where
         I: ToString + Send + Sync + Display;
 
-    async fn add_document<I, D>(&self, index: I, options: Option<IndexOptions>, document: D) -> Result<Response<Self::Body>>
+    async fn add_document<I, D>(&self, index: I, document: D, options: Option<IndexOptions>) -> Result<Response<Self::Body>>
     where
         I: ToString + Send + Sync + Display,
         D: Serialize + Send + Sync;
@@ -49,4 +52,33 @@ pub trait Client {
     where
         I: ToString + Send + Sync + Display,
         D: DeserializeOwned + Clone + Send + Sync;
+}
+
+pub trait SyncClient {
+    type Body;
+
+    fn sync_index(&self) -> Result<Response<Self::Body>>;
+
+    fn sync_index_summary<I>(&self, index: I, include_sizes: bool) -> Result<Response<Self::Body>>
+    where
+        I: ToString + Display;
+
+    fn sync_create_index<I>(&self, name: I, schema: Schema) -> Result<Response<Self::Body>>
+    where
+        I: ToString + Display;
+
+    fn sync_add_document<I, D>(&self, index: I, document: D, options: Option<IndexOptions>) -> Result<Response<Self::Body>>
+    where
+        I: ToString + Display,
+        D: Serialize;
+
+    fn sync_search<I, D>(&self, index: I, search: Search) -> Result<SearchResults<D>>
+    where
+        I: ToString + Display,
+        D: DeserializeOwned + Clone;
+
+    fn sync_all_docs<I, D>(&self, index: I) -> Result<SearchResults<D>>
+    where
+        I: ToString + Display,
+        D: DeserializeOwned + Clone;
 }

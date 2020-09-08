@@ -1,43 +1,31 @@
-#![allow(unused)]
+use std::net::SocketAddr;
+use std::path::PathBuf;
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
 
-use std::process;
-use std::process::Child;
-use std::time::Duration;
+use hyper::body::to_bytes;
 
-pub fn run_cli() -> Child {
-    let cli = env!("CARGO_BIN_EXE_toshi");
-    dbg!(cli);
-    std::process::Command::new(cli)
-        .arg("-c")
-        .arg("C:\\Users\\shcar\\IdeaProjects\\Toshi\\config\\config.toml")
-        .stdin(process::Stdio::piped())
-        .stdout(process::Stdio::piped())
-        .stderr(process::Stdio::piped())
-        .spawn()
-        .expect("Did not start")
-}
+use toshi::{AsyncClient, HyperToshi};
 
-#[ignore]
-async fn test_client() {
-    let mut cli = run_cli();
-    std::thread::sleep(Duration::from_millis(1000));
+use toshi_server::index::IndexCatalog;
+use toshi_server::router::Router;
+use toshi_server::settings::Settings;
 
-    cli.kill().unwrap();
-    let (o, e) = cli
-        .wait_with_output()
-        .map(|result| {
-            let output: Vec<String> = String::from_utf8_lossy(&result.stdout).lines().map(Into::into).collect();
-            let errors: Vec<String> = String::from_utf8_lossy(&result.stderr).lines().map(Into::into).collect();
-            (output, errors)
-        })
-        .unwrap();
+type BoxErr = Box<dyn std::error::Error + 'static + Send + Sync>;
 
-    dbg!(o);
-    dbg!(e);
+#[tokio::test]
+async fn test_client() -> Result<(), BoxErr> {
+    let addr = "127.0.0.1:8080".parse::<SocketAddr>()?;
+    let settings = Settings::default();
+    let base = "..\\data".parse::<PathBuf>()?;
+    let catalog = IndexCatalog::new(base, settings)?;
+    let router = Router::new(Arc::new(catalog), Arc::new(AtomicBool::new(false)));
 
-    // let client = hyper::client::Client::new();
-    // let client = toshi::HyperToshi::with_client("http://localhost:8080", client);
-    // let index = client.index().await.unwrap();
+    tokio::spawn(router.router_with_catalog(addr));
 
-    // dbg!(index);
+    let client = HyperToshi::new("http://localhost:8080");
+    let index = client.index().await?;
+    let body = to_bytes(index.into_body()).await?;
+    dbg!(body);
+    Ok(())
 }

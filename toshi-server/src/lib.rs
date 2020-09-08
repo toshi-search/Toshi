@@ -1,5 +1,5 @@
 #![forbid(unsafe_code)]
-#![deny(future_incompatible)]
+#![deny(future_incompatible, warnings)]
 #![allow(clippy::cognitive_complexity)]
 
 use std::path::PathBuf;
@@ -43,7 +43,7 @@ pub fn setup_logging_from_file(path: &str) -> Result<Logger> {
 #[cfg(debug_assertions)]
 pub fn setup_logging_from_file(_: &str) -> Result<Logger> {
     use slog::{Drain, Level};
-    let decorator = slog_term::TermDecorator::new().force_color().stdout().build();
+    let decorator = slog_term::TermDecorator::new().stdout().build();
     let format = slog_term::FullFormat::new(decorator)
         .use_local_timestamp()
         .use_original_order()

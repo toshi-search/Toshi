@@ -9,6 +9,9 @@ edition = "2018"
 autoexamples = false
 
 [[example]]
+name = "sync_search"
+
+[[example]]
 name = "bool_query"
 
 [[example]]
@@ -21,11 +24,12 @@ name = "range_query"
 name = "hyper_example"
 required-features = ["hyper_client"]
 
-
 [features]
 default = ["isahc_client"]
 isahc_client = ["isahc"]
 hyper_client = ["hyper", "bytes"]
+tls = ["hyper_client", "hyper-tls"]
+rust_tls = ["hyper_client", "hyper-rustls"]
 
 [dependencies]
 toshi-types = { path = "../toshi-types" }
@@ -47,6 +51,13 @@ version = "^0.13"
 features = ["stream"]
 optional = true
 
+[dependencies.hyper-tls]
+version = "^0.4"
+optional = true
+
+[dependencies.hyper-rustls]
+version = "^0.21"
+optional = true
+
 [dev-dependencies]
 tokio = "^0.2"
-#toshi-test = { path = "../toshi-test" }

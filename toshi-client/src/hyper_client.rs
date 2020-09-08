@@ -1,12 +1,13 @@
 use std::fmt::Display;
 
+use async_trait::async_trait;
 use http::Response;
 use hyper::client::connect::Connect;
+use hyper::client::HttpConnector;
 use hyper::{Body, Client, Request, Uri};
 use serde::{de::DeserializeOwned, Serialize};
 use tantivy::schema::Schema;
 
-use async_trait::async_trait;
 use toshi_types::*;
 
 use crate::Result;
@@ -18,6 +19,29 @@ where
 {
     host: String,
     client: Client<C, Body>,
+}
+
+impl HyperToshi<HttpConnector> {
+    pub fn new<H: ToString>(host: H) -> Self {
+        let client = Client::new();
+        Self::with_client(host, client)
+    }
+}
+
+#[cfg(feature = "rust_tls")]
+impl HyperToshi<hyper_rustls::HttpsConnector<HttpConnector>> {
+    pub fn with_tls<H: ToString>(host: H, connector: hyper_rustls::HttpsConnector<HttpConnector>) -> Self {
+        let client = Client::builder().build(connector);
+        Self::with_client(host, client)
+    }
+}
+
+#[cfg(feature = "hyper_tls")]
+impl HyperToshi<hyper_tls::HttpsConnector<HttpConnector>> {
+    pub fn with_tls<H: ToString>(host: H, connector: hyper_tls::HttpsConnector<HttpConnector>) -> Self {
+        let client = Client::builder().build(connector);
+        Self::with_client(host, client)
+    }
 }
 
 impl<C> HyperToshi<C>
@@ -48,19 +72,19 @@ where
         let body_bytes = hyper::body::to_bytes(response.into_body()).await?;
         serde_json::from_slice::<R>(&body_bytes).map_err(Into::into)
     }
-
-    pub async fn index(&self) -> Result<Response<Body>> {
-        let request = Request::get(&self.host).body(Body::empty())?;
-        self.client.request(request).await.map_err(Into::into)
-    }
 }
 
 #[async_trait]
-impl<C> crate::Client for HyperToshi<C>
+impl<C> crate::AsyncClient for HyperToshi<C>
 where
     C: Connect + Clone + Send + Sync + 'static,
 {
     type Body = hyper::Body;
+
+    async fn index(&self) -> Result<Response<Body>> {
+        let request = Request::get(&self.host).body(Body::empty())?;
+        self.client.request(request).await.map_err(Into::into)
+    }
 
     async fn index_summary<I>(&self, index: I, include_sizes: bool) -> Result<Response<Self::Body>>
     where
@@ -81,7 +105,7 @@ where
         self.client.request(request).await.map_err(Into::into)
     }
 
-    async fn add_document<I, D>(&self, index: I, options: Option<IndexOptions>, document: D) -> Result<Response<Self::Body>>
+    async fn add_document<I, D>(&self, index: I, document: D, options: Option<IndexOptions>) -> Result<Response<Self::Body>>
     where
         I: ToString + Send + Sync + Display,
         D: Serialize + Send + Sync,
