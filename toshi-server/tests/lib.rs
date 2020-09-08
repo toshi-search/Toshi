@@ -18,6 +18,9 @@ async fn test_client() -> Result<(), BoxErr> {
     let addr = "127.0.0.1:8080".parse::<SocketAddr>()?;
     let settings = Settings::default();
     let base = "..\\data".parse::<PathBuf>()?;
+    if !base.exists() {
+        std::fs::create_dir(&base)?;
+    }
     let catalog = IndexCatalog::new(base, settings)?;
     let router = Router::new(Arc::new(catalog), Arc::new(AtomicBool::new(false)));
 
