@@ -73,6 +73,9 @@ pub enum Error {
     /// When attempting to create an index that already exists
     #[error("Index: '{0}' already exists")]
     AlreadyExists(String),
+    /// When an invalid log config is provided
+    #[error("Error Deserializing Error: '{0}'")]
+    TomlError(toml::de::Error),
 }
 
 impl From<OpenDirectoryError> for Error {

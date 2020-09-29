@@ -17,7 +17,6 @@ path = "src/lib.rs"
 toshi-proto            = { path = "../toshi-proto" }
 toshi-types            = { path = "../toshi-types" }
 toshi-raft             = { path = "../toshi-raft" }
-#raft                   = { git = "https://github.com/tikv/raft-rs", default-features = false, features = ["prost-codec"] }
 http                   = "^0.2"
 bytes                  = "^0.5"
 hyper                  = { version = "^0.13", features = ["stream"] }
@@ -34,10 +33,8 @@ structopt              = "^0.3"
 thiserror              = "^1.0"
 anyhow                 = "^1.0"
 dashmap                = "^3"
-#rand                   = { version = "^0.7", features = ["log", "small_rng"] }
 serde                  = { version = "^1.0", features = ["derive"] }
 clap                   = { version = "^2.3", features = ["color"] }
-#uuid                   = { version = "^0.8", features = ["serde", "v4"] }
 slog                   = "^2.5"
 slog-async             = "^2.3"
 slog-term              = "^2.4"

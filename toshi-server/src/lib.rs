@@ -37,7 +37,7 @@ pub fn setup_logging_from_file(path: &str) -> Result<Logger> {
     let file = std::fs::read(path)?;
     toml::from_slice(&file)
         .map(|cfg: LoggerConfig| cfg.build_logger().expect("Bad Config Format"))
-        .map_err(|err| toshi_types::Error::IOError(err.to_string()))
+        .map_err(toshi_types::Error::TomlError)
 }
 
 #[cfg(debug_assertions)]

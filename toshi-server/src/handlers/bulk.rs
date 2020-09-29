@@ -2,7 +2,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use async_channel::{Receiver, Sender};
+use async_channel::{unbounded, Receiver, Sender};
 use futures::StreamExt;
 use hyper::Body;
 use hyper::StatusCode;
@@ -65,12 +65,12 @@ pub async fn bulk_insert(catalog: SharedCatalog, watcher: Arc<AtomicBool>, mut b
     let index_handle = catalog.get_index(index).unwrap();
     let i = index_handle.get_index();
     let schema = i.schema();
-    let (line_sender, line_recv) = async_channel::unbounded::<Vec<u8>>();
-    let (doc_sender, doc_recv) = async_channel::unbounded::<Document>();
+    let (line_sender, line_recv) = unbounded::<Vec<u8>>();
+    let (doc_sender, doc_recv) = unbounded::<Document>();
     let writer = index_handle.get_writer();
-    let num_threads = catalog.settings.json_parsing_threads;
+    let num_threads = catalog.get_settings().json_parsing_threads;
 
-    let (err_snd, err_rcv) = async_channel::unbounded();
+    let (err_snd, err_rcv) = unbounded();
     let watcher_clone = Arc::clone(&watcher);
     let mut parsing_handles = Vec::with_capacity(num_threads);
     for _ in 0..num_threads {

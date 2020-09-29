@@ -19,6 +19,7 @@ async-trait = "^0.1"
 dashmap     = { version = "^3", features = ["serde"] }
 slog        = "^2.5"
 tokio       = { version = "^0.2", features = ["sync"] }
+toml        = "^0.5"
 
 [dependencies.tonic]
 version  = "^0.3"

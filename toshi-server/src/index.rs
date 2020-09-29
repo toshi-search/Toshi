@@ -17,9 +17,15 @@ use crate::Result;
 pub type SharedCatalog = Arc<IndexCatalog>;
 
 pub struct IndexCatalog {
-    pub settings: Settings,
+    settings: Settings,
     base_path: PathBuf,
     local_handles: DashMap<String, LocalIndex>,
+}
+
+impl IndexCatalog {
+    pub fn get_settings(&self) -> &Settings {
+        &self.settings
+    }
 }
 
 #[async_trait::async_trait]
