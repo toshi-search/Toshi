@@ -2359,9 +2359,9 @@ checksum = "f764005d11ee5f36500a149ace24e00e3da98b0158b3e2d53a7495660d3f4d60"
 
 [[package]]
 name = "tantivy"
-version = "0.13.1"
+version = "0.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e0004182d90bd3da64a867acc9a7323671c425a12663452b7b7a3be73230a5c"
+checksum = "37dfd693ae55afd87e798e967bb2d894b32163e3c9a172958efe5bc89ed7df08"
 dependencies = [
  "atomicwrites",
  "base64",
