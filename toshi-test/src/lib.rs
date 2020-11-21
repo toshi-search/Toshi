@@ -1,10 +1,13 @@
 use std::net::{SocketAddr, TcpListener};
+use std::pin::Pin;
 
 use futures::future::Either;
 use futures::Future;
 use http::uri::{Authority, Scheme};
-use hyper::client::HttpConnector;
-use hyper::{Body, Client, Request, Response, Uri};
+
+use hyper::client::{HttpConnector, ResponseFuture};
+use hyper::Client;
+use hyper::{Body, Error, Request, Response, Uri};
 use serde::de::DeserializeOwned;
 use tantivy::schema::*;
 use tantivy::{doc, Index};
@@ -57,24 +60,26 @@ pub struct TestServer {
     client: Client<HttpConnector>,
     addr: SocketAddr,
 }
+pub type ResultEither<S> =
+    Result<Either<((), ResponseFuture), (Response<Body>, Pin<Box<S>>)>, Either<(Error, ResponseFuture), (Error, Pin<Box<S>>)>>;
 
 impl TestServer {
     pub fn new() -> Result<(TcpListener, Self), hyper::Error> {
         let listen = TcpListener::bind("127.0.0.1:0").unwrap();
+
         let addr = listen.local_addr().unwrap();
         let client = Client::new();
         Ok((listen, TestServer { addr, client }))
     }
 
     #[inline]
-    pub fn uri(&self, path: &str) -> Uri {
+    pub fn uri(&self, path: &str) -> Result<Uri, http::Error> {
         let auth = Authority::from_maybe_shared(self.addr.to_string()).unwrap();
-        Uri::builder()
+        hyper::http::Uri::builder()
             .path_and_query(path)
             .scheme(Scheme::HTTP)
             .authority(auth)
             .build()
-            .expect("Invalid URI")
     }
 
     pub async fn get<S>(&self, req: Request<Body>, server: S) -> Result<Response<Body>, hyper::Error>
@@ -82,12 +87,14 @@ impl TestServer {
         S: Future<Output = Result<(), hyper::Error>> + Send + 'static,
     {
         let client_req = self.client.request(req);
-        let svr = tokio::spawn(server);
-        let req = tokio::spawn(client_req);
-        let svc = futures::future::try_select(Box::pin(svr), req);
-        match svc.await {
-            Ok(Either::Right((v, _))) => v,
-            e => panic!("{:?}", e),
+        let svr = server;
+
+        let wait: ResultEither<S> = futures::future::try_select(Box::pin(svr), client_req).await;
+        match wait {
+            Ok(Either::Right((r, _))) => Ok(r),
+            Err(Either::Left((err, _))) => panic!("{:?}", err),
+            Err(Either::Right((err, _))) => panic!("{:?}", err),
+            _ => panic!("Bad bad"),
         }
     }
 }
@@ -112,14 +119,13 @@ pub mod tests {
         });
 
         let serv = Server::from_tcp(listen)?.serve(make_svc);
-        serv.await?;
-        Ok(())
+        serv.await
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn make_test() -> Result<(), Box<dyn std::error::Error>> {
         let (listen, ts) = TestServer::new()?;
-        let req = Request::get(ts.uri("/")).body(Body::empty())?;
+        let req = Request::get(ts.uri("/")?).body(Body::empty())?;
         let request = ts.get(req, svc(listen)).await?;
         let response: String = read_body(request).await?;
         assert_eq!("Hello World", response);
@@ -129,7 +135,7 @@ pub mod tests {
     #[tokio::test]
     async fn make_post() -> Result<(), Box<dyn std::error::Error>> {
         let (listen, ts) = TestServer::new()?;
-        let req = Request::post(ts.uri("/")).body(Body::empty())?;
+        let req = Request::post(ts.uri("/")?).body(Body::empty())?;
         let request = ts.get(req, svc(listen)).await?;
         let response = read_body(request).await?;
         assert_eq!("Hello World", response);

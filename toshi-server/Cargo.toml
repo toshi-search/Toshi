@@ -14,40 +14,40 @@ name = "toshi"
 path = "src/lib.rs"
 
 [dependencies]
-toshi-proto            = { path = "../toshi-proto" }
-toshi-types            = { path = "../toshi-types" }
-toshi-raft             = { path = "../toshi-raft" }
-http                   = "^0.2"
-bytes                  = "^0.5"
-hyper                  = { version = "^0.13", features = ["stream"] }
-serde_json             = "^1.0"
-serde_urlencoded       = "^0.6"
-futures                = "^0.3"
-tower-util             = "^0.3"
-tonic                  = "^0.3"
-tantivy                = "^0.13"
-tokio                  = { version = "^0.2", features = ["full", "parking_lot"] }
-async-trait            = "^0.1"
-config                 = "^0.10"
-structopt              = "^0.3"
-thiserror              = "^1.0"
-anyhow                 = "^1.0"
-dashmap                = "^3"
-serde                  = { version = "^1.0", features = ["derive"] }
-clap                   = { version = "^2.3", features = ["color"] }
-slog                   = "^2.5"
-slog-async             = "^2.3"
-slog-term              = "^2.4"
-slog-stdlog            = "^4.0"
-slog-scope             = "^4.3"
-log                    = { version = "*", features = ["max_level_trace", "release_max_level_warn"] }
-sloggers               = "^1"
-toml                   = "^0.5"
-async-channel          = "^1"
+toshi-proto      = { path = "../toshi-proto" }
+toshi-types      = { path = "../toshi-types" }
+toshi-raft       = { path = "../toshi-raft" }
+http             = "^0.2"
+bytes            = "^0.6"
+hyper            = { git = "https://github.com/hyperium/hyper", features = ["full"] }
+serde_json       = "^1.0"
+serde_urlencoded = "^0.6"
+futures          = "^0.3"
+tower-util       = "^0.3"
+tonic            = "^0.3"
+tantivy          = { git = "https://github.com/tantivy-search/tantivy", branch = "main" }
+tokio            = { version = "^0.3", features = ["full", "parking_lot"] }
+async-trait      = "^0.1"
+config           = "^0.10"
+structopt        = "^0.3"
+thiserror        = "^1.0"
+anyhow           = "^1.0"
+dashmap          = "^3"
+serde            = { version = "^1.0", features = ["derive"] }
+clap             = { version = "^2.3", features = ["color"] }
+slog             = "^2.5"
+slog-async       = "^2.3"
+slog-term        = "^2.4"
+slog-stdlog      = "^4.0"
+slog-scope       = "^4.3"
+log              = { version = "*", features = ["max_level_trace", "release_max_level_warn"] }
+sloggers         = "^1"
+toml             = "^0.5"
+async-channel    = "^1"
 
 [dev-dependencies]
-remove_dir_all = "^0.5"
+remove_dir_all = "^0.6"
 pretty_assertions = "^0.6"
-tokio-test = "^0.2"
+tokio-test = "^0.3"
 toshi-test = { path = "../toshi-test" }
 toshi = { path = "../toshi-client", default-features = false, features = ["hyper_client"] }

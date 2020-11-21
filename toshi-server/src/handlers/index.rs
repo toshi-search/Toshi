@@ -5,11 +5,11 @@ use toshi_types::{Catalog, IndexHandle};
 use toshi_types::{DeleteDoc, Error, SchemaBody};
 
 use crate::handlers::ResponseFuture;
-use crate::index::SharedCatalog;
 use crate::utils::{empty_with_code, error_response, with_body};
 use crate::AddDocument;
+use std::sync::Arc;
 
-pub async fn delete_term(catalog: SharedCatalog, body: Body, index: &str) -> ResponseFuture {
+pub async fn delete_term<C: Catalog>(catalog: Arc<C>, body: Body, index: &str) -> ResponseFuture {
     if !catalog.exists(index) {
         return Ok(error_response(StatusCode::BAD_REQUEST, Error::UnknownIndex(index.to_string())));
     }
@@ -27,13 +27,13 @@ pub async fn delete_term(catalog: SharedCatalog, body: Body, index: &str) -> Res
     }
 }
 
-pub async fn create_index(catalog: SharedCatalog, body: Body, index: &str) -> ResponseFuture {
+pub async fn create_index<C: Catalog>(catalog: Arc<C>, body: Body, index: &str) -> ResponseFuture {
     if catalog.exists(index) {
         return Ok(error_response(StatusCode::BAD_REQUEST, Error::AlreadyExists(index.to_string())));
     }
     let req = to_bytes(body).await?;
     match serde_json::from_slice::<SchemaBody>(&req) {
-        Ok(schema_body) => match catalog.create_add_index(index, schema_body.0) {
+        Ok(schema_body) => match catalog.add_index(index, schema_body.0) {
             Ok(_) => Ok(empty_with_code(StatusCode::CREATED)),
             Err(e) => Ok(Response::from(e)),
         },
@@ -41,7 +41,7 @@ pub async fn create_index(catalog: SharedCatalog, body: Body, index: &str) -> Re
     }
 }
 
-pub async fn add_document(catalog: SharedCatalog, body: Body, index: &str) -> ResponseFuture {
+pub async fn add_document<C: Catalog>(catalog: Arc<C>, body: Body, index: &str) -> ResponseFuture {
     if !catalog.exists(index) {
         return Ok(error_response(StatusCode::BAD_REQUEST, Error::UnknownIndex(index.to_string())));
     }
@@ -92,7 +92,7 @@ mod tests {
         let resp = all_docs(Arc::clone(&shared_cat), "new_index").await?;
         let b = wait_json::<crate::SearchResults>(resp).await;
         assert_eq!(b.hits, 0);
-        remove_dir_all::remove_dir_all("new_index").unwrap();
+        remove_dir_all::remove_dir_all("new_index")?;
         Ok(())
     }
 

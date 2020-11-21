@@ -16,12 +16,12 @@ type BoxErr = Box<dyn std::error::Error + 'static + Send + Sync>;
 #[tokio::test]
 async fn test_client() -> Result<(), BoxErr> {
     let addr = "127.0.0.1:8080".parse::<SocketAddr>()?;
-    let settings = Settings::default();
-    let base = "..\\data".parse::<PathBuf>()?;
-    if !base.exists() {
-        std::fs::create_dir(&base)?;
-    }
-    let catalog = IndexCatalog::new(base, settings)?;
+    let settings = Settings {
+        path: "..\\data".into(),
+        ..Default::default()
+    };
+
+    let catalog = IndexCatalog::new(settings)?;
     let router = Router::new(Arc::new(catalog), Arc::new(AtomicBool::new(false)));
 
     tokio::spawn(router.router_with_catalog(addr));

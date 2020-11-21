@@ -1,7 +1,7 @@
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> std::io::Result<()> {
     tonic_build::configure()
         .build_client(true)
         .build_server(true)
-        .compile(&["proto/cluster.proto"], &["proto/"])?;
-    Ok(())
+        .extern_path(".eraftpb.Message", "raft::eraftpb::Message")
+        .compile(&["proto/cluster.proto"], &["proto/"])
 }

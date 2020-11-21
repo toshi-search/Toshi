@@ -3,6 +3,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) 
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/4751c082efd74f849b5274d74c284c87)](https://app.codacy.com/app/shcarman/Toshi?utm_source=github.com&utm_medium=referral&utm_content=toshi-search/Toshi&utm_campaign=Badge_Grade_Settings)
+[![dependency status](https://deps.rs/repo/github/toshi-search/toshi/status.svg)](https://deps.rs/repo/github/toshi-search/toshi)
 [![Actions Status](https://github.com/toshi-search/toshi/workflows/toshi-push/badge.svg)](https://github.com/toshi-search/toshi/actions)
 [![codecov](https://codecov.io/gh/toshi-search/Toshi/branch/master/graph/badge.svg)](https://codecov.io/gh/toshi-search/Toshi) 
 [![Join the chat at https://gitter.im/toshi-search/Toshi](https://badges.gitter.im/toshi-search/Toshi.svg)](https://gitter.im/toshi-search/Toshi?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)

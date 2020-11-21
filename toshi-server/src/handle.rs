@@ -13,9 +13,13 @@ use tokio::sync::*;
 use async_trait::async_trait;
 use toshi_types::*;
 
-use crate::settings::Settings;
+use crate::settings::{Settings, DEFAULT_WRITER_MEMORY};
 use crate::Result;
 use crate::{AddDocument, SearchResults};
+use std::fs;
+use std::path::PathBuf;
+use tantivy::directory::MmapDirectory;
+use tantivy::merge_policy::MergePolicy;
 
 /// Index handle that operates on an Index local to the node, a remote index handle
 /// will eventually call to wherever the local index is stored, so at some level the relevant
@@ -26,7 +30,7 @@ pub struct LocalIndex {
     reader: IndexReader,
     current_opstamp: Arc<AtomicUsize>,
     deleted_docs: Arc<AtomicU64>,
-    settings: Settings,
+    // settings: Settings,
     name: String,
 }
 
@@ -38,7 +42,7 @@ impl Clone for LocalIndex {
             reader: self.reader.clone(),
             current_opstamp: Arc::clone(&self.current_opstamp),
             deleted_docs: Arc::clone(&self.deleted_docs),
-            settings: self.settings.clone(),
+            // settings: self.settings.clone(),
             name: self.name.clone(),
         }
     }
@@ -77,7 +81,17 @@ impl IndexHandle for LocalIndex {
     }
 
     fn get_space(&self) -> SearcherSpaceUsage {
-        self.reader.searcher().space_usage()
+        self.reader.searcher().space_usage().unwrap()
+    }
+
+    fn get_opstamp(&self) -> usize {
+        trace!("Got the opstamp");
+        self.current_opstamp.load(Ordering::SeqCst)
+    }
+
+    fn set_opstamp(&self, opstamp: usize) {
+        trace!("Setting stamp to {}", opstamp);
+        self.current_opstamp.store(opstamp, Ordering::SeqCst)
     }
 
     async fn search_index(&self, search: Search) -> Result<SearchResults> {
@@ -89,7 +103,7 @@ impl IndexHandle for LocalIndex {
             info!("Sorting with: {}", sort_by);
             if let Some(f) = schema.get_field(&sort_by) {
                 let entry = schema.get_field_entry(f);
-                if entry.is_int_fast() && entry.is_stored() {
+                if entry.is_fast() && entry.is_stored() {
                     let c = TopDocs::with_limit(search.limit).order_by_u64_field(f);
                     return Some(multi_collector.add_collector(c));
                 }
@@ -217,9 +231,21 @@ impl IndexHandle for LocalIndex {
 }
 
 impl LocalIndex {
-    pub fn new(index: Index, settings: Settings, name: &str) -> Result<Self> {
-        let i = index.writer(settings.writer_memory)?;
-        i.set_merge_policy(settings.get_merge_policy());
+    pub fn new(
+        mut base_path: PathBuf,
+        index_name: &str,
+        schema: Schema,
+        writer_memory: usize,
+        merge_policy: Box<dyn MergePolicy>,
+    ) -> Result<Self> {
+        base_path.push(index_name);
+        if !base_path.exists() {
+            fs::create_dir(&base_path)?;
+        }
+        let dir = MmapDirectory::open(base_path)?;
+        let index = Index::open_or_create(dir, schema)?;
+        let i = index.writer(writer_memory)?;
+        i.set_merge_policy(merge_policy);
         let current_opstamp = Arc::new(AtomicUsize::new(0));
         let writer = Arc::new(Mutex::new(i));
         let reader = index.reader_builder().reload_policy(ReloadPolicy::OnCommit).try_into()?;
@@ -229,26 +255,27 @@ impl LocalIndex {
             writer,
             current_opstamp,
             deleted_docs: Arc::new(AtomicU64::new(0)),
-            settings,
-            name: name.into(),
+            name: index_name.into(),
+        })
+    }
+
+    pub(crate) fn with_existing(name: String, index: Index) -> Result<Self> {
+        let i = index.writer(DEFAULT_WRITER_MEMORY)?;
+        i.set_merge_policy(Settings::default().get_merge_policy());
+        let current_opstamp = Arc::new(AtomicUsize::new(0));
+        let writer = Arc::new(Mutex::new(i));
+        let reader = index.reader_builder().reload_policy(ReloadPolicy::OnCommit).try_into()?;
+        Ok(Self {
+            index,
+            reader,
+            writer,
+            current_opstamp,
+            deleted_docs: Arc::new(AtomicU64::new(0)),
+            name,
         })
     }
 
     fn parse_doc(schema: &Schema, bytes: &str) -> Result<Document> {
         schema.parse_document(bytes).map_err(Into::into)
-    }
-
-    pub fn recreate_writer(self) -> Result<Self> {
-        LocalIndex::new(self.index, self.settings.clone(), &self.name)
-    }
-
-    pub fn get_opstamp(&self) -> usize {
-        trace!("Got the opstamp");
-        self.current_opstamp.load(Ordering::SeqCst)
-    }
-
-    pub fn set_opstamp(&self, opstamp: usize) {
-        trace!("Setting stamp to {}", opstamp);
-        self.current_opstamp.store(opstamp, Ordering::SeqCst)
     }
 }

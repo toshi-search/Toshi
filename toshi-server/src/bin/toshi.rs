@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::fs::create_dir;
 use std::net::{IpAddr, SocketAddr};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::str::FromStr;
 use std::sync::{atomic::AtomicBool, Arc};
 
@@ -11,7 +11,6 @@ use log::info;
 
 use tokio::sync::oneshot;
 
-use toshi_raft::rpc_server::RpcServer;
 use toshi_server::commit::watcher;
 use toshi_server::index::{IndexCatalog, SharedCatalog};
 use toshi_server::router::Router;
@@ -52,7 +51,7 @@ async fn setup_toshi(settings: Settings, index_catalog: SharedCatalog, tx: onesh
     let shutdown = shutdown::shutdown(tx);
     if settings.experimental {
         let master = run_master(Arc::clone(&index_catalog), settings.clone());
-        tokio::spawn(run_data(Arc::clone(&index_catalog), settings));
+        // tokio::spawn(run_data(Arc::clone(&index_catalog), settings));
         future::try_select(shutdown, master).map(|_| Ok(())).await
     } else {
         let master = run_master(Arc::clone(&index_catalog), settings);
@@ -61,8 +60,7 @@ async fn setup_toshi(settings: Settings, index_catalog: SharedCatalog, tx: onesh
 }
 
 fn setup_catalog(settings: &Settings) -> SharedCatalog {
-    let path = PathBuf::from(settings.path.clone());
-    let index_catalog = match IndexCatalog::new(path, settings.clone()) {
+    let index_catalog = match IndexCatalog::new(settings.clone()) {
         Ok(v) => v,
         Err(e) => {
             eprintln!("Error creating IndexCatalog from path {} - {:?}", settings.path, e);
@@ -81,25 +79,6 @@ fn setup_catalog(settings: &Settings) -> SharedCatalog {
     Arc::new(index_catalog)
 }
 
-fn run_data(
-    catalog: SharedCatalog,
-    settings: Settings,
-) -> impl Future<Output = Result<(), Box<dyn Error + Send + Sync + 'static>>> + Unpin + Send {
-    let addr: IpAddr = settings
-        .host
-        .parse()
-        .unwrap_or_else(|_| panic!("Invalid IP address: {}", &settings.host));
-
-    let bind: SocketAddr = SocketAddr::new(addr, settings.experimental_features.rpc_port);
-    let fut = async move {
-        if let Err(e) = RpcServer::<IndexCatalog>::serve(bind, catalog, slog_scope::logger()).await {
-            eprintln!("ERROR = {:?}", e);
-        }
-        Ok(())
-    };
-    Box::pin(fut)
-}
-
 fn run_master(catalog: SharedCatalog, settings: Settings) -> impl Future<Output = Result<(), hyper::Error>> + Unpin + Send {
     let bulk_lock = Arc::new(AtomicBool::new(false));
     let commit_watcher = watcher(Arc::clone(&catalog), settings.auto_commit_duration, Arc::clone(&bulk_lock));
@@ -113,6 +92,6 @@ fn run_master(catalog: SharedCatalog, settings: Settings) -> impl Future<Output 
 
     tokio::spawn(commit_watcher);
     let watcher_clone = Arc::clone(&bulk_lock);
-    let router = Router::new(catalog, watcher_clone);
+    let router = Router::with_settings(catalog, watcher_clone, settings);
     Box::pin(router.router_with_catalog(bind))
 }

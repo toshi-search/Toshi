@@ -6,16 +6,16 @@ use std::time::Instant;
 use toshi_types::*;
 
 use crate::handlers::ResponseFuture;
-use crate::index::SharedCatalog;
 use crate::router::QueryOptions;
 use crate::utils::{empty_with_code, with_body};
+use std::sync::Arc;
 
 #[derive(Serialize)]
 struct FlushResponse {
     opstamp: u64,
 }
 
-pub async fn index_summary(catalog: SharedCatalog, index: &str, options: QueryOptions) -> ResponseFuture {
+pub async fn index_summary<C: Catalog>(catalog: Arc<C>, index: &str, options: QueryOptions) -> ResponseFuture {
     let start = Instant::now();
     if catalog.exists(index) {
         let index = catalog.get_index(index).unwrap();
@@ -34,7 +34,7 @@ pub async fn index_summary(catalog: SharedCatalog, index: &str, options: QueryOp
     }
 }
 
-pub async fn flush(catalog: SharedCatalog, index: &str) -> ResponseFuture {
+pub async fn flush<C: Catalog>(catalog: Arc<C>, index: &str) -> ResponseFuture {
     if catalog.exists(index) {
         let local_index = catalog.get_index(index).unwrap();
         let writer = local_index.get_writer();
@@ -66,7 +66,7 @@ mod tests {
         let catalog = create_test_catalog("test_index");
         let router = Router::new(catalog, Arc::new(AtomicBool::new(false)));
         let (list, ts) = TestServer::new()?;
-        let request = Request::get(ts.uri("/test_index/_summary?include_sizes=true")).body(Body::empty())?;
+        let request = Request::get(ts.uri("/test_index/_summary?include_sizes=true")?).body(Body::empty())?;
         let req = ts.get(request, router.router_from_tcp(list)).await?;
         let _body = read_body(req).await?;
         Ok(())

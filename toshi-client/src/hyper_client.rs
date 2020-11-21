@@ -28,21 +28,21 @@ impl HyperToshi<HttpConnector> {
     }
 }
 
-#[cfg(feature = "rust_tls")]
-impl HyperToshi<hyper_rustls::HttpsConnector<HttpConnector>> {
-    pub fn with_tls<H: ToString>(host: H, connector: hyper_rustls::HttpsConnector<HttpConnector>) -> Self {
-        let client = Client::builder().build(connector);
-        Self::with_client(host, client)
-    }
-}
-
-#[cfg(feature = "hyper_tls")]
-impl HyperToshi<hyper_tls::HttpsConnector<HttpConnector>> {
-    pub fn with_tls<H: ToString>(host: H, connector: hyper_tls::HttpsConnector<HttpConnector>) -> Self {
-        let client = Client::builder().build(connector);
-        Self::with_client(host, client)
-    }
-}
+// #[cfg(feature = "rust_tls")]
+// impl HyperToshi<hyper_rustls::HttpsConnector<HttpConnector>> {
+//     pub fn with_tls<H: ToString>(host: H, connector: hyper_rustls::HttpsConnector<HttpConnector>) -> Self {
+//         let client = Client::builder().build(connector);
+//         Self::with_client(host, client)
+//     }
+// }
+//
+// #[cfg(feature = "hyper_tls")]
+// impl HyperToshi<hyper_tls::HttpsConnector<HttpConnector>> {
+//     pub fn with_tls<H: ToString>(host: H, connector: hyper_tls::HttpsConnector<HttpConnector>) -> Self {
+//         let client = Client::builder().build(connector);
+//         Self::with_client(host, client)
+//     }
+// }
 
 impl<C> HyperToshi<C>
 where

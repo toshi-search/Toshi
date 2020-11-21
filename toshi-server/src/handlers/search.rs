@@ -6,16 +6,16 @@ use log::info;
 use toshi_types::*;
 
 use crate::handlers::ResponseFuture;
-use crate::index::SharedCatalog;
 use crate::utils::{empty_with_code, with_body};
 use crate::SearchResults;
+use std::sync::Arc;
 
 #[inline]
 pub fn fold_results(results: Vec<SearchResults>, limit: usize) -> SearchResults {
     results.into_iter().take(limit).sum()
 }
 
-pub async fn doc_search(catalog: SharedCatalog, body: Body, index: &str) -> ResponseFuture {
+pub async fn doc_search<C: Catalog>(catalog: Arc<C>, body: Body, index: &str) -> ResponseFuture {
     let b = to_bytes(body).await?;
     let req = serde_json::from_slice::<Search>(&b).unwrap();
     let req = if req.query.is_none() { Search::all_limit(req.limit) } else { req };
@@ -32,7 +32,7 @@ pub async fn doc_search(catalog: SharedCatalog, body: Body, index: &str) -> Resp
     }
 }
 
-pub async fn all_docs(catalog: SharedCatalog, index: &str) -> ResponseFuture {
+pub async fn all_docs<C: Catalog>(catalog: Arc<C>, index: &str) -> ResponseFuture {
     let body = Body::from(serde_json::to_vec(&Search::all_docs()).unwrap());
     doc_search(catalog, body, index).await
 }
@@ -89,7 +89,7 @@ pub mod tests {
         let body = r#"{ "query" : { "raw": "test_text:\"document\"" } }"#;
         let (list, ts) = TestServer::new()?;
         let router = Router::new(cat, Arc::new(AtomicBool::new(false)));
-        let req = Request::post(ts.uri("/asdf1234")).body(Body::from(body))?;
+        let req = Request::post(ts.uri("/asdf1234")?).body(Body::from(body))?;
         let resp = ts.get(req, router.router_from_tcp(list)).await?;
         assert_eq!(resp.status(), StatusCode::NOT_FOUND);
         Ok(())

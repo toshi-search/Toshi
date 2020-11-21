@@ -16,6 +16,7 @@ pub use query::{
 };
 pub use server::*;
 use std::sync::Arc;
+use tantivy::schema::Schema;
 use tantivy::space_usage::SearcherSpaceUsage;
 use tantivy::{Index, IndexWriter};
 use tokio::sync::Mutex;
@@ -62,6 +63,10 @@ pub trait IndexHandle: Clone {
     fn get_writer(&self) -> Arc<Mutex<IndexWriter>>;
     /// Get size of an index
     fn get_space(&self) -> SearcherSpaceUsage;
+
+    fn get_opstamp(&self) -> usize;
+
+    fn set_opstamp(&self, opstamp: usize);
     /// Search for documents in this index
     async fn search_index(&self, search: Search) -> Result<SearchResults<FlatNamedDocument>>;
     /// Add documents to this index
@@ -74,18 +79,18 @@ pub trait IndexHandle: Clone {
 #[async_trait::async_trait]
 pub trait Catalog: Send + Sync + 'static {
     /// The type of handle the catalog returns when the index is local
-    type Local: IndexHandle + Send + Sync;
+    type Handle: IndexHandle + Send + Sync;
 
     /// The base path for local indexes, useless for remote
     fn base_path(&self) -> String;
     /// Return the entire collection of handles
-    fn get_collection(&self) -> &dashmap::DashMap<String, Self::Local>;
+    fn get_collection(&self) -> &dashmap::DashMap<String, Self::Handle>;
     /// Add a local index to the catalog
-    fn add_index(&self, name: String, index: Index) -> Result<()>;
+    fn add_index(&self, name: &str, schema: Schema) -> Result<()>;
     /// Return a list of index names
     async fn list_indexes(&self) -> Vec<String>;
     /// Return a handle to a single index
-    fn get_index(&self, name: &str) -> Result<Self::Local>;
+    fn get_index(&self, name: &str) -> Result<Self::Handle>;
     /// Determine if an index exists locally
     fn exists(&self, index: &str) -> bool;
     /// The current catalog's raft_id

@@ -13,7 +13,7 @@ tonic-build       = "^0.3"
 
 [dependencies]
 tonic        = "^0.3"
-bytes        = "^0.5"
+bytes        = "^0.6"
 prost        = "^0.6"
 prost-types  = "^0.6"
 prost-derive = "^0.6"
