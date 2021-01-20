@@ -68,13 +68,13 @@ pub fn settings() -> Settings {
 #[derive(Deserialize, Clone, Debug, StructOpt)]
 #[serde(default = "ConfigMergePolicy::default")]
 pub struct ConfigMergePolicy {
-    #[structopt(long, default_value = "log")]
+    #[structopt(long)]
     kind: String,
-    #[structopt(long, default_value = "8")]
+    #[structopt(long)]
     min_merge_size: usize,
-    #[structopt(long, default_value = "10000")]
+    #[structopt(long)]
     min_layer_size: u32,
-    #[structopt(long, default_value = "0.75")]
+    #[structopt(long)]
     level_log_size: f64,
 }
 
@@ -101,10 +101,6 @@ impl ConfigMergePolicy {
 
 #[derive(Deserialize, Clone, Debug, StructOpt, Default)]
 pub struct Experimental {
-    #[structopt(long, default_value = "127.0.0.1:8500")]
-    pub consul_addr: String,
-    #[structopt(long, default_value = "kitsune")]
-    pub cluster_name: String,
     #[structopt(long)]
     pub leader: bool,
     #[structopt(long)]

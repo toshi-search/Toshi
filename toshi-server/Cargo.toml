@@ -10,6 +10,9 @@ edition = "2018"
 [[bin]]
 name = "toshi"
 
+[[bin]]
+name = "run_raft"
+
 [lib]
 path = "src/lib.rs"
 
@@ -17,16 +20,19 @@ path = "src/lib.rs"
 toshi-proto      = { path = "../toshi-proto" }
 toshi-types      = { path = "../toshi-types" }
 toshi-raft       = { path = "../toshi-raft" }
+raft             = { git = "https://github.com/tikv/raft-rs", default-features = false, features = ["prost-codec"] }
+itertools = "0.9.0"
 http             = "^0.2"
 bytes            = "^0.6"
-hyper            = { git = "https://github.com/hyperium/hyper", features = ["full"] }
+hyper            = { version = "^0.14", features = ["full"] }
 serde_json       = "^1.0"
 serde_urlencoded = "^0.6"
 futures          = "^0.3"
 tower-util       = "^0.3"
 tonic            = "^0.3"
 tantivy          = { git = "https://github.com/tantivy-search/tantivy", branch = "main" }
-tokio            = { version = "^0.3", features = ["full", "parking_lot"] }
+#tokio-compat-03 = "0.0.0" = "0.1.2"
+tokio            = { version = "^1", features = ["full", "parking_lot"] }
 async-trait      = "^0.1"
 config           = "^0.10"
 structopt        = "^0.3"
@@ -48,6 +54,6 @@ async-channel    = "^1"
 [dev-dependencies]
 remove_dir_all = "^0.6"
 pretty_assertions = "^0.6"
-tokio-test = "^0.3"
+tokio-test = "^0.4"
 toshi-test = { path = "../toshi-test" }
 toshi = { path = "../toshi-client", default-features = false, features = ["hyper_client"] }

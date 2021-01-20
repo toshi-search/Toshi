@@ -47,7 +47,7 @@ features = ["json"]
 optional = true
 
 [dependencies.hyper]
-git = "https://github.com/hyperium/hyper"
+version = "^0.14"
 features = ["stream"]
 optional = true
 
@@ -60,4 +60,4 @@ version = "^0.21"
 optional = true
 
 [dev-dependencies]
-tokio = "^0.3"
+tokio = "^1"

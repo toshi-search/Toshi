@@ -26,10 +26,7 @@ where
     C: Catalog<Handle = RaftHandle<H>>,
     H: IndexHandle + Send + Sync + 'static,
 {
-    pub async fn serve<Cat>(addr: SocketAddr, catalog: Arc<Cat>, logger: Logger) -> Result<(), BoxErr>
-    where
-        Cat: Catalog<Handle = RaftHandle<H>>,
-    {
+    pub async fn serve(addr: SocketAddr, catalog: Arc<C>, logger: Logger) -> Result<(), BoxErr> {
         let service = server::IndexServiceServer::new(RpcServer {
             catalog,
             logger: logger.clone(),
@@ -53,7 +50,7 @@ where
         let PlaceRequest { index, schema } = request.into_inner();
         let cat = Arc::clone(&self.catalog);
         if let Ok(schema) = serde_json::from_slice::<Schema>(&schema) {
-            if cat.add_index(&index, schema).is_ok() {
+            if cat.add_index(&index, schema).await.is_ok() {
                 Ok(Response::new(ok_result()))
             } else {
                 error_response(Code::Internal, format!("Insert: {} failed", index))

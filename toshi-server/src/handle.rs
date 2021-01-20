@@ -1,52 +1,51 @@
+use std::fs;
 use std::hash::{Hash, Hasher};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use log::*;
 use tantivy::collector::{FacetCollector, MultiCollector, TopDocs};
+use tantivy::directory::MmapDirectory;
+use tantivy::merge_policy::MergePolicy;
 use tantivy::query::{AllQuery, QueryParser};
 use tantivy::schema::*;
 use tantivy::space_usage::SearcherSpaceUsage;
 use tantivy::{Document, Index, IndexReader, IndexWriter, ReloadPolicy, Term};
 use tokio::sync::*;
 
-use async_trait::async_trait;
 use toshi_types::*;
 
 use crate::settings::{Settings, DEFAULT_WRITER_MEMORY};
 use crate::Result;
 use crate::{AddDocument, SearchResults};
-use std::fs;
-use std::path::PathBuf;
-use tantivy::directory::MmapDirectory;
-use tantivy::merge_policy::MergePolicy;
 
 /// Index handle that operates on an Index local to the node, a remote index handle
 /// will eventually call to wherever the local index is stored, so at some level the relevant
 /// local handle will always get called through rpc
+#[derive(Clone)]
 pub struct LocalIndex {
     index: Index,
     writer: Arc<Mutex<IndexWriter>>,
     reader: IndexReader,
     current_opstamp: Arc<AtomicUsize>,
     deleted_docs: Arc<AtomicU64>,
-    // settings: Settings,
     name: String,
 }
 
-impl Clone for LocalIndex {
-    fn clone(&self) -> Self {
-        Self {
-            index: self.index.clone(),
-            writer: Arc::clone(&self.writer),
-            reader: self.reader.clone(),
-            current_opstamp: Arc::clone(&self.current_opstamp),
-            deleted_docs: Arc::clone(&self.deleted_docs),
-            // settings: self.settings.clone(),
-            name: self.name.clone(),
-        }
-    }
-}
+// impl Clone for LocalIndex {
+//     fn clone(&self) -> Self {
+//         Self {
+//             index: self.index.clone(),
+//             writer: Arc::clone(&self.writer),
+//             reader: self.reader.clone(),
+//             current_opstamp: Arc::clone(&self.current_opstamp),
+//             deleted_docs: Arc::clone(&self.deleted_docs),
+//             name: self.name.clone(),
+//         }
+//     }
+// }
 
 impl PartialEq for LocalIndex {
     fn eq(&self, other: &LocalIndex) -> bool {
@@ -94,6 +93,11 @@ impl IndexHandle for LocalIndex {
         self.current_opstamp.store(opstamp, Ordering::SeqCst)
     }
 
+    async fn commit(&self) -> Result<u64> {
+        let mut lock = self.writer.lock().await;
+        Ok(lock.commit()?)
+    }
+
     async fn search_index(&self, search: Search) -> Result<SearchResults> {
         let searcher = self.reader.searcher();
         let schema = self.index.schema();
@@ -135,7 +139,7 @@ impl IndexHandle for LocalIndex {
                 Query::Raw { raw } => {
                     let fields: Vec<Field> = schema.fields().filter_map(|f| schema.get_field(f.1.name())).collect();
                     let query_parser = QueryParser::for_index(&self.index, fields);
-                    query_parser.parse_query(raw.as_str())?
+                    query_parser.parse_query(&raw)?
                 }
                 Query::All => Box::new(AllQuery),
             };

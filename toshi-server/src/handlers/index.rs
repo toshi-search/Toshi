@@ -33,7 +33,7 @@ pub async fn create_index<C: Catalog>(catalog: Arc<C>, body: Body, index: &str) 
     }
     let req = to_bytes(body).await?;
     match serde_json::from_slice::<SchemaBody>(&req) {
-        Ok(schema_body) => match catalog.add_index(index, schema_body.0) {
+        Ok(schema_body) => match catalog.add_index(index, schema_body.0).await {
             Ok(_) => Ok(empty_with_code(StatusCode::CREATED)),
             Err(e) => Ok(Response::from(e)),
         },

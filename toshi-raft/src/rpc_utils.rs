@@ -20,11 +20,11 @@ pub fn create_from_managed(mut base_path: PathBuf, index_path: &str, schema: Sch
     Index::open_or_create(dir, schema).map_err(Into::into)
 }
 
-pub async fn create_client(uri: Uri, logger: Option<Logger>) -> Result<client::IndexServiceClient<transport::Channel>, transport::Error> {
+pub async fn create_client(uri: &Uri, logger: Option<Logger>) -> Result<client::IndexServiceClient<transport::Channel>, transport::Error> {
     if let Some(log) = logger {
         slog::info!(log, "Creating Client to: {:?}", uri);
     }
-    client::IndexServiceClient::connect(uri).await.map_err(Into::into)
+    client::IndexServiceClient::connect(uri.clone()).await.map_err(Into::into)
 }
 
 pub fn ok_result() -> ResultReply {

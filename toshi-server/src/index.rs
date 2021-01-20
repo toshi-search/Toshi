@@ -39,7 +39,7 @@ impl Catalog for IndexCatalog {
         &self.local_handles
     }
 
-    fn add_index(&self, name: &str, schema: Schema) -> Result<()> {
+    async fn add_index(&self, name: &str, schema: Schema) -> Result<()> {
         let handle = LocalIndex::new(
             self.base_path.clone(),
             name,
@@ -78,13 +78,11 @@ impl IndexCatalog {
     pub fn new(settings: Settings) -> Result<Self> {
         let local_idxs = DashMap::new();
         let path = PathBuf::from(&settings.path);
-        let mut index_cat = IndexCatalog {
+        let index_cat = IndexCatalog {
             settings,
             base_path: path,
             local_handles: local_idxs,
         };
-        index_cat.refresh_catalog()?;
-
         Ok(index_cat)
     }
 
@@ -107,7 +105,7 @@ impl IndexCatalog {
         self.local_handles.insert(name, local);
     }
 
-    pub fn refresh_catalog(&mut self) -> Result<()> {
+    pub async fn refresh_catalog(&mut self) -> Result<()> {
         self.local_handles.clear();
 
         for dir in fs::read_dir(self.base_path.clone())? {
@@ -117,7 +115,7 @@ impl IndexCatalog {
                     if !entry_str.ends_with(".node_id") {
                         let pth: String = entry_str.rsplit('/').take(1).collect();
                         let idx = IndexCatalog::load_index(entry_str)?;
-                        self.add_index(&pth, idx.schema())?;
+                        self.add_index(&pth, idx.schema()).await?;
                     }
                 } else {
                     return Err(Error::UnknownIndex(format!("Path {}", entry.display())));
