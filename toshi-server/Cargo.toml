@@ -46,7 +46,7 @@ toml                   = "^0.5"
 async-channel          = "^1"
 
 [dev-dependencies]
-remove_dir_all = "^0.5"
+remove_dir_all = "^0.6"
 pretty_assertions = "^0.6"
 tokio-test = "^0.2"
 toshi-test = { path = "../toshi-test" }
