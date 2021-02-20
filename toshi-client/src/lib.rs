@@ -46,12 +46,12 @@ pub trait AsyncClient {
     async fn search<I, D>(&self, index: I, search: Search) -> Result<SearchResults<D>>
     where
         I: ToString + Send + Sync + Display,
-        D: DeserializeOwned + Clone + Send + Sync;
+        D: DeserializeOwned + Clone + Send + Sync + Unpin;
 
     async fn all_docs<I, D>(&self, index: I) -> Result<SearchResults<D>>
     where
         I: ToString + Send + Sync + Display,
-        D: DeserializeOwned + Clone + Send + Sync;
+        D: DeserializeOwned + Clone + Send + Sync + Unpin;
 }
 
 pub trait SyncClient {

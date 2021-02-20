@@ -11,17 +11,17 @@ edition = "2018"
 toshi-proto  = { path = "../toshi-proto" }
 toshi-types  = { path = "../toshi-types" }
 anyhow       = "^1.0"
-bytes        = "^0.5"
+bytes        = "^1.0.1"
 futures      = "^0.3"
 async-trait  = "^0.1"
 http         = "^0.2"
-dashmap      = "^3"
-tonic        = "^0.3"
-prost        = "^0.6"
+dashmap      = "^4"
+tonic        = "^0.4"
+prost        = "^0.7"
 tantivy      = "^0.13"
-slog         = "^2.5"
+slog         = "^2.7"
 serde_json   = "^1.0"
-tokio        = { version = "^0.2", features = ["full", "parking_lot"] }
+tokio        = { version = "^1", features = ["full", "parking_lot"] }
 serde        = { version = "^1.0", features = ["derive"] }
 raft         = { git = "https://github.com/tikv/raft-rs", default-features = false, features = ["prost-codec"] }
 

@@ -16,17 +16,17 @@ serde       = "^1.0"
 serde_json  = "^1.0"
 tantivy     = "^0.13"
 async-trait = "^0.1"
-dashmap     = { version = "^3", features = ["serde"] }
+dashmap     = { version = "^4", features = ["serde"] }
 slog        = "^2.5"
-tokio       = { version = "^0.2", features = ["sync"] }
+tokio       = { version = "^1", features = ["sync"] }
 toml        = "^0.5"
 
 [dependencies.tonic]
-version  = "^0.3"
+version  = "^0.4"
 optional = true
 
 [dependencies.hyper]
-version  = "^0.13"
+version  = "^0.14"
 optional = true
 
 [features]

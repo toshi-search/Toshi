@@ -77,6 +77,7 @@ pub mod cluster_rpc {
     impl From<Message> for eraftpb::Message {
         fn from(m: Message) -> eraftpb::Message {
             eraftpb::Message {
+                commit_term: 0,
                 msg_type: m.msg_type,
                 to: m.to,
                 from: m.from,

@@ -8,11 +8,11 @@ license = "MIT"
 edition = "2018"
 
 [dependencies]
-bytes      = "^0.5"
-hyper      = { version = "^0.13", features = ["stream"] }
+bytes      = "^1.0.1"
+hyper      = { version = "^0.14", features = ["stream"] }
 http       = "^0.2"
 futures    = "^0.3"
-tokio      = { version = "^0.2", features = ["full"] }
+tokio      = { version = "^1", features = ["full"] }
 failure    = "^0.1"
 tantivy    = "^0.13"
 serde      = { version = "^1.0", features = ["derive"] }

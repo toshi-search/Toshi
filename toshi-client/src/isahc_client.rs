@@ -1,4 +1,5 @@
 use isahc::prelude::*;
+use isahc::*;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use tantivy::schema::Schema;
@@ -7,6 +8,7 @@ use async_trait::async_trait;
 use toshi_types::*;
 
 use crate::{AsyncClient, Result, SyncClient};
+use isahc::{HttpClient, Response};
 use std::fmt::Display;
 
 #[derive(Debug)]
@@ -39,7 +41,7 @@ impl ToshiClient {
 
 #[async_trait]
 impl AsyncClient for ToshiClient {
-    type Body = isahc::Body;
+    type Body = isahc::AsyncBody;
 
     async fn index(&self) -> Result<Response<Self::Body>> {
         self.client.get_async(self.host.clone()).await.map_err(Into::into)
@@ -62,7 +64,7 @@ impl AsyncClient for ToshiClient {
         self.client.put_async(uri, body).await.map_err(Into::into)
     }
 
-    async fn add_document<I, D>(&self, index: I, document: D, options: Option<IndexOptions>) -> Result<Response<Body>>
+    async fn add_document<I, D>(&self, index: I, document: D, options: Option<IndexOptions>) -> Result<Response<AsyncBody>>
     where
         I: ToString + Send + Sync + Display,
         D: Serialize + Send + Sync,
@@ -75,20 +77,20 @@ impl AsyncClient for ToshiClient {
     async fn search<I, D>(&self, index: I, search: Search) -> Result<SearchResults<D>>
     where
         I: ToString + Send + Sync + Display,
-        D: DeserializeOwned + Clone + Send + Sync,
+        D: DeserializeOwned + Clone + Send + Sync + Unpin,
     {
         let uri = self.uri(index);
         let body = serde_json::to_vec(&search)?;
-        self.client.post_async(uri, body).await?.json().map_err(Into::into)
+        self.client.post_async(uri, body).await?.json().await.map_err(Into::into)
     }
 
     async fn all_docs<I, D>(&self, index: I) -> Result<SearchResults<D>>
     where
         I: ToString + Send + Sync + Display,
-        D: DeserializeOwned + Clone + Send + Sync,
+        D: DeserializeOwned + Clone + Send + Sync + Unpin,
     {
         let uri = self.uri(index);
-        self.client.get_async(uri).await?.json().map_err(Into::into)
+        self.client.get_async(uri).await?.json().await.map_err(Into::into)
     }
 }
 
