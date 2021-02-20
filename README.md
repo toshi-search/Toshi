@@ -6,6 +6,7 @@
 [![Actions Status](https://github.com/toshi-search/toshi/workflows/toshi-push/badge.svg)](https://github.com/toshi-search/toshi/actions)
 [![codecov](https://codecov.io/gh/toshi-search/Toshi/branch/master/graph/badge.svg)](https://codecov.io/gh/toshi-search/Toshi) 
 [![Join the chat at https://gitter.im/toshi-search/Toshi](https://badges.gitter.im/toshi-search/Toshi.svg)](https://gitter.im/toshi-search/Toshi?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+[![dependency status](https://deps.rs/repo/github/toshi-search/toshi/status.svg)](https://deps.rs/repo/github/toshi-search/toshi)
 
 > *Please note that this is far from production ready, also Toshi is still under active development, I'm just slow.*
 
