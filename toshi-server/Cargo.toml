@@ -25,7 +25,7 @@ serde_urlencoded       = "^0.6"
 futures                = "^0.3"
 tower-util             = "^0.3"
 tonic                  = "^0.4"
-tantivy                = "^0.13"
+tantivy                = "^0.14"
 tokio                  = { version = "^1", features = ["full", "parking_lot"] }
 async-trait            = "^0.1"
 config                 = "^0.10"

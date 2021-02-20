@@ -77,7 +77,7 @@ impl IndexHandle for LocalIndex {
     }
 
     fn get_space(&self) -> SearcherSpaceUsage {
-        self.reader.searcher().space_usage()
+        self.reader.searcher().space_usage().unwrap()
     }
 
     async fn search_index(&self, search: Search) -> Result<SearchResults> {
@@ -89,7 +89,7 @@ impl IndexHandle for LocalIndex {
             info!("Sorting with: {}", sort_by);
             if let Some(f) = schema.get_field(&sort_by) {
                 let entry = schema.get_field_entry(f);
-                if entry.is_int_fast() && entry.is_stored() {
+                if entry.is_fast() && entry.is_stored() {
                     let c = TopDocs::with_limit(search.limit).order_by_u64_field(f);
                     return Some(multi_collector.add_collector(c));
                 }

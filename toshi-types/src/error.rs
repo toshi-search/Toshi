@@ -4,7 +4,6 @@
 
 use std::fmt::Debug;
 
-use failure::Fail;
 use serde::{Deserialize, Serialize};
 use tantivy::directory::error::OpenDirectoryError;
 use tantivy::query::QueryParserError;
@@ -80,24 +79,24 @@ pub enum Error {
 
 impl From<OpenDirectoryError> for Error {
     fn from(err: OpenDirectoryError) -> Self {
-        Error::TantivyError(anyhow::Error::new(err.compat()))
+        Error::TantivyError(err.into())
     }
 }
 
 impl From<QueryParserError> for Error {
     fn from(err: QueryParserError) -> Self {
-        Error::TantivyError(anyhow::Error::new(err.compat()))
+        Error::TantivyError(err.into())
     }
 }
 
 impl From<DocParsingError> for Error {
     fn from(err: DocParsingError) -> Self {
-        Error::TantivyError(anyhow::Error::new(err.compat()))
+        Error::TantivyError(err.into())
     }
 }
 
 impl From<TantivyError> for Error {
     fn from(err: TantivyError) -> Self {
-        Error::TantivyError(anyhow::Error::new(err.compat()))
+        Error::TantivyError(err.into())
     }
 }
