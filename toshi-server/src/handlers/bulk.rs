@@ -125,14 +125,13 @@ pub async fn bulk_insert(catalog: SharedCatalog, watcher: Arc<AtomicBool>, mut b
 #[cfg(test)]
 mod tests {
 
-    use toshi_test::read_body;
-
     use crate::handlers::all_docs;
     use crate::handlers::summary::flush;
     use crate::index::create_test_catalog;
     use crate::SearchResults;
 
     use super::*;
+    use crate::commit::tests::read_body;
     use std::time::Duration;
 
     #[tokio::test]

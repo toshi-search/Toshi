@@ -49,5 +49,4 @@ async-channel          = "^1"
 remove_dir_all         = "^0.6"
 pretty_assertions      = "^0.6"
 tokio-test             = "^0.4"
-toshi-test             = { path = "../toshi-test" }
 toshi                  = { path = "../toshi-client", default-features = false, features = ["hyper_client"] }

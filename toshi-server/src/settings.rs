@@ -286,7 +286,7 @@ impl Settings {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use toshi_test::cmp_float;
+    use crate::commit::tests::cmp_float;
 
     #[test]
     fn valid_default_config() {

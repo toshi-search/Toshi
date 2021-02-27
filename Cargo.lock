@@ -2554,6 +2554,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "bincode",
  "bytes",
  "dashmap",
  "futures",
@@ -2570,7 +2571,6 @@ dependencies = [
  "tonic",
  "toshi-proto",
  "toshi-server",
- "toshi-test",
  "toshi-types",
 ]
 
@@ -2610,23 +2610,8 @@ dependencies = [
  "toshi",
  "toshi-proto",
  "toshi-raft",
- "toshi-test",
  "toshi-types",
  "tower-util",
-]
-
-[[package]]
-name = "toshi-test"
-version = "0.1.0"
-dependencies = [
- "bytes",
- "futures",
- "http",
- "hyper",
- "serde 1.0.123",
- "serde_json",
- "tantivy",
- "tokio",
 ]
 
 [[package]]

@@ -16,7 +16,7 @@ pub async fn root() -> ResponseFuture {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use toshi_test::read_body;
+    use crate::commit::tests::read_body;
 
     #[tokio::test]
     async fn test_root() -> Result<(), Box<dyn std::error::Error>> {

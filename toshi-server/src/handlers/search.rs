@@ -39,18 +39,18 @@ pub async fn all_docs(catalog: SharedCatalog, index: &str) -> ResponseFuture {
 
 #[cfg(test)]
 pub mod tests {
-    use std::sync::atomic::AtomicBool;
+
     use std::sync::Arc;
 
-    use hyper::{Body, Request, StatusCode};
+    use hyper::Body;
     use pretty_assertions::assert_eq;
 
-    use toshi_test::{cmp_float, read_body, wait_json, TestServer};
     use toshi_types::{ErrorResponse, ExactTerm, FuzzyQuery, FuzzyTerm, KeyValue, PhraseQuery, Query, Search, TermPair};
 
+    use crate::commit::tests::*;
     use crate::handlers::{doc_search, ResponseFuture};
     use crate::index::create_test_catalog;
-    use crate::router::Router;
+
     use crate::SearchResults;
 
     type ReturnUnit = Result<(), Box<dyn std::error::Error>>;
@@ -80,18 +80,6 @@ pub mod tests {
         let q = run_query(search, "test_index").await?;
         let body: SearchResults = wait_json(q).await;
         assert_eq!(body.hits, 3);
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_wrong_index_error() -> ReturnUnit {
-        let cat = create_test_catalog("test_index");
-        let body = r#"{ "query" : { "raw": "test_text:\"document\"" } }"#;
-        let (list, ts) = TestServer::new()?;
-        let router = Router::new(cat, Arc::new(AtomicBool::new(false)));
-        let req = Request::post(ts.uri("/asdf1234")).body(Body::from(body))?;
-        let resp = ts.get(req, router.router_from_tcp(list)).await?;
-        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
         Ok(())
     }
 

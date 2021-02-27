@@ -1,25 +1,24 @@
-use message_io::events::EventQueue;
-
-use message_io::network::{Endpoint, NetEvent, Network, Transport};
+use std::net::SocketAddr;
 
 use dashmap::DashMap;
+use message_io::events::EventQueue;
+use message_io::network::{Endpoint, NetEvent, Network, Transport};
 use serde::{Deserialize, Serialize};
-use std::net::SocketAddr;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum RaftEvents {
-    JoinCluster { id: u32, ep: SocketAddr },
+    JoinCluster(u32),
 }
 
 pub struct RaftIO {
     net: Network,
-    events: EventQueue<NetEvent<RaftEvents>>,
+    events: EventQueue<NetEvent>,
     peers: DashMap<u32, Endpoint>,
 }
 
 impl Default for RaftIO {
     fn default() -> Self {
-        let (net, events) = Network::split();
+        let (events, net) = Network::split();
         Self {
             net,
             events,
@@ -30,7 +29,7 @@ impl Default for RaftIO {
 
 impl RaftIO {
     pub fn new(id: u32, ep: Endpoint) -> Self {
-        let (net, events) = Network::split();
+        let (events, net) = Network::split();
         let peers = DashMap::<u32, Endpoint>::new();
         peers.insert(id, ep);
         Self { net, events, peers }
@@ -47,14 +46,14 @@ impl RaftIO {
 
         loop {
             match self.events.receive() {
-                NetEvent::Message(ep, msg) => match msg {
-                    RaftEvents::JoinCluster { ep, id } => self.join_cluster(id, ep),
-                },
+                NetEvent::Message(ep, payload) => {
+                    let msg = bincode::deserialize::<RaftEvents>(&payload)?;
+                    match msg {
+                        RaftEvents::JoinCluster(id) => self.join_cluster(id, ep.addr()),
+                    }
+                }
                 NetEvent::Connected(_) => {}
                 NetEvent::Disconnected(_) => {}
-                NetEvent::DeserializationError(ep) => {
-                    panic!("Deserialization Error: {:?}", ep)
-                }
             }
         }
     }

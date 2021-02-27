@@ -4,7 +4,6 @@ members = [
     "toshi-proto",
     "toshi-client",
     "toshi-types",
-    "toshi-test",
     "toshi-raft"
 ]
 

@@ -66,13 +66,13 @@ mod tests {
 
     use pretty_assertions::assert_eq;
 
-    use toshi_test::wait_json;
     use toshi_types::IndexOptions;
 
     use crate::handlers::all_docs;
     use crate::index::create_test_catalog;
 
     use super::*;
+    use crate::commit::tests::wait_json;
 
     fn test_index() -> String {
         String::from("test_index")

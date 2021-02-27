@@ -163,7 +163,7 @@ impl IndexCatalog {
 
 #[cfg(test)]
 pub fn create_test_catalog(name: &str) -> SharedCatalog {
-    let idx = toshi_test::create_test_index();
+    let idx = crate::commit::tests::create_test_index();
     let catalog = IndexCatalog::with_index(name.into(), idx).unwrap();
     Arc::new(catalog)
 }
