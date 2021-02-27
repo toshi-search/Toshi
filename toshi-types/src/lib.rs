@@ -6,7 +6,13 @@
 //! looking for Toshi's protobuf types then you will want to look in the toshi-proto module
 //! of Toshi's source code.
 
+use std::sync::Arc;
+
 use serde_json::Value as SerdeValue;
+use tantivy::schema::Schema;
+use tantivy::space_usage::SearcherSpaceUsage;
+use tantivy::{Index, IndexWriter};
+use tokio::sync::Mutex;
 
 pub use client::{ScoredDoc, SearchResults, SummaryResponse};
 pub use error::{Error, ErrorResponse};
@@ -15,12 +21,9 @@ pub use query::{
     range::Ranges, regex::RegexQuery, term::ExactTerm, CreateQuery, FlatNamedDocument, KeyValue, Query, Search,
 };
 pub use server::*;
-use std::sync::Arc;
-use tantivy::space_usage::SearcherSpaceUsage;
-use tantivy::{Index, IndexWriter};
-use tokio::sync::Mutex;
 
-type Result<T> = std::result::Result<T, error::Error>;
+/// Toshi client result type
+pub type Result<T> = std::result::Result<T, error::Error>;
 
 /// Types related to the response Toshi gives back to requests
 mod client;
@@ -62,6 +65,12 @@ pub trait IndexHandle: Clone {
     fn get_writer(&self) -> Arc<Mutex<IndexWriter>>;
     /// Get size of an index
     fn get_space(&self) -> SearcherSpaceUsage;
+    /// The agreed upon raft commit ID this index is currently at.
+    fn get_opstamp(&self) -> usize;
+    /// Set that opstamp
+    fn set_opstamp(&self, opstamp: usize);
+    /// Commit the current index writes
+    async fn commit(&self) -> Result<u64>;
     /// Search for documents in this index
     async fn search_index(&self, search: Search) -> Result<SearchResults<FlatNamedDocument>>;
     /// Add documents to this index
@@ -74,18 +83,18 @@ pub trait IndexHandle: Clone {
 #[async_trait::async_trait]
 pub trait Catalog: Send + Sync + 'static {
     /// The type of handle the catalog returns when the index is local
-    type Local: IndexHandle + Send + Sync;
+    type Handle: IndexHandle + Send + Sync;
 
     /// The base path for local indexes, useless for remote
     fn base_path(&self) -> String;
     /// Return the entire collection of handles
-    fn get_collection(&self) -> &dashmap::DashMap<String, Self::Local>;
+    fn get_collection(&self) -> &dashmap::DashMap<String, Self::Handle>;
     /// Add a local index to the catalog
-    fn add_index(&self, name: String, index: Index) -> Result<()>;
+    async fn add_index(&self, name: &str, schema: Schema) -> Result<()>;
     /// Return a list of index names
     async fn list_indexes(&self) -> Vec<String>;
     /// Return a handle to a single index
-    fn get_index(&self, name: &str) -> Result<Self::Local>;
+    fn get_index(&self, name: &str) -> Result<Self::Handle>;
     /// Determine if an index exists locally
     fn exists(&self, index: &str) -> bool;
     /// The current catalog's raft_id

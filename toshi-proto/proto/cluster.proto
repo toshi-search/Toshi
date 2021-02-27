@@ -24,24 +24,13 @@ enum ResultCode {
     MAGIC_UNICORN = 4;
 }
 
-enum RaftRequestType {
-    JOIN = 0;
-    LEAVE = 1;
-    ADD = 2;
-    DELETE = 3;
-    COMMIT = 4;
-    CONF_CHANGE = 5;
-    PING = 6;
+message RaftRequest {
+    eraftpb.Message message = 1;
 }
 
 message JoinRequest {
     uint64 id = 1;
     string host = 2;
-}
-
-message RaftRequest {
-    RaftRequestType tpe = 1;
-    bytes message = 2;
 }
 
 message RaftReply {

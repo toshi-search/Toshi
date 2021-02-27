@@ -14,7 +14,6 @@ use tokio::sync::Mutex;
 use toshi_types::{Catalog, Error, IndexHandle};
 
 use crate::handlers::ResponseFuture;
-use crate::index::SharedCatalog;
 use crate::utils::{empty_with_code, error_response, not_found};
 
 async fn index_documents(iw: Arc<Mutex<IndexWriter>>, dr: Receiver<Document>, wr: Arc<AtomicBool>) -> Result<(), Error> {
@@ -56,7 +55,13 @@ async fn parsing_documents(s: Schema, ds: Sender<Document>, lr: Receiver<Vec<u8>
     Ok(())
 }
 
-pub async fn bulk_insert(catalog: SharedCatalog, watcher: Arc<AtomicBool>, mut body: Body, index: &str) -> ResponseFuture {
+pub async fn bulk_insert<C: Catalog>(
+    catalog: Arc<C>,
+    watcher: Arc<AtomicBool>,
+    mut body: Body,
+    index: &str,
+    num_threads: usize,
+) -> ResponseFuture {
     info!("Starting...{:?}", index);
     if !catalog.exists(index) {
         return not_found().await;
@@ -68,7 +73,6 @@ pub async fn bulk_insert(catalog: SharedCatalog, watcher: Arc<AtomicBool>, mut b
     let (line_sender, line_recv) = unbounded::<Vec<u8>>();
     let (doc_sender, doc_recv) = unbounded::<Document>();
     let writer = index_handle.get_writer();
-    let num_threads = catalog.get_settings().json_parsing_threads;
 
     let (err_snd, err_rcv) = unbounded();
     let watcher_clone = Arc::clone(&watcher);
@@ -144,7 +148,7 @@ mod tests {
         {"test_text": "asdf5678", "test_i64": 456, "test_u64": 678, "test_unindex": "asdf", "test_facet": "/cat/cat4"}
         {"test_text": "asdf9012", "test_i64": -12, "test_u64": 901, "test_unindex": "asdf", "test_facet": "/cat/cat4"}"#;
 
-        let index_docs = bulk_insert(Arc::clone(&server), lock, Body::from(body), "test_index_bulk").await?;
+        let index_docs = bulk_insert(Arc::clone(&server), lock, Body::from(body), "test_index_bulk", 2).await?;
         assert_eq!(index_docs.status(), StatusCode::CREATED);
 
         let f = flush(Arc::clone(&server), "test_index_bulk").await?;
@@ -170,7 +174,7 @@ mod tests {
         {"test_text": "asdf5678", "test_i64": 456, "test_u64": 678, "test_unindex": "asdf", "test_facet": "/cat/cat4"}
         {"test_text": "asdf9012", "test_i64": -12, "test_u64": -9, "test_unindex": "asdf", "test_facet": "/cat/cat4"}"#;
 
-        let index_docs = bulk_insert(Arc::clone(&server), lock, Body::from(body), "test_index").await?;
+        let index_docs = bulk_insert(Arc::clone(&server), lock, Body::from(body), "test_index", 2).await?;
         assert_eq!(index_docs.status(), StatusCode::BAD_REQUEST);
 
         let body = read_body(index_docs).await?;

@@ -7,10 +7,8 @@ use tokio::time;
 
 use toshi_types::{Catalog, IndexHandle};
 
-use crate::index::SharedCatalog;
-
 #[allow(irrefutable_let_patterns)]
-pub async fn watcher(cat: SharedCatalog, commit_duration: f32, lock: Arc<AtomicBool>) -> Result<(), ()> {
+pub async fn watcher<C: Catalog>(cat: Arc<C>, commit_duration: f32, lock: Arc<AtomicBool>) -> Result<(), ()> {
     while let _ = time::interval(Duration::from_secs_f32(commit_duration)).tick().await {
         for e in cat.get_collection().iter() {
             let (k, v) = e.pair();

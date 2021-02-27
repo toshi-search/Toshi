@@ -30,6 +30,13 @@ pub struct AddDocument<D> {
     pub document: D,
 }
 
+impl<D> AddDocument<D> {
+    /// Convenience method for Raft Implementation
+    pub fn new(document: D, options: Option<IndexOptions>) -> Self {
+        Self { document, options }
+    }
+}
+
 /// A wrapper around Tantivy's schema for when an index is created. [`tantivy::schema::Schema`]
 #[derive(Serialize, Deserialize, Clone)]
 pub struct SchemaBody(pub Schema);

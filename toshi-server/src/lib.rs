@@ -2,7 +2,6 @@
 #![deny(future_incompatible, warnings)]
 #![allow(clippy::cognitive_complexity)]
 
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use slog::Logger;
@@ -20,14 +19,14 @@ pub mod router;
 pub mod settings;
 pub mod shutdown;
 pub mod utils;
+pub mod raft_catalog;
 
 pub type Result<T> = std::result::Result<T, toshi_types::Error>;
 pub type AddDocument = toshi_types::AddDocument<serde_json::Value>;
 pub type SearchResults = toshi_types::SearchResults<FlatNamedDocument>;
 
 pub fn setup_catalog(settings: &Settings) -> SharedCatalog {
-    let path = PathBuf::from(&settings.path);
-    let index_catalog = IndexCatalog::new(path, settings.clone()).unwrap();
+    let index_catalog = IndexCatalog::new(settings.clone()).unwrap();
     Arc::new(index_catalog)
 }
 
