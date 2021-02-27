@@ -4,6 +4,7 @@ use raft::prelude::*;
 use raft::{RaftState, RawNode, Result, Storage};
 
 pub mod handle;
+pub mod raft_io;
 pub mod rpc_server;
 
 pub struct RaftLocalState {

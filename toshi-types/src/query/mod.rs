@@ -130,14 +130,14 @@ impl Search {
         100
     }
 
-    pub(crate) fn all_query() -> Option<Query> {
-        Some(Query::All)
+    pub(crate) fn all_query() -> Query {
+        Query::All
     }
 
     /// A shortcut for querying for all documents in an Index
     pub fn all_docs() -> Self {
         Self {
-            query: Self::all_query(),
+            query: Some(Self::all_query()),
             facets: None,
             limit: Self::default_limit(),
             sort_by: None,

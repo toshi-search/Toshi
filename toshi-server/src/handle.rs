@@ -1,4 +1,3 @@
-use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
 
@@ -20,6 +19,7 @@ use crate::{AddDocument, SearchResults};
 /// Index handle that operates on an Index local to the node, a remote index handle
 /// will eventually call to wherever the local index is stored, so at some level the relevant
 /// local handle will always get called through rpc
+#[derive(Clone)]
 pub struct LocalIndex {
     index: Index,
     writer: Arc<Mutex<IndexWriter>>,
@@ -30,20 +30,6 @@ pub struct LocalIndex {
     name: String,
 }
 
-impl Clone for LocalIndex {
-    fn clone(&self) -> Self {
-        Self {
-            index: self.index.clone(),
-            writer: Arc::clone(&self.writer),
-            reader: self.reader.clone(),
-            current_opstamp: Arc::clone(&self.current_opstamp),
-            deleted_docs: Arc::clone(&self.deleted_docs),
-            settings: self.settings.clone(),
-            name: self.name.clone(),
-        }
-    }
-}
-
 impl PartialEq for LocalIndex {
     fn eq(&self, other: &LocalIndex) -> bool {
         self.name == *other.name
@@ -51,12 +37,6 @@ impl PartialEq for LocalIndex {
 }
 
 impl Eq for LocalIndex {}
-
-impl Hash for LocalIndex {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        state.write(self.name.as_bytes());
-    }
-}
 
 #[async_trait]
 impl IndexHandle for LocalIndex {
