@@ -46,7 +46,7 @@ toml                   = "^0.5"
 async-channel          = "^1"
 
 [dev-dependencies]
-remove_dir_all         = "^0.6"
+remove_dir_all         = "^0.7"
 pretty_assertions      = "^0.6"
 tokio-test             = "^0.4"
 toshi                  = { path = "../toshi-client", default-features = false, features = ["hyper_client"] }

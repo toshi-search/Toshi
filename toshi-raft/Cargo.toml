@@ -28,5 +28,5 @@ raft         = { git = "https://github.com/tikv/raft-rs", default-features = fal
 message-io   = "^0.9"
 
 [dev-dependencies]
-remove_dir_all = "^0.6"
+remove_dir_all = "^0.7"
 toshi-server = { path = "../toshi-server" }
