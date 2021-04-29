@@ -19,7 +19,7 @@ toshi-types            = { path = "../toshi-types" }
 toshi-raft             = { path = "../toshi-raft" }
 http                   = "^0.2"
 bytes                  = "^1"
-hyper                  = { version = "~0.14.4", features = ["stream"] }
+hyper                  = { version = "~0.14.7", features = ["stream"] }
 serde_json             = "^1.0"
 serde_urlencoded       = "^0.7"
 futures                = "^0.3"
