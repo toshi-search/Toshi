@@ -1,0 +1,9 @@
+.git
+.github
+.DS_Store
+.vscode
+scripts
+deploy
+tmp
+
+target
