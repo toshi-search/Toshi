@@ -40,10 +40,12 @@ jobs:
           command: test
           args: --all --all-features
       - uses: actions-rs/toolchain@v1
+        if: matrix.os == 'ubuntu-latest'
         with:
           toolchain: nightly
           override: true
       - uses: actions-rs/cargo@v1
+        if: matrix.os == 'ubuntu-latest'
         with:
           command: test
           args: --all-features --no-fail-fast
@@ -52,4 +54,6 @@ jobs:
           RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
           RUSTDOCFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
       - uses: actions-rs/grcov@v0.1
+        if: matrix.os == 'ubuntu-latest'
       - uses: codecov/codecov-action@v1
+        if: matrix.os == 'ubuntu-latest'
