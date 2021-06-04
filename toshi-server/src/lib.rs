@@ -1,5 +1,5 @@
 #![forbid(unsafe_code)]
-#![deny(future_incompatible, warnings)]
+#![deny(future_incompatible)]
 #![allow(clippy::cognitive_complexity)]
 
 use std::sync::Arc;
