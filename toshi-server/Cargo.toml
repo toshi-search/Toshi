@@ -27,7 +27,7 @@ tonic                  = "^0.4"
 tantivy                = "^0.14"
 tokio                  = { version = "^1", features = ["full", "parking_lot"] }
 async-trait            = "^0.1"
-config                 = "^0.10"
+config                 = "^0.11"
 structopt              = "^0.3"
 thiserror              = "^1.0"
 anyhow                 = "^1.0"
@@ -40,13 +40,13 @@ slog-term              = "^2.4"
 slog-stdlog            = "^4.0"
 slog-scope             = "^4.3"
 log                    = { version = "*", features = ["max_level_trace", "release_max_level_warn"] }
-sloggers               = "^1"
+sloggers               = "^2"
 toml                   = "^0.5"
 async-channel          = "^1"
 
 
 [dev-dependencies]
-remove_dir_all         = "^0.6"
-pretty_assertions      = "^0.6"
+remove_dir_all         = "^0.7"
+pretty_assertions      = "^0.7"
 tokio-test             = "^0.4"
 toshi                  = { path = "../toshi-client", default-features = false, features = ["hyper_client"] }
