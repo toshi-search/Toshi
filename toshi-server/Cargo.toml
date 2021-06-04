@@ -40,7 +40,7 @@ slog-term              = "^2.4"
 slog-stdlog            = "^4.0"
 slog-scope             = "^4.3"
 log                    = { version = "*", features = ["max_level_trace", "release_max_level_warn"] }
-sloggers               = "^1"
+sloggers               = "^2"
 toml                   = "^0.5"
 async-channel          = "^1"
 
