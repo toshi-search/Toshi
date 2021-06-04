@@ -33,7 +33,7 @@ pub struct AddDocument<D> {
 impl<D> AddDocument<D> {
     /// Convenience method for Raft Implementation
     pub fn new(document: D, options: Option<IndexOptions>) -> Self {
-        Self { document, options }
+        Self { options, document }
     }
 }
 

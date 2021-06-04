@@ -58,36 +58,15 @@ pub enum Query {
     All,
 }
 
-impl Into<Query> for BoolQuery {
-    fn into(self) -> Query {
-        Query::Boolean { bool: self }
+/// Boolean gets it's own special From impl due to not being a tuple query.
+impl From<BoolQuery> for Query {
+    fn from(bool: BoolQuery) -> Self {
+        Query::Boolean { bool }
     }
 }
-impl Into<Query> for PhraseQuery {
-    fn into(self) -> Query {
-        Query::Phrase(self)
-    }
-}
-impl Into<Query> for FuzzyQuery {
-    fn into(self) -> Query {
-        Query::Fuzzy(self)
-    }
-}
-impl Into<Query> for ExactTerm {
-    fn into(self) -> Query {
-        Query::Exact(self)
-    }
-}
-impl Into<Query> for RegexQuery {
-    fn into(self) -> Query {
-        Query::Regex(self)
-    }
-}
-impl Into<Query> for RangeQuery {
-    fn into(self) -> Query {
-        Query::Range(self)
-    }
-}
+
+macro_rules! to_query { ($($t:tt $e:ident),+) => { $(impl From<$t> for Query { fn from(q: $t) -> Self { Query::$e(q) } })* }; }
+to_query! { PhraseQuery Phrase, FuzzyQuery Fuzzy, ExactTerm Exact, RegexQuery Regex, RangeQuery Range }
 
 /// The request body of a search POST in Toshi
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -310,10 +289,10 @@ where
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FlatNamedDocument(pub DashMap<String, Value>);
 
-impl Into<FlatNamedDocument> for NamedFieldDocument {
-    fn into(self) -> FlatNamedDocument {
-        let map = DashMap::with_capacity(self.0.len());
-        for (k, v) in self.0 {
+impl From<NamedFieldDocument> for FlatNamedDocument {
+    fn from(nfd: NamedFieldDocument) -> Self {
+        let map = DashMap::with_capacity(nfd.0.len());
+        for (k, v) in nfd.0 {
             if v.len() == 1 {
                 map.insert(k, serde_json::to_value(&v[0]).unwrap());
                 continue;

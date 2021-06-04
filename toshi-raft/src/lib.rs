@@ -17,8 +17,8 @@ use crate::proposal::Proposal;
 use crate::rpc_utils::create_client;
 
 pub mod handle;
-pub mod raft_io;
 pub mod proposal;
+pub mod raft_io;
 pub mod rpc_server;
 pub mod rpc_utils;
 
@@ -76,6 +76,7 @@ where
         return Ok(());
     }
     let mut ready = raft_group.ready();
+
     handle_messages(ready.take_messages(), Arc::clone(&nodes)).await?;
 
     // Apply the snapshot. It's necessary because in `RawNode::advance` we stabilize the snapshot.
@@ -100,19 +101,18 @@ where
     Ok(())
 }
 
-pub async fn handle_messages(msgs: Vec<Vec<raft::eraftpb::Message>>, nodes: Arc<DashMap<String, Uri>>) -> Result<()> {
-    for vec_msg in msgs {
-        for msg in vec_msg {
-            let to = msg.to;
-            let node = nodes
-                .get(&to.to_string())
-                .ok_or_else(|| Error::RPCError(format!("Unable to get node for: {}", &to)))?;
+pub async fn handle_messages(msgs: Vec<raft::eraftpb::Message>, nodes: Arc<DashMap<String, Uri>>) -> Result<()> {
+    for msg in msgs {
+        let to = msg.to;
+        let node = nodes
+            .get(&to.to_string())
+            .ok_or_else(|| Error::RPCError(format!("Unable to get node for: {}", &to)))?;
 
-            let mut client = create_client(&node, None).await?;
-            let req = RaftRequest { message: Some(msg) };
-            client.raft_request(req).await?;
-        }
+        let mut client = create_client(&node, None).await?;
+        let req = RaftRequest { message: Some(msg) };
+        client.raft_request(req).await?;
     }
+
     Ok(())
 }
 

@@ -19,7 +19,6 @@ pub mod router;
 pub mod settings;
 pub mod shutdown;
 pub mod utils;
-pub mod raft_catalog;
 
 pub type Result<T> = std::result::Result<T, toshi_types::Error>;
 pub type AddDocument = toshi_types::AddDocument<serde_json::Value>;

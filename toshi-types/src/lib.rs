@@ -47,9 +47,9 @@ mod extra_errors;
 #[derive(Debug)]
 pub enum IndexLocation {
     /// This index is in local storage on this node
-    LOCAL,
+    Local,
     /// Toshi has to make a request to another server for this index
-    REMOTE,
+    Remote,
 }
 
 /// Defines an interface on how operations are done on indexes inside Toshi

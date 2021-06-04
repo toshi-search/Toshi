@@ -1,5 +1,4 @@
 use std::fs;
-use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
@@ -49,7 +48,7 @@ impl IndexHandle for LocalIndex {
     }
 
     fn index_location(&self) -> IndexLocation {
-        IndexLocation::LOCAL
+        IndexLocation::Local
     }
 
     fn get_index(&self) -> Index {
