@@ -61,6 +61,7 @@ pub async fn add_document<C: Catalog>(catalog: Arc<C>, body: Body, index: &str) 
 
 #[cfg(test)]
 mod tests {
+    #![allow(unused_must_use)]
     use std::collections::HashMap;
     use std::sync::Arc;
 
@@ -92,7 +93,7 @@ mod tests {
         let resp = all_docs(Arc::clone(&shared_cat), "new_index").await?;
         let b = wait_json::<crate::SearchResults>(resp).await;
         assert_eq!(b.hits, 0);
-        remove_dir_all::remove_dir_all("new_index")?;
+        remove_dir_all::remove_dir_all("new_index"); // Try, but don't fail on this.
         Ok(())
     }
 
