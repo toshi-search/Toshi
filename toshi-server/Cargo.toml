@@ -13,12 +13,15 @@ name = "toshi"
 [lib]
 path = "src/lib.rs"
 
+[features]
+extra_tokenizers = ["cang-jie"]
+
 [dependencies]
 toshi-proto            = { path = "../toshi-proto" }
 toshi-types            = { path = "../toshi-types" }
 http                   = "^0.2"
 bytes                  = "^1"
-hyper                  = { version = "^0.14", features = ["stream"] }
+hyper                  = { version = "^0.14.8", features = ["stream"] }
 serde_json             = "^1.0"
 serde_urlencoded       = "^0.7"
 futures                = "^0.3"
@@ -41,6 +44,7 @@ log                    = { version = "*", features = ["max_level_trace", "releas
 sloggers               = "^2"
 toml                   = "^0.5"
 async-channel          = "^1"
+cang-jie               = { version = "^0.11", optional = true }
 
 
 [dev-dependencies]

@@ -17,7 +17,7 @@ use tokio::sync::*;
 use toshi_types::*;
 
 use crate::settings::{Settings, DEFAULT_WRITER_MEMORY};
-use crate::Result;
+use crate::{register_tokenizers, Result};
 use crate::{AddDocument, SearchResults};
 
 /// Index handle that operates on an Index local to the node, a remote index handle
@@ -228,6 +228,7 @@ impl LocalIndex {
         }
         let dir = MmapDirectory::open(base_path)?;
         let index = Index::open_or_create(dir, schema)?;
+        let index = register_tokenizers(index);
         let i = index.writer(writer_memory)?;
         i.set_merge_policy(merge_policy);
         let current_opstamp = Arc::new(AtomicUsize::new(0));

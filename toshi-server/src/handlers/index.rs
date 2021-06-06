@@ -97,6 +97,32 @@ mod tests {
         Ok(())
     }
 
+    #[cfg(feature = "extra_tokenizers")]
+    #[tokio::test]
+    async fn test_create_index_extra_tokenizers() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let shared_cat = create_test_catalog("test_index");
+        let schema = r#"[
+            { "name": "test_text", "type": "text", "options": { "indexing": { "record": "position", "tokenizer": "CANG_JIE" }, "stored": true } },
+            { "name": "test_unindex", "type": "text", "options": { "indexing": { "record": "position", "tokenizer": "CANG_JIE" }, "stored": true } },
+            { "name": "test_i64", "type": "i64", "options": { "indexed": true, "stored": true } },
+            { "name": "test_u64", "type": "u64", "options": { "indexed": true, "stored": true } }
+         ]"#;
+
+        create_index(Arc::clone(&shared_cat), Body::from(schema), "new_index_extra_tok").await?;
+
+        let q = r#" {"options": {"commit": true }, "document": {"test_text": "南京长江大桥", "test_u64": 10, "test_i64": -10} }"#;
+
+        add_document(Arc::clone(&shared_cat), Body::from(q), "new_index_extra_tok").await?;
+        tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+        let resp = all_docs(Arc::clone(&shared_cat), "new_index_extra_tok").await?;
+        let b = wait_json::<crate::SearchResults>(resp).await;
+        assert_eq!(b.hits, 1);
+
+        remove_dir_all::remove_dir_all("new_index_extra_tok"); // Try, but don't fail on this.
+        remove_dir_all::remove_dir_all("test_index");
+        Ok(())
+    }
+
     #[tokio::test]
     async fn test_doc_create() {
         let shared_cat = create_test_catalog("test_index");
