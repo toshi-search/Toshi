@@ -68,6 +68,7 @@ impl<C: Catalog> Router<C> {
         let path = parse_path(parts.uri.path());
 
         match (&method, &path[..]) {
+            (m, ["_list"]) if m == Method::GET => list::list_indexes(catalog).await,
             (m, [idx, "_create"]) if m == Method::PUT => create_index(catalog, body, idx).await,
             (m, [idx, "_summary"]) if m == Method::GET => index_summary(catalog, idx, query_options).await,
             (m, [idx, "_flush"]) if m == Method::GET => flush(catalog, idx).await,

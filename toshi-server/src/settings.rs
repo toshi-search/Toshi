@@ -68,13 +68,13 @@ pub fn settings() -> Settings {
 #[derive(Deserialize, Clone, Debug, StructOpt)]
 #[serde(default = "ConfigMergePolicy::default")]
 pub struct ConfigMergePolicy {
-    #[structopt(long)]
+    #[structopt(long, default_value = "log")]
     kind: String,
-    #[structopt(long)]
+    #[structopt(long, default_value)]
     min_merge_size: usize,
-    #[structopt(long)]
+    #[structopt(long, default_value)]
     min_layer_size: u32,
-    #[structopt(long)]
+    #[structopt(long, default_value)]
     level_log_size: f64,
 }
 
@@ -204,8 +204,9 @@ impl Settings {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::commit::tests::cmp_float;
+
+    use super::*;
 
     #[test]
     fn valid_default_config() {

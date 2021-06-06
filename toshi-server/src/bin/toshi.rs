@@ -2,7 +2,6 @@ use std::error::Error;
 use std::fs::create_dir;
 use std::net::{IpAddr, SocketAddr};
 use std::path::Path;
-use std::str::FromStr;
 use std::sync::{atomic::AtomicBool, Arc};
 
 use futures::prelude::*;
@@ -11,6 +10,7 @@ use log::info;
 
 use tokio::sync::oneshot;
 
+use std::str::FromStr;
 use toshi_server::commit::watcher;
 use toshi_server::index::{IndexCatalog, SharedCatalog};
 use toshi_server::router::Router;
@@ -31,7 +31,8 @@ pub async fn main() -> Result<(), Box<dyn Error>> {
         create_dir(settings.path.clone()).expect("Unable to create data directory");
     }
 
-    let index_catalog = setup_catalog(&settings);
+    let index_catalog = setup_catalog(&settings).await?;
+
     let s_clone = settings.clone();
     let toshi = setup_toshi(s_clone.clone(), Arc::clone(&index_catalog), tx);
     tokio::spawn(toshi);
@@ -51,7 +52,6 @@ async fn setup_toshi(settings: Settings, index_catalog: SharedCatalog, tx: onesh
     let shutdown = shutdown::shutdown(tx);
     if settings.experimental {
         let master = run_master(Arc::clone(&index_catalog), settings.clone());
-        // tokio::spawn(run_data(Arc::clone(&index_catalog), settings));
         future::try_select(shutdown, master).map(|_| Ok(())).await
     } else {
         let master = run_master(Arc::clone(&index_catalog), settings);
@@ -59,15 +59,15 @@ async fn setup_toshi(settings: Settings, index_catalog: SharedCatalog, tx: onesh
     }
 }
 
-fn setup_catalog(settings: &Settings) -> SharedCatalog {
-    let index_catalog = match IndexCatalog::new(settings.clone()) {
+async fn setup_catalog(settings: &Settings) -> Result<SharedCatalog, toshi_types::Error> {
+    let mut index_catalog = match IndexCatalog::new(settings.clone()) {
         Ok(v) => v,
         Err(e) => {
             eprintln!("Error creating IndexCatalog from path {} - {:?}", settings.path, e);
             std::process::exit(1);
         }
     };
-
+    index_catalog.refresh_catalog().await?;
     info!(
         "Indexes: {:?}",
         index_catalog
@@ -76,7 +76,7 @@ fn setup_catalog(settings: &Settings) -> SharedCatalog {
             .map(|r| r.key().to_owned())
             .collect::<Vec<String>>()
     );
-    Arc::new(index_catalog)
+    Ok(Arc::new(index_catalog))
 }
 
 fn run_master(catalog: SharedCatalog, settings: Settings) -> impl Future<Output = Result<(), hyper::Error>> + Unpin + Send {

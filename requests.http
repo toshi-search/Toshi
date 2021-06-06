@@ -1,13 +1,10 @@
-GET http://localhost:8082/lyrics/_flush
-Accept: application/json
-
 ###
 ### Assuming Toshi is running on port 8080
 ### Create an index for some song lyrics
-GET http://localhost:8080
+GET http://{{host}}:{{port}}
 
 ###
-PUT http://localhost:8082/lyrics/_create
+PUT http://{{host}}:{{port}}/lyrics/_create
 Content-Type: application/json
 
 [
@@ -72,15 +69,19 @@ Content-Type: application/json
     }
   }
 ]
+
 ### Get the schema summary back to see the index was created
-GET localhost:8080/test_index/_summary?include_sizes=true
+GET {{host}}:{{port}}/lyrics/_summary?include_sizes=true
 Content-Type: application/JSON
+
 ### Add a single song to the index
-PUT http://localhost:8080/lyrics/
+PUT http://{{host}}:{{port}}/lyrics/
 Content-Type: application/json
 
 {
-  "options": { "commit": true },
+  "options": {
+    "commit": false
+  },
   "document": {
     "song": "he-still-loves-me-f-choir-from-fighting-temptations",
     "year": 2007,
@@ -90,6 +91,28 @@ Content-Type: application/json
     "idx": 23
   }
 }
-### Get that document back from the engine
-GET http://localhost:8082/lyrics/
+
+### List the indexes
+GET http://{{host}}:{{port}}/_list
 Content-Type: application/json
+
+### Force a commit if necessary at any time
+GET http://{{host}}:{{port}}/lyrics/_flush
+Accept: application/json
+
+### Get that document back from the engine
+GET http://{{host}}:{{port}}/lyrics/
+Content-Type: application/json
+
+### Test Term Query
+POST http://{{host}}:{{port}}/lyrics/
+Content-Type: application/JSON
+
+{
+  "query": {
+    "term": {
+      "lyrics": "me"
+    }
+  },
+  "limit": 1
+}

@@ -74,10 +74,10 @@ pub mod tests {
         let diff = (a - b).abs();
         if diff == 0.0 {
             return true;
-        } else if a == 0.0 || b == 0.0 || (abs_a + abs_b < std::f32::MIN_POSITIVE) {
-            return diff < (std::f32::EPSILON * std::f32::MIN_POSITIVE);
+        } else if a == 0.0 || b == 0.0 || (abs_a + abs_b < f32::MIN_POSITIVE) {
+            return diff < (f32::EPSILON * f32::MIN_POSITIVE);
         }
-        diff / (abs_a + abs_b).min(std::f32::MAX) < std::f32::EPSILON
+        diff / (abs_a + abs_b).min(f32::MAX) < f32::EPSILON
     }
 
     pub async fn read_body(resp: Response<Body>) -> Result<String, Box<dyn std::error::Error>> {

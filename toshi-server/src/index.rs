@@ -1,6 +1,6 @@
 use std::clone::Clone;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{PathBuf, MAIN_SEPARATOR};
 use std::sync::Arc;
 
 use dashmap::DashMap;
@@ -83,6 +83,7 @@ impl IndexCatalog {
             base_path: path,
             local_handles: local_idxs,
         };
+
         Ok(index_cat)
     }
 
@@ -113,7 +114,9 @@ impl IndexCatalog {
             if let Some(entry_str) = entry.to_str() {
                 if entry.exists() {
                     if !entry_str.ends_with(".node_id") {
-                        let pth: String = entry_str.rsplit('/').take(1).collect();
+                        let pth: String = entry_str.rsplit(MAIN_SEPARATOR).take(1).collect();
+                        log::debug!("Loading Path: {} - {}", pth, entry_str);
+
                         let idx = IndexCatalog::load_index(entry_str)?;
                         self.add_index(&pth, idx.schema()).await?;
                     }

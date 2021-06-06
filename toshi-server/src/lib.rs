@@ -40,14 +40,14 @@ pub fn setup_logging_from_file(path: &str) -> Result<Logger> {
 
 #[cfg(debug_assertions)]
 pub fn setup_logging_from_file(_: &str) -> Result<Logger> {
-    use slog::{Drain, Level};
-    let decorator = slog_term::TermDecorator::new().stdout().build();
-    let format = slog_term::FullFormat::new(decorator)
-        .use_local_timestamp()
-        .use_original_order()
+    use sloggers::types::*;
+    use sloggers::Build;
+    let log = sloggers::terminal::TerminalLoggerBuilder::new()
+        .format(Format::Full)
+        .level(Severity::Info)
+        .timezone(TimeZone::Local)
         .build()
-        .fuse();
-    let sink = slog_async::Async::new(format).build().filter_level(Level::Info).fuse();
-    let filter = slog::o!("toshi" => "debug");
-    Ok(Logger::root(sink, filter))
+        .map_err(anyhow::Error::from)?;
+
+    Ok(log)
 }
