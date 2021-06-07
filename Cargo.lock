@@ -188,7 +188,7 @@ checksum = "795da110643104aae7631f8b78e99e5f6be41c51016c38decf81155470601d62"
 dependencies = [
  "jieba-rs",
  "log",
- "tantivy",
+ "tantivy 0.14.0",
 ]
 
 [[package]]
@@ -528,6 +528,12 @@ dependencies = [
  "log",
  "rand 0.7.3",
 ]
+
+[[package]]
+name = "fastdivide"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4a99a2d53cf90642500986ad22e5083b09e42d44c408f5f112e2a4a0925a643c"
 
 [[package]]
 name = "fastrand"
@@ -977,6 +983,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "itertools"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "37d572918e350e82412fe766d24b15e6682fb2ed2bbe018280caa810397cb319"
+dependencies = [
+ "either",
+]
+
+[[package]]
 name = "itoa"
 version = "0.4.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1110,6 +1125,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f374d42cdfc1d7dbf3d3dec28afab2eb97ffbf43a3234d795b5986dbf4b90ba"
 dependencies = [
  "hashbrown 0.9.1",
+]
+
+[[package]]
+name = "lz4_flex"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "40a324bf6726b3393137a183c8b904dc9b9ee9cf2c2682a0402e3ba9ea35a18f"
+dependencies = [
+ "twox-hash",
 ]
 
 [[package]]
@@ -1583,7 +1607,7 @@ checksum = "32d3ebd75ac2679c2af3a92246639f9fcc8a442ee420719cc4fe195b98dd5fa3"
 dependencies = [
  "bytes",
  "heck",
- "itertools",
+ "itertools 0.9.0",
  "log",
  "multimap",
  "petgraph",
@@ -1600,7 +1624,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "169a15f3008ecb5160cba7d37bcd690a7601b6d30cfb87a117d45e59d52af5d4"
 dependencies = [
  "anyhow",
- "itertools",
+ "itertools 0.9.0",
  "proc-macro2",
  "quote",
  "syn",
@@ -2317,12 +2341,63 @@ dependencies = [
  "snap",
  "stable_deref_trait",
  "tantivy-fst",
- "tantivy-query-grammar",
+ "tantivy-query-grammar 0.14.0",
  "tempfile",
  "thiserror",
  "uuid",
  "winapi",
 ]
+
+[[package]]
+name = "tantivy"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "80d9c498d5cc0f6019931e1624bd5e9e1e5fd1f9eb8e1f71886c8fa6b2fd13cb"
+dependencies = [
+ "base64",
+ "bitpacking",
+ "byteorder",
+ "census",
+ "chrono",
+ "crc32fast",
+ "crossbeam",
+ "downcast-rs",
+ "fail",
+ "fastdivide",
+ "fnv",
+ "fs2",
+ "futures",
+ "htmlescape",
+ "itertools 0.10.0",
+ "levenshtein_automata",
+ "log",
+ "lru",
+ "lz4_flex",
+ "memmap",
+ "murmurhash32",
+ "num_cpus",
+ "once_cell",
+ "rayon",
+ "regex",
+ "rust-stemmers",
+ "serde 1.0.126",
+ "serde_json",
+ "smallvec",
+ "stable_deref_trait",
+ "tantivy-bitpacker",
+ "tantivy-fst",
+ "tantivy-query-grammar 0.15.0",
+ "tempfile",
+ "thiserror",
+ "uuid",
+ "winapi",
+]
+
+[[package]]
+name = "tantivy-bitpacker"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e6695277b60137e29c16549f30fdb68c57638bcda9a4a18e75f342636c2b3e4b"
 
 [[package]]
 name = "tantivy-fst"
@@ -2340,6 +2415,15 @@ name = "tantivy-query-grammar"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "70864085b31ecd5af8f53a76506440ece1c426d187f3d72f4b722e238d2ce19a"
+dependencies = [
+ "combine",
+]
+
+[[package]]
+name = "tantivy-query-grammar"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "466e0218472a9b276a73e38b2571ac02f9a1b270b4481c9cd8cc23a63d1307e9"
 dependencies = [
  "combine",
 ]
@@ -2585,7 +2669,7 @@ dependencies = [
  "isahc",
  "serde 1.0.126",
  "serde_json",
- "tantivy",
+ "tantivy 0.15.0",
  "thiserror",
  "tokio",
  "toshi-types",
@@ -2622,7 +2706,7 @@ dependencies = [
  "serde 1.0.126",
  "serde_json",
  "slog",
- "tantivy",
+ "tantivy 0.15.0",
  "tokio",
  "tonic",
  "toshi-proto",
@@ -2656,7 +2740,7 @@ dependencies = [
  "slog-stdlog",
  "sloggers",
  "structopt",
- "tantivy",
+ "tantivy 0.15.0",
  "thiserror",
  "tokio",
  "tokio-test",
@@ -2680,7 +2764,7 @@ dependencies = [
  "serde 1.0.126",
  "serde_json",
  "slog",
- "tantivy",
+ "tantivy 0.15.0",
  "thiserror",
  "tokio",
  "toml",
@@ -2818,6 +2902,16 @@ dependencies = [
  "thiserror",
  "url",
  "utf-8",
+]
+
+[[package]]
+name = "twox-hash"
+version = "1.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "04f8ab788026715fa63b31960869617cba39117e520eb415b0139543e325ab59"
+dependencies = [
+ "cfg-if 0.1.10",
+ "static_assertions",
 ]
 
 [[package]]
