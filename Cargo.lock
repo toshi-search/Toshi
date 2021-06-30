@@ -2736,7 +2736,6 @@ dependencies = [
  "toml",
  "tonic",
  "toshi",
- "toshi-proto",
  "toshi-types",
  "tower-util",
 ]
