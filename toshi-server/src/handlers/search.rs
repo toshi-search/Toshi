@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use hyper::body::to_bytes;
 use hyper::Response;
 use hyper::{Body, StatusCode};
@@ -7,28 +9,24 @@ use toshi_types::*;
 
 use crate::handlers::ResponseFuture;
 use crate::utils::{empty_with_code, with_body};
-use crate::SearchResults;
-use std::sync::Arc;
-
-#[inline]
-pub fn fold_results(results: Vec<SearchResults>, limit: usize) -> SearchResults {
-    results.into_iter().take(limit).sum()
-}
 
 pub async fn doc_search<C: Catalog>(catalog: Arc<C>, body: Body, index: &str) -> ResponseFuture {
     let b = to_bytes(body).await?;
-    let req = serde_json::from_slice::<Search>(&b).unwrap();
-    let req = if req.query.is_none() { Search::all_limit(req.limit) } else { req };
-
-    if catalog.exists(index) {
-        info!("Query: {:?}", req);
-        let index = catalog.get_index(index).unwrap();
-        match index.search_index(req).await {
-            Ok(results) => Ok(with_body(results)),
-            Err(e) => Ok(Response::from(e)),
+    match serde_json::from_slice::<Search>(&b) {
+        Ok(req) => {
+            let req = if req.query.is_none() { Search::all_limit(req.limit) } else { req };
+            if catalog.exists(index) {
+                info!("Query: {:?}", req);
+                let index = catalog.get_index(index).unwrap(); // If this unwrap fails, this is a bug.
+                match index.search_index(req).await {
+                    Ok(results) => Ok(with_body(results)),
+                    Err(e) => Ok(Response::from(e)),
+                }
+            } else {
+                Ok(empty_with_code(StatusCode::NOT_FOUND))
+            }
         }
-    } else {
-        Ok(empty_with_code(StatusCode::NOT_FOUND))
+        Err(err) => Ok(Response::from(Error::QueryError(format!("Bad JSON Query: {}", err)))),
     }
 }
 
@@ -39,7 +37,6 @@ pub async fn all_docs<C: Catalog>(catalog: Arc<C>, index: &str) -> ResponseFutur
 
 #[cfg(test)]
 pub mod tests {
-
     use std::sync::Arc;
 
     use hyper::Body;
@@ -50,7 +47,6 @@ pub mod tests {
     use crate::commit::tests::*;
     use crate::handlers::{doc_search, ResponseFuture};
     use crate::index::create_test_catalog;
-
     use crate::SearchResults;
 
     type ReturnUnit = Result<(), Box<dyn std::error::Error>>;

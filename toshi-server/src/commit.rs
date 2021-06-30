@@ -38,7 +38,7 @@ pub mod tests {
     use super::*;
     use http::Response;
     use serde::de::DeserializeOwned;
-    use tantivy::schema::{Facet, SchemaBuilder, INDEXED, STORED, TEXT};
+    use tantivy::schema::*;
     use tantivy::{doc, Index};
 
     pub fn create_test_index() -> Index {
@@ -47,7 +47,7 @@ pub mod tests {
         let test_int = builder.add_i64_field("test_i64", STORED | INDEXED);
         let test_unsign = builder.add_u64_field("test_u64", STORED | INDEXED);
         let test_unindexed = builder.add_text_field("test_unindex", STORED);
-        let test_facet = builder.add_facet_field("test_facet");
+        let test_facet = builder.add_facet_field("test_facet", INDEXED | STORED);
 
         let schema = builder.build();
         let idx = Index::create_in_ram(schema);

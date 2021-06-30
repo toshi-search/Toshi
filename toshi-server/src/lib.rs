@@ -8,7 +8,7 @@ use slog::Logger;
 
 use toshi_types::FlatNamedDocument;
 
-use crate::index::{IndexCatalog, SharedCatalog};
+use crate::index::IndexCatalog;
 use crate::settings::Settings;
 
 pub mod commit;
@@ -23,6 +23,7 @@ pub mod utils;
 pub type Result<T> = std::result::Result<T, toshi_types::Error>;
 pub type AddDocument = toshi_types::AddDocument<serde_json::Value>;
 pub type SearchResults = toshi_types::SearchResults<FlatNamedDocument>;
+pub type SharedCatalog = Arc<IndexCatalog>;
 
 pub fn setup_catalog(settings: &Settings) -> SharedCatalog {
     let index_catalog = IndexCatalog::new(settings.clone()).unwrap();
@@ -64,7 +65,7 @@ pub fn register_tokenizers(idx: tantivy::Index) -> tantivy::Index {
     });
     if has_tokenizer.is_some() {
         let tokenizer = cang_jie::CangJieTokenizer::default();
-        idx.tokenizers().register(cang_jie::CANG_JIE, tokenizer)
+        idx.tokenizers().register(cang_jie::CANG_JIE, &tokenizer)
     }
     idx
 }

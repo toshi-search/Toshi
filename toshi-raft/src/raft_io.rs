@@ -55,7 +55,7 @@ impl RaftIO {
     }
 
     pub fn run(self, endpoint: String) -> Result<(), Box<dyn std::error::Error>> {
-        let (sock, _) = self.controller.listen(Transport::Tcp, &endpoint)?;
+        let (_, _) = self.controller.listen(Transport::Tcp, &endpoint)?;
 
         Ok(())
     }

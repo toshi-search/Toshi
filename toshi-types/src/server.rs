@@ -75,7 +75,7 @@ mod tests {
         builder.add_i64_field("test_i64", STORED | INDEXED | FAST);
         builder.add_u64_field("test_u64", STORED | INDEXED);
         builder.add_text_field("test_unindex", STORED);
-        builder.add_facet_field("test_facet");
+        builder.add_facet_field("test_facet", FacetOptions::default());
         builder.add_date_field("test_date", INDEXED | FAST);
         let schema = SchemaBody(builder.build());
 

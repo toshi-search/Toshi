@@ -194,7 +194,7 @@ impl Settings {
                 let mut mp = LogMergePolicy::default();
                 mp.set_level_log_size(self.merge_policy.level_log_size);
                 mp.set_min_layer_size(self.merge_policy.min_layer_size);
-                mp.set_min_merge_size(self.merge_policy.min_merge_size);
+                mp.set_max_docs_before_merge(self.merge_policy.min_merge_size);
                 Box::new(mp)
             }
             MergePolicyType::NoMerge => Box::new(NoMergePolicy::default()),

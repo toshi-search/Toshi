@@ -1,7 +1,6 @@
 use std::clone::Clone;
 use std::fs;
 use std::path::{PathBuf, MAIN_SEPARATOR};
-use std::sync::Arc;
 
 use dashmap::DashMap;
 use tantivy::schema::Schema;
@@ -12,8 +11,6 @@ use toshi_types::{Catalog, Error};
 use crate::handle::LocalIndex;
 use crate::settings::Settings;
 use crate::Result;
-
-pub type SharedCatalog = Arc<IndexCatalog>;
 
 pub struct IndexCatalog {
     settings: Settings,
@@ -52,7 +49,7 @@ impl Catalog for IndexCatalog {
     }
 
     async fn list_indexes(&self) -> Vec<String> {
-        let mut local_keys = self.local_handles.iter().map(|e| e.key().to_owned()).collect::<Vec<String>>();
+        let mut local_keys: Vec<String> = self.local_handles.iter().map(|e| e.key().to_owned()).collect();
         local_keys.sort();
         local_keys.dedup();
         local_keys
@@ -156,8 +153,8 @@ impl IndexCatalog {
 }
 
 #[cfg(test)]
-pub fn create_test_catalog(name: &str) -> SharedCatalog {
+pub fn create_test_catalog(name: &str) -> crate::SharedCatalog {
     let idx = crate::commit::tests::create_test_index();
     let catalog = IndexCatalog::with_index(name.into(), idx).unwrap();
-    Arc::new(catalog)
+    std::sync::Arc::new(catalog)
 }
