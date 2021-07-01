@@ -56,10 +56,10 @@ impl Catalog for IndexCatalog {
     }
 
     fn get_index(&self, name: &str) -> Result<Self::Handle> {
-        self.local_handles
-            .get(name)
-            .map(|r| r.value().to_owned())
-            .ok_or_else(|| Error::UnknownIndex(name.into()))
+        self.local_handles.get(name).map(|r| r.value().to_owned()).ok_or_else(|| {
+            let _ = &name;
+            Error::UnknownIndex(name.into())
+        })
     }
 
     fn exists(&self, index: &str) -> bool {

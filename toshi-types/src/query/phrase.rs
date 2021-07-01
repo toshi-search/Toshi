@@ -59,7 +59,7 @@ impl CreateQuery for PhraseQuery {
                 .terms
                 .iter()
                 .zip(offsets)
-                .map(|(t, o)| match make_field_value(schema, &field, &t) {
+                .map(|(t, o)| match make_field_value(schema, &field, t) {
                     Ok(f) => Ok((*o, f)),
                     Err(e) => Err(e),
                 })

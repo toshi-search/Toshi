@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use std::net::SocketAddr;
 
 use dashmap::DashMap;
@@ -62,7 +63,7 @@ impl RaftIO {
     fn process_event(&mut self, msg: NetEvent) {
         match msg {
             NetEvent::Message(ep, payload) => {
-                let msg = bincode::deserialize::<RaftEvents>(&payload).unwrap();
+                let msg = bincode::deserialize::<RaftEvents>(payload).unwrap();
                 match msg {
                     RaftEvents::JoinCluster(id) => self.join_cluster(id, ep.addr()),
                 }

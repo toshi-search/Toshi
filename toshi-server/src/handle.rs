@@ -97,7 +97,7 @@ impl IndexHandle for LocalIndex {
 
         let top_handle = multi_collector.add_collector(TopDocs::with_limit(search.limit));
         let facet_handle = search.facets.clone().and_then(|f| {
-            if let Some(field) = schema.get_field(&f.get_facets_fields()) {
+            if let Some(field) = schema.get_field(f.get_facets_fields()) {
                 let mut col = FacetCollector::for_field(field);
                 for term in f.get_facets_values() {
                     col.add_facet(&term);

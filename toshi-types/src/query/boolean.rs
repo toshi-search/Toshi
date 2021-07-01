@@ -64,11 +64,11 @@ fn parse_queries(schema: &Schema, occur: Occur, queries: Vec<Query>) -> Result<V
     queries
         .into_iter()
         .map(|q| match q {
-            Query::Fuzzy(f) => Ok((occur, f.create_query(&schema)?)),
-            Query::Exact(q) => Ok((occur, q.create_query(&schema)?)),
-            Query::Range(r) => Ok((occur, r.create_query(&schema)?)),
-            Query::Phrase(p) => Ok((occur, p.create_query(&schema)?)),
-            Query::Regex(r) => Ok((occur, r.create_query(&schema)?)),
+            Query::Fuzzy(f) => Ok((occur, f.create_query(schema)?)),
+            Query::Exact(q) => Ok((occur, q.create_query(schema)?)),
+            Query::Range(r) => Ok((occur, r.create_query(schema)?)),
+            Query::Phrase(p) => Ok((occur, p.create_query(schema)?)),
+            Query::Regex(r) => Ok((occur, r.create_query(schema)?)),
             _ => Err(Error::QueryError("Invalid type for boolean query".into())),
         })
         .collect::<Result<Vec<(Occur, Box<dyn TQuery>)>>>()
