@@ -2338,9 +2338,9 @@ dependencies = [
 
 [[package]]
 name = "tantivy"
-version = "0.15.2"
+version = "0.15.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e45451287b44d9e136814f99e414fc67a8939c87d674c30008456a8aba1d4768"
+checksum = "3ba3f306fc641b31e8cfbd5739ade0d1c745791a635909b4bddb85f8333b8dbd"
 dependencies = [
  "base64",
  "bitpacking",
@@ -2658,7 +2658,7 @@ dependencies = [
  "isahc",
  "serde 1.0.126",
  "serde_json",
- "tantivy 0.15.2",
+ "tantivy 0.15.3",
  "thiserror",
  "tokio",
  "toshi-types",
@@ -2695,7 +2695,7 @@ dependencies = [
  "serde 1.0.126",
  "serde_json",
  "slog",
- "tantivy 0.15.2",
+ "tantivy 0.15.3",
  "tokio",
  "tonic",
  "toshi-proto",
@@ -2729,7 +2729,7 @@ dependencies = [
  "slog-stdlog",
  "sloggers",
  "structopt",
- "tantivy 0.15.2",
+ "tantivy 0.15.3",
  "thiserror",
  "tokio",
  "tokio-test",
@@ -2752,7 +2752,7 @@ dependencies = [
  "serde 1.0.126",
  "serde_json",
  "slog",
- "tantivy 0.15.2",
+ "tantivy 0.15.3",
  "thiserror",
  "tokio",
  "toml",
