@@ -48,7 +48,7 @@ features = ["json"]
 optional = true
 
 [dependencies.hyper]
-version = "^0.14.8"
+version = "^0.14.10"
 features = ["stream"]
 optional = true
 
