@@ -9,7 +9,7 @@ edition = "2018"
 build = "build.rs"
 
 [build-dependencies]
-tonic-build       = "^0.4"
+tonic-build       = "^0.5"
 
 [dependencies]
 tonic        = "^0.4"
