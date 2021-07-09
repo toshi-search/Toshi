@@ -21,7 +21,7 @@ tokio       = { version = "^1", features = ["sync"] }
 toml        = "^0.5"
 
 [dependencies.tonic]
-version  = "^0.4"
+version  = "^0.5"
 optional = true
 
 [dependencies.hyper]
