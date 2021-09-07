@@ -15,6 +15,6 @@ tonic-build       = "^0.4"
 tonic        = "^0.4"
 bytes        = "^1"
 prost        = "^0.8"
-prost-types  = "^0.7"
+prost-types  = "^0.8"
 prost-derive = "^0.8"
 raft         = { git = "https://github.com/tikv/raft-rs", default-features = false, features = ["prost-codec"] }
