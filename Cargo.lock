@@ -182,13 +182,13 @@ checksum = "631ae5198c9be5e753e5cc215e1bd73c2b466a3565173db433f52bb9d3e66dba"
 
 [[package]]
 name = "cang-jie"
-version = "0.11.1"
+version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "795da110643104aae7631f8b78e99e5f6be41c51016c38decf81155470601d62"
+checksum = "fae2f8ae2d608041efd6a78c872c12f28c31e99cad0417a6ddb9a2ef541a220b"
 dependencies = [
  "jieba-rs",
  "log",
- "tantivy 0.14.0",
+ "tantivy",
 ]
 
 [[package]]
@@ -999,9 +999,9 @@ checksum = "dd25036021b0de88a0aff6b850051563c6516d0bf53f8638938edbb9de732736"
 
 [[package]]
 name = "jieba-rs"
-version = "0.6.4"
+version = "0.6.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fea3b3172a80f9958abc3b9a637e4e311cd696dc6813440e5cc929b8a5311055"
+checksum = "94287627d13ab7b943787ab20b54b37f8af11179ce85de4734071c88f9eab354"
 dependencies = [
  "cedarwood",
  "fxhash",
@@ -1408,18 +1408,18 @@ dependencies = [
 
 [[package]]
 name = "phf"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3dfb61232e34fcb633f43d12c58f83c1df82962dcdfa565a4e866ffc17dafe12"
+checksum = "b2ac8b67553a7ca9457ce0e526948cad581819238f4a9d1ea74545851fa24f37"
 dependencies = [
  "phf_shared",
 ]
 
 [[package]]
 name = "phf_codegen"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cbffee61585b0411840d3ece935cce9cb6321f01c45477d30066498cd5e1a815"
+checksum = "963adb11cf22ee65dfd401cf75577c1aa0eca58c0b97f9337d2da61d3e640503"
 dependencies = [
  "phf_generator",
  "phf_shared",
@@ -1427,19 +1427,19 @@ dependencies = [
 
 [[package]]
 name = "phf_generator"
-version = "0.8.0"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "17367f0cc86f2d25802b2c26ee58a7b23faeccf78a396094c13dced0d0182526"
+checksum = "d43f3220d96e0080cc9ea234978ccd80d904eafb17be31bb0f76daaea6493082"
 dependencies = [
  "phf_shared",
- "rand 0.7.3",
+ "rand 0.8.4",
 ]
 
 [[package]]
 name = "phf_shared"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c00cf8b9eafe68dde5e9eaa2cef8ee84a9336a47d566ec55ca16589633b65af7"
+checksum = "a68318426de33640f02be62b4ae8eb1261be2efbc337b60c54d845bf4484e0d9"
 dependencies = [
  "siphasher",
 ]
@@ -1706,7 +1706,6 @@ dependencies = [
  "rand_chacha 0.2.2",
  "rand_core 0.5.1",
  "rand_hc 0.2.0",
- "rand_pcg",
 ]
 
 [[package]]
@@ -1775,15 +1774,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d51e9f596de227fda2ea6c84607f5558e196eeaf43c986b724ba4fb8fdf497e7"
 dependencies = [
  "rand_core 0.6.3",
-]
-
-[[package]]
-name = "rand_pcg"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "16abd0c1b639e9eb4d7c50c0b8100b0d0f849be2349829c740fe8e6eb4816429"
-dependencies = [
- "rand_core 0.5.1",
 ]
 
 [[package]]
@@ -2195,12 +2185,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fe0f37c9e8f3c5a4a66ad655a93c74daac4ad00c441533bf5c6e7990bb42604e"
 
 [[package]]
-name = "snap"
-version = "1.0.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "45456094d1983e2ee2a18fdfebce3189fa451699d0502cb8e3b49dba5ba41451"
-
-[[package]]
 name = "socket2"
 version = "0.3.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2309,48 +2293,6 @@ checksum = "f764005d11ee5f36500a149ace24e00e3da98b0158b3e2d53a7495660d3f4d60"
 
 [[package]]
 name = "tantivy"
-version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "edca90bddda472f39fdc74a031d61d52b08b1de97f2a704afae726a8004abb0d"
-dependencies = [
- "base64",
- "bitpacking",
- "byteorder",
- "census",
- "chrono",
- "crc32fast",
- "crossbeam",
- "downcast-rs",
- "fail",
- "fnv",
- "fs2",
- "futures",
- "htmlescape",
- "levenshtein_automata",
- "log",
- "lru",
- "memmap",
- "murmurhash32",
- "num_cpus",
- "once_cell",
- "rayon",
- "regex",
- "rust-stemmers",
- "serde 1.0.126",
- "serde_json",
- "smallvec",
- "snap",
- "stable_deref_trait",
- "tantivy-fst",
- "tantivy-query-grammar 0.14.0",
- "tempfile",
- "thiserror",
- "uuid",
- "winapi",
-]
-
-[[package]]
-name = "tantivy"
 version = "0.15.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3ba3f306fc641b31e8cfbd5739ade0d1c745791a635909b4bddb85f8333b8dbd"
@@ -2387,7 +2329,7 @@ dependencies = [
  "stable_deref_trait",
  "tantivy-bitpacker",
  "tantivy-fst",
- "tantivy-query-grammar 0.15.0",
+ "tantivy-query-grammar",
  "tempfile",
  "thiserror",
  "uuid",
@@ -2409,15 +2351,6 @@ dependencies = [
  "byteorder",
  "regex-syntax 0.4.2",
  "utf8-ranges",
-]
-
-[[package]]
-name = "tantivy-query-grammar"
-version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "70864085b31ecd5af8f53a76506440ece1c426d187f3d72f4b722e238d2ce19a"
-dependencies = [
- "combine",
 ]
 
 [[package]]
@@ -2671,7 +2604,7 @@ dependencies = [
  "isahc",
  "serde 1.0.126",
  "serde_json",
- "tantivy 0.15.3",
+ "tantivy",
  "thiserror",
  "tokio",
  "toshi-types",
@@ -2708,7 +2641,7 @@ dependencies = [
  "serde 1.0.126",
  "serde_json",
  "slog",
- "tantivy 0.15.3",
+ "tantivy",
  "tokio",
  "tonic",
  "toshi-proto",
@@ -2742,7 +2675,7 @@ dependencies = [
  "slog-stdlog",
  "sloggers",
  "structopt",
- "tantivy 0.15.3",
+ "tantivy",
  "thiserror",
  "tokio",
  "tokio-test",
@@ -2765,7 +2698,7 @@ dependencies = [
  "serde 1.0.126",
  "serde_json",
  "slog",
- "tantivy 0.15.3",
+ "tantivy",
  "thiserror",
  "tokio",
  "toml",
