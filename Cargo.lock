@@ -536,6 +536,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4a99a2d53cf90642500986ad22e5083b09e42d44c408f5f112e2a4a0925a643c"
 
 [[package]]
+name = "fastfield_codecs"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bb0e8bfa31546b4ace05092c9db8d251d7bbc298a384875a08c945a473de4f1f"
+dependencies = [
+ "tantivy-bitpacker",
+ "tantivy-common",
+]
+
+[[package]]
 name = "fastrand"
 version = "1.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1143,6 +1153,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7ffc5c5338469d4d3ea17d269fa8ea3512ad247247c30bd2df69e68309ed0a08"
 
 [[package]]
+name = "measure_time"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c68c8a1703dd54ab3307c03401e8b6c42121b67501dd6c6deb5077914ccb8085"
+dependencies = [
+ "log",
+]
+
+[[package]]
 name = "memchr"
 version = "2.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1156,6 +1175,15 @@ checksum = "6585fd95e7bb50d6cc31e20d4cf9afb4e2ba16c5846fc76793f11218da9c475b"
 dependencies = [
  "libc",
  "winapi",
+]
+
+[[package]]
+name = "memmap2"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "00b6c2ebff6180198788f5db08d7ce3bc1d0b617176678831a7510825973e357"
+dependencies = [
+ "libc",
 ]
 
 [[package]]
@@ -1357,6 +1385,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "53cdc5b785b7a58c5aad8216b3dfa114df64b0b06ae6e1501cef91df2fbdf8f9"
 dependencies = [
  "winapi",
+]
+
+[[package]]
+name = "ownedbytes"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cc63b0786f6b95cba13bd1d6aea49ad1f595dc4d859305ac123de251575219ed"
+dependencies = [
+ "stable_deref_trait",
 ]
 
 [[package]]
@@ -2361,9 +2398,9 @@ dependencies = [
 
 [[package]]
 name = "tantivy"
-version = "0.15.3"
+version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3ba3f306fc641b31e8cfbd5739ade0d1c745791a635909b4bddb85f8333b8dbd"
+checksum = "5c03ca80d471a132ea427a11a491ea33d2baaf554ae82ed24c7e720f84fcd0bc"
 dependencies = [
  "base64",
  "bitpacking",
@@ -2375,6 +2412,7 @@ dependencies = [
  "downcast-rs",
  "fail",
  "fastdivide",
+ "fastfield_codecs",
  "fnv",
  "fs2",
  "futures",
@@ -2384,10 +2422,12 @@ dependencies = [
  "log",
  "lru",
  "lz4_flex",
- "memmap",
+ "measure_time",
+ "memmap2",
  "murmurhash32",
  "num_cpus",
  "once_cell",
+ "ownedbytes",
  "rayon",
  "regex",
  "rust-stemmers",
@@ -2396,6 +2436,7 @@ dependencies = [
  "smallvec",
  "stable_deref_trait",
  "tantivy-bitpacker",
+ "tantivy-common",
  "tantivy-fst",
  "tantivy-query-grammar 0.15.0",
  "tempfile",
@@ -2406,9 +2447,18 @@ dependencies = [
 
 [[package]]
 name = "tantivy-bitpacker"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "66d10a5ed75437a4f6bbbba67601cd5adab8d71f5188b677055381f0f36064f2"
+
+[[package]]
+name = "tantivy-common"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e6695277b60137e29c16549f30fdb68c57638bcda9a4a18e75f342636c2b3e4b"
+checksum = "760e44073e328f4ea3f38660da9ba2598a19ad5ad4149cfb89ad89b4d5ee88d9"
+dependencies = [
+ "byteorder",
+]
 
 [[package]]
 name = "tantivy-fst"
@@ -2681,7 +2731,7 @@ dependencies = [
  "isahc",
  "serde 1.0.126",
  "serde_json",
- "tantivy 0.15.3",
+ "tantivy 0.16.0",
  "thiserror",
  "tokio",
  "toshi-types",
@@ -2718,7 +2768,7 @@ dependencies = [
  "serde 1.0.126",
  "serde_json",
  "slog",
- "tantivy 0.15.3",
+ "tantivy 0.16.0",
  "tokio",
  "tonic",
  "toshi-proto",
@@ -2752,7 +2802,7 @@ dependencies = [
  "slog-stdlog",
  "sloggers",
  "structopt",
- "tantivy 0.15.3",
+ "tantivy 0.16.0",
  "thiserror",
  "tokio",
  "tokio-test",
@@ -2775,7 +2825,7 @@ dependencies = [
  "serde 1.0.126",
  "serde_json",
  "slog",
- "tantivy 0.15.3",
+ "tantivy 0.16.0",
  "thiserror",
  "tokio",
  "toml",

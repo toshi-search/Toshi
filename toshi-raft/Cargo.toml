@@ -18,7 +18,7 @@ http = "^0.2"
 dashmap = "^4"
 tonic = "^0.4"
 prost = "^0.8"
-tantivy = "^0.15"
+tantivy = "^0.16"
 slog = "^2.7"
 serde_json = "^1.0"
 tokio = { version = "^1", features = ["full", "parking_lot"] }
