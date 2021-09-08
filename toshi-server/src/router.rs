@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Method, Request, Response, Server};
+
 use log::*;
 use tower_util::BoxService;
 
