@@ -1693,7 +1693,7 @@ dependencies = [
 [[package]]
 name = "raft"
 version = "0.6.0"
-source = "git+https://github.com/tikv/raft-rs#7c21f8d12f2043c43004fca48861568db7c76bd9"
+source = "git+https://github.com/tikv/raft-rs#74d3bb58f19741cecc16698008103a446559837d"
 dependencies = [
  "fxhash",
  "getset",
@@ -1707,7 +1707,7 @@ dependencies = [
 [[package]]
 name = "raft-proto"
 version = "0.6.0"
-source = "git+https://github.com/tikv/raft-rs#7c21f8d12f2043c43004fca48861568db7c76bd9"
+source = "git+https://github.com/tikv/raft-rs#74d3bb58f19741cecc16698008103a446559837d"
 dependencies = [
  "lazy_static",
  "prost 0.7.0",
