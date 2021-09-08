@@ -6,7 +6,6 @@ use std::time::Instant;
 use toshi_types::*;
 
 use crate::handlers::ResponseFuture;
-use crate::router::QueryOptions;
 use crate::utils::{empty_with_code, with_body};
 use std::sync::Arc;
 
@@ -17,8 +16,7 @@ struct FlushResponse {
 
 pub async fn index_summary<C: Catalog>(catalog: Arc<C>, index: &str, options: QueryOptions) -> ResponseFuture {
     let start = Instant::now();
-    if catalog.exists(index) {
-        let index = catalog.get_index(index).unwrap();
+    if let Ok(index) = catalog.get_index(index) {
         let metas = index.get_index().load_metas().unwrap();
         let summary = if options.include_sizes() {
             SummaryResponse::new(metas, Some(index.get_space()))
@@ -35,8 +33,7 @@ pub async fn index_summary<C: Catalog>(catalog: Arc<C>, index: &str, options: Qu
 }
 
 pub async fn flush<C: Catalog>(catalog: Arc<C>, index: &str) -> ResponseFuture {
-    if catalog.exists(index) {
-        let local_index = catalog.get_index(index).unwrap();
+    if let Ok(local_index) = catalog.get_index(index) {
         let writer = local_index.get_writer();
         let mut write = writer.lock().await;
         let opstamp = write.commit().unwrap();

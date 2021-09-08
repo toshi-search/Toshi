@@ -24,6 +24,40 @@ pub(crate) mod range;
 pub(crate) mod regex;
 pub(crate) mod term;
 
+/// Additional Options for results returned from queries
+#[derive(Deserialize, Debug, Default)]
+pub struct QueryOptions {
+    pretty: Option<bool>,
+    include_sizes: Option<bool>,
+}
+
+impl QueryOptions {
+    ///
+    ///
+    /// # Arguments
+    ///
+    /// * `pretty`: format return JSON
+    /// * `include_sizes`: include index sizes
+    ///
+    /// returns: QueryOptions
+    ///
+    pub fn new(pretty: Option<bool>, include_sizes: Option<bool>) -> Self {
+        QueryOptions { pretty, include_sizes }
+    }
+
+    /// Include Index sizes or not
+    #[inline]
+    pub fn include_sizes(&self) -> bool {
+        self.include_sizes.unwrap_or(false)
+    }
+
+    /// Format return JSON
+    #[inline]
+    pub fn pretty(&self) -> bool {
+        self.pretty.unwrap_or(false)
+    }
+}
+
 /// Trait that generically represents Tantivy queries
 pub trait CreateQuery {
     /// Consume the implementing struct to generate a Tantivy query
@@ -100,7 +134,7 @@ impl Search {
     }
 
     /// Construct a search with a known Query
-    pub fn with_query(query: Query) -> Self {
+    pub fn from_query(query: Query) -> Self {
         Self::new(Some(query), None, Self::default_limit(), None)
     }
 

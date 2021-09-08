@@ -1,13 +1,14 @@
-#![warn(missing_debug_implementations, missing_docs, rust_2018_idioms, unreachable_pub)]
-
+#![warn(clippy::all)]
 //! Toshi-Types
 //! These are the high level types available in the Toshi search engine.
 //! The client for Toshi as well as Toshi itself is built on top of these types. If you are
 //! looking for Toshi's protobuf types then you will want to look in the toshi-proto module
 //! of Toshi's source code.
 
+use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
+use hyper::{Body, Response};
 use serde_json::Value as SerdeValue;
 use tantivy::schema::Schema;
 use tantivy::space_usage::SearcherSpaceUsage;
@@ -18,7 +19,7 @@ pub use client::{ScoredDoc, SearchResults, SummaryResponse};
 pub use error::{Error, ErrorResponse};
 pub use query::{
     boolean::BoolQuery, facet::FacetQuery, fuzzy::FuzzyQuery, fuzzy::FuzzyTerm, phrase::PhraseQuery, phrase::TermPair, range::RangeQuery,
-    range::Ranges, regex::RegexQuery, term::ExactTerm, CreateQuery, FlatNamedDocument, KeyValue, Query, Search,
+    range::Ranges, regex::RegexQuery, term::ExactTerm, CreateQuery, FlatNamedDocument, KeyValue, Query, QueryOptions, Search,
 };
 pub use server::*;
 
@@ -42,23 +43,11 @@ mod server;
 #[cfg(feature = "extra-errors")]
 mod extra_errors;
 
-/// Determines whether or not the index is local to this machine or if the handle has to go to another
-/// node in order to get it's data.
-#[derive(Debug)]
-pub enum IndexLocation {
-    /// This index is in local storage on this node
-    Local,
-    /// Toshi has to make a request to another server for this index
-    Remote,
-}
-
 /// Defines an interface on how operations are done on indexes inside Toshi
 #[async_trait::async_trait]
 pub trait IndexHandle: Clone {
     /// The human-readable name of the index
     fn get_name(&self) -> String;
-    /// Whether the index is local or remote
-    fn index_location(&self) -> IndexLocation;
     /// Return the underlying index
     fn get_index(&self) -> Index;
     /// Return index writer
@@ -97,6 +86,35 @@ pub trait Catalog: Send + Sync + 'static {
     fn get_index(&self, name: &str) -> Result<Self::Handle>;
     /// Determine if an index exists locally
     fn exists(&self, index: &str) -> bool;
-    /// The current catalog's raft_id
-    fn raft_id(&self) -> u64;
+}
+
+#[allow(missing_docs)]
+#[async_trait::async_trait]
+pub trait Serve<C>
+where
+    C: crate::Catalog,
+{
+    async fn list_indexes(&self, catalog: Arc<C>) -> std::result::Result<Response<Body>, hyper::Error>;
+
+    async fn create_index(catalog: Arc<C>, body: Body, idx: &str) -> std::result::Result<Response<Body>, hyper::Error>;
+
+    async fn index_summary(catalog: Arc<C>, idx: &str, options: QueryOptions) -> std::result::Result<Response<Body>, hyper::Error>;
+
+    async fn flush(catalog: Arc<C>, idx: &str) -> std::result::Result<Response<Body>, hyper::Error>;
+
+    async fn bulk_insert(
+        catalog: Arc<C>,
+        watcher: Arc<AtomicBool>,
+        mut body: Body,
+        index: &str,
+        num_threads: usize,
+    ) -> std::result::Result<Response<Body>, hyper::Error>;
+
+    async fn doc_search(catalog: Arc<C>, body: Body, idx: &str) -> std::result::Result<Response<Body>, hyper::Error>;
+
+    async fn add_document(catalog: Arc<C>, body: Body, idx: &str) -> std::result::Result<Response<Body>, hyper::Error>;
+
+    async fn delete_term(catalog: Arc<C>, body: Body, idx: &str) -> std::result::Result<Response<Body>, hyper::Error>;
+
+    async fn all_docs(catalog: Arc<C>, idx: &str) -> std::result::Result<Response<Body>, hyper::Error>;
 }

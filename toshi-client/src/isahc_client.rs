@@ -44,7 +44,12 @@ impl AsyncClient for ToshiClient {
     type Body = isahc::AsyncBody;
 
     async fn index(&self) -> Result<Response<Self::Body>> {
-        self.client.get_async(self.host.clone()).await.map_err(Into::into)
+        self.client.get_async(&self.host).await.map_err(Into::into)
+    }
+
+    async fn list(&self) -> Result<Response<Self::Body>> {
+        let uri = self.uri("");
+        self.client.get_async(uri).await.map_err(Into::into)
     }
 
     async fn index_summary<I>(&self, index: I, include_sizes: bool) -> Result<Response<Self::Body>>

@@ -6,32 +6,14 @@ use std::sync::Arc;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Method, Request, Response, Server};
 use log::*;
-use serde::Deserialize;
-
 use tower_util::BoxService;
 
+use toshi_types::{Catalog, QueryOptions, Serve};
+
 use crate::handlers::*;
+use crate::local_serve::LocalServe;
 use crate::settings::Settings;
 use crate::utils::{not_found, parse_path};
-use toshi_types::Catalog;
-
-#[derive(Deserialize, Debug, Default)]
-pub struct QueryOptions {
-    pub pretty: Option<bool>,
-    pub include_sizes: Option<bool>,
-}
-
-impl QueryOptions {
-    #[inline]
-    pub fn include_sizes(&self) -> bool {
-        self.include_sizes.unwrap_or(false)
-    }
-
-    #[inline]
-    pub fn pretty(&self) -> bool {
-        self.pretty.unwrap_or(false)
-    }
-}
 
 pub type BoxedFn = BoxService<Request<Body>, Response<Body>, hyper::Error>;
 
@@ -44,11 +26,15 @@ pub struct Router<C: Catalog> {
 
 impl<C: Catalog> Router<C> {
     pub fn new(cat: Arc<C>, watcher: Arc<AtomicBool>) -> Self {
-        Self::with_settings(cat, watcher, Settings::default())
+        Self::from_settings(cat, watcher, Settings::default())
     }
 
-    pub fn with_settings(cat: Arc<C>, watcher: Arc<AtomicBool>, settings: Settings) -> Self {
+    pub fn from_settings(cat: Arc<C>, watcher: Arc<AtomicBool>, settings: Settings) -> Self {
         Self { cat, watcher, settings }
+    }
+
+    fn make_serve() -> impl Serve<C> {
+        LocalServe
     }
 
     pub async fn route(
@@ -67,8 +53,10 @@ impl<C: Catalog> Router<C> {
         let method = parts.method;
         let path = parse_path(parts.uri.path());
 
+        let serve = Self::make_serve();
+
         match (&method, &path[..]) {
-            (m, ["_list"]) if m == Method::GET => list::list_indexes(catalog).await,
+            (m, ["_list"]) if m == Method::GET => serve.list_indexes(catalog).await,
             (m, [idx, "_create"]) if m == Method::PUT => create_index(catalog, body, idx).await,
             (m, [idx, "_summary"]) if m == Method::GET => index_summary(catalog, idx, query_options).await,
             (m, [idx, "_flush"]) if m == Method::GET => flush(catalog, idx).await,
@@ -85,7 +73,7 @@ impl<C: Catalog> Router<C> {
                     all_docs(catalog, idx).await
                 }
             }
-            (m, []) if m == Method::GET => root::root().await,
+            (m, []) if m == Method::GET => root().await,
             _ => not_found().await,
         }
     }

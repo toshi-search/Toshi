@@ -68,14 +68,7 @@ async fn setup_catalog(settings: &Settings) -> Result<SharedCatalog, toshi_types
         }
     };
     index_catalog.refresh_catalog().await?;
-    info!(
-        "Indexes: {:?}",
-        index_catalog
-            .get_collection()
-            .iter()
-            .map(|r| r.key().to_owned())
-            .collect::<Vec<String>>()
-    );
+    info!("{} Indexes loaded...", index_catalog.get_collection().len());
     Ok(Arc::new(index_catalog))
 }
 
@@ -92,6 +85,6 @@ fn run_master(catalog: SharedCatalog, settings: Settings) -> impl Future<Output 
 
     tokio::spawn(commit_watcher);
     let watcher_clone = Arc::clone(&bulk_lock);
-    let router = Router::with_settings(catalog, watcher_clone, settings);
+    let router = Router::from_settings(catalog, watcher_clone, settings);
     Box::pin(router.router_with_catalog(bind))
 }

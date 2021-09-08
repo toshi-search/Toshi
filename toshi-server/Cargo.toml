@@ -17,7 +17,6 @@ path = "src/lib.rs"
 extra_tokenizers = ["cang-jie"]
 
 [dependencies]
-#toshi-proto            = { path = "../toshi-proto" }
 toshi-types            = { path = "../toshi-types" }
 http                   = "^0.2"
 bytes                  = "^1"
@@ -26,7 +25,6 @@ serde_json             = "^1.0"
 serde_urlencoded       = "^0.7"
 futures                = "^0.3"
 tower-util             = "^0.3"
-tonic                  = "^0.4"
 tantivy                = "^0.15"
 tokio                  = { version = "^1", features = ["full", "parking_lot"] }
 async-trait            = "^0.1"

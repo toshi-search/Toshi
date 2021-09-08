@@ -1,10 +1,10 @@
 [workspace]
 members = [
     "toshi-server",
-    "toshi-proto",
+#    "toshi-proto",
     "toshi-client",
     "toshi-types",
-    "toshi-raft"
+#    "toshi-raft"
 ]
 
 [profile.dev.package."*"]

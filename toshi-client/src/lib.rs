@@ -30,6 +30,8 @@ pub trait AsyncClient {
 
     async fn index(&self) -> Result<Response<Self::Body>>;
 
+    async fn list(&self) -> Result<Response<Self::Body>>;
+
     async fn index_summary<I>(&self, index: I, include_sizes: bool) -> Result<Response<Self::Body>>
     where
         I: ToString + Send + Sync + Display;

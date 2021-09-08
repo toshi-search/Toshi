@@ -13,7 +13,7 @@ pub struct Wiki {
 pub async fn main() -> Result<()> {
     let c = ToshiClient::new("http://localhost:8080");
     let query = Query::Exact(ExactTerm::with_term("body", "born"));
-    let search = Search::with_query(query);
+    let search = Search::from_query(query);
     let _docs: SearchResults<Wiki> = c.search("wiki", search).await?;
 
     Ok(())

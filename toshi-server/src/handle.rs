@@ -47,10 +47,6 @@ impl IndexHandle for LocalIndex {
         self.name.clone()
     }
 
-    fn index_location(&self) -> IndexLocation {
-        IndexLocation::Local
-    }
-
     fn get_index(&self) -> Index {
         self.index.clone()
     }
@@ -244,7 +240,7 @@ impl LocalIndex {
         })
     }
 
-    pub(crate) fn with_existing(name: String, index: Index) -> Result<Self> {
+    pub(crate) fn from_existing(name: String, index: Index) -> Result<Self> {
         let i = index.writer(DEFAULT_WRITER_MEMORY)?;
         i.set_merge_policy(Settings::default().get_merge_policy());
         let current_opstamp = Arc::new(AtomicUsize::new(0));

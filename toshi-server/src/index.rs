@@ -65,10 +65,6 @@ impl Catalog for IndexCatalog {
     fn exists(&self, index: &str) -> bool {
         self.get_collection().contains_key(index)
     }
-
-    fn raft_id(&self) -> u64 {
-        self.settings.experimental_features.id
-    }
 }
 
 impl IndexCatalog {
@@ -99,7 +95,7 @@ impl IndexCatalog {
 
     #[allow(dead_code)]
     pub(crate) fn add_test_index(&mut self, name: String, index: Index) {
-        let local = LocalIndex::with_existing(name.clone(), index).unwrap();
+        let local = LocalIndex::from_existing(name.clone(), index).unwrap();
         self.local_handles.insert(name, local);
     }
 
@@ -133,13 +129,13 @@ impl IndexCatalog {
 
     #[doc(hidden)]
     #[allow(dead_code)]
-    pub fn with_index(name: String, index: Index) -> Result<Self> {
+    pub fn from_index(name: String, index: Index) -> Result<Self> {
         let map = DashMap::new();
         let settings = Settings {
             json_parsing_threads: 1,
             ..Default::default()
         };
-        let new_index = LocalIndex::with_existing(name.clone(), index)
+        let new_index = LocalIndex::from_existing(name.clone(), index)
             .unwrap_or_else(|e| panic!("Unable to open index: {} because it's locked: {:?}", name, e));
 
         map.insert(name, new_index);
@@ -155,6 +151,6 @@ impl IndexCatalog {
 #[cfg(test)]
 pub fn create_test_catalog(name: &str) -> crate::SharedCatalog {
     let idx = crate::commit::tests::create_test_index();
-    let catalog = IndexCatalog::with_index(name.into(), idx).unwrap();
+    let catalog = IndexCatalog::from_index(name.into(), idx).unwrap();
     std::sync::Arc::new(catalog)
 }
