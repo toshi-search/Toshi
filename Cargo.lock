@@ -1611,7 +1611,7 @@ dependencies = [
  "multimap",
  "petgraph",
  "prost 0.7.0",
- "prost-types",
+ "prost-types 0.7.0",
  "tempfile",
  "which",
 ]
@@ -1650,6 +1650,16 @@ checksum = "b518d7cdd93dab1d1122cf07fa9a60771836c668dde9d9e2a139f957f0d9f1bb"
 dependencies = [
  "bytes",
  "prost 0.7.0",
+]
+
+[[package]]
+name = "prost-types"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "603bbd6394701d13f3f25aada59c7de9d35a6a5887cfc156181234a44002771b"
+dependencies = [
+ "bytes",
+ "prost 0.8.0",
 ]
 
 [[package]]
@@ -2694,7 +2704,7 @@ dependencies = [
  "bytes",
  "prost 0.8.0",
  "prost-derive 0.8.0",
- "prost-types",
+ "prost-types 0.8.0",
  "raft",
  "tonic",
  "tonic-build",
