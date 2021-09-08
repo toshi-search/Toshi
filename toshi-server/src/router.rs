@@ -9,10 +9,9 @@ use hyper::{Body, Method, Request, Response, Server};
 use log::*;
 use tower_util::BoxService;
 
-use toshi_types::{Catalog, QueryOptions, Serve};
+use toshi_types::{Catalog, QueryOptions};
 
 use crate::handlers::*;
-use crate::local_serve::LocalServe;
 use crate::settings::Settings;
 use crate::utils::{not_found, parse_path};
 
@@ -34,10 +33,6 @@ impl<C: Catalog> Router<C> {
         Self { cat, watcher, settings }
     }
 
-    fn make_serve() -> impl Serve<C> {
-        LocalServe
-    }
-
     pub async fn route(
         catalog: Arc<C>,
         watcher: Arc<AtomicBool>,
@@ -54,10 +49,8 @@ impl<C: Catalog> Router<C> {
         let method = parts.method;
         let path = parse_path(parts.uri.path());
 
-        let serve = Self::make_serve();
-
         match (&method, &path[..]) {
-            (m, ["_list"]) if m == Method::GET => serve.list_indexes(catalog).await,
+            (m, ["_list"]) if m == Method::GET => list_indexes(catalog).await,
             (m, [idx, "_create"]) if m == Method::PUT => create_index(catalog, body, idx).await,
             (m, [idx, "_summary"]) if m == Method::GET => index_summary(catalog, idx, query_options).await,
             (m, [idx, "_flush"]) if m == Method::GET => flush(catalog, idx).await,
