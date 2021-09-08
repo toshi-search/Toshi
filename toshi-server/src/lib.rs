@@ -15,7 +15,7 @@ pub mod commit;
 pub mod handle;
 pub mod handlers;
 pub mod index;
-pub mod local_serve;
+// pub mod local_serve;
 pub mod router;
 pub mod settings;
 pub mod shutdown;
