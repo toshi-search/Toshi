@@ -26,7 +26,7 @@ serde_json             = "^1.0"
 serde_urlencoded       = "^0.7"
 futures                = "^0.3"
 tower-util             = "^0.3"
-tonic                  = "^0.4"
+tonic                  = "^0.5"
 tantivy                = "^0.15"
 tokio                  = { version = "^1", features = ["full", "parking_lot"] }
 async-trait            = "^0.1"
