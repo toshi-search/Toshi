@@ -33,9 +33,18 @@ impl<C: Catalog> Router<C> {
         Self { cat, watcher, settings }
     }
 
-    pub async fn route(catalog: Arc<C>, watcher: Arc<AtomicBool>, req: Request<Body>, settings: Settings) -> Result<Response<Body>, hyper::Error> {
+    pub async fn route(
+        catalog: Arc<C>,
+        watcher: Arc<AtomicBool>,
+        req: Request<Body>,
+        settings: Settings,
+    ) -> Result<Response<Body>, hyper::Error> {
         let (parts, body) = req.into_parts();
-        let query_options: QueryOptions = parts.uri.query().and_then(|q| serde_urlencoded::from_str(q).ok()).unwrap_or_default();
+        let query_options: QueryOptions = parts
+            .uri
+            .query()
+            .and_then(|q| serde_urlencoded::from_str(q).ok())
+            .unwrap_or_default();
 
         let method = parts.method;
         let path = parse_path(parts.uri.path());
