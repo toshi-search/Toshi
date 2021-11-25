@@ -1,4 +1,6 @@
+#![allow(dead_code)]
 use serde::Deserialize;
+
 use toshi::*;
 
 #[derive(Clone, Deserialize)]

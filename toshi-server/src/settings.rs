@@ -38,6 +38,7 @@ pub const DEFAULT_LEVEL: &str = "info";
 pub const DEFAULT_WRITER_MEMORY: usize = 200_000_000;
 pub const DEFAULT_JSON_PARSING_THREADS: usize = 4;
 pub const DEFAULT_BULK_BUFFER_SIZE: usize = 10000;
+pub const DEFAULT_MAX_LINE_LENGTH: usize = 10000;
 pub const DEFAULT_AUTO_COMMIT_DURATION: f32 = 10.0;
 pub const DEFAULT_LEADER: bool = false;
 pub const DEFAULT_NODES: Vec<String> = Vec::new();
@@ -134,6 +135,8 @@ pub struct Settings {
     pub auto_commit_duration: f32,
     #[structopt(short, long, default_value = "10000")]
     pub bulk_buffer_size: usize,
+    #[structopt(short, long, default_value = "10000")]
+    pub max_line_length: usize,
     #[structopt(flatten)]
     pub merge_policy: ConfigMergePolicy,
     #[structopt(short, long)]
@@ -155,6 +158,7 @@ impl Default for Settings {
             json_parsing_threads: DEFAULT_JSON_PARSING_THREADS,
             auto_commit_duration: DEFAULT_AUTO_COMMIT_DURATION,
             bulk_buffer_size: DEFAULT_BULK_BUFFER_SIZE,
+            max_line_length: DEFAULT_MAX_LINE_LENGTH,
             merge_policy: ConfigMergePolicy::default(),
             experimental: false,
             experimental_features: Experimental::default(),
@@ -218,12 +222,13 @@ mod tests {
         assert_eq!(default.log_level, "info");
         assert_eq!(default.json_parsing_threads, 4);
         assert_eq!(default.bulk_buffer_size, 10000);
+        assert_eq!(default.max_line_length, 10000);
         assert_eq!(default.merge_policy.kind, "log");
-        assert_eq!(cmp_float(default.merge_policy.level_log_size as f32, 0.75), true);
+        assert!(cmp_float(default.merge_policy.level_log_size as f32, 0.75));
         assert_eq!(default.merge_policy.min_layer_size, 10_000);
         assert_eq!(default.merge_policy.min_merge_size, 8);
-        assert_eq!(default.experimental, false);
-        assert_eq!(default.experimental_features.leader, false);
+        assert!(!default.experimental);
+        assert!(!default.experimental_features.leader);
     }
 
     #[test]
@@ -237,7 +242,7 @@ mod tests {
             min_merge_size = 30"#;
 
         let config = Settings::from_str(cfg).unwrap();
-        assert_eq!(cmp_float(config.merge_policy.level_log_size as f32, 10.5), true);
+        assert!(cmp_float(config.merge_policy.level_log_size as f32, 10.5));
         assert_eq!(config.merge_policy.min_layer_size, 20);
         assert_eq!(config.merge_policy.min_merge_size, 30);
     }
@@ -252,7 +257,7 @@ mod tests {
 
         assert!(config.merge_policy.get_kind() == MergePolicyType::NoMerge);
         assert_eq!(config.merge_policy.kind, "nomerge");
-        assert_eq!(cmp_float(config.merge_policy.level_log_size as f32, 0.75), true);
+        assert!(cmp_float(config.merge_policy.level_log_size as f32, 0.75));
         assert_eq!(config.merge_policy.min_layer_size, 10_000);
         assert_eq!(config.merge_policy.min_merge_size, 8);
     }

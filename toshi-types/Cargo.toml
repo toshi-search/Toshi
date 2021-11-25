@@ -5,7 +5,7 @@ authors = ["Stephen Carman <shcarman@gmail.com>"]
 description = "The types for a full text search engine based on Tantivy"
 repository = "https://github.com/toshi-search/Toshi"
 license = "MIT"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 http        = "^0.2"
@@ -16,9 +16,9 @@ serde_json  = "^1.0"
 tantivy     = "^0.16"
 async-trait = "^0.1"
 dashmap     = { version = "^4", features = ["serde"] }
-slog        = "^2.7"
-tokio       = { version = "^1", features = ["sync"] }
-toml        = "^0.5"
+slog = "^2.7"
+tokio = { version = "^1.13", features = ["sync"] }
+toml = "^0.5"
 
 [dependencies.hyper]
 version  = "^0.14"

@@ -128,7 +128,7 @@ mod tests {
         let shared_cat = create_test_catalog("test_index");
         let q = r#" {"options": {"commit": true }, "document": {"test_text": "Babbaboo!", "test_u64": 10, "test_i64": -10} }"#;
         let req = add_document(Arc::clone(&shared_cat), Body::from(q), &test_index()).await;
-        assert_eq!(req.is_ok(), true);
+        assert!(req.is_ok());
     }
 
     #[tokio::test]
@@ -143,7 +143,7 @@ mod tests {
         };
         let body_bytes = serde_json::to_vec(&delete).unwrap();
         let del = delete_term(Arc::clone(&shared_cat), Body::from(body_bytes), &test_index()).await;
-        assert_eq!(del.is_ok(), true);
+        assert!(del.is_ok());
     }
 
     #[tokio::test]

@@ -158,25 +158,25 @@ pub mod tests {
         let q = run_query(req, "test_index").await?;
         let body: SearchResults = wait_json(q).await;
         assert_eq!(body.hits as usize, body.get_docs().len());
-        assert_eq!(cmp_float(body.get_docs()[0].score.unwrap(), 1.0), true);
+        assert!(cmp_float(body.get_docs()[0].score.unwrap(), 1.0));
         Ok(())
     }
 
     #[tokio::test]
     async fn test_exclusive_range_query() -> ReturnUnit {
         let body = r#"{ "query" : { "range" : { "test_i64" : { "gt" : 2012, "lt" : 2015 } } } }"#;
-        let req: Search = serde_json::from_str(&body)?;
+        let req: Search = serde_json::from_str(body)?;
         let q = run_query(req, "test_index").await?;
         let body: SearchResults = wait_json(q).await;
         assert_eq!(body.hits as usize, body.get_docs().len());
-        assert_eq!(cmp_float(body.get_docs()[0].score.unwrap(), 1.0), true);
+        assert!(cmp_float(body.get_docs()[0].score.unwrap(), 1.0));
         Ok(())
     }
 
     #[tokio::test]
     async fn test_regex_query() -> ReturnUnit {
         let body = r#"{ "query" : { "regex" : { "test_text" : "d[ou]{1}c[k]?ument" } } }"#;
-        let req: Search = serde_json::from_str(&body)?;
+        let req: Search = serde_json::from_str(body)?;
         let q = run_query(req, "test_index").await?;
         let body: SearchResults = wait_json(q).await;
         assert_eq!(body.hits, 4);

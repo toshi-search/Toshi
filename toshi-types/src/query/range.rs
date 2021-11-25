@@ -184,7 +184,7 @@ mod tests {
     fn test_deserialize_missing_ranges() {
         let body = r#"{ "range" : { "test_i64" : { "gte" : 2012 } } }"#;
         let req = serde_json::from_str::<RangeQuery>(body);
-        assert_eq!(req.is_err(), false);
+        assert!(!req.is_err());
     }
 
     #[test]
@@ -195,7 +195,7 @@ mod tests {
         let built = schema.build();
         let req = serde_json::from_str::<RangeQuery>(body).unwrap().create_query(&built);
 
-        assert_eq!(req.is_err(), true);
+        assert!(req.is_err());
         assert_eq!(
             req.unwrap_err().to_string(),
             "Error Parsing Json: 'invalid type: floating point `3.14`, expected i64'"
@@ -210,7 +210,7 @@ mod tests {
         let built = schema.build();
         let req = serde_json::from_str::<RangeQuery>(body).unwrap().create_query(&built);
 
-        assert_eq!(req.is_err(), true);
+        assert!(req.is_err());
         assert_eq!(
             req.unwrap_err().to_string(),
             "Error Parsing Json: 'invalid value: integer `-1`, expected u64'"
@@ -225,7 +225,7 @@ mod tests {
         let built = schema.build();
         let req = serde_json::from_str::<RangeQuery>(body).unwrap().create_query(&built);
 
-        assert_eq!(req.is_err(), false);
+        assert!(!req.is_err());
     }
 
     #[test]
@@ -234,7 +234,6 @@ mod tests {
         let query: Query = builder.build();
         if let Query::Range(rq) = query {
             assert_eq!(rq.range.field, "test");
-            // assert_eq!(rq.range.value, );
         }
     }
 }

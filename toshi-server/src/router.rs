@@ -33,18 +33,9 @@ impl<C: Catalog> Router<C> {
         Self { cat, watcher, settings }
     }
 
-    pub async fn route(
-        catalog: Arc<C>,
-        watcher: Arc<AtomicBool>,
-        req: Request<Body>,
-        settings: Settings,
-    ) -> Result<Response<Body>, hyper::Error> {
+    pub async fn route(catalog: Arc<C>, watcher: Arc<AtomicBool>, req: Request<Body>, settings: Settings) -> Result<Response<Body>, hyper::Error> {
         let (parts, body) = req.into_parts();
-        let query_options: QueryOptions = parts
-            .uri
-            .query()
-            .and_then(|q| serde_urlencoded::from_str(q).ok())
-            .unwrap_or_default();
+        let query_options: QueryOptions = parts.uri.query().and_then(|q| serde_urlencoded::from_str(q).ok()).unwrap_or_default();
 
         let method = parts.method;
         let path = parse_path(parts.uri.path());
@@ -55,7 +46,8 @@ impl<C: Catalog> Router<C> {
             (m, [idx, "_summary"]) if m == Method::GET => index_summary(catalog, idx, query_options).await,
             (m, [idx, "_flush"]) if m == Method::GET => flush(catalog, idx).await,
             (m, [idx, "_bulk"]) if m == Method::POST => {
-                bulk_insert(catalog, watcher.clone(), body, idx, settings.json_parsing_threads).await
+                let w = Arc::clone(&watcher);
+                bulk_insert(catalog, w, body, idx, settings.json_parsing_threads, settings.max_line_length).await
             }
             (m, [idx]) if m == Method::POST => doc_search(catalog, body, idx).await,
             (m, [idx]) if m == Method::PUT => add_document(catalog, body, idx).await,

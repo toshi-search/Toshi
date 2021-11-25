@@ -5,7 +5,7 @@ authors = ["Stephen Carman <shcarman@gmail.com>"]
 description = "A full text search engine based on Tantivy"
 repository = "https://github.com/toshi-search/Toshi"
 license = "MIT"
-edition = "2018"
+edition = "2021"
 
 [[bin]]
 name = "toshi"
@@ -25,28 +25,31 @@ serde_json             = "^1.0"
 serde_urlencoded       = "^0.7"
 futures                = "^0.3"
 tower-util             = "^0.3"
-tantivy                = "^0.16"
-tokio                  = { version = "^1", features = ["full", "parking_lot"] }
-async-trait            = "^0.1"
+tantivy = "^0.16"
+tokio = { version = "^1", features = ["full"] }
+async-trait = "^0.1"
 config                 = "^0.11"
 structopt              = "^0.3"
 thiserror              = "^1.0"
-anyhow                 = "^1.0"
-dashmap                = "^4"
-serde                  = { version = "^1.0", features = ["derive"] }
-clap                   = { version = "^2.3", features = ["color"] }
-slog                   = "^2.7"
-slog-stdlog            = "^4.0"
-slog-scope             = "^4.3"
-log                    = { version = "*", features = ["max_level_trace", "release_max_level_warn"] }
-sloggers               = "^2"
-toml                   = "^0.5"
-async-channel          = "^1"
-cang-jie               = { version = "^0.12", optional = true }
+anyhow = "^1.0"
+dashmap = "^4"
+serde = { version = "^1.0", features = ["derive"] }
+clap = { version = "^2.3", features = ["color"] }
+slog = "^2.7"
+slog-stdlog = "^4.0"
+slog-scope = "^4.3"
+log = { version = "*", features = ["max_level_trace", "release_max_level_warn"] }
+sloggers = "^2"
+toml = "^0.5"
+flume = { version = "^0.10", features = ["async"] }
+itertools = "^0.10"
+tokio-stream = "^0.1"
+tokio-util = { version = "^0.6", features = ["full"] }
+cang-jie = { version = "^0.13", optional = true }
 
 
 [dev-dependencies]
-remove_dir_all         = "^0.7"
-pretty_assertions      = "^0.7"
-tokio-test             = "^0.4"
+remove_dir_all = "^0.7"
+pretty_assertions = "^1"
+tokio-test = "^0.4"
 toshi                  = { path = "../toshi-client", default-features = false, features = ["hyper_client"] }

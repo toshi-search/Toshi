@@ -5,16 +5,15 @@ authors = ["Stephen Carman <shcarman@gmail.com>"]
 description = "A full text search engine based on Tantivy"
 repository = "https://github.com/toshi-search/Toshi"
 license = "MIT"
-edition = "2018"
+edition = "2021"
 build = "build.rs"
 
 [build-dependencies]
-tonic-build       = "0.5.0"
+tonic-build = "^0.6"
 
 [dependencies]
-tonic        = "0.5.0"
-bytes        = "^1"
-prost        = "0.8.0"
-prost-types  = "0.8.0"
-prost-derive = "0.8.0"
-raft         = { git = "https://github.com/tikv/raft-rs", default-features = false, features = ["prost-codec"] }
+tonic = "^0.6"
+bytes = "^1"
+prost = "^0.9"
+prost-types = "^0.9"
+prost-derive = "^0.9"

@@ -373,9 +373,9 @@ mod tests {
         let builder = Search::builder().with_limit(50).with_query(query_builder).sort_by("text");
         let query = builder.build();
 
-        assert_eq!(query.query.is_some(), true);
+        assert!(query.query.is_some());
         assert_eq!(query.limit, 50);
-        assert_eq!(query.sort_by.is_some(), true);
+        assert!(query.sort_by.is_some());
         assert_eq!(query.sort_by.unwrap(), "text");
     }
 }

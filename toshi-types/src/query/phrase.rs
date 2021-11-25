@@ -89,7 +89,7 @@ mod tests {
         let built = schema.build();
         let query = serde_json::from_str::<PhraseQuery>(body).unwrap().create_query(&built);
 
-        assert_eq!(query.is_err(), true);
+        assert!(query.is_err());
         assert_eq!(
             query.unwrap_err().to_string(),
             "Error in query execution: 'Phrase Query must have more than 1 term'"
@@ -105,7 +105,7 @@ mod tests {
         let phrase: PhraseQuery = serde_json::from_str(body).unwrap();
         let query = phrase.create_query(&built);
 
-        assert_eq!(query.is_err(), true);
+        assert!(query.is_err());
         assert_eq!(
             query.unwrap_err().to_string(),
             "Error in query execution: 'Differing numbers of offsets and query terms (2 and 1)'"
@@ -121,7 +121,7 @@ mod tests {
         let phrase: PhraseQuery = serde_json::from_str(body).unwrap();
         let query = phrase.create_query(&built);
 
-        assert_eq!(query.is_ok(), true);
+        assert!(query.is_ok());
         let result = query.unwrap();
         let q: &TantivyPhraseQuery = result.downcast_ref::<TantivyPhraseQuery>().unwrap();
         assert_eq!(q.phrase_terms().len(), 2);

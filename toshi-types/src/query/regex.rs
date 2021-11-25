@@ -48,7 +48,7 @@ mod tests {
         schema.add_u64_field("test_text", FAST);
         let phrase: RegexQuery = serde_json::from_str(body).unwrap();
         let query = phrase.create_query(&schema.build());
-        assert_eq!(query.is_ok(), true);
+        assert!(query.is_ok());
     }
 
     #[test]
@@ -58,7 +58,7 @@ mod tests {
         schema.add_u64_field("test_text", FAST);
         let phrase: RegexQuery = serde_json::from_str(body).unwrap();
         let query = phrase.create_query(&schema.build());
-        assert_eq!(query.is_err(), true);
+        assert!(query.is_err());
     }
 
     #[test]
@@ -68,6 +68,6 @@ mod tests {
         let phrase: RegexQuery = RegexQuery::from_str("test_text".into(), ".*");
         let query = phrase.create_query(&schema.build());
 
-        assert_eq!(query.is_ok(), true);
+        assert!(query.is_ok());
     }
 }
