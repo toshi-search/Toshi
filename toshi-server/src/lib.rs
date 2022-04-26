@@ -66,7 +66,7 @@ pub fn register_tokenizers(idx: tantivy::Index) -> tantivy::Index {
     });
     if has_tokenizer.is_some() {
         let tokenizer = cang_jie::CangJieTokenizer::default();
-        idx.tokenizers().register(cang_jie::CANG_JIE, &tokenizer)
+        idx.tokenizers().register(cang_jie::CANG_JIE, tokenizer)
     }
     idx
 }
