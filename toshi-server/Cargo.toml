@@ -44,7 +44,7 @@ toml = "^0.5"
 flume = { version = "^0.10", features = ["async"] }
 itertools = "^0.10"
 tokio-stream = "^0.1"
-tokio-util = { version = "^0.6", features = ["full"] }
+tokio-util = { version = "^0.7", features = ["full"] }
 cang-jie = { version = "^0.13", optional = true }
 
 
