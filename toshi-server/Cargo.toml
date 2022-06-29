@@ -34,7 +34,7 @@ thiserror              = "^1.0"
 anyhow = "^1.0"
 dashmap = "^4"
 serde = { version = "^1.0", features = ["derive"] }
-clap = { version = "^2.3", features = ["color"] }
+clap = { version = "^3.2", features = ["color"] }
 slog = "^2.7"
 slog-stdlog = "^4.0"
 slog-scope = "^4.3"
