@@ -49,7 +49,7 @@ features = ["json"]
 optional = true
 
 [dependencies.hyper]
-version = "^0.14.14"
+version = "^0.14.20"
 features = ["full"]
 optional = true
 
