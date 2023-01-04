@@ -13,9 +13,9 @@ thiserror   = "^1.0"
 anyhow      = "^1.0"
 serde       = "^1.0"
 serde_json  = "^1.0"
-tantivy     = "^0.16"
+tantivy     = "^0.19"
 async-trait = "^0.1"
-dashmap     = { version = "^4", features = ["serde"] }
+dashmap     = { version = "^5", features = ["serde"] }
 slog = "^2.7"
 tokio = { version = "^1.13", features = ["sync"] }
 toml = "^0.5"

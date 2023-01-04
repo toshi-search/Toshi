@@ -180,12 +180,7 @@ impl Settings {
     }
 
     pub fn from_config<T: Source + Send + Sync + 'static>(c: T) -> Result<Self, ConfigError> {
-        let mut cfg = Config::new();
-        match cfg.merge(c) {
-            Ok(_) => {}
-            Err(e) => panic!("Problem with config file: {}", e),
-        };
-        cfg.try_into()
+        Config::builder().add_source(c).build()?.try_deserialize::<Self>()
     }
 
     pub fn get_nodes(&self) -> Vec<String> {

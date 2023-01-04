@@ -3,7 +3,7 @@ use hyper::{Body, Response};
 use crate::handlers::ResponseFuture;
 
 pub fn toshi_info() -> String {
-    format!("{{\"name\":\"Toshi Search\",\"version\":\"{}\"}}", clap::crate_version!())
+    format!("{{\"name\":\"Toshi Search\",\"version\":\"{}\"}}", "0.0.1")
 }
 
 pub async fn root() -> ResponseFuture {

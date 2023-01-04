@@ -165,7 +165,7 @@ impl IndexHandle for LocalIndex {
         {
             let index_writer = writer_lock.lock().await;
             let doc: Document = LocalIndex::parse_doc(&index_schema, &add_doc.document.to_string())?;
-            index_writer.add_document(doc);
+            index_writer.add_document(doc)?;
         }
         if let Some(opts) = add_doc.options {
             if opts.commit {

@@ -26,7 +26,7 @@ async fn index_documents(iw: Arc<Mutex<IndexWriter>>, dr: Receiver<Document>, wr
     let start = Instant::now();
     while let Ok(Ok(doc)) = timeout(DEFAULT_TIMEOUT, dr.recv_async()).await {
         let w = iw.lock().await;
-        w.add_document(doc);
+        w.add_document(doc)?;
     }
 
     info!("Piping Documents took: {:?}", start.elapsed());
@@ -40,11 +40,11 @@ async fn parsing_documents(s: Schema, ds: Sender<Document>, lr: Receiver<String>
             match s.parse_document(&line) {
                 Ok(doc) => {
                     info!("Piped document... {}", doc.len());
-                    ds.send_async(doc).await;
+                    ds.send_async(doc).await.expect("Parsing Thread failed.");
                 }
                 Err(e) => {
                     let err = anyhow::Error::msg("Error parsing document").context(line).context(e);
-                    ec.send_async(Error::TantivyError(err)).await;
+                    ec.send_async(Error::TantivyError(err)).await.expect("Parsing thread loop failed.");
                     break;
                 }
             };
