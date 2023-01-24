@@ -18,7 +18,7 @@ async-trait = "^0.1"
 dashmap     = { version = "^5", features = ["serde"] }
 slog = "^2.7"
 tokio = { version = "^1.13", features = ["sync"] }
-toml = "^0.5"
+toml = "^0.6"
 
 [dependencies.hyper]
 version  = "^0.14"
