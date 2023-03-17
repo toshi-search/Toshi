@@ -242,9 +242,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.0.32"
+version = "4.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a7db700bc935f9e43e88d00b0850dae18a63773cfbec6d8e070fccf7fef89a39"
+checksum = "9a9d6ada83c1edcce028902ea27dd929069c70df4c7600b131b4d9a1ad2879cc"
 dependencies = [
  "bitflags",
  "clap_lex",
@@ -2862,7 +2862,7 @@ dependencies = [
  "async-trait",
  "bytes",
  "cang-jie",
- "clap 4.0.32",
+ "clap 4.1.9",
  "config",
  "dashmap",
  "flume",
