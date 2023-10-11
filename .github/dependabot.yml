@@ -36,6 +36,7 @@ updates:
     versions:
     - 1.3.0
     - 1.4.0
+    - 1.33.0
   - dependency-name: tonic-build
     versions:
     - 0.4.1
