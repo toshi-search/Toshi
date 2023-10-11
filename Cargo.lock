@@ -627,9 +627,9 @@ dependencies = [
 
 [[package]]
 name = "fastfield_codecs"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3e7974d8d02ce96ba398517c8f5d68d9663c749b6c7acb0ec9770545f9fdfafc"
+checksum = "374a3a53c1bd5fb31b10084229290eafb0a05f260ec90f1f726afffda4877a8a"
 dependencies = [
  "fastdivide",
  "itertools",
@@ -2498,9 +2498,9 @@ dependencies = [
 
 [[package]]
 name = "tantivy"
-version = "0.19.0"
+version = "0.19.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b90159ddd3ab4cbb177100c475d84c896f3e94b0b8dd2954b115985024215877"
+checksum = "5bb26a6b22c84d8be41d99a14016d6f04d30d8d31a2ea411a8ab553af5cc490d"
 dependencies = [
  "aho-corasick",
  "arc-swap",
@@ -2514,7 +2514,7 @@ dependencies = [
  "downcast-rs",
  "fail",
  "fastdivide",
- "fastfield_codecs 0.3.0",
+ "fastfield_codecs 0.3.1",
  "fs2",
  "htmlescape",
  "itertools",
@@ -2867,7 +2867,7 @@ dependencies = [
  "isahc",
  "serde",
  "serde_json",
- "tantivy 0.19.0",
+ "tantivy 0.19.2",
  "thiserror",
  "tokio",
  "toshi-types",
@@ -2900,7 +2900,7 @@ dependencies = [
  "slog-stdlog",
  "sloggers",
  "structopt",
- "tantivy 0.19.0",
+ "tantivy 0.19.2",
  "thiserror",
  "tokio",
  "tokio-stream",
@@ -2924,7 +2924,7 @@ dependencies = [
  "serde",
  "serde_json",
  "slog",
- "tantivy 0.19.0",
+ "tantivy 0.19.2",
  "thiserror",
  "tokio",
  "toml",
