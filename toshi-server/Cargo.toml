@@ -6,6 +6,7 @@ description = "A full text search engine based on Tantivy"
 repository = "https://github.com/toshi-search/Toshi"
 license = "MIT"
 edition = "2021"
+resolver = "2"
 
 [[bin]]
 name = "toshi"
