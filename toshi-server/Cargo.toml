@@ -41,7 +41,7 @@ slog-stdlog       = "^4.0"
 slog-scope        = "^4.3"
 log               = { version = "*", features = ["max_level_trace", "release_max_level_warn"] }
 sloggers          = "^2"
-toml              = "^0.5"
+toml              = "^0.8"
 flume             = { version = "^0.10", features = ["async"] }
 itertools         = "^0.10"
 tokio-stream      = "^0.1"
