@@ -19,7 +19,7 @@ extra_tokenizers  = ["cang-jie"]
 
 [dependencies]
 toshi-types       = { path = "../toshi-types" }
-http              = "^0.2"
+http              = "^1.0"
 bytes             = "^1"
 hyper             = { version = "^0.14", features = ["full"] }
 serde_json        = "^1.0"

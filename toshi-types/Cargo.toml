@@ -9,7 +9,7 @@ edition = "2021"
 resolver = "2"
 
 [dependencies]
-http        = "^0.2"
+http        = "^1.0"
 thiserror   = "^1.0"
 anyhow      = "^1.0"
 serde       = "^1.0"
