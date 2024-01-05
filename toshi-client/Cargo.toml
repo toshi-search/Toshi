@@ -58,7 +58,7 @@ version = "^0.5"
 optional = true
 
 [dependencies.hyper-rustls]
-version = "^0.23"
+version = "^0.25"
 optional = true
 
 [dev-dependencies]
