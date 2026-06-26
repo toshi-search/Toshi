@@ -8,7 +8,9 @@
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
-use hyper::{Body, Response};
+use bytes::Bytes;
+use http::Response;
+use http_body_util::Full;
 use serde_json::Value as SerdeValue;
 use tantivy::schema::Schema;
 use tantivy::space_usage::SearcherSpaceUsage;
@@ -22,6 +24,10 @@ pub use query::{
     range::Ranges, regex::RegexQuery, term::ExactTerm, CreateQuery, FlatNamedDocument, KeyValue, Query, QueryOptions, Search,
 };
 pub use server::*;
+
+/// The concrete response body type Toshi serves. In hyper 1.x `hyper::Body` was removed,
+/// so responses use a fixed-size [`Full`] body backed by [`Bytes`].
+pub type Body = Full<Bytes>;
 
 /// Toshi client result type
 pub type Result<T> = std::result::Result<T, error::Error>;

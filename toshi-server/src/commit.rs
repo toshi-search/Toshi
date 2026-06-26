@@ -29,7 +29,8 @@ pub async fn watcher<C: Catalog>(cat: Arc<C>, commit_duration: f32, lock: Arc<At
 
 #[cfg(test)]
 pub mod tests {
-    use hyper::Body;
+    use http_body_util::BodyExt;
+    use toshi_types::Body;
 
     use crate::handlers::{add_document, all_docs};
     use crate::index::create_test_catalog;
@@ -81,7 +82,7 @@ pub mod tests {
     }
 
     pub async fn read_body(resp: Response<Body>) -> Result<String, Box<dyn std::error::Error>> {
-        let b = hyper::body::to_bytes(resp.into_body()).await?;
+        let b = resp.into_body().collect().await?.to_bytes();
         Ok(String::from_utf8(b.to_vec())?)
     }
 

@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{to_value, Value};
 use tantivy::query::{Query as TantivyQuery, RangeQuery as TantivyRangeQuery};
 use tantivy::schema::{FieldType, Schema};
+use tantivy::Term;
 
 use crate::query::{CreateQuery, KeyValue, Query};
 use crate::{error::Error, Result};
@@ -152,21 +153,34 @@ where
     Ok((include_exclude(lt, lte)?, include_exclude(gt, gte)?))
 }
 
+#[inline]
+fn map_bound<V, F: Fn(V) -> Term>(bound: Bound<V>, f: F) -> Bound<Term> {
+    match bound {
+        Bound::Included(v) => Bound::Included(f(v)),
+        Bound::Excluded(v) => Bound::Excluded(f(v)),
+        Bound::Unbounded => Bound::Unbounded,
+    }
+}
+
 fn create_range_query(schema: &Schema, field: &str, r: Ranges) -> Result<Box<dyn TantivyQuery>> {
     match r {
         Ranges::ValueRange { gte, lte, lt, gt, .. } => {
-            let field = schema
+            let resolved_field = schema
                 .get_field(field)
-                .ok_or_else(|| Error::QueryError(format!("Field {} does not exist", field)))?;
-            let field_type = schema.get_field_entry(field).field_type();
+                .map_err(|_| Error::QueryError(format!("Field {} does not exist", field)))?;
+            let field_type = schema.get_field_entry(resolved_field).field_type();
             match field_type {
                 &FieldType::I64(_) => {
                     let (upper, lower) = create_ranges::<i64>(gte, lte, lt, gt)?;
-                    Ok(Box::new(TantivyRangeQuery::new_i64_bounds(field, lower, upper)))
+                    let lower = map_bound(lower, |v| Term::from_field_i64(resolved_field, v));
+                    let upper = map_bound(upper, |v| Term::from_field_i64(resolved_field, v));
+                    Ok(Box::new(TantivyRangeQuery::new(lower, upper)))
                 }
                 &FieldType::U64(_) => {
                     let (upper, lower) = create_ranges::<u64>(gte, lte, lt, gt)?;
-                    Ok(Box::new(TantivyRangeQuery::new_u64_bounds(field, lower, upper)))
+                    let lower = map_bound(lower, |v| Term::from_field_u64(resolved_field, v));
+                    let upper = map_bound(upper, |v| Term::from_field_u64(resolved_field, v));
+                    Ok(Box::new(TantivyRangeQuery::new(lower, upper)))
                 }
                 ref ft => Err(Error::QueryError(format!("Invalid field type: {:?} for range query", ft))),
             }

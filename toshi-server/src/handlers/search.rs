@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
-use hyper::body::to_bytes;
-use hyper::Response;
-use hyper::{Body, StatusCode};
+use http::Response;
+use http::StatusCode;
+use http_body_util::BodyExt;
 use log::info;
 
 use toshi_types::*;
@@ -11,7 +11,7 @@ use crate::handlers::ResponseFuture;
 use crate::utils::{empty_with_code, with_body};
 
 pub async fn doc_search<C: Catalog>(catalog: Arc<C>, body: Body, index: &str) -> ResponseFuture {
-    let b = to_bytes(body).await?;
+    let b = body.collect().await.expect("Body is infallible").to_bytes();
     match serde_json::from_slice::<Search>(&b) {
         Ok(req) => {
             let req = if req.query.is_none() { Search::all_limit(req.limit) } else { req };
@@ -39,8 +39,8 @@ pub async fn all_docs<C: Catalog>(catalog: Arc<C>, index: &str) -> ResponseFutur
 pub mod tests {
     use std::sync::Arc;
 
-    use hyper::Body;
     use pretty_assertions::assert_eq;
+    use toshi_types::Body;
 
     use toshi_types::{ErrorResponse, ExactTerm, FuzzyQuery, FuzzyTerm, KeyValue, PhraseQuery, Query, Search, TermPair};
 

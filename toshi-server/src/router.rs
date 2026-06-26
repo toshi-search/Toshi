@@ -1,21 +1,22 @@
-use std::convert::Infallible;
-use std::net::{SocketAddr, TcpListener};
+use std::net::SocketAddr;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
-use hyper::service::{make_service_fn, service_fn};
-use hyper::{Body, Method, Request, Response, Server};
+use http_body_util::BodyExt;
+use hyper::body::Incoming;
+use hyper::service::service_fn;
+use hyper::{Method, Request, Response};
+use hyper_util::rt::{TokioExecutor, TokioIo};
+use hyper_util::server::conn::auto;
+use tokio::net::TcpListener;
 
 use log::*;
-use tower_util::BoxService;
 
-use toshi_types::{Catalog, QueryOptions};
+use toshi_types::{Body, Catalog, QueryOptions};
 
 use crate::handlers::*;
 use crate::settings::Settings;
 use crate::utils::{not_found, parse_path};
-
-pub type BoxedFn = BoxService<Request<Body>, Response<Body>, hyper::Error>;
 
 #[derive(Clone)]
 pub struct Router<C: Catalog> {
@@ -36,10 +37,13 @@ impl<C: Catalog> Router<C> {
     pub async fn route(
         catalog: Arc<C>,
         watcher: Arc<AtomicBool>,
-        req: Request<Body>,
+        req: Request<Incoming>,
         settings: Settings,
     ) -> Result<Response<Body>, hyper::Error> {
-        let (parts, body) = req.into_parts();
+        let (parts, incoming) = req.into_parts();
+        // hyper 1.x delivers request bodies as a streaming `Incoming`. The handlers operate on a
+        // fully-buffered `Full<Bytes>`, so collect the request body once here before dispatching.
+        let body: Body = Body::new(incoming.collect().await?.to_bytes());
         let query_options: QueryOptions = parts
             .uri
             .query()
@@ -73,29 +77,49 @@ impl<C: Catalog> Router<C> {
         }
     }
 
-    pub async fn service_call(catalog: Arc<C>, watcher: Arc<AtomicBool>, settings: Settings) -> Result<BoxedFn, Infallible> {
-        Ok(BoxService::new(service_fn(move |req| {
-            info!("REQ = {:?}", &req);
-            Self::route(Arc::clone(&catalog), Arc::clone(&watcher), req, settings.clone())
-        })))
-    }
-
     pub async fn router_with_catalog(self, addr: SocketAddr) -> Result<(), hyper::Error> {
-        let routes = make_service_fn(move |_| Self::service_call(Arc::clone(&self.cat), Arc::clone(&self.watcher), self.settings.clone()));
-        let server = Server::bind(&addr).serve(routes);
-        if let Err(err) = server.await {
-            trace!("server error: {}", err);
-        }
-        Ok(())
+        let listener = match TcpListener::bind(addr).await {
+            Ok(l) => l,
+            Err(err) => {
+                trace!("server error: {}", err);
+                return Ok(());
+            }
+        };
+        self.serve(listener).await
     }
 
     #[allow(dead_code)]
-    pub(crate) async fn router_from_tcp(self, listener: TcpListener) -> Result<(), hyper::Error> {
-        let routes = make_service_fn(move |_| Self::service_call(Arc::clone(&self.cat), Arc::clone(&self.watcher), self.settings.clone()));
-        let server = Server::from_tcp(listener)?.serve(routes);
-        if let Err(err) = server.await {
-            trace!("server error: {}", err);
+    pub(crate) async fn router_from_tcp(self, listener: std::net::TcpListener) -> Result<(), hyper::Error> {
+        listener.set_nonblocking(true).expect("Unable to set listener to non-blocking");
+        let listener = TcpListener::from_std(listener).expect("Unable to convert to tokio TcpListener");
+        self.serve(listener).await
+    }
+
+    /// Accept connections on `listener`, serving each on its own task with the hyper-util
+    /// auto (HTTP/1 + HTTP/2) connection builder. In hyper 1.x the high-level `Server` was
+    /// removed, so the accept loop is now explicit.
+    async fn serve(self, listener: TcpListener) -> Result<(), hyper::Error> {
+        loop {
+            let (stream, _) = match listener.accept().await {
+                Ok(conn) => conn,
+                Err(err) => {
+                    trace!("accept error: {}", err);
+                    continue;
+                }
+            };
+            let io = TokioIo::new(stream);
+            let cat = Arc::clone(&self.cat);
+            let watcher = Arc::clone(&self.watcher);
+            let settings = self.settings.clone();
+            tokio::spawn(async move {
+                let service = service_fn(move |req: Request<Incoming>| {
+                    info!("REQ = {:?}", &req);
+                    Self::route(Arc::clone(&cat), Arc::clone(&watcher), req, settings.clone())
+                });
+                if let Err(err) = auto::Builder::new(TokioExecutor::new()).serve_connection(io, service).await {
+                    trace!("server error: {}", err);
+                }
+            });
         }
-        Ok(())
     }
 }

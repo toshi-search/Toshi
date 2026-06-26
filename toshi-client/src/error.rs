@@ -14,6 +14,10 @@ pub enum ToshiClientError {
     #[error("Hyper error: {0}")]
     HyperError(#[from] hyper::Error),
 
+    #[cfg(feature = "hyper")]
+    #[error("Hyper client error: {0}")]
+    HyperClientError(#[from] hyper_util::client::legacy::Error),
+
     #[error("Http Error: {0}")]
     HttpError(#[from] http::Error),
 

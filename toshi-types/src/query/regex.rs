@@ -30,7 +30,7 @@ impl CreateQuery for RegexQuery {
         let KeyValue { field, value, .. } = self.regex;
         let field = schema
             .get_field(&field)
-            .ok_or_else(|| Error::QueryError(format!("Field: {} does not exist", field)))?;
+            .map_err(|_| Error::QueryError(format!("Field: {} does not exist", field)))?;
         Ok(Box::new(TantivyRegexQuery::from_pattern(&value, field)?))
     }
 }

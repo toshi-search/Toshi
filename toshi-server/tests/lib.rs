@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
-use hyper::body::to_bytes;
+use http_body_util::BodyExt;
 
 use toshi::{AsyncClient, HyperToshi};
 
@@ -27,7 +27,7 @@ async fn test_client() -> Result<(), BoxErr> {
 
     let client = HyperToshi::new("http://localhost:8080");
     let index = client.index().await?;
-    let body = to_bytes(index.into_body()).await?;
+    let body = index.into_body().collect().await?.to_bytes();
     dbg!(body);
     Ok(())
 }

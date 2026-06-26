@@ -1,7 +1,6 @@
 use http::{Response, StatusCode};
-use hyper::Body;
 use serde::Serialize;
-use toshi_types::{Error, ErrorResponse};
+use toshi_types::{Body, Error, ErrorResponse};
 
 pub fn with_body<T>(body: T) -> Response<Body>
 where
@@ -22,7 +21,7 @@ pub fn error_response(code: StatusCode, e: Error) -> Response<Body> {
 }
 
 pub fn empty_with_code(code: StatusCode) -> Response<Body> {
-    Response::builder().status(code).body(Body::empty()).unwrap()
+    Response::builder().status(code).body(Body::default()).unwrap()
 }
 
 pub async fn not_found() -> Result<Response<Body>, hyper::Error> {

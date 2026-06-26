@@ -4,25 +4,24 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use flume::{unbounded, Receiver, Sender};
-use futures::StreamExt;
-use hyper::Body;
-use hyper::StatusCode;
+use http::StatusCode;
+use http_body_util::BodyExt;
 
 use log::*;
-use tantivy::schema::Schema;
-use tantivy::{Document, IndexWriter};
+use tantivy::schema::{Schema, TantivyDocument};
+use tantivy::IndexWriter;
 use tokio::sync::Mutex;
 use tokio::time::timeout;
 use tokio_util::codec::{Decoder, LinesCodec, LinesCodecError};
 
-use toshi_types::{Catalog, Error, IndexHandle};
+use toshi_types::{Body, Catalog, Error, IndexHandle};
 
 use crate::handlers::ResponseFuture;
 use crate::utils::{empty_with_code, error_response, not_found};
 
 const DEFAULT_TIMEOUT: Duration = Duration::from_millis(100);
 
-async fn index_documents(iw: Arc<Mutex<IndexWriter>>, dr: Receiver<Document>, wr: Arc<AtomicBool>) -> Result<(), Error> {
+async fn index_documents(iw: Arc<Mutex<IndexWriter>>, dr: Receiver<TantivyDocument>, wr: Arc<AtomicBool>) -> Result<(), Error> {
     let start = Instant::now();
     while let Ok(Ok(doc)) = timeout(DEFAULT_TIMEOUT, dr.recv_async()).await {
         let w = iw.lock().await;
@@ -34,10 +33,10 @@ async fn index_documents(iw: Arc<Mutex<IndexWriter>>, dr: Receiver<Document>, wr
     Ok(())
 }
 
-async fn parsing_documents(s: Schema, ds: Sender<Document>, lr: Receiver<String>, ec: Sender<Error>) -> Result<(), ()> {
+async fn parsing_documents(s: Schema, ds: Sender<TantivyDocument>, lr: Receiver<String>, ec: Sender<Error>) -> Result<(), ()> {
     while let Ok(Ok(line)) = timeout(DEFAULT_TIMEOUT, lr.recv_async()).await {
         if !line.is_empty() {
-            match s.parse_document(&line) {
+            match TantivyDocument::parse_json(&s, &line) {
                 Ok(doc) => {
                     info!("Piped document... {}", doc.len());
                     ds.send_async(doc).await.expect("Parsing Thread failed.");
@@ -56,7 +55,7 @@ async fn parsing_documents(s: Schema, ds: Sender<Document>, lr: Receiver<String>
 pub async fn bulk_insert<C: Catalog>(
     catalog: Arc<C>,
     watcher: Arc<AtomicBool>,
-    mut body: Body,
+    body: Body,
     index: &str,
     num_threads: usize,
     max_line_length: usize,
@@ -71,7 +70,7 @@ pub async fn bulk_insert<C: Catalog>(
     let schema = i.schema();
 
     let (line_sender, line_recv) = unbounded::<String>();
-    let (doc_sender, doc_recv) = unbounded::<Document>();
+    let (doc_sender, doc_recv) = unbounded::<TantivyDocument>();
     let (err_snd, err_rcv) = unbounded();
 
     info!("Spawning {} parsing threads...", num_threads);
@@ -91,28 +90,29 @@ pub async fn bulk_insert<C: Catalog>(
         LinesCodec::new()
     };
 
-    while let Some(Ok(line)) = body.next().await {
-        buf.extend_from_slice(&line);
+    // hyper 1.x delivers request bodies as a streaming body; the router buffers it into a
+    // `Full` body, so collect the bytes once and feed them through the line decoder.
+    let bytes = body.collect().await.expect("Body is infallible").to_bytes();
+    buf.extend_from_slice(&bytes);
 
-        loop {
-            match decoder.decode_eof(&mut buf) {
-                Ok(Some(l)) if !l.is_empty() => {
-                    let l = l.trim();
-                    line_sender.send_async(l.into()).await.unwrap();
-                }
-                Ok(None) | Ok(Some(_)) => break,
-                Err(LinesCodecError::MaxLineLengthExceeded) => {
-                    let err_txt = format!(
-                        "Line exceeded max length of {}, you can increase this with the max_line_length config option",
-                        max_line_length
-                    );
-                    let err_msg = anyhow::Error::msg(err_txt);
-                    return Ok(error_response(StatusCode::BAD_REQUEST, Error::TantivyError(err_msg)));
-                }
-                Err(err) => {
-                    let err_msg = anyhow::Error::msg("Error with codec.").context(err);
-                    return Ok(error_response(StatusCode::BAD_REQUEST, Error::TantivyError(err_msg)));
-                }
+    loop {
+        match decoder.decode_eof(&mut buf) {
+            Ok(Some(l)) if !l.is_empty() => {
+                let l = l.trim();
+                line_sender.send_async(l.into()).await.unwrap();
+            }
+            Ok(None) | Ok(Some(_)) => break,
+            Err(LinesCodecError::MaxLineLengthExceeded) => {
+                let err_txt = format!(
+                    "Line exceeded max length of {}, you can increase this with the max_line_length config option",
+                    max_line_length
+                );
+                let err_msg = anyhow::Error::msg(err_txt);
+                return Ok(error_response(StatusCode::BAD_REQUEST, Error::TantivyError(err_msg)));
+            }
+            Err(err) => {
+                let err_msg = anyhow::Error::msg("Error with codec.").context(err);
+                return Ok(error_response(StatusCode::BAD_REQUEST, Error::TantivyError(err_msg)));
             }
         }
     }

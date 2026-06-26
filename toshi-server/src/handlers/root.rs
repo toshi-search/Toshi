@@ -1,4 +1,6 @@
-use hyper::{Body, Response};
+use http::Response;
+
+use toshi_types::Body;
 
 use crate::handlers::ResponseFuture;
 

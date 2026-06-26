@@ -1,4 +1,4 @@
-use hyper::{Response, StatusCode};
+use http::{Response, StatusCode};
 use log::{debug, info};
 use serde::Serialize;
 use std::time::Instant;

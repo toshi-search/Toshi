@@ -1,7 +1,7 @@
-use hyper::body::to_bytes;
-use hyper::{Body, Response, StatusCode};
+use http::{Response, StatusCode};
+use http_body_util::BodyExt;
 
-use toshi_types::{Catalog, IndexHandle};
+use toshi_types::{Body, Catalog, IndexHandle};
 use toshi_types::{DeleteDoc, Error, SchemaBody};
 
 use crate::handlers::ResponseFuture;
@@ -13,7 +13,7 @@ pub async fn delete_term<C: Catalog>(catalog: Arc<C>, body: Body, index: &str) -
     if !catalog.exists(index) {
         return Ok(error_response(StatusCode::BAD_REQUEST, Error::UnknownIndex(index.to_string())));
     }
-    let agg_body = to_bytes(body).await?;
+    let agg_body = body.collect().await.expect("Body is infallible").to_bytes();
     match serde_json::from_slice::<DeleteDoc>(&agg_body) {
         Ok(dd) => match catalog.get_index(index) {
             Ok(c) => c
@@ -31,7 +31,7 @@ pub async fn create_index<C: Catalog>(catalog: Arc<C>, body: Body, index: &str) 
     if catalog.exists(index) {
         return Ok(error_response(StatusCode::BAD_REQUEST, Error::AlreadyExists(index.to_string())));
     }
-    let req = to_bytes(body).await?;
+    let req = body.collect().await.expect("Body is infallible").to_bytes();
     match serde_json::from_slice::<SchemaBody>(&req) {
         Ok(schema_body) => match catalog.add_index(index, schema_body.0).await {
             Ok(_) => Ok(empty_with_code(StatusCode::CREATED)),
@@ -45,7 +45,7 @@ pub async fn add_document<C: Catalog>(catalog: Arc<C>, body: Body, index: &str) 
     if !catalog.exists(index) {
         return Ok(error_response(StatusCode::BAD_REQUEST, Error::UnknownIndex(index.to_string())));
     }
-    let full_body = to_bytes(body).await?;
+    let full_body = body.collect().await.expect("Body is infallible").to_bytes();
     match serde_json::from_slice::<AddDocument>(&full_body) {
         Ok(v) => match catalog.get_index(index) {
             Ok(c) => c
@@ -160,7 +160,7 @@ mod tests {
             .await
             .unwrap()
             .into_body();
-        let buf = hyper::body::to_bytes(req).await.unwrap();
+        let buf = req.collect().await.unwrap().to_bytes();
         let str_buf = std::str::from_utf8(&buf).unwrap();
         assert_eq!(
             str_buf,

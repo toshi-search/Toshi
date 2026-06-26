@@ -1,4 +1,4 @@
-use hyper::Body;
+use toshi_types::Body;
 
 pub use {bulk::*, index::*, list::*, root::*, search::*, summary::*};
 

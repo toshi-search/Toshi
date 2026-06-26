@@ -1,10 +1,14 @@
 use std::fmt::Display;
 
 use async_trait::async_trait;
+use bytes::Bytes;
 use http::Response;
-use hyper::client::connect::Connect;
-use hyper::client::HttpConnector;
-use hyper::{Body, Client, Request, Uri};
+use http_body_util::Full;
+use hyper::body::Incoming;
+use hyper::{Request, Uri};
+use hyper_util::client::legacy::connect::{Connect, HttpConnector};
+use hyper_util::client::legacy::Client;
+use hyper_util::rt::TokioExecutor;
 use serde::{de::DeserializeOwned, Serialize};
 use tantivy::schema::Schema;
 
@@ -12,18 +16,22 @@ use toshi_types::*;
 
 use crate::Result;
 
+/// The request body type used by the hyper client. In hyper 1.x `hyper::Body` was removed,
+/// so requests use a fixed-size [`Full`] body backed by [`Bytes`].
+type ReqBody = Full<Bytes>;
+
 #[derive(Debug, Clone)]
 pub struct HyperToshi<C>
 where
     C: Connect + Clone + Send + Sync + 'static,
 {
     host: String,
-    client: Client<C, Body>,
+    client: Client<C, ReqBody>,
 }
 
 impl HyperToshi<HttpConnector> {
     pub fn new<H: ToString>(host: H) -> Self {
-        let client = Client::new();
+        let client = Client::builder(TokioExecutor::new()).build_http();
         Self::with_client(host, client)
     }
 }
@@ -32,7 +40,7 @@ impl HyperToshi<HttpConnector> {
 #[cfg(not(feature = "hyper_tls"))]
 impl HyperToshi<hyper_rustls::HttpsConnector<HttpConnector>> {
     pub fn with_tls<H: ToString>(host: H, connector: hyper_rustls::HttpsConnector<HttpConnector>) -> Self {
-        let client = Client::builder().build(connector);
+        let client = Client::builder(TokioExecutor::new()).build(connector);
         Self::with_client(host, client)
     }
 }
@@ -41,7 +49,7 @@ impl HyperToshi<hyper_rustls::HttpsConnector<HttpConnector>> {
 #[cfg(not(feature = "rust_tls"))]
 impl HyperToshi<hyper_tls::HttpsConnector<HttpConnector>> {
     pub fn with_tls<H: ToString>(host: H, connector: hyper_tls::HttpsConnector<HttpConnector>) -> Self {
-        let client = Client::builder().build(connector);
+        let client = Client::builder(TokioExecutor::new()).build(connector);
         Self::with_client(host, client)
     }
 }
@@ -50,7 +58,7 @@ impl<C> HyperToshi<C>
 where
     C: Connect + Clone + Send + Sync + 'static,
 {
-    pub fn with_client<H: ToString>(host: H, client: Client<C, Body>) -> Self {
+    pub fn with_client<H: ToString>(host: H, client: Client<C, ReqBody>) -> Self {
         Self {
             host: host.to_string(),
             client,
@@ -66,12 +74,13 @@ where
     }
 
     #[inline]
-    async fn make_request<R>(&self, request: Request<Body>) -> Result<R>
+    async fn make_request<R>(&self, request: Request<ReqBody>) -> Result<R>
     where
         R: DeserializeOwned + Send + Sync,
     {
+        use http_body_util::BodyExt;
         let response = self.client.request(request).await?;
-        let body_bytes = hyper::body::to_bytes(response.into_body()).await?;
+        let body_bytes = response.into_body().collect().await?.to_bytes();
         serde_json::from_slice::<R>(&body_bytes).map_err(Into::into)
     }
 }
@@ -81,10 +90,10 @@ impl<C> crate::AsyncClient for HyperToshi<C>
 where
     C: Connect + Clone + Send + Sync + 'static,
 {
-    type Body = hyper::Body;
+    type Body = Incoming;
 
-    async fn index(&self) -> Result<Response<Body>> {
-        let request = Request::get(&self.host).body(Body::empty())?;
+    async fn index(&self) -> Result<Response<Self::Body>> {
+        let request = Request::get(&self.host).body(ReqBody::default())?;
         self.client.request(request).await.map_err(Into::into)
     }
 
@@ -108,7 +117,7 @@ where
     {
         let uri = self.uri(format!("{}/_create", name));
         let body = serde_json::to_vec(&SchemaBody(schema))?;
-        let request = Request::put(uri).body(Body::from(body))?;
+        let request = Request::put(uri).body(ReqBody::from(body))?;
         self.client.request(request).await.map_err(Into::into)
     }
 
@@ -119,7 +128,7 @@ where
     {
         let uri = self.uri(index);
         let body = serde_json::to_vec(&AddDocument { options, document })?;
-        let request = Request::put(uri).body(Body::from(body))?;
+        let request = Request::put(uri).body(ReqBody::from(body))?;
         self.client.request(request).await.map_err(Into::into)
     }
 
@@ -130,7 +139,7 @@ where
     {
         let uri = self.uri(index);
         let body = serde_json::to_vec(&search)?;
-        let request = Request::post(uri).body(Body::from(body))?;
+        let request = Request::post(uri).body(ReqBody::from(body))?;
         self.make_request::<SearchResults<D>>(request).await
     }
 
@@ -140,7 +149,7 @@ where
         D: DeserializeOwned + Clone + Send + Sync,
     {
         let uri = self.uri(index);
-        let request = Request::get(uri).body(Body::empty())?;
+        let request = Request::get(uri).body(ReqBody::default())?;
         self.make_request::<SearchResults<D>>(request).await
     }
 }

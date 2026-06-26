@@ -11,7 +11,7 @@ use tantivy::merge_policy::MergePolicy;
 use tantivy::query::{AllQuery, QueryParser};
 use tantivy::schema::*;
 use tantivy::space_usage::SearcherSpaceUsage;
-use tantivy::{Document, Index, IndexReader, IndexWriter, ReloadPolicy, Term};
+use tantivy::{Index, IndexReader, IndexWriter, Order, ReloadPolicy, Term};
 use tokio::sync::*;
 
 use toshi_types::*;
@@ -81,20 +81,20 @@ impl IndexHandle for LocalIndex {
 
         let sorted_top_handle = search.sort_by.clone().and_then(|sort_by| {
             info!("Sorting with: {}", sort_by);
-            if let Some(f) = schema.get_field(&sort_by) {
+            if let Ok(f) = schema.get_field(&sort_by) {
                 let entry = schema.get_field_entry(f);
                 if entry.is_fast() && entry.is_stored() {
-                    let c = TopDocs::with_limit(search.limit).order_by_u64_field(f);
+                    let c = TopDocs::with_limit(search.limit).order_by_u64_field(sort_by, Order::Desc);
                     return Some(multi_collector.add_collector(c));
                 }
             }
             None
         });
 
-        let top_handle = multi_collector.add_collector(TopDocs::with_limit(search.limit));
+        let top_handle = multi_collector.add_collector(TopDocs::with_limit(search.limit).order_by_score());
         let facet_handle = search.facets.clone().and_then(|f| {
-            if let Some(field) = schema.get_field(f.get_facets_fields()) {
-                let mut col = FacetCollector::for_field(field);
+            if let Ok(_field) = schema.get_field(f.get_facets_fields()) {
+                let mut col = FacetCollector::for_field(f.get_facets_fields());
                 for term in f.get_facets_values() {
                     col.add_facet(&term);
                 }
@@ -113,7 +113,7 @@ impl IndexHandle for LocalIndex {
                 Query::Range(range) => range.create_query(&schema)?,
                 Query::Boolean { bool } => bool.create_query(&schema)?,
                 Query::Raw { raw } => {
-                    let fields: Vec<Field> = schema.fields().filter_map(|f| schema.get_field(f.1.name())).collect();
+                    let fields: Vec<Field> = schema.fields().filter_map(|f| schema.get_field(f.1.name()).ok()).collect();
                     let query_parser = QueryParser::for_index(&self.index, fields);
                     query_parser.parse_query(&raw)?
                 }
@@ -128,8 +128,8 @@ impl IndexHandle for LocalIndex {
                 h.extract(&mut scored_docs)
                     .into_iter()
                     .map(|(score, doc)| {
-                        let d = searcher.doc(doc).expect("Doc not found in segment");
-                        ScoredDoc::<FlatNamedDocument>::new(Some(score as f32), schema.to_named_doc(&d).into())
+                        let d: TantivyDocument = searcher.doc(doc).expect("Doc not found in segment");
+                        ScoredDoc::<FlatNamedDocument>::new(score.map(|s| s as f32), d.to_named_doc(&schema).into())
                     })
                     .collect()
             } else {
@@ -137,8 +137,8 @@ impl IndexHandle for LocalIndex {
                     .extract(&mut scored_docs)
                     .into_iter()
                     .map(|(score, doc)| {
-                        let d = searcher.doc(doc).expect("Doc not found in segment");
-                        ScoredDoc::<FlatNamedDocument>::new(Some(score), schema.to_named_doc(&d).into())
+                        let d: TantivyDocument = searcher.doc(doc).expect("Doc not found in segment");
+                        ScoredDoc::<FlatNamedDocument>::new(Some(score), d.to_named_doc(&schema).into())
                     })
                     .collect()
             };
@@ -164,7 +164,7 @@ impl IndexHandle for LocalIndex {
         let writer_lock = self.get_writer();
         {
             let index_writer = writer_lock.lock().await;
-            let doc: Document = LocalIndex::parse_doc(&index_schema, &add_doc.document.to_string())?;
+            let doc: TantivyDocument = LocalIndex::parse_doc(&index_schema, &add_doc.document.to_string())?;
             index_writer.add_document(doc)?;
         }
         if let Some(opts) = add_doc.options {
@@ -190,7 +190,7 @@ impl IndexHandle for LocalIndex {
             before = self.reader.searcher().num_docs();
 
             for (field, value) in term.terms {
-                if let Some(f) = index_schema.get_field(&field) {
+                if let Ok(f) = index_schema.get_field(&field) {
                     let term = Term::from_field_text(f, &value);
                     index_writer.delete_term(term);
                 }
@@ -229,7 +229,7 @@ impl LocalIndex {
         i.set_merge_policy(merge_policy);
         let current_opstamp = Arc::new(AtomicUsize::new(0));
         let writer = Arc::new(Mutex::new(i));
-        let reader = index.reader_builder().reload_policy(ReloadPolicy::OnCommit).try_into()?;
+        let reader = index.reader_builder().reload_policy(ReloadPolicy::OnCommitWithDelay).try_into()?;
         Ok(Self {
             index,
             reader,
@@ -245,7 +245,7 @@ impl LocalIndex {
         i.set_merge_policy(Settings::default().get_merge_policy());
         let current_opstamp = Arc::new(AtomicUsize::new(0));
         let writer = Arc::new(Mutex::new(i));
-        let reader = index.reader_builder().reload_policy(ReloadPolicy::OnCommit).try_into()?;
+        let reader = index.reader_builder().reload_policy(ReloadPolicy::OnCommitWithDelay).try_into()?;
         Ok(Self {
             index,
             reader,
@@ -256,7 +256,7 @@ impl LocalIndex {
         })
     }
 
-    fn parse_doc(schema: &Schema, bytes: &str) -> Result<Document> {
-        schema.parse_document(bytes).map_err(Into::into)
+    fn parse_doc(schema: &Schema, bytes: &str) -> Result<TantivyDocument> {
+        TantivyDocument::parse_json(schema, bytes).map_err(Into::into)
     }
 }

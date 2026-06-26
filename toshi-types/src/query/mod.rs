@@ -9,12 +9,28 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tantivy::query::Query as TantivyQuery;
 use tantivy::schema::{NamedFieldDocument, Schema};
+#[cfg(test)]
+use tantivy::schema::{Document, TantivyDocument};
 use tantivy::Term;
 
 use crate::error::Error;
 use crate::query::{
     boolean::BoolQuery, facet::FacetQuery, fuzzy::FuzzyQuery, phrase::PhraseQuery, range::RangeQuery, regex::RegexQuery, term::ExactTerm,
 };
+
+/// Compatibility shim: in tantivy 0.26 `to_named_doc` moved from `Schema` onto the
+/// document type. This extension trait restores the `schema.to_named_doc(&doc)` call shape.
+#[cfg(test)]
+pub(crate) trait SchemaExt {
+    fn to_named_doc(&self, doc: &TantivyDocument) -> NamedFieldDocument;
+}
+
+#[cfg(test)]
+impl SchemaExt for Schema {
+    fn to_named_doc(&self, doc: &TantivyDocument) -> NamedFieldDocument {
+        Document::to_named_doc(doc, self)
+    }
+}
 
 pub(crate) mod boolean;
 pub(crate) mod facet;
@@ -217,7 +233,7 @@ impl SearchBuilder {
 fn make_field_value(schema: &Schema, k: &str, v: &str) -> crate::Result<Term> {
     let field = schema
         .get_field(k)
-        .ok_or_else(|| Error::QueryError(format!("Unknown field: {}", k)))?;
+        .map_err(|_| Error::QueryError(format!("Unknown field: {}", k)))?;
     Ok(Term::from_field_text(field, v))
 }
 
