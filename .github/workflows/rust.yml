@@ -49,10 +49,10 @@ jobs:
         with:
           command: test
           args: --no-fail-fast --package 'toshi' --package 'toshi-server' --package 'toshi-types'
-        env:
-          CARGO_INCREMENTAL: '0'
-          RUSTFLAGS: '-Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
-          RUSTDOCFLAGS: '-Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
+#        env:
+#          CARGO_INCREMENTAL: '0'
+#          RUSTFLAGS: '-Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
+#          RUSTDOCFLAGS: '-Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
       - uses: actions-rs/grcov@v0.1
         if: matrix.os == 'ubuntu-latest'
       - uses: codecov/codecov-action@v1
