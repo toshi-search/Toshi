@@ -5,10 +5,10 @@
 use std::fmt::Debug;
 
 use serde::{Deserialize, Serialize};
+use tantivy::TantivyError;
 use tantivy::directory::error::OpenDirectoryError;
 use tantivy::query::QueryParserError;
 use tantivy::schema::DocParsingError;
-use tantivy::TantivyError;
 use thiserror::Error;
 
 /// The type returned when an error occurs with a query

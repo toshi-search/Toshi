@@ -1,15 +1,15 @@
 use bytes::BytesMut;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
-use flume::{unbounded, Receiver, Sender};
+use flume::{Receiver, Sender, unbounded};
 use http::StatusCode;
 use http_body_util::BodyExt;
 
 use log::*;
-use tantivy::schema::{Schema, TantivyDocument};
 use tantivy::IndexWriter;
+use tantivy::schema::{Schema, TantivyDocument};
 use tokio::sync::Mutex;
 use tokio::time::timeout;
 use tokio_util::codec::{Decoder, LinesCodec, LinesCodecError};
@@ -138,11 +138,11 @@ pub async fn bulk_insert<C: Catalog>(
 mod tests {
     use std::time::Duration;
 
+    use crate::SearchResults;
     use crate::commit::tests::read_body;
     use crate::handlers::all_docs;
     use crate::handlers::summary::flush;
     use crate::index::create_test_catalog;
-    use crate::SearchResults;
 
     use super::*;
 

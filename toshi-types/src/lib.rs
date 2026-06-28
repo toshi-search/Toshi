@@ -5,8 +5,8 @@
 //! looking for Toshi's protobuf types then you will want to look in the toshi-proto module
 //! of Toshi's source code.
 
-use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 
 use bytes::Bytes;
 use http::Response;
@@ -20,8 +20,8 @@ use tokio::sync::Mutex;
 pub use client::{ScoredDoc, SearchResults, SummaryResponse};
 pub use error::{Error, ErrorResponse};
 pub use query::{
-    boolean::BoolQuery, facet::FacetQuery, fuzzy::FuzzyQuery, fuzzy::FuzzyTerm, phrase::PhraseQuery, phrase::TermPair, range::RangeQuery,
-    range::Ranges, regex::RegexQuery, term::ExactTerm, CreateQuery, FlatNamedDocument, KeyValue, Query, QueryOptions, Search,
+    CreateQuery, FlatNamedDocument, KeyValue, Query, QueryOptions, Search, boolean::BoolQuery, facet::FacetQuery, fuzzy::FuzzyQuery,
+    fuzzy::FuzzyTerm, phrase::PhraseQuery, phrase::TermPair, range::RangeQuery, range::Ranges, regex::RegexQuery, term::ExactTerm,
 };
 pub use server::*;
 

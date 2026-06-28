@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use http::Response;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 use tantivy::schema::Schema;
 
 use async_trait::async_trait;

@@ -3,7 +3,7 @@ use tantivy::query::{Query, RegexQuery as TantivyRegexQuery};
 use tantivy::schema::Schema;
 
 use crate::query::{CreateQuery, KeyValue};
-use crate::{error::Error, Result};
+use crate::{Result, error::Error};
 
 /// A search query based around a regular expression
 #[derive(Serialize, Deserialize, Debug, Clone)]

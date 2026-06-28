@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 
 use async_trait::async_trait;
 use log::*;
@@ -16,9 +16,9 @@ use tokio::sync::*;
 
 use toshi_types::*;
 
-use crate::settings::{Settings, DEFAULT_WRITER_MEMORY};
-use crate::{register_tokenizers, Result};
+use crate::settings::{DEFAULT_WRITER_MEMORY, Settings};
 use crate::{AddDocument, SearchResults};
+use crate::{Result, register_tokenizers};
 
 /// Index handle that operates on an Index local to the node, a remote index handle
 /// will eventually call to wherever the local index is stored, so at some level the relevant

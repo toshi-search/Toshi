@@ -5,7 +5,8 @@ authors = ["Stephen Carman <shcarman@gmail.com>"]
 description = "A client for a full text search engine based on Tantivy"
 repository = "https://github.com/toshi-search/Toshi"
 license = "MIT"
-edition = "2021"
+edition = "2024"
+resolver = "3"
 autoexamples = false
 
 [[example]]

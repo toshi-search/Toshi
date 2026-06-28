@@ -6,10 +6,10 @@ use http::Response;
 use http_body_util::Full;
 use hyper::body::Incoming;
 use hyper::{Request, Uri};
-use hyper_util::client::legacy::connect::{Connect, HttpConnector};
 use hyper_util::client::legacy::Client;
+use hyper_util::client::legacy::connect::{Connect, HttpConnector};
 use hyper_util::rt::TokioExecutor;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 use tantivy::schema::Schema;
 
 use toshi_types::*;

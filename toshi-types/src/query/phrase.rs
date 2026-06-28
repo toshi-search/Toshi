@@ -1,10 +1,10 @@
 use serde::{Deserialize, Serialize};
+use tantivy::Term;
 use tantivy::query::{PhraseQuery as TantivyPhraseQuery, Query};
 use tantivy::schema::Schema;
-use tantivy::Term;
 
-use crate::query::{make_field_value, CreateQuery, KeyValue};
-use crate::{error::Error, Result};
+use crate::query::{CreateQuery, KeyValue, make_field_value};
+use crate::{Result, error::Error};
 
 /// A query for a phrase of terms, see [`tantivy::query::PhraseQuery`] for more info on what
 /// can be included here

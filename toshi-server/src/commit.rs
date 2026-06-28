@@ -1,5 +1,5 @@
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use log::trace;
@@ -32,15 +32,15 @@ pub mod tests {
     use http_body_util::BodyExt;
     use toshi_types::Body;
 
+    use crate::SearchResults;
     use crate::handlers::{add_document, all_docs};
     use crate::index::create_test_catalog;
-    use crate::SearchResults;
 
     use super::*;
     use http::Response;
     use serde::de::DeserializeOwned;
     use tantivy::schema::*;
-    use tantivy::{doc, Index};
+    use tantivy::{Index, doc};
 
     pub fn create_test_index() -> Index {
         let mut builder = SchemaBuilder::new();

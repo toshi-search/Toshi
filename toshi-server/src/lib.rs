@@ -42,8 +42,8 @@ pub fn setup_logging_from_file(path: &str) -> Result<Logger> {
 
 #[cfg(debug_assertions)]
 pub fn setup_logging_from_file(_: &str) -> Result<Logger> {
-    use sloggers::types::*;
     use sloggers::Build;
+    use sloggers::types::*;
     let log = sloggers::terminal::TerminalLoggerBuilder::new()
         .format(Format::Full)
         .level(Severity::Info)

@@ -4,9 +4,9 @@ use http_body_util::BodyExt;
 use toshi_types::{Body, Catalog, IndexHandle};
 use toshi_types::{DeleteDoc, Error, SchemaBody};
 
+use crate::AddDocument;
 use crate::handlers::ResponseFuture;
 use crate::utils::{empty_with_code, error_response, with_body};
-use crate::AddDocument;
 use std::sync::Arc;
 
 pub async fn delete_term<C: Catalog>(catalog: Arc<C>, body: Body, index: &str) -> ResponseFuture {

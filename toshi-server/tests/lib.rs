@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
-use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 
 use http_body_util::BodyExt;
 

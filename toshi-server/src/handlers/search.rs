@@ -44,10 +44,10 @@ pub mod tests {
 
     use toshi_types::{ErrorResponse, ExactTerm, FuzzyQuery, FuzzyTerm, KeyValue, PhraseQuery, Query, Search, TermPair};
 
-    use crate::commit::tests::*;
-    use crate::handlers::{doc_search, ResponseFuture};
-    use crate::index::create_test_catalog;
     use crate::SearchResults;
+    use crate::commit::tests::*;
+    use crate::handlers::{ResponseFuture, doc_search};
+    use crate::index::create_test_catalog;
 
     type ReturnUnit = Result<(), Box<dyn std::error::Error>>;
 

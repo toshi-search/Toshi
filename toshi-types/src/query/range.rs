@@ -2,13 +2,13 @@ use std::ops::Bound;
 
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-use serde_json::{to_value, Value};
+use serde_json::{Value, to_value};
+use tantivy::Term;
 use tantivy::query::{Query as TantivyQuery, RangeQuery as TantivyRangeQuery};
 use tantivy::schema::{FieldType, Schema};
-use tantivy::Term;
 
 use crate::query::{CreateQuery, KeyValue, Query};
-use crate::{error::Error, Result};
+use crate::{Result, error::Error};
 
 /// The possible values a range can take on
 /// gte = greater than or equal

@@ -1,16 +1,16 @@
 use std::clone::Clone;
 use std::fs;
-use std::path::{PathBuf, MAIN_SEPARATOR};
+use std::path::{MAIN_SEPARATOR, PathBuf};
 
 use dashmap::DashMap;
-use tantivy::schema::Schema;
 use tantivy::Index;
+use tantivy::schema::Schema;
 
 use toshi_types::{Catalog, Error};
 
+use crate::Result;
 use crate::handle::LocalIndex;
 use crate::settings::Settings;
-use crate::Result;
 
 pub struct IndexCatalog {
     settings: Settings,

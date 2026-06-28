@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 use tantivy::query::{FuzzyTermQuery, Query as TantivyQuery};
 use tantivy::schema::Schema;
 
-use crate::query::{make_field_value, CreateQuery, KeyValue, Query};
 use crate::Result;
+use crate::query::{CreateQuery, KeyValue, Query, make_field_value};
 
 /// A query where terms can have distance between them, but still be a match
 #[derive(Serialize, Deserialize, Debug, Clone)]

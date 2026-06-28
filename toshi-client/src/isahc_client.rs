@@ -1,7 +1,7 @@
 use isahc::prelude::*;
 use isahc::*;
-use serde::de::DeserializeOwned;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 use tantivy::schema::Schema;
 
 use async_trait::async_trait;

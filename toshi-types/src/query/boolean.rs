@@ -2,9 +2,9 @@ use serde::{Deserialize, Serialize};
 use tantivy::query::{BooleanQuery, Occur, Query as TQuery};
 use tantivy::schema::Schema;
 
+use crate::Result;
 use crate::error::Error;
 use crate::query::{CreateQuery, Query};
-use crate::Result;
 
 /// A boolean query parallel to Tantivy's [`tantivy::query::BooleanQuery`]: BooleanQuery
 #[derive(Serialize, Deserialize, Debug, Clone)]

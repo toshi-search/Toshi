@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 use tantivy::query::{Query, TermQuery};
 use tantivy::schema::{IndexRecordOption, Schema};
 
-use crate::query::*;
 use crate::Result;
+use crate::query::*;
 
 /// An exact term to search for
 #[derive(Serialize, Deserialize, Debug, Clone)]

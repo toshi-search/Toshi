@@ -5,7 +5,7 @@ use tokio::sync::oneshot;
 #[cfg(unix)]
 pub fn shutdown(s: oneshot::Sender<()>) -> impl Future<Output = Result<(), ()>> + Unpin + Send {
     use futures::future;
-    use tokio::signal::unix::{signal, SignalKind};
+    use tokio::signal::unix::{SignalKind, signal};
 
     let sigint = async {
         signal(SignalKind::interrupt()).unwrap().recv().await;
@@ -25,7 +25,7 @@ pub fn shutdown(signal: oneshot::Sender<()>) -> impl Future<Output = Result<(), 
     Box::pin(handle_shutdown(signal, Box::pin(stream)))
 }
 
-#[cfg_attr(tarpaulin, skip)]
+#[cfg(not(tarpaulin_include))]
 pub async fn handle_shutdown<S>(signal: oneshot::Sender<()>, stream: S) -> Result<(), ()>
 where
     S: Future<Output = String> + Unpin,

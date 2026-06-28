@@ -2,8 +2,8 @@ use std::iter::Sum;
 use std::ops::Add;
 
 use serde::{Deserialize, Serialize};
-use tantivy::space_usage::SearcherSpaceUsage;
 use tantivy::IndexMeta;
+use tantivy::space_usage::SearcherSpaceUsage;
 
 use crate::query::KeyValue;
 

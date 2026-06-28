@@ -2,7 +2,7 @@ use std::error::Error;
 use std::fs::create_dir;
 use std::net::{IpAddr, SocketAddr};
 use std::path::Path;
-use std::sync::{atomic::AtomicBool, Arc};
+use std::sync::{Arc, atomic::AtomicBool};
 
 use futures::prelude::*;
 
@@ -14,8 +14,8 @@ use std::str::FromStr;
 use toshi_server::commit::watcher;
 use toshi_server::index::IndexCatalog;
 use toshi_server::router::Router;
-use toshi_server::settings::{settings, Settings, HEADER};
-use toshi_server::{setup_logging_from_file, shutdown, SharedCatalog};
+use toshi_server::settings::{HEADER, Settings, settings};
+use toshi_server::{SharedCatalog, setup_logging_from_file, shutdown};
 use toshi_types::Catalog;
 
 #[tokio::main]

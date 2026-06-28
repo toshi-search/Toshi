@@ -2,16 +2,16 @@ use std::fmt;
 use std::marker::PhantomData;
 
 use dashmap::DashMap;
+use serde::Serializer;
 use serde::de::{DeserializeOwned, Deserializer, Error as SerdeError, MapAccess, Visitor};
 use serde::ser::SerializeMap;
-use serde::Serializer;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use tantivy::Term;
 use tantivy::query::Query as TantivyQuery;
-use tantivy::schema::{NamedFieldDocument, Schema};
 #[cfg(test)]
 use tantivy::schema::{Document, TantivyDocument};
-use tantivy::Term;
+use tantivy::schema::{NamedFieldDocument, Schema};
 
 use crate::error::Error;
 use crate::query::{
